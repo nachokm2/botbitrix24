@@ -1,0 +1,12 @@
+import 'dotenv/config';
+
+export const config = {
+  port: Number(process.env.PORT ?? 3000),
+  /** URL pública del app (Railway o túnel), sin slash final. */
+  baseUrl: (process.env.BASE_URL ?? '').replace(/\/$/, ''),
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
+  model: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
+  classifierModel: process.env.ANTHROPIC_CLASSIFIER ?? 'claude-haiku-4-5',
+  bitrixWebhookUrl: (process.env.BITRIX_WEBHOOK_URL ?? '').replace(/\/$/, ''),
+  botCode: process.env.BOT_CODE ?? 'poc_agente_postgrados',
+};
