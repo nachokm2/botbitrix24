@@ -12,11 +12,8 @@ app.use(express.json({ limit: '2mb' }));
 
 // DIAGNÓSTICO: registra TODA petición entrante (método + ruta + evento si lo trae).
 app.use((req, _res, next) => {
-  log.info('REQ', {
-    method: req.method,
-    path: req.path,
-    event: (req.body as any)?.event,
-  });
+  const event = (req.body as any)?.event;
+  log.info(`REQ ${req.method} ${req.path}${event ? ` event=${event}` : ''}`);
   next();
 });
 

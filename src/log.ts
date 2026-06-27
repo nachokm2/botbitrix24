@@ -1,8 +1,9 @@
 type Meta = Record<string, unknown>;
 
 function emit(level: string, msg: string, meta?: Meta) {
-  // Log estructurado (una línea JSON) — fácil de leer en los logs de Railway.
-  console.log(JSON.stringify({ level, msg, ...meta, t: new Date().toISOString() }));
+  const extra = meta && Object.keys(meta).length ? ' ' + JSON.stringify(meta) : '';
+  // Una sola línea de texto plano: Railway la muestra completa (no colapsa metadata).
+  console.log(`${level.toUpperCase()} ${msg}${extra}`);
 }
 
 export const log = {
