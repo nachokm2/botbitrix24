@@ -21,11 +21,13 @@ export async function installHandler(req: Request, res: Response) {
     const botId = await registerBot(auth);
     await setBotId(botId);
     log.info('install: bot registrado', { botId, domain: auth.domain });
+    // finish=true → la página llama BX24.installFinish() para FINALIZAR la instalación.
+    // Sin esto, Bitrix NO entrega los eventos del bot al handler.
     return res.send(
       page(
-        `✅ PoC instalado. Bot de Open Lines registrado (BOT_ID=${botId}).<br><br>` +
-          `Siguiente paso: en el <b>canal de ChatApp</b> configura este bot como primer responder ` +
-          `y desactiva el bot propio de ChatApp/ChatGPT.`,
+        `✅ PoC instalado y finalizado. Bot de Open Lines registrado (BOT_ID=${botId}).<br><br>` +
+          `Ya puedes probar: inicia una conversación NUEVA en el canal y el bot debería responder.`,
+        true,
       ),
     );
   } catch (e) {
@@ -34,6 +36,15 @@ export async function installHandler(req: Request, res: Response) {
   }
 }
 
-function page(msg: string) {
-  return `<!doctype html><meta charset="utf-8"><body style="font-family:system-ui,sans-serif;padding:2rem;line-height:1.5">${msg}</body>`;
+function page(msg: string, finish = false) {
+  // Carga el SDK JS de Bitrix24. En el iframe de instalación, BX24.installFinish()
+  // marca la instalación como COMPLETA (requisito para que se entreguen los eventos del bot).
+  return `<!doctype html>
+<html><head><meta charset="utf-8">
+<script src="//api.bitrix24.com/api/v1/"></script>
+</head>
+<body style="font-family:system-ui,sans-serif;padding:2rem;line-height:1.5">
+${msg}
+${finish ? `<script>try{BX24.init(function(){BX24.installFinish();});}catch(e){console.error(e);}</script>` : ''}
+</body></html>`;
 }
