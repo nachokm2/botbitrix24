@@ -78,6 +78,7 @@ npm run dev
    - `ANTHROPIC_MODEL=claude-sonnet-4-6`
    - `BOT_CODE=poc_agente_postgrados`
    - `BASE_URL` = el dominio público que te asigna Railway (ej. `https://poc-...up.railway.app`) — **sin slash final**
+   - `BITRIX_CLIENT_ID` y `BITRIX_CLIENT_SECRET` (del registro de la app local) — para renovar el token automáticamente
 3. Railway expone el puerto vía `PORT` automáticamente. Healthcheck: `/health`.
 4. Verifica: abre `https://TU-APP.up.railway.app/health` → `{ "ok": true }`.
 

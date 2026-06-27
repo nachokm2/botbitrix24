@@ -1,5 +1,6 @@
 import Bottleneck from 'bottleneck';
 import type { Auth } from '../store';
+import { refreshAuth } from './refresh';
 
 // Throttle = leaky bucket de Bitrix (2 req/s, ráfaga 50, 2 concurrentes) en planes no-Enterprise.
 const limiter = new Bottleneck({
@@ -9,25 +10,37 @@ const limiter = new Bottleneck({
   maxConcurrent: 2,
 });
 
-/** Llamada REST autenticada por OAuth (usa el access_token del evento o el almacenado). */
+/** Llamada REST autenticada por OAuth. Si el token expiró, lo renueva una vez y reintenta. */
 export async function callBitrix<T = any>(
   method: string,
   params: Record<string, unknown>,
   auth: Auth,
 ): Promise<T> {
-  return limiter.schedule(async () => {
-    const url = `https://${auth.domain}/rest/${method}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...params, auth: auth.access_token }),
-    });
-    const json: any = await res.json();
-    if (json.error) {
-      throw new Error(`Bitrix ${method}: ${json.error} ${json.error_description ?? ''}`);
-    }
-    return json.result as T;
+  return limiter.schedule(() => doCall<T>(method, params, auth, false));
+}
+
+async function doCall<T>(
+  method: string,
+  params: Record<string, unknown>,
+  auth: Auth,
+  retried: boolean,
+): Promise<T> {
+  const res = await fetch(`https://${auth.domain}/rest/${method}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...params, auth: auth.access_token }),
   });
+  const json: any = await res.json();
+  if (json.error) {
+    const err = String(json.error);
+    const expired = err === 'expired_token' || err === 'invalid_token';
+    if (expired && !retried && auth.refresh_token) {
+      const fresh = await refreshAuth(auth); // renueva on-demand y persiste
+      return doCall<T>(method, params, fresh, true);
+    }
+    throw new Error(`Bitrix ${method}: ${json.error} ${json.error_description ?? ''}`);
+  }
+  return json.result as T;
 }
 
 /** Llamada vía webhook entrante (sin OAuth) — solo para smoke rápido. */
