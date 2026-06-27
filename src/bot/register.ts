@@ -1,5 +1,6 @@
 import { callBitrix } from '../bitrix/client';
 import { config } from '../config';
+import { log } from '../log';
 import type { Auth } from '../store';
 
 /**
@@ -8,6 +9,17 @@ import type { Auth } from '../store';
  * Devuelve el BOT_ID.
  */
 export async function registerBot(auth: Auth): Promise<number> {
+  // Bitrix exige URLs de handler HTTPS absolutas. Si BASE_URL falta, el registro falla
+  // con "Wrong handler URL". Validamos antes para dar un mensaje claro.
+  if (!/^https:\/\/[^/]+/.test(config.baseUrl)) {
+    throw new Error(
+      `BASE_URL inválida o vacía ("${config.baseUrl}"). ` +
+        `Define BASE_URL=https://botbitrix24-production.up.railway.app en Railway (sin slash final) y redeploya.`,
+    );
+  }
+  const handler = `${config.baseUrl}/events/bot/message`;
+  log.info('registrando bot', { handler, code: config.botCode });
+
   const res = await callBitrix<number | string>(
     'imbot.register',
     {
