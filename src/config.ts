@@ -12,4 +12,6 @@ export const config = {
   // OAuth de la app local (para renovar el access_token cuando expira).
   bitrixClientId: process.env.BITRIX_CLIENT_ID ?? '',
   bitrixClientSecret: process.env.BITRIX_CLIENT_SECRET ?? '',
+  // Fallback de BOT_ID (el storage de Railway es efímero entre deploys).
+  botId: process.env.BITRIX_BOT_ID ? Number(process.env.BITRIX_BOT_ID) : undefined,
 };

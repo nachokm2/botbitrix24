@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { extractAuth } from '../bitrix/auth';
 import { callBitrix } from '../bitrix/client';
 import { getState } from '../store';
+import { config } from '../config';
 import { log } from '../log';
 
 /**
@@ -14,6 +15,8 @@ import { log } from '../log';
  *  3) Precedencia bot-primero (se observa en el portal/ChatApp)
  */
 export async function botMessageHandler(req: Request, res: Response) {
+  // Confirma que el endpoint fue invocado (aunque el payload no sea el esperado).
+  log.info('POST /events/bot/message recibido', { event: (req.body as any)?.event });
   res.status(200).json({ ok: true }); // ACK inmediato
   void handle(req).catch((e) => log.error('botMessage: error', { err: String(e) }));
 }
@@ -28,20 +31,28 @@ async function handle(req: Request) {
   const fromUserId = params.FROM_USER_ID;
 
   const auth = extractAuth(req);
-  const botId = firstBotId(body?.data?.BOT) ?? (await getState()).botId;
+  const botId = firstBotId(body?.data?.BOT) ?? (await getState()).botId ?? config.botId;
 
-  // CRITERIO 1 — confirmar recepción
-  log.info('INBOUND bot message', { dialogId, entity, fromUserId, botId, message });
+  // CRITERIO 1 — confirmar recepción (con estructura para diagnóstico)
+  log.info('INBOUND bot message', {
+    event: body.event,
+    dataKeys: body?.data ? Object.keys(body.data) : null,
+    dialogId,
+    entity,
+    fromUserId,
+    botId,
+    message,
+  });
 
   if (!auth) return log.warn('botMessage: sin auth en el evento');
-  if (!dialogId) return log.warn('botMessage: sin DIALOG_ID');
-  if (!message) return; // ignorar eventos sin texto (typing, sistema, etc.)
-  if (!botId) return log.warn('botMessage: sin BOT_ID (registra el bot primero)');
+  if (!dialogId) return log.warn('botMessage: sin DIALOG_ID', { params });
+  if (!message) return log.info('botMessage: evento sin texto (ignorado)');
+  if (!botId) return log.warn('botMessage: sin BOT_ID — define BITRIX_BOT_ID en Railway (701561)');
 
   // CRITERIO 2 — responder (eco); ChatApp debe reenviarlo a WhatsApp
   const reply = `🤖 (PoC eco) Recibí: "${message}"  [entity=${entity ?? 'desconocido'}]`;
   await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: dialogId, MESSAGE: reply }, auth);
-  log.info('REPLY enviado', { dialogId });
+  log.info('REPLY enviado', { dialogId, botId });
 }
 
 function firstBotId(bot: any): number | undefined {
