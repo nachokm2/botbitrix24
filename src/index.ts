@@ -10,6 +10,16 @@ const app = express();
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(express.json({ limit: '2mb' }));
 
+// DIAGNÓSTICO: registra TODA petición entrante (método + ruta + evento si lo trae).
+app.use((req, _res, next) => {
+  log.info('REQ', {
+    method: req.method,
+    path: req.path,
+    event: (req.body as any)?.event,
+  });
+  next();
+});
+
 app.get('/', (_req, res) => res.send('PoC Agente Bitrix24 — OK. Ver /health'));
 app.get('/health', (_req, res) => res.json({ ok: true, t: new Date().toISOString() }));
 
