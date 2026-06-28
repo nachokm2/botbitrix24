@@ -1,5 +1,6 @@
 import { callBitrix } from '../bitrix/client';
 import { buscarProgramas } from './catalog';
+import { getDetalle } from './detalles';
 import { log } from '../log';
 import type { Auth } from '../store';
 
@@ -23,6 +24,19 @@ export async function executeTool(name: string, input: any, ctx: AgentCtx): Prom
           programas: all.slice(0, LIMIT),
           nota: all.length > LIMIT ? 'Hay más resultados; pide al usuario que afine por facultad o tema.' : undefined,
         };
+      }
+
+      case 'detalle_programa': {
+        const d = getDetalle({ url: input?.url, nombre: input?.nombre });
+        if (!d) {
+          return {
+            ok: false,
+            error: 'SIN_DETALLE',
+            mensaje:
+              'Aún no tengo el detalle cargado de ese programa. Comparte la URL oficial y ofrece derivar a un asesor.',
+          };
+        }
+        return { ok: true, detalle: d };
       }
 
       case 'crear_lead_crm': {

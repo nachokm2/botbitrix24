@@ -29,6 +29,22 @@ export const tools = [
     },
   },
   {
+    name: 'detalle_programa',
+    description:
+      'Obtiene el detalle completo de UN programa: valores (arancel y matrícula), requisitos, descripción, ' +
+      'objetivos, a quién va dirigido, malla por semestre, becas y brochure. Úsala cuando el usuario pregunte por ' +
+      'un programa específico (precio, malla, requisitos, etc.). Pásale la "url" del programa (de consultar_programas) ' +
+      'o su "nombre" exacto. No inventes estos datos: si el programa no tiene detalle cargado, deriva a un asesor.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'URL oficial del programa (de consultar_programas)' },
+        nombre: { type: 'string', description: 'Nombre exacto del programa' },
+      },
+      required: [],
+    },
+  },
+  {
     name: 'crear_lead_crm',
     description:
       'Crea un lead en el CRM con los datos del interesado. Úsala cuando tengas al menos el nombre y un dato de ' +
