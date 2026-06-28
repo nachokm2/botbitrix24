@@ -4,6 +4,7 @@ import { callBitrix } from '../bitrix/client';
 import { getState } from '../store';
 import { config } from '../config';
 import { log } from '../log';
+import { runAgentTurn } from '../ai/agentLoop';
 
 /**
  * Handler de ONIMBOTMESSAGEADD (mensaje del cliente al bot de Open Lines).
@@ -25,6 +26,7 @@ async function handle(req: Request) {
   const body: any = req.body ?? {};
   const params = body?.data?.PARAMS ?? {};
   const dialogId: string | undefined = params.DIALOG_ID;
+  const chatId = params.CHAT_ID;
   const message: string | undefined = params.MESSAGE;
   const entity: string | undefined =
     params.CHAT_ENTITY_TYPE ?? params?.CHAT?.CHAT_ENTITY_TYPE;
@@ -33,24 +35,19 @@ async function handle(req: Request) {
   const auth = extractAuth(req);
   const botId = firstBotId(body?.data?.BOT) ?? (await getState()).botId ?? config.botId;
 
-  // CRITERIO 1 — confirmar recepción (con estructura para diagnóstico)
-  log.info('INBOUND bot message', {
-    event: body.event,
-    dataKeys: body?.data ? Object.keys(body.data) : null,
-    dialogId,
-    entity,
-    fromUserId,
-    botId,
-    message,
-  });
+  log.info('INBOUND bot message', { event: body.event, dialogId, chatId, entity, fromUserId, botId, message });
 
   if (!auth) return log.warn('botMessage: sin auth en el evento');
   if (!dialogId) return log.warn('botMessage: sin DIALOG_ID', { params });
   if (!message) return log.info('botMessage: evento sin texto (ignorado)');
   if (!botId) return log.warn('botMessage: sin BOT_ID — define BITRIX_BOT_ID en Railway (701561)');
 
-  // CRITERIO 2 — responder (eco); ChatApp debe reenviarlo a WhatsApp
-  const reply = `🤖 (PoC eco) Recibí: "${message}"  [entity=${entity ?? 'desconocido'}]`;
+  // Indicador de "escribiendo..." mientras razona el agente (no crítico).
+  await callBitrix('imbot.chat.sendTyping', { BOT_ID: botId, DIALOG_ID: dialogId }, auth).catch(() => {});
+
+  // Agente real: Claude Sonnet 4.6 + tool-calling + memoria.
+  const reply = await runAgentTurn({ auth, dialogId, chatId, botId }, message);
+
   await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: dialogId, MESSAGE: reply }, auth);
   log.info('REPLY enviado', { dialogId, botId });
 }
@@ -80,7 +77,9 @@ export async function botWelcomeHandler(req: Request, res: Response) {
       {
         BOT_ID: botId,
         DIALOG_ID: dialogId,
-        MESSAGE: '🤖 (PoC) ¡Hola! Soy el asistente de prueba. Escríbeme algo y te respondo en eco.',
+        MESSAGE:
+          '¡Hola! 👋 Soy el asistente de Postgrados de la Universidad Autónoma de Chile. ' +
+          '¿Sobre qué área o programa te gustaría saber?',
       },
       auth,
     );
