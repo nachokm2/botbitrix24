@@ -14,8 +14,15 @@ export async function executeTool(name: string, input: any, ctx: AgentCtx): Prom
   try {
     switch (name) {
       case 'consultar_programas': {
-        const programas = buscarProgramas(input ?? {});
-        return { ok: true, total: programas.length, programas };
+        const all = buscarProgramas(input ?? {});
+        const LIMIT = 20;
+        return {
+          ok: true,
+          total: all.length,
+          mostrando: Math.min(all.length, LIMIT),
+          programas: all.slice(0, LIMIT),
+          nota: all.length > LIMIT ? 'Hay más resultados; pide al usuario que afine por facultad o tema.' : undefined,
+        };
       }
 
       case 'crear_lead_crm': {

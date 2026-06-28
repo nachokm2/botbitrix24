@@ -3,14 +3,27 @@ export const tools = [
   {
     name: 'consultar_programas',
     description:
-      'Consulta el catálogo oficial de programas de postgrado de la Universidad Autónoma de Chile. ' +
-      'Úsala SIEMPRE antes de informar sobre programas; nunca inventes nombres, duraciones ni modalidades.',
+      'Consulta el catálogo oficial de programas de postgrado de la Universidad Autónoma de Chile ' +
+      '(magísteres y doctorados). Úsala SIEMPRE antes de informar sobre programas; nunca inventes ' +
+      'nombres, facultades, duraciones, modalidades ni URLs. Devuelve la URL oficial de cada programa.',
     input_schema: {
       type: 'object',
       properties: {
-        area: { type: 'string', enum: ['negocios', 'salud', 'educacion', 'ingenieria', 'derecho'] },
-        modalidad: { type: 'string', enum: ['online', 'presencial', 'semipresencial'] },
-        texto: { type: 'string', description: 'Búsqueda libre por nombre o tema' },
+        tipo: { type: 'string', enum: ['magister', 'doctorado'] },
+        facultad: {
+          type: 'string',
+          enum: [
+            'Administración y Negocios',
+            'Arquitectura, Construcción y Medio Ambiente',
+            'Ciencias de la Salud',
+            'Ciencias Sociales y Humanidades',
+            'Derecho',
+            'Educación',
+            'Ingeniería',
+          ],
+        },
+        modalidad: { type: 'string', enum: ['online', 'presencial'] },
+        texto: { type: 'string', description: 'Búsqueda libre por nombre o tema (ej. "MBA", "inteligencia artificial")' },
       },
       required: [],
     },
