@@ -17,7 +17,14 @@ app.use((req, _res, next) => {
   next();
 });
 
-app.get('/', (_req, res) => res.send('PoC Agente Bitrix24 — OK. Ver /health'));
+// Bitrix abre la "Ruta del controlador" (esta URL) por POST al entrar al app → aceptamos ambos.
+app.all('/', (_req, res) =>
+  res.send(
+    `<!doctype html><meta charset="utf-8"><body style="font-family:system-ui,sans-serif;padding:2rem">` +
+      `PoC Agente Bitrix24 — funcionando ✅. El bot opera en segundo plano (Open Lines).` +
+      `</body>`,
+  ),
+);
 app.get('/health', (_req, res) => res.json({ ok: true, t: new Date().toISOString() }));
 
 // Diagnóstico: confirma qué configuración ve la instancia (sin exponer secretos).
