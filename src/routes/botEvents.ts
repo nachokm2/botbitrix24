@@ -6,6 +6,7 @@ import { config } from '../config';
 import { log } from '../log';
 import { runAgentTurn } from '../ai/agentLoop';
 import { getHistory } from '../ai/memory';
+import { getSession } from '../session';
 import { resolveCrmEntity, loadPriorContext, logConversationTurn } from '../crm/openlinesCrm';
 
 /**
@@ -43,6 +44,21 @@ async function handle(req: Request) {
   if (!dialogId) return log.warn('botMessage: sin DIALOG_ID', { params });
   if (!message) return log.info('botMessage: evento sin texto (ignorado)');
   if (!botId) return log.warn('botMessage: sin BOT_ID — define BITRIX_BOT_ID en Railway (701561)');
+
+  // ── El bot solo responde al CLIENTE; si interviene un operador, se calla (humano a cargo) ──
+  const fromUser = String(fromUserId ?? '');
+  const sess = getSession(dialogId);
+  if (!sess.clientId && fromUser) sess.clientId = fromUser; // primer mensaje = cliente
+  if (sess.clientId && fromUser && fromUser !== sess.clientId) {
+    sess.humanTookOver = true; // mensaje de un operador u otro usuario
+    return log.info('botMessage: mensaje de operador/otro usuario; bot en silencio', {
+      fromUser,
+      clientId: sess.clientId,
+    });
+  }
+  if (sess.humanTookOver) {
+    return log.info('botMessage: sesión atendida por humano; bot en silencio', { dialogId });
+  }
 
   // Identifica la entidad CRM vinculada al chat (del propio evento; sin llamada extra si viene).
   const crmEntity = await resolveCrmEntity(params, chatId, auth);

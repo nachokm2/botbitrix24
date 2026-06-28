@@ -1,6 +1,7 @@
 import { buscarProgramas } from './catalog';
 import { getDetalle } from './detalles';
 import { registrarInteres, type CrmEntity } from '../crm/openlinesCrm';
+import { markHumanTakeover } from '../session';
 import { callBitrix } from '../bitrix/client';
 import { log } from '../log';
 import type { Auth } from '../store';
@@ -52,6 +53,7 @@ export async function executeTool(name: string, input: any, ctx: AgentCtx): Prom
         if (ctx.chatId) {
           await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: ctx.chatId }, ctx.auth);
         }
+        markHumanTakeover(ctx.dialogId); // tras escalar, el bot deja de responder en esa sesión
         log.info('tool escalar_a_humano', { motivo: input?.motivo, chatId: ctx.chatId });
         return { ok: true, escalado: true };
       }
