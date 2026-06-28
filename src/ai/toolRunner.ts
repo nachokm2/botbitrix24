@@ -1,6 +1,7 @@
-import { callBitrix } from '../bitrix/client';
 import { buscarProgramas } from './catalog';
 import { getDetalle } from './detalles';
+import { registrarInteres, type CrmEntity } from '../crm/openlinesCrm';
+import { callBitrix } from '../bitrix/client';
 import { log } from '../log';
 import type { Auth } from '../store';
 
@@ -9,6 +10,7 @@ export type AgentCtx = {
   dialogId: string;
   chatId?: string | number;
   botId: number;
+  crmEntity?: CrmEntity | null;
 };
 
 export async function executeTool(name: string, input: any, ctx: AgentCtx): Promise<any> {
@@ -39,25 +41,11 @@ export async function executeTool(name: string, input: any, ctx: AgentCtx): Prom
         return { ok: true, detalle: d };
       }
 
-      case 'crear_lead_crm': {
-        const fields: any = {
-          TITLE: `Interesado postgrado: ${input.nombre}${input.programa_interes ? ' - ' + input.programa_interes : ''}`,
-          NAME: input.nombre,
-          SOURCE_ID: 'WEBFORM',
-          COMMENTS: [
-            input.programa_interes ? `Programa de interés: ${input.programa_interes}` : '',
-            input.comentario ?? '',
-            '[Generado por Agente IA - PoC]',
-          ]
-            .filter(Boolean)
-            .join(' | '),
-        };
-        if (input.telefono) fields.PHONE = [{ VALUE: String(input.telefono), VALUE_TYPE: 'WORK' }];
-        if (input.email) fields.EMAIL = [{ VALUE: String(input.email), VALUE_TYPE: 'WORK' }];
-
-        const leadId = await callBitrix('crm.lead.add', { fields }, ctx.auth);
-        log.info('tool crear_lead_crm', { leadId });
-        return { ok: true, leadId };
+      case 'registrar_interes_crm': {
+        const r = await registrarInteres(ctx.crmEntity ?? null, ctx.chatId, input ?? {}, ctx.auth);
+        if (!r.ok) return { ok: false, error: r.error };
+        log.info('tool registrar_interes_crm', { entidad: `${r.entity?.type}#${r.entity?.id}` });
+        return { ok: true, entidad: `${r.entity?.type} #${r.entity?.id}` };
       }
 
       case 'escalar_a_humano': {

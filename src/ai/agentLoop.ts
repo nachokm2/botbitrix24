@@ -8,7 +8,10 @@ import { log } from '../log';
 const MAX_STEPS = 5; // guardrail anti-bucle
 
 /** Ejecuta un turno del agente: razona con Claude + tool-calling y devuelve el texto a enviar. */
-export async function runAgentTurn(ctx: AgentCtx, userText: string): Promise<string> {
+export async function runAgentTurn(ctx: AgentCtx, userText: string, priorContext = ''): Promise<string> {
+  const system = priorContext
+    ? `${SYSTEM_PROMPT}\n\nCONTEXTO PREVIO DEL CLIENTE (notas de conversaciones anteriores registradas en el CRM; úsalo para dar continuidad, no lo repitas literal):\n${priorContext}`
+    : SYSTEM_PROMPT;
   const messages: any[] = [...getHistory(ctx.dialogId), { role: 'user', content: userText }];
 
   try {
@@ -17,7 +20,7 @@ export async function runAgentTurn(ctx: AgentCtx, userText: string): Promise<str
         model: REASONER,
         max_tokens: 1024,
         temperature: 0.4,
-        system: SYSTEM_PROMPT,
+        system,
         messages,
         tools: tools as any,
       });

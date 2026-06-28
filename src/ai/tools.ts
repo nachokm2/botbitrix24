@@ -45,20 +45,21 @@ export const tools = [
     },
   },
   {
-    name: 'crear_lead_crm',
+    name: 'registrar_interes_crm',
     description:
-      'Crea un lead en el CRM con los datos del interesado. Úsala cuando tengas al menos el nombre y un dato de ' +
-      'contacto (teléfono o email), idealmente con el programa de interés.',
+      'Registra el interés del cliente en su ficha del CRM (la conversación ya está vinculada a su lead/contacto/deal). ' +
+      'Deja una nota con el programa de interés y, si los tienes, actualiza nombre/teléfono/email. ' +
+      'Úsala cuando hayas identificado el programa de interés y, idealmente, algún dato de contacto.',
     input_schema: {
       type: 'object',
       properties: {
+        programa_interes: { type: 'string' },
         nombre: { type: 'string' },
         telefono: { type: 'string' },
         email: { type: 'string' },
-        programa_interes: { type: 'string' },
         comentario: { type: 'string' },
       },
-      required: ['nombre'],
+      required: [],
     },
   },
   {

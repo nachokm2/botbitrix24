@@ -5,6 +5,8 @@ import { getState } from '../store';
 import { config } from '../config';
 import { log } from '../log';
 import { runAgentTurn } from '../ai/agentLoop';
+import { getHistory } from '../ai/memory';
+import { resolveCrmEntity, loadPriorContext, logConversationTurn } from '../crm/openlinesCrm';
 
 /**
  * Handler de ONIMBOTMESSAGEADD (mensaje del cliente al bot de Open Lines).
@@ -42,14 +44,29 @@ async function handle(req: Request) {
   if (!message) return log.info('botMessage: evento sin texto (ignorado)');
   if (!botId) return log.warn('botMessage: sin BOT_ID — define BITRIX_BOT_ID en Railway (701561)');
 
+  // Identifica la entidad CRM vinculada al chat (del propio evento; sin llamada extra si viene).
+  const crmEntity = await resolveCrmEntity(params, chatId, auth);
+  log.info('CRM entity', { entity: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : 'ninguna' });
+
+  // Memoria entre sesiones: al iniciar una conversación nueva, carga notas previas del CRM.
+  const esNueva = getHistory(dialogId).length === 0;
+  const priorContext = esNueva && crmEntity ? await loadPriorContext(crmEntity, auth) : '';
+
   // Indicador de "escribiendo..." mientras razona el agente (no crítico).
   await callBitrix('imbot.chat.sendTyping', { BOT_ID: botId, DIALOG_ID: dialogId }, auth).catch(() => {});
 
-  // Agente real: Claude Sonnet 4.6 + tool-calling + memoria.
-  const reply = await runAgentTurn({ auth, dialogId, chatId, botId }, message);
+  // Agente real: Claude Sonnet 4.6 + tool-calling + memoria + contexto CRM.
+  const reply = await runAgentTurn({ auth, dialogId, chatId, botId, crmEntity }, message, priorContext);
 
   await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: dialogId, MESSAGE: reply }, auth);
   log.info('REPLY enviado', { dialogId, botId });
+
+  // Registra automáticamente la conversación en el timeline del CRM (no bloquea la respuesta).
+  if (crmEntity) {
+    logConversationTurn(crmEntity, message, reply, auth).catch((e) =>
+      log.warn('logConversationTurn falló', { err: String(e) }),
+    );
+  }
 }
 
 function firstBotId(bot: any): number | undefined {
