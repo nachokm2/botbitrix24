@@ -1,0 +1,487 @@
+{
+  "magister-en-gestion-de-la-inclusion-y-convivencia-educativa": {
+    "nombre": "Magíster en Gestión de la Inclusión y Convivencia Educativa",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-gestion-de-la-inclusion-y-convivencia-educativa/",
+    "arancel": "$5.490.000",
+    "matricula": "$250.000",
+    "duracion": "4 semestres",
+    "modalidad": "Online (Campus Virtual)",
+    "grado": "Magíster en Gestión de la Inclusión y Convivencia Educativa",
+    "requisitos": "Licenciatura de carrera profesional universitaria (mínimo 8 semestres) y experiencia profesional de al menos 3 años.",
+    "descripcion": "Programa orientado a la gestión de la inclusión y la convivencia en instituciones educativas, frente a entornos cada vez más diversos y cambiantes. Forma profesionales capaces de diagnosticar dinámicas internas, diseñar estrategias de inclusión y prevención de la violencia escolar, y fortalecer comunidades educativas más justas, democráticas y sostenibles.",
+    "objetivoGeneral": "Formar profesionales capaces de liderar procesos de gestión institucional orientados a la inclusión y la convivencia educativas, mediante el diseño, implementación y evaluación de estrategias basadas en evidencia, marcos normativos y enfoques interdisciplinarios.",
+    "objetivosEspecificos": [
+      "Analizar los marcos conceptuales, normativos y de políticas públicas de inclusión y convivencia educativa.",
+      "Diagnosticar las dinámicas de convivencia y los niveles de inclusión con herramientas e indicadores basados en evidencia.",
+      "Diseñar e implementar estrategias y programas para promover la inclusión, prevenir la violencia escolar y fortalecer el clima institucional.",
+      "Evaluar el impacto de políticas y prácticas, proponiendo mejoras continuas con criterios éticos y evidencia empírica."
+    ],
+    "dirigidoA": [
+      "Profesionales de la Educación",
+      "Docentes",
+      "Orientadores",
+      "Directivos",
+      "Psicólogos y Trabajadores Sociales",
+      "Investigadores y Académicos",
+      "Funcionarios Públicos"
+    ],
+    "becas": "Consultar becas y beneficios vigentes con un asesor.",
+    "malla": [
+      { "semestre": "I Semestre", "modulos": ["Aprendizaje en ambientes virtuales", "Políticas Públicas en Inclusión Educativa", "Teorías de la Convivencia Educativa", "Diversidad, Equidad e Inclusión", "Metodología de la Investigación en Educación"] },
+      { "semestre": "II Semestre", "modulos": ["Gestión de la Convivencia Educativa", "Diagnóstico Institucional y Clima Educativo", "Marco Normativo y Legislación Educativa", "Diseño de Programas de Inclusión", "Educación socioemocional y convivencia educativa"] },
+      { "semestre": "III Semestre", "modulos": ["Liderazgo Educativo para la Inclusión", "Métodos Cuantitativos y Cualitativos aplicados", "Evaluación de Programas en Convivencia Educativa", "Gestión del Cambio en Instituciones Educativas", "Actividad de Graduación I"] },
+      { "semestre": "IV Semestre", "modulos": ["Actividad de Graduación II"] }
+    ],
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/05/Magister-en-Gestion-de-la-Inclusion-y-Convivencia-Educativa.pdf"
+  },
+  "master-formacion-permanente-en-sexologia": {
+    "nombre": "Máster Formación Permanente en Sexología",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/master-formacion-permanente-en-sexologia/",
+    "arancel": "$8.990.000",
+    "matricula": "$350.000",
+    "requisitos": "Título profesional o grado de licenciado en áreas afines, como salud, educación, psicología o ciencias sociales.",
+    "descripcion": "Desarrolla capacidades teórico-prácticas en sexualidad humana para profesionales de salud, humanidades y educación. Incluye educación en salud sexual, prevención de ITS y VIH, asesoramiento, terapia y medicina sexual, psicología y clínica sexológica.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Master-en-Formacion-Permanente-en-Sexologia-.pdf"
+  },
+  "magister-en-derecho-del-trabajo-procedimiento-y-litigacion-laboral": {
+    "nombre": "Magíster en Derecho del Trabajo, Procedimiento y Litigación Laboral",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-derecho-del-trabajo-procedimiento-y-litigacion-laboral/",
+    "arancel": "$5.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Contar con un título de abogado o licenciado en ciencias jurídicas.",
+    "descripcion": "Programa profesionalizante que profundiza en el Derecho del Trabajo con enfoque práctico en litigación y resolución de conflictos laborales. Forma profesionales para asesoría, dirección y defensa de derechos laborales ante tribunales e instancias administrativas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/05/Magister-en-Derecho-del-Trabajo-Procedimiento-y-Litigacion-Laboral.pdf"
+  },
+  "magister-en-administracion-en-la-construccion": {
+    "nombre": "Magíster en Administración en la Construcción",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-administracion-en-la-construccion/",
+    "arancel": "$4.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Título profesional o grado de licenciado en áreas afines como ingeniería, arquitectura o construcción.",
+    "descripcion": "Forma profesionales líderes en gestión integral de proyectos de construcción, con foco en optimización de recursos, sostenibilidad e innovación tecnológica. Aborda metodologías como BIM, gestión de riesgos, planificación, sostenibilidad y responsabilidad social.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Administracion-en-la-Construccion.pdf"
+  },
+  "magister-en-gobierno-corporativo-y-compliance": {
+    "nombre": "Magíster en Gobierno Corporativo y Compliance",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-gobierno-corporativo-y-compliance/",
+    "arancel": "$5.490.000",
+    "matricula": "$250.000",
+    "requisitos": null,
+    "descripcion": "Forma profesionales en diseño, implementación y gestión de modelos de gobierno corporativo, identificación de riesgos y controles internos. Aborda ética organizacional, gestión de riesgos, prevención de delitos económicos, sostenibilidad empresarial y roles directivos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/05/Magister-en-Gobierno-Corporativo-y-Compliance.pdf"
+  },
+  "magister-en-derecho-de-familia-infancia-y-adolescencia": {
+    "nombre": "Magíster en Derecho de Familia, Infancia y Adolescencia",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-derecho-de-familia-infancia-y-adolescencia/",
+    "arancel": "$5.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Grado de Licenciado en Derecho, Ciencias Jurídicas o carreras afines, otorgado por una universidad chilena o extranjera reconocida.",
+    "descripcion": "Forma especialistas en Derecho de Familia, Infancia y Adolescencia con enfoque integral. Capacita para resolver problemáticas familiares aplicando la Convención sobre los Derechos del Niño, con trabajo en equipos interdisciplinarios.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Derecho-de-Familia-Infancia-y-Adolescencia-1.pdf"
+  },
+  "magister-en-desarrollo-organizacional-innovacion-y-bienestar-laboral": {
+    "nombre": "Magíster en Desarrollo Organizacional: Innovación y Bienestar Laboral",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-desarrollo-organizacional-innovacion-y-bienestar-laboral/",
+    "arancel": "$5.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Licenciado en Psicología, Administración, Ingeniería o disciplinas de las ciencias sociales y la administración de recursos humanos, de una institución reconocida por el Estado de Chile.",
+    "descripcion": "Forma líderes capaces de transformar organizaciones mediante soluciones innovadoras en gestión de personas. Aborda transformación digital, diversidad, bienestar laboral y sostenibilidad, con énfasis en analítica de RR.HH., diagnóstico organizacional y liderazgo colaborativo.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Desarrollo-Organizacional-Innovacion-y-Bienestar-Laboral-1.pdf"
+  },
+  "magister-en-gerontologia-para-un-envejecimiento-activo": {
+    "nombre": "Magíster en Gerontología para un Envejecimiento Activo",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-gerontologia-para-un-envejecimiento-activo/",
+    "arancel": "$5.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Poseer un título profesional y/o grado de licenciado. Presentar carta de interés, currículum y concentración de notas de pregrado.",
+    "descripcion": "Forma graduados competentes para abordar el envejecimiento de forma integral, manteniendo la capacidad funcional de personas mayores mediante intervenciones no farmacológicas y promoción de estilos de vida saludables.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/04/Magister-en-Gerontologia-para-un-Envejecimiento-Activo.pdf"
+  },
+  "master-en-investigacion-y-gestion-de-emergencia-y-desastre": {
+    "nombre": "Máster en Investigación y Gestión de Emergencia y Desastre",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/master-en-investigacion-y-gestion-de-emergencia-y-desastre/",
+    "arancel": "$5.490.000",
+    "matricula": "$250.000",
+    "requisitos": null,
+    "descripcion": "Programa orientado a fortalecer las capacidades para enfrentar emergencias y desastres, su gestión e investigación, ante el impacto creciente de episodios desastrosos en la salud pública y el desarrollo de las zonas afectadas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Master-en-Investigacion-y-Gestion-de-Emergencias-y-Desastres.pdf"
+  },
+  "magister-en-ciencias-farmaceuticas-aplicadas": {
+    "nombre": "Magíster en Ciencias Farmacéuticas Aplicadas",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-ciencias-farmaceuticas-aplicadas/",
+    "arancel": "$4.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Químicos Farmacéuticos con grado de licenciado, profesionales de la industria farmacéutica y emprendedores que busquen especialización en ciencias farmacéuticas.",
+    "descripcion": "Programa online de 4 semestres que especializa en investigación, tecnología farmacéutica y cosmética, y productos naturales y nutracéuticos. Forma expertos para el desarrollo y comercialización de productos farmacéuticos y cosméticos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/04/Magister-en-Ciencias-Farmaceuticas-Aplicadas.pdf"
+  },
+  "magister-en-gestion-y-desarrollo-municipal": {
+    "nombre": "Magíster en Gestión y Desarrollo Municipal",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-gestion-y-desarrollo-municipal/",
+    "arancel": "$4.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Grado académico de Licenciado o título profesional en administración, ingeniería o ciencias sociales, de una institución reconocida por el Estado de Chile.",
+    "descripcion": "Forma profesionales en administración municipal, planificación territorial y gestión de servicios públicos. Se enfoca en modernización de la gestión local, participación ciudadana, fiscalización, control de recursos y desarrollo económico local.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/04/Magister-en-Gestion-y-Desarrollo-Municipal.pdf"
+  },
+  "magister-en-ingenieria-industrial": {
+    "nombre": "Magíster en Ingeniería Industrial",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-ingenieria-industrial/",
+    "arancel": "$5.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Título profesional en áreas relacionadas con ingeniería, administración, tecnología o disciplinas afines al sector de manufactura o servicios.",
+    "descripcion": "Formación avanzada para liderar iniciativas innovadoras en manufactura y servicios, integrando sostenibilidad, transformación digital e inteligencia artificial, con énfasis en gestión operacional y análisis de información.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Ingenieria-Industrial-1.pdf"
+  },
+  "magister-en-analitica-para-los-negocios": {
+    "nombre": "Magíster en Analítica para los Negocios",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-analitica-para-los-negocios/",
+    "arancel": "$5.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Grado de licenciado o título profesional en ingeniería, administración y negocios o equivalente, de una institución reconocida por el Estado de Chile.",
+    "descripcion": "Desarrolla competencias avanzadas en análisis de datos para la toma de decisiones empresariales, con formación en herramientas analíticas, modelos estadísticos e inteligencia artificial, bajo un enfoque ético y sostenible.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Analitica-para-los-Negocios-1.pdf"
+  },
+  "magister-en-derecho-publico-transparencia-regulaciones-y-control": {
+    "nombre": "Magíster en Derecho Público: Transparencia, Regulaciones y Control",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-derecho-publico-transparencia-regulaciones-y-control/",
+    "arancel": "$5.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Grado de Licenciado en Derecho, Ciencias Jurídicas o carreras afines, de una universidad chilena o extranjera reconocida.",
+    "descripcion": "Programa online con sesiones sincrónicas que abarca transparencia gubernamental, análisis de regulaciones, mecanismos de control institucional, ética pública y derecho de la información, con formación en investigación jurídica.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/04/Magister-en-Derecho-Publico-Transparencia-Regulaciones-y-Control.pdf"
+  },
+  "magister-en-neurorrehabilitacion": {
+    "nombre": "Magíster en Neurorrehabilitación",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-neurorrehabilitacion/",
+    "arancel": "$5.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Título profesional de al menos 8 semestres con concentración de notas, de institución de educación superior chilena o extranjera.",
+    "descripcion": "Programa multidisciplinario que forma profesionales de salud para diseñar, implementar y evaluar procesos de rehabilitación neurológica basados en el modelo biopsicosocial y la evidencia científica.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/05/Magister-en-Neurorrehabilitacion.pdf"
+  },
+  "magister-en-intervencion-musculoesqueletica-con-enfoque-en-el-razonamiento-clinico": {
+    "nombre": "Magíster en Intervención Musculoesquelética con Enfoque en el Razonamiento Clínico",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-intervencion-musculoesqueletica-con-enfoque-en-el-razonamiento-clinico/",
+    "arancel": "$5.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Título profesional en kinesiología u otras áreas de la salud afines.",
+    "descripcion": "Desarrolla competencias para abordar disfunciones musculoesqueléticas mediante razonamiento clínico y evidencia científica, capacitando en protocolos de evaluación e intervención.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Intervencion-Musculoesqueletica-con-Enfoque-en-el-Razonamiento-Clinico.pdf"
+  },
+  "magister-en-intervencion-con-familias-e-infancia": {
+    "nombre": "Magíster en Intervención con Familias e Infancia",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-intervencion-con-familias-e-infancia/",
+    "arancel": "$5.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Licenciado o título profesional en disciplinas de las ciencias sociales, reconocido por el Estado de Chile o acreditado en el país de origen.",
+    "descripcion": "Forma profesionales con conocimientos avanzados en intervención ante problemáticas de familias e infancias, enfatizando el análisis crítico, el diseño y la sistematización de propuestas innovadoras.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Intervencion-con-Familias-e-Infancias-1.pdf"
+  },
+  "magister-en-inteligencia-artificial": {
+    "nombre": "Magíster en Inteligencia Artificial",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-inteligencia-artificial/",
+    "arancel": "$6.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Título profesional en áreas relacionadas con ingeniería, tecnología o disciplinas afines.",
+    "descripcion": "Forma profesionales capaces de transformar empresas mediante el uso eficiente de inteligencia artificial, machine learning y deep learning para soluciones innovadoras.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/01/Magister-en-Inteligencia-Artificial.pdf"
+  },
+  "magister-en-docencia-en-educacion-superior": {
+    "nombre": "Magíster en Docencia en Educación Superior",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-docencia-en-educacion-superior/",
+    "arancel": "$4.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Licenciado o profesional titulado de carrera de mínimo 8 semestres, que ejerza o aspire a la docencia en educación superior.",
+    "descripcion": "Programa de 4 semestres orientado a desarrollar competencias pedagógicas, metodológicas y tecnológicas para la enseñanza universitaria, integrando planificación curricular, estrategias inclusivas e inteligencia artificial.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Docencia-en-Educacion-Superior-1.pdf"
+  },
+  "magister-en-direccion-y-gestion-escolar-de-la-calidad": {
+    "nombre": "Magíster en Dirección y Gestión Escolar de la Calidad",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-direccion-y-gestion-escolar-de-la-calidad/",
+    "arancel": "$4.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Título profesional o grado de Licenciado en Educación, de una institución reconocida por el Estado de Chile.",
+    "descripcion": "Entrega herramientas para la dirección y gestión de calidad en instituciones educativas, considerando las demandas actuales y las políticas educativas vigentes del sistema chileno.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Direccion-y-Gestion-Escolar-de-la-Calidad-1.pdf"
+  },
+  "magister-en-derecho-penal-y-procesal-penal": {
+    "nombre": "Magíster en Derecho Penal y Procesal Penal",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-derecho-penal-y-procesal-penal/",
+    "arancel": "$5.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Licenciado en Derecho, Ciencias Jurídicas o equivalente, de universidad reconocida.",
+    "descripcion": "Profundiza conocimientos en derecho penal y procesal penal chileno, desarrollando competencias para una intervención efectiva en los procesos penales.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Derecho-penal-y-procesal-penal.pdf"
+  },
+  "magister-en-neurodivergencia": {
+    "nombre": "Magíster en Neurodivergencia",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-neurodivergencia/",
+    "arancel": "$6.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Título profesional de al menos 8 semestres en áreas de salud o educación, con concentración de notas.",
+    "descripcion": "Programa multidisciplinario que combina teorías contemporáneas y evidencia científica para abordar integralmente la neurodivergencia, desarrollando competencias en evaluación, intervención e inclusión social y laboral.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Neurodivergencia-1.pdf"
+  },
+  "magister-en-educacion-en-ciencias-de-la-salud-y-simulacion-clinica": {
+    "nombre": "Magíster en Educación en Ciencias de la Salud y Simulación Clínica",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-educacion-en-ciencias-de-la-salud-y-simulacion-clinica/",
+    "arancel": "$5.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Grado de Licenciado en áreas de la salud.",
+    "descripcion": "Forma graduados competentes en docencia universitaria en Ciencias de la Salud, fortaleciendo herramientas docentes y de simulación clínica mediante modalidad online con sesiones sincrónicas y asincrónicas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/04/Magister-en-Educacion-en-Ciencias-de-la-Salud-y-Simulacion-Clinica.pdf"
+  },
+  "magister-en-creatividad-estrategica-y-comunicacion-basadas-en-inteligencia-artificial": {
+    "nombre": "Magíster en Creatividad Estratégica y Comunicación basadas en Inteligencia Artificial",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-creatividad-estrategica-y-comunicacion-basadas-en-inteligencia-artificial/",
+    "arancel": "$4.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Licenciados en Comunicación, Arte, Psicología, Sociología, Ciencias Económicas y Administrativas o equivalentes de instituciones reconocidas.",
+    "descripcion": "Forma profesionales para aplicar herramientas de IA en la creatividad y la comunicación estratégica, desarrollando habilidades en contenido innovador y gestión digital.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Creatividad-Estrategica-y-Comunicacion-basadas-en-Inteligencia-Artificial.pdf"
+  },
+  "magister-en-innovacion": {
+    "nombre": "Magíster en Innovación",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-innovacion/",
+    "arancel": "$4.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Grado académico de licenciado o título profesional de institución de educación superior acreditada.",
+    "descripcion": "Forma líderes en innovación y transformación digital, desarrollando habilidades en gestión del cambio, identificación de oportunidades e intraemprendimiento para impulsar la creatividad organizacional.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/05/Magister-en-Innovacion.pdf"
+  },
+  "magister-en-marketing-digital": {
+    "nombre": "Magíster en Marketing Digital",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-marketing-digital/",
+    "arancel": "$4.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Licenciado(a) en Administración, Economía, Comunicaciones, Ingeniería o ciencias sociales.",
+    "descripcion": "Programa de 4 semestres con enfoque profesional y práctico en gestión comercial y marketing digital, a nivel operativo y estratégico.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/03/Magister-en-Marketing-Digital.pdf"
+  },
+  "magister-en-finanzas-y-gestion-financiera": {
+    "nombre": "Magíster en Finanzas y Gestión Financiera",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-finanzas-y-gestion-financiera/",
+    "arancel": "$5.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Título profesional o grado de Licenciado en Administración, Economía o equivalente (mínimo 8 semestres).",
+    "descripcion": "Capacita profesionales en finanzas corporativas e integra herramientas para resolver problemas financieros en instituciones y organizaciones productivas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Finanzas-y-Gestion-Financiera-1.pdf"
+  },
+  "magister-en-desarrollo-economico-social-y-politicas-publicas": {
+    "nombre": "Magíster en Desarrollo Económico, Social y Políticas Públicas",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-desarrollo-economico-social-y-politicas-publicas/",
+    "arancel": "$5.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Grado de Licenciado o título de carrera profesional universitaria de mínimo 8 semestres.",
+    "descripcion": "Formación multidisciplinaria en desarrollo social y políticas públicas. Prepara para comprender procesos sociales, desarrollar propuestas viables y promover el uso sostenible de los recursos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/04/Magister-en-Desarrollo-Economico-social-y-politicas-publicas.pdf"
+  },
+  "magister-en-educacion-mencion-diseno-e-innovacion-curricular": {
+    "nombre": "Magíster en Educación mención Diseño e Innovación Curricular",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-educacion-mencion-diseno-e-innovacion-curricular/",
+    "arancel": "$4.490.000",
+    "matricula": "$250.000",
+    "requisitos": null,
+    "descripcion": "Programa profesionalizante que cultiva competencias para el liderazgo en asesoría curricular, mejorando el currículum mediante diseños e innovaciones acordes a las políticas educativas actuales.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/12/Magister-en-Educacion-mencion-Diseno-e-Innovacion-Curricular.pdf"
+  },
+  "magister-en-economia-circular-industrial": {
+    "nombre": "Magíster en Economía Circular Industrial",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-economia-circular-industrial/",
+    "arancel": "$4.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Grado de licenciado o título profesional. Dirigido a gerentes de innovación, profesionales de ciencias básicas, empresarios e ingenieros interesados en economía circular.",
+    "descripcion": "Capacita especialistas en economía circular industrial con conocimientos en medio ambiente, economía y legislación; los estudiantes diseñan proyectos circulares aplicados a distintas industrias.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Economia-Circular-Industrial.pdf"
+  },
+  "magister-en-didactica-de-la-lengua-y-la-literatura": {
+    "nombre": "Magíster en Didáctica de la Lengua y la Literatura",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-didactica-de-la-lengua-y-la-literatura/",
+    "arancel": "$4.490.000",
+    "matricula": "$200.000",
+    "requisitos": "Docentes, licenciados en educación, filólogos y profesionales del área interesados en la enseñanza de la lengua y la literatura.",
+    "descripcion": "Forma profesores en teoría y metodología actualizada de la didáctica de la lectura, la escritura y la literatura, con foco en procesos lectores, producción escrita y evaluación literaria.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Didactica-de-la-Lengua-y-la-Literatura.pdf"
+  },
+  "magister-en-deportes-y-actividad-fisica": {
+    "nombre": "Magíster en Deportes y Actividad Física",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-deportes-y-actividad-fisica/",
+    "arancel": "$4.490.000",
+    "matricula": "$200.000",
+    "requisitos": "Título profesional relacionado con educación física, deporte, actividad física o salud.",
+    "descripcion": "Especializa en conocimiento deportivo y actividad física, desarrollando competencias en análisis de habilidades motoras, planificación de entrenamiento y programas de reintegro deportivo.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Deporte-y-Actividad-Fisica.pdf"
+  },
+  "magister-en-justicia-constitucional-y-derechos-humanos": {
+    "nombre": "Magíster en Justicia Constitucional y Derechos Humanos",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-justicia-constitucional-y-derechos-humanos/",
+    "arancel": "$4.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Licenciados en Ciencias Jurídicas, en Derecho o equivalente; también licenciados en ciencias sociales y/o humanidades.",
+    "descripcion": "Forma profesionales competentes en justicia constitucional y derechos humanos, capacitados para resolver problemas jurídicos complejos y prestar asesoría especializada en instituciones públicas o privadas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Justicia-Constitucional-y-Derechos-Humanos.pdf"
+  },
+  "magister-en-derecho-de-consumo-y-comercio-electronico": {
+    "nombre": "Magíster en Derecho de Consumo y Comercio Electrónico",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-derecho-de-consumo-y-comercio-electronico/",
+    "arancel": "$3.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Profesionales del derecho, licenciados en derecho (o título equivalente), nacionales o extranjeros, del servicio público, privado o la judicatura.",
+    "descripcion": "Entrega competencias para el ejercicio profesional en el derecho de consumo del siglo XXI: nuevas tecnologías, principios generales, remedios contractuales, acciones indemnizatorias e inteligencia artificial.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Derecho-de-Consumo-y-Comercio-Electronico-3.pdf"
+  },
+  "magister-en-psicologia-clinica": {
+    "nombre": "Magíster en Psicología Clínica",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-psicologia-clinica/",
+    "arancel": "$6.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Licenciados en Psicología y Médicos Psiquiatras. Se recomienda experiencia en intervención clínica.",
+    "descripcion": "Profundiza la formación de psicólogos en el trabajo clínico con adultos, fortaleciendo el diagnóstico, diseño, ejecución y evaluación de intervenciones psicoterapéuticas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Psicologia-Clinica.pdf"
+  },
+  "magister-en-investigacion-en-diversidad-e-inclusion": {
+    "nombre": "Magíster en Investigación en Diversidad e Inclusión",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-investigacion-en-diversidad-e-inclusion/",
+    "arancel": "$4.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Título profesional o grado de licenciado en ciencias sociales, educación, psicología, trabajo social u otras áreas afines a la diversidad e inclusión.",
+    "descripcion": "Forma graduados en investigación social con competencias analíticas, enfocado en diversidad e inclusión desde una perspectiva de derechos humanos y considerando contextos emergentes.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Investigacion-en-Diversidad-e-Inclusion.pdf"
+  },
+  "magister-en-gobierno-y-direccion-publica": {
+    "nombre": "Magíster en Gobierno y Dirección Pública",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-gobierno-y-direccion-publica/",
+    "arancel": "$5.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Título profesional o grado de licenciado en administración pública, ciencias sociales, derecho, economía, gestión o afines; carta de motivación y documentos de postulación.",
+    "descripcion": "Prepara profesionales para asumir posiciones de gestión de gobierno y dirección pública, desarrollando habilidades de alta dirección institucional y gestión organizacional moderna.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Gobierno-y-Direccion-Publica.pdf"
+  },
+  "magister-en-trabajo-social": {
+    "nombre": "Magíster en Trabajo Social",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-trabajo-social/",
+    "arancel": "$4.490.000",
+    "matricula": "$200.000",
+    "requisitos": "Licenciados/as en Trabajo Social y licenciados/as de las Ciencias Sociales y Humanas.",
+    "descripcion": "Dialoga con la agenda público-social aportando propuestas fundamentadas para el desarrollo social sostenible, acorde a los desafíos teórico-metodológicos y ético-políticos del trabajo social contemporáneo.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Trabajo-Social.pdf"
+  },
+  "magister-en-gestion-estrategica-de-organizaciones-de-salud": {
+    "nombre": "Magíster en Gestión Estratégica de Organizaciones de Salud",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-gestion-estrategica-de-organizaciones-de-salud/",
+    "arancel": "$5.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Título profesional o grado de licenciado en áreas de salud, administración o afines; carta de motivación y documentos de postulación.",
+    "descripcion": "Fortalece competencias en gestión y administración integral de organizaciones de salud, públicas o privadas, considerando los cambios epidemiológicos con una visión moderna y estratégica.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/01/Magister-en-Gestion-Estrategica-De-Organizaciones-De-Salud.pdf"
+  },
+  "magister-en-neurociencias": {
+    "nombre": "Magíster en Neurociencias",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-neurociencias/",
+    "arancel": "$6.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Licenciados en Psicología, Biología, Medicina o Farmacia y profesionales del área de la salud, con título de carrera de mínimo 8 semestres.",
+    "descripcion": "Forma profesionales con conocimiento avanzado del sistema nervioso en condiciones normales y patológicas, desarrollando competencias de investigación desde la biología molecular hasta las bases biológicas de la conducta.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Brochure-Neurociencias.pdf"
+  },
+  "magister-en-tecnologias-aplicadas-a-la-construccion": {
+    "nombre": "Magíster en Tecnologías Aplicadas a la Construcción",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-tecnologias-aplicadas-a-la-construccion/",
+    "arancel": "$4.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Licenciados o titulados en arquitectura, ingeniería y construcción o áreas afines.",
+    "descripcion": "Forma especialistas en herramientas tecnológicas para evaluar, desarrollar y gestionar proyectos de edificación, con énfasis en eficiencia energética, fabricación digital y evaluación de proyectos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/06/Magister-en-Tecnologias-Aplicadas-a-la-Construccion.pdf"
+  },
+  "magister-en-patrimonio-y-turismo": {
+    "nombre": "Magíster en Patrimonio y Turismo",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-patrimonio-y-turismo/",
+    "arancel": "$4.990.000",
+    "matricula": "$200.000",
+    "requisitos": "Profesionales licenciados o con título equivalente (arquitectos, sociólogos, antropólogos, gestores culturales, ingenieros, periodistas, administradores turísticos, etc.) ligados a planificación territorial, gestión cultural o desarrollo social.",
+    "descripcion": "Forma especialistas en gestión sostenible de recursos naturales, sociales y culturales, integrando proyectos e investigaciones que vinculan patrimonio y turismo con enfoque de desarrollo local.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Patrimonio-y-Turismo.pdf"
+  },
+  "magister-en-formulacion-y-evaluacion-de-proyectos": {
+    "nombre": "Magíster en Formulación y Evaluación de Proyectos",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-formulacion-y-evaluacion-de-proyectos/",
+    "arancel": "$7.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Licenciatura o título profesional de al menos 8 semestres, con experiencia mínima de 3 años en evaluación de proyectos, emprendimiento, consultoría o asesoría.",
+    "descripcion": "Desarrolla competencias para formular y evaluar proyectos de inversión en empresas públicas y privadas, analizando la viabilidad técnica, económica y financiera de las iniciativas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Formulacion-y-Evaluacion-de-Proyectos.pdf"
+  },
+  "magister-en-direccion-de-operaciones-logistica-y-cadena-de-suministro": {
+    "nombre": "Magíster en Dirección de Operaciones, Logística y Cadena de Suministro",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-direccion-de-operaciones-logistica-y-cadena-de-suministro/",
+    "arancel": "$7.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Licenciatura o título profesional equivalente de al menos 8 semestres. Dirigido a profesionales que buscan posiciones directivas en operaciones, logística y distribución.",
+    "descripcion": "Programa de 4 semestres que forma directivos expertos en operaciones y logística, desarrollando habilidades directivas y competencias en gestión de la cadena de suministro, con énfasis en liderazgo e innovación.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/04/Magister-en-Direccion-de-Operaciones-Logistica-y-Cadena-de-Suministro.pdf"
+  },
+  "magister-en-direccion-de-personas-y-gestion-del-talento": {
+    "nombre": "Magíster en Dirección de Personas y Gestión del Talento",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-direccion-de-personas-y-gestion-del-talento/",
+    "arancel": "$7.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Profesionales de administración, psicología, ingeniería o afines que busquen una mirada sistémica e integral para la toma de decisiones en las organizaciones.",
+    "descripcion": "Desarrolla competencias directivas y habilidades gerenciales para liderar equipos, con foco en gestión estratégica de personas, desarrollo del talento y adaptabilidad en entornos dinámicos y multiculturales.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Magister-en-Direccion-de-Personas-y-Gestion-del-Talento.pdf"
+  },
+  "magister-en-direccion-de-empresas-mba-online": {
+    "nombre": "Magíster en Dirección de Empresas - MBA - Online",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-direccion-de-empresas-mba-online/",
+    "arancel": "$9.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Profesionales de administración, economía, ingeniería y/o ciencias sociales que busquen una mirada sistémica e integral para la toma de decisiones.",
+    "descripcion": "Desarrolla capacidades directivas, evaluación de modelos de gestión estratégica, liderazgo en procesos de cambio y comprensión de la transformación digital empresarial.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/05/Magister-en-Direccion-de-Empresas-MBA-Online.pdf"
+  },
+  "magister-en-direccion-de-empresas-mba": {
+    "nombre": "Magíster en Dirección de Empresas - MBA",
+    "url": "https://postgrados.uautonoma.cl/programas/magisteres/magister-en-direccion-de-empresas-mba/",
+    "arancel": "$8.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Profesionales de administración, economía, ingeniería y/o ciencias sociales que deseen fortalecer su perfil gerencial.",
+    "descripcion": "Desarrolla capacidades directivas estratégicas y competencias técnicas e interpersonales en gestión organizacional globalizada, con énfasis en habilidades socioemocionales, innovación y liderazgo.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/05/Magister-en-Direccion-de-Empresas-MBA-Presencial.pdf"
+  },
+  "doctorado-en-ciencias-sociales": {
+    "nombre": "Doctorado en Ciencias Sociales",
+    "url": "https://www.uautonoma.cl/doctorado-en-ciencias-sociales/",
+    "arancel": "$3.375.000",
+    "matricula": "$120.000",
+    "requisitos": "Título profesional o grado de licenciado en una disciplina de las ciencias sociales o afín; grado de magíster según evaluación del Comité Académico; inglés a nivel básico.",
+    "descripcion": "Programa de Ciencias Sociales y Humanidades enfocado en la investigación autónoma, con énfasis en tensiones sociales contemporáneas, instituciones, actores sociales y desarrollo territorial.",
+    "brochureUrl": null
+  },
+  "doctorado-en-ciencias-aplicadas": {
+    "nombre": "Doctorado en Ciencias Aplicadas",
+    "url": "https://www.uautonoma.cl/doctorado-en-ciencias-aplicadas/",
+    "arancel": null,
+    "matricula": null,
+    "requisitos": "Título profesional o grado en áreas afines a ciencias naturales, química, física, biología o ingeniería; manejo instrumental de inglés; aprobación del proceso de selección.",
+    "descripcion": "Programa doctoral del Instituto de Ciencias Aplicadas (Facultad de Ingeniería) orientado a la investigación aplicada en energía, medio ambiente y biotecnología, frente a problemáticas sociales, territoriales y productivas.",
+    "brochureUrl": null
+  },
+  "doctorado-en-ciencias-biomedicas": {
+    "nombre": "Doctorado en Ciencias Biomédicas",
+    "url": "https://www.uautonoma.cl/doctorado-en-ciencias-biomedicas/",
+    "arancel": null,
+    "matricula": null,
+    "requisitos": "Grado de licenciado en alguna de las áreas de las ciencias biomédicas o afines. Se da preferencia a postulantes con magíster.",
+    "descripcion": "Forma investigadores de excelencia en ciencias biomédicas, capaces de liderar líneas de investigación e innovación. Programa presencial, de jornada diurna y dedicación exclusiva.",
+    "brochureUrl": null
+  },
+  "doctorado-en-derecho": {
+    "nombre": "Doctorado en Derecho",
+    "url": "https://www.uautonoma.cl/doctorado-en-derecho/",
+    "arancel": null,
+    "matricula": null,
+    "requisitos": "Título de Licenciado en Derecho o equivalente y Magíster en Derecho o equivalente; idioma extranjero (preferentemente inglés) a nivel B1.",
+    "descripcion": "Forma investigadores expertos en derecho con capacidad de producir investigaciones originales, con formación avanzada en metodología jurídica, líneas de investigación consolidadas y redes internacionales.",
+    "brochureUrl": null
+  }
+}
