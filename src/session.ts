@@ -1,19 +1,23 @@
-// Estado mínimo por diálogo para decidir cuándo el bot debe responder.
-// - clientId: el usuario que inició la conversación (el cliente).
-// - humanTookOver: un operador humano intervino → el bot se calla en esa sesión.
-type SessionState = { clientId?: string; humanTookOver?: boolean };
+import { getJson, setJson } from './store/kv';
 
-const sessions = new Map<string, SessionState>();
+// Estado por diálogo (persistido en KV) para decidir cuándo responde el bot.
+// - clientId: usuario que inició la conversación (el cliente).
+// - humanTookOver: un operador intervino → el bot se calla en esa sesión.
+export type SessionState = { clientId?: string; humanTookOver?: boolean };
 
-export function getSession(dialogId: string): SessionState {
-  let s = sessions.get(dialogId);
-  if (!s) {
-    s = {};
-    sessions.set(dialogId, s);
-  }
-  return s;
+const KEY = (dialogId: string) => `sess:${dialogId}`;
+const TTL_SEC = 6 * 3600;
+
+export async function getSession(dialogId: string): Promise<SessionState> {
+  return (await getJson<SessionState>(KEY(dialogId))) ?? {};
 }
 
-export function markHumanTakeover(dialogId: string): void {
-  getSession(dialogId).humanTookOver = true;
+export async function saveSession(dialogId: string, s: SessionState): Promise<void> {
+  await setJson(KEY(dialogId), s, TTL_SEC);
+}
+
+export async function markHumanTakeover(dialogId: string): Promise<void> {
+  const s = await getSession(dialogId);
+  s.humanTookOver = true;
+  await saveSession(dialogId, s);
 }

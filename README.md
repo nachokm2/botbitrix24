@@ -165,6 +165,15 @@ poc-agente-bitrix24/
 ├── railway.json · .env.example · tsconfig.json · package.json
 ```
 
+## 11. Persistencia y Observabilidad
+
+- **KV (Redis)**: memoria de conversación, estado de sesión, tokens e idempotencia de eventos. Si no hay `REDIS_URL`, usa memoria en proceso (se pierde al reiniciar).
+- **Postgres**: auditoría de acciones del agente (tabla `audit_log`). Si no hay `DATABASE_URL`, la auditoría queda solo en logs.
+- **En Railway**: añade los plugins **Redis** y **Postgres** (New → Database). Railway crea `REDIS_URL` y `DATABASE_URL` automáticamente; el app los toma en el próximo deploy.
+- **Endpoints de observabilidad**:
+  - `GET /metrics` → JSON con contadores (inbound, reply, conversations, tool:*, escalations, errors) + latencia LLM (avg/p95) + backend KV/DB.
+  - `GET /stats` → panel HTML con métricas + auditoría reciente.
+
 ## 10. Notas
 
 - **No** subas `.env` (ya está en `.gitignore`).

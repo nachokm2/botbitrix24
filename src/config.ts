@@ -14,4 +14,8 @@ export const config = {
   bitrixClientSecret: process.env.BITRIX_CLIENT_SECRET ?? '',
   // Fallback de BOT_ID (el storage de Railway es efímero entre deploys).
   botId: process.env.BITRIX_BOT_ID ? Number(process.env.BITRIX_BOT_ID) : undefined,
+  // Persistencia (opcionales; si faltan, se usa memoria/no-op).
+  redisUrl: process.env.REDIS_URL ?? '',
+  databaseUrl: process.env.DATABASE_URL ?? '',
+  pgSsl: process.env.PGSSL === 'true',
 };

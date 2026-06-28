@@ -1,5 +1,4 @@
-import { promises as fs } from 'node:fs';
-import path from 'node:path';
+import { getJson, setJson } from './store/kv';
 
 /** Credenciales OAuth de Bitrix24 (vienen con cada evento y en la instalación). */
 export type Auth = {
@@ -12,40 +11,23 @@ export type Auth = {
 
 type State = { auth?: Auth; botId?: number };
 
-// Persistencia mínima para el PoC. En Railway el filesystem es efímero:
-// no es problema porque el bot usa el `auth` que llega en cada evento.
-// Este store solo facilita los scripts de smoke y el registro manual del bot.
-const FILE = path.join(process.cwd(), '.data', 'state.json');
-let cache: State | null = null;
-
-async function read(): Promise<State> {
-  if (cache) return cache;
-  try {
-    cache = JSON.parse(await fs.readFile(FILE, 'utf8')) as State;
-  } catch {
-    cache = {};
-  }
-  return cache;
-}
-
-async function write(s: State) {
-  cache = s;
-  await fs.mkdir(path.dirname(FILE), { recursive: true });
-  await fs.writeFile(FILE, JSON.stringify(s, null, 2));
-}
+// Estado del app (auth + botId) persistido en KV (Redis o memoria).
+// El bot igual funciona con el auth que llega en cada evento; esto ayuda a
+// los scripts/refresh y al registro manual del bot.
+const KEY = 'app:state';
 
 export async function getState(): Promise<State> {
-  return read();
+  return (await getJson<State>(KEY)) ?? {};
 }
 
-export async function setAuth(auth: Auth) {
-  const s = await read();
+export async function setAuth(auth: Auth): Promise<void> {
+  const s = await getState();
   s.auth = auth;
-  await write(s);
+  await setJson(KEY, s);
 }
 
-export async function setBotId(botId: number) {
-  const s = await read();
+export async function setBotId(botId: number): Promise<void> {
+  const s = await getState();
   s.botId = botId;
-  await write(s);
+  await setJson(KEY, s);
 }

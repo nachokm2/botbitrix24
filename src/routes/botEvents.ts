@@ -6,7 +6,10 @@ import { config } from '../config';
 import { log } from '../log';
 import { runAgentTurn } from '../ai/agentLoop';
 import { getHistory } from '../ai/memory';
-import { getSession } from '../session';
+import { getSession, saveSession } from '../session';
+import { once } from '../store/kv';
+import { inc } from '../obs/metrics';
+import { audit } from '../obs/audit';
 import { resolveCrmEntity, loadPriorContext, logConversationTurn } from '../crm/openlinesCrm';
 
 /**
@@ -45,12 +48,24 @@ async function handle(req: Request) {
   if (!message) return log.info('botMessage: evento sin texto (ignorado)');
   if (!botId) return log.warn('botMessage: sin BOT_ID — define BITRIX_BOT_ID en Railway (701561)');
 
+  // Idempotencia: descarta eventos duplicados (Bitrix puede reenviar).
+  const msgId = params.MESSAGE_ID;
+  if (msgId && !(await once(`evt:msg:${msgId}`, 3600))) {
+    return log.info('botMessage: evento duplicado ignorado', { msgId });
+  }
+
   // ── El bot solo responde al CLIENTE; si interviene un operador, se calla (humano a cargo) ──
   const fromUser = String(fromUserId ?? '');
-  const sess = getSession(dialogId);
-  if (!sess.clientId && fromUser) sess.clientId = fromUser; // primer mensaje = cliente
+  const sess = await getSession(dialogId);
+  let sessChanged = false;
+  if (!sess.clientId && fromUser) {
+    sess.clientId = fromUser; // primer mensaje = cliente
+    sessChanged = true;
+  }
   if (sess.clientId && fromUser && fromUser !== sess.clientId) {
     sess.humanTookOver = true; // mensaje de un operador u otro usuario
+    await saveSession(dialogId, sess);
+    inc('operator_msg');
     return log.info('botMessage: mensaje de operador/otro usuario; bot en silencio', {
       fromUser,
       clientId: sess.clientId,
@@ -59,13 +74,17 @@ async function handle(req: Request) {
   if (sess.humanTookOver) {
     return log.info('botMessage: sesión atendida por humano; bot en silencio', { dialogId });
   }
+  if (sessChanged) await saveSession(dialogId, sess);
+
+  inc('inbound');
 
   // Identifica la entidad CRM vinculada al chat (del propio evento; sin llamada extra si viene).
   const crmEntity = await resolveCrmEntity(params, chatId, auth);
   log.info('CRM entity', { entity: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : 'ninguna' });
 
   // Memoria entre sesiones: al iniciar una conversación nueva, carga notas previas del CRM.
-  const esNueva = getHistory(dialogId).length === 0;
+  const esNueva = (await getHistory(dialogId)).length === 0;
+  if (esNueva) inc('conversations');
   const priorContext = esNueva && crmEntity ? await loadPriorContext(crmEntity, auth) : '';
 
   // Indicador de "escribiendo..." mientras razona el agente (no crítico).
@@ -75,7 +94,16 @@ async function handle(req: Request) {
   const reply = await runAgentTurn({ auth, dialogId, chatId, botId, crmEntity }, message, priorContext);
 
   await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: dialogId, MESSAGE: reply }, auth);
+  inc('reply');
   log.info('REPLY enviado', { dialogId, botId });
+
+  // Auditoría del turno (compliance) — independiente del CRM.
+  await audit({
+    type: 'turn',
+    dialogId,
+    crmEntity: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : undefined,
+    detail: { message, reply },
+  });
 
   // Registra automáticamente la conversación en el timeline del CRM (no bloquea la respuesta).
   if (crmEntity) {
