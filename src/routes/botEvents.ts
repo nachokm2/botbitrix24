@@ -10,7 +10,7 @@ import { getSession, saveSession } from '../session';
 import { once } from '../store/kv';
 import { inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
-import { resolveCrmEntity, loadPriorContext, logConversationTurn } from '../crm/openlinesCrm';
+import { resolveAllEntities, primaryEntity, loadPriorContext, logConversationTurn } from '../crm/openlinesCrm';
 
 /**
  * Handler de ONIMBOTMESSAGEADD (mensaje del cliente al bot de Open Lines).
@@ -78,9 +78,10 @@ async function handle(req: Request) {
 
   inc('inbound');
 
-  // Identifica la entidad CRM vinculada al chat (del propio evento; sin llamada extra si viene).
-  const crmEntity = await resolveCrmEntity(params, chatId, auth);
-  log.info('CRM entity', { entity: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : 'ninguna' });
+  // Identifica las entidades CRM vinculadas al chat (del propio evento; sin llamada extra si viene).
+  const crmEntities = await resolveAllEntities(params, chatId, auth);
+  const crmEntity = primaryEntity(crmEntities);
+  log.info('CRM entity', { primary: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : 'ninguna', all: crmEntities });
 
   // Memoria entre sesiones: al iniciar una conversación nueva, carga notas previas del CRM.
   const esNueva = (await getHistory(dialogId)).length === 0;
@@ -91,7 +92,7 @@ async function handle(req: Request) {
   await callBitrix('imbot.chat.sendTyping', { BOT_ID: botId, DIALOG_ID: dialogId }, auth).catch(() => {});
 
   // Agente real: Claude Sonnet 4.6 + tool-calling + memoria + contexto CRM.
-  const reply = await runAgentTurn({ auth, dialogId, chatId, botId, crmEntity }, message, priorContext);
+  const reply = await runAgentTurn({ auth, dialogId, chatId, botId, crmEntity, crmEntities }, message, priorContext);
 
   await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: dialogId, MESSAGE: reply }, auth);
   inc('reply');

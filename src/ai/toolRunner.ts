@@ -1,6 +1,6 @@
 import { buscarProgramas } from './catalog';
 import { getDetalle } from './detalles';
-import { registrarInteres, type CrmEntity } from '../crm/openlinesCrm';
+import { actualizarDatosCliente, type CrmEntity, type CrmEntities } from '../crm/openlinesCrm';
 import { markHumanTakeover } from '../session';
 import { callBitrix } from '../bitrix/client';
 import { log } from '../log';
@@ -12,6 +12,7 @@ export type AgentCtx = {
   chatId?: string | number;
   botId: number;
   crmEntity?: CrmEntity | null;
+  crmEntities?: CrmEntities;
 };
 
 export async function executeTool(name: string, input: any, ctx: AgentCtx): Promise<any> {
@@ -43,10 +44,10 @@ export async function executeTool(name: string, input: any, ctx: AgentCtx): Prom
       }
 
       case 'registrar_interes_crm': {
-        const r = await registrarInteres(ctx.crmEntity ?? null, ctx.chatId, input ?? {}, ctx.auth);
+        const r = await actualizarDatosCliente(ctx.crmEntities ?? {}, ctx.chatId, input ?? {}, ctx.auth);
         if (!r.ok) return { ok: false, error: r.error };
-        log.info('tool registrar_interes_crm', { entidad: `${r.entity?.type}#${r.entity?.id}` });
-        return { ok: true, entidad: `${r.entity?.type} #${r.entity?.id}` };
+        log.info('tool registrar_interes_crm', { actualizado: r.actualizado });
+        return { ok: true, actualizado: r.actualizado };
       }
 
       case 'escalar_a_humano': {

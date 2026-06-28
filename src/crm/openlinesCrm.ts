@@ -40,6 +40,40 @@ export async function resolveCrmEntity(params: any, chatId: any, auth: Auth): Pr
   }
 }
 
+/** Todas las entidades CRM vinculadas al chat (puede haber deal + contacto a la vez). */
+export type CrmEntities = { lead?: number; contact?: number; deal?: number; company?: number };
+
+export function parseAllEntities(data2?: string): CrmEntities {
+  const out: CrmEntities = {};
+  if (!data2 || typeof data2 !== 'string') return out;
+  const parts = data2.split('|');
+  for (let i = 0; i + 1 < parts.length; i += 2) {
+    const t = (parts[i] || '').toLowerCase() as keyof CrmEntities;
+    const id = Number(parts[i + 1]);
+    if (id > 0 && (t === 'lead' || t === 'contact' || t === 'deal' || t === 'company')) out[t] = id;
+  }
+  return out;
+}
+
+export function primaryEntity(e: CrmEntities): CrmEntity | null {
+  for (const t of PRIORITY) if (e[t]) return { type: t, id: e[t]! };
+  return null;
+}
+
+/** Resuelve TODAS las entidades del chat (evento; fallback dialog.get). */
+export async function resolveAllEntities(params: any, chatId: any, auth: Auth): Promise<CrmEntities> {
+  const fromEvent = parseAllEntities(params?.CHAT_ENTITY_DATA_2);
+  if (Object.keys(fromEvent).length) return fromEvent;
+  if (!chatId) return {};
+  try {
+    const r: any = await callBitrix('imopenlines.dialog.get', { CHAT_ID: chatId }, auth);
+    return parseAllEntities(r?.entity_data_2);
+  } catch (e) {
+    log.warn('resolveAllEntities: dialog.get falló', { err: String(e) });
+    return {};
+  }
+}
+
 /** Crea un lead vinculado a la sesión actual (lo que verá el operador) y lo devuelve. */
 export async function ensureLeadForChat(chatId: any, auth: Auth): Promise<CrmEntity | null> {
   try {
@@ -87,46 +121,106 @@ export async function loadPriorContext(entity: CrmEntity, auth: Auth): Promise<s
   }
 }
 
-/** Registra el interés del cliente: vincula/crea la entidad, deja nota y actualiza datos básicos. */
-export async function registrarInteres(
-  entity: CrmEntity | null,
-  chatId: any,
-  data: { programa_interes?: string; nombre?: string; email?: string; telefono?: string; comentario?: string },
-  auth: Auth,
-): Promise<{ ok: boolean; entity?: CrmEntity; error?: string }> {
-  let e = entity;
-  if (!e) e = await ensureLeadForChat(chatId, auth);
-  if (!e) return { ok: false, error: 'No se pudo determinar ni crear la entidad CRM' };
+export type DatosCliente = {
+  nombre?: string;
+  apellido?: string;
+  email?: string;
+  telefono?: string;
+  rut?: string;
+  programa_interes?: string;
+  comentario?: string;
+};
 
+async function addNota(type: CrmEntity['type'], id: number, data: DatosCliente, auth: Auth) {
   const nota =
-    '📌 Interés registrado por IA\n' +
+    '📌 Datos capturados por IA\n' +
     [
-      data.programa_interes ? `Programa: ${data.programa_interes}` : '',
+      data.programa_interes ? `Programa de interés: ${data.programa_interes}` : '',
       data.nombre ? `Nombre: ${data.nombre}` : '',
+      data.apellido ? `Apellido: ${data.apellido}` : '',
       data.email ? `Email: ${data.email}` : '',
       data.telefono ? `Teléfono: ${data.telefono}` : '',
+      data.rut ? `RUT: ${data.rut}` : '',
       data.comentario ? `Nota: ${data.comentario}` : '',
     ]
       .filter(Boolean)
       .join('\n');
-  await callBitrix(
-    'crm.timeline.comment.add',
-    { fields: { ENTITY_ID: e.id, ENTITY_TYPE: e.type, COMMENT: nota } },
-    auth,
-  );
+  await callBitrix('crm.timeline.comment.add', { fields: { ENTITY_ID: id, ENTITY_TYPE: type, COMMENT: nota } }, auth);
+}
 
-  // Actualiza datos básicos en lead/contact (los deals no tienen NAME/EMAIL directos).
-  if ((e.type === 'lead' || e.type === 'contact') && (data.nombre || data.email || data.telefono)) {
+/**
+ * Toma los datos capturados y actualiza el CONTACTO y el DEAL vinculados al chat
+ * (o el lead si esa es la entidad). No sobrescribe el teléfono de WhatsApp.
+ */
+export async function actualizarDatosCliente(
+  entities: CrmEntities,
+  chatId: any,
+  data: DatosCliente,
+  auth: Auth,
+): Promise<{ ok: boolean; actualizado: string[]; error?: string }> {
+  let e = entities;
+  if (!e.lead && !e.contact && !e.deal) {
+    const creado = await ensureLeadForChat(chatId, auth);
+    if (creado) e = { [creado.type]: creado.id };
+  }
+  if (!e.lead && !e.contact && !e.deal) {
+    return { ok: false, actualizado: [], error: 'No se pudo determinar ni crear la entidad CRM' };
+  }
+
+  const actualizado: string[] = [];
+
+  // CONTACTO: nombre/apellido/email (no tocamos el teléfono de WhatsApp ya guardado).
+  if (e.contact) {
     const fields: any = {};
     if (data.nombre) fields.NAME = data.nombre;
-    if (data.telefono) fields.PHONE = [{ VALUE: String(data.telefono), VALUE_TYPE: 'WORK' }];
+    if (data.apellido) fields.LAST_NAME = data.apellido;
     if (data.email) fields.EMAIL = [{ VALUE: String(data.email), VALUE_TYPE: 'WORK' }];
-    const method = e.type === 'lead' ? 'crm.lead.update' : 'crm.contact.update';
     try {
-      await callBitrix(method, { id: e.id, fields }, auth);
+      if (Object.keys(fields).length) {
+        await callBitrix('crm.contact.update', { id: e.contact, fields }, auth);
+        actualizado.push(`contact#${e.contact}`);
+      }
+      await addNota('contact', e.contact, data, auth);
     } catch (err) {
-      log.warn('registrarInteres: update entidad falló', { err: String(err) });
+      log.warn('actualizar contacto falló', { err: String(err) });
     }
   }
-  return { ok: true, entity: e };
+
+  // DEAL: título con el programa de interés + nota.
+  if (e.deal) {
+    const fields: any = {};
+    if (data.programa_interes) {
+      fields.TITLE = `${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`;
+    }
+    if (data.comentario) fields.COMMENTS = data.comentario;
+    try {
+      if (Object.keys(fields).length) {
+        await callBitrix('crm.deal.update', { id: e.deal, fields }, auth);
+      }
+      await addNota('deal', e.deal, data, auth);
+      actualizado.push(`deal#${e.deal}`);
+    } catch (err) {
+      log.warn('actualizar deal falló', { err: String(err) });
+    }
+  }
+
+  // LEAD: solo si no hay contacto/deal (modo "lead" del canal).
+  if (e.lead && !e.contact && !e.deal) {
+    const fields: any = {};
+    if (data.nombre) fields.NAME = data.nombre;
+    if (data.apellido) fields.LAST_NAME = data.apellido;
+    if (data.email) fields.EMAIL = [{ VALUE: String(data.email), VALUE_TYPE: 'WORK' }];
+    if (data.programa_interes) fields.TITLE = `Interés: ${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`;
+    try {
+      if (Object.keys(fields).length) {
+        await callBitrix('crm.lead.update', { id: e.lead, fields }, auth);
+      }
+      await addNota('lead', e.lead, data, auth);
+      actualizado.push(`lead#${e.lead}`);
+    } catch (err) {
+      log.warn('actualizar lead falló', { err: String(err) });
+    }
+  }
+
+  return { ok: actualizado.length > 0, actualizado };
 }

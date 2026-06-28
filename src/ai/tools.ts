@@ -47,16 +47,18 @@ export const tools = [
   {
     name: 'registrar_interes_crm',
     description:
-      'Registra el interés del cliente en su ficha del CRM (la conversación ya está vinculada a su lead/contacto/deal). ' +
-      'Deja una nota con el programa de interés y, si los tienes, actualiza nombre/teléfono/email. ' +
-      'Úsala cuando hayas identificado el programa de interés y, idealmente, algún dato de contacto.',
+      'Guarda en el CRM los datos del cliente que vayas capturando: actualiza el CONTACTO (nombre, apellido, email) ' +
+      'y el DEAL (programa de interés) vinculados a la conversación, y deja una nota. Llámala apenas tengas datos ' +
+      'nuevos (no esperes a tenerlos todos); puedes llamarla varias veces a medida que el cliente los entrega.',
     input_schema: {
       type: 'object',
       properties: {
-        programa_interes: { type: 'string' },
         nombre: { type: 'string' },
-        telefono: { type: 'string' },
+        apellido: { type: 'string' },
         email: { type: 'string' },
+        telefono: { type: 'string', description: 'Solo si el cliente da un teléfono distinto al de WhatsApp' },
+        rut: { type: 'string' },
+        programa_interes: { type: 'string' },
         comentario: { type: 'string' },
       },
       required: [],
