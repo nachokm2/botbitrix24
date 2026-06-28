@@ -91,33 +91,11 @@ function firstBotId(bot: any): number | undefined {
   return k ? Number(k) : undefined;
 }
 
-export async function botWelcomeHandler(req: Request, res: Response) {
-  log.info('POST /events/bot/welcome recibido', { event: (req.body as any)?.event });
-  res.status(200).json({ ok: true }); // ACK inmediato
-  void (async () => {
-    const body: any = req.body ?? {};
-    const params = body?.data?.PARAMS ?? {};
-    const dialogId: string | undefined = params.DIALOG_ID;
-    const auth = extractAuth(req);
-    const botId = firstBotId(body?.data?.BOT) ?? (await getState()).botId ?? config.botId;
-
-    log.info('WELCOME', { dialogId, botId, dataKeys: body?.data ? Object.keys(body.data) : null });
-    if (!auth || !dialogId || !botId) {
-      return log.warn('welcome: faltan datos', { hasAuth: Boolean(auth), dialogId, botId });
-    }
-    await callBitrix(
-      'imbot.message.add',
-      {
-        BOT_ID: botId,
-        DIALOG_ID: dialogId,
-        MESSAGE:
-          '¡Hola! 👋 Soy el asistente de Postgrados de la Universidad Autónoma de Chile. ' +
-          '¿Sobre qué área o programa te gustaría saber?',
-      },
-      auth,
-    );
-    log.info('WELCOME reply enviado', { dialogId, botId });
-  })().catch((e) => log.error('welcome: error', { err: String(e) }));
+export function botWelcomeHandler(req: Request, res: Response) {
+  // No enviamos saludo aquí: el agente saluda al responder el primer mensaje del cliente
+  // (evita el doble saludo y da un saludo contextual).
+  log.info('POST /events/bot/welcome recibido (join, sin saludo fijo)', { event: (req.body as any)?.event });
+  res.status(200).json({ ok: true });
 }
 
 export function botDeleteHandler(_req: Request, res: Response) {
