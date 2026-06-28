@@ -5,6 +5,7 @@ import { getState } from '../store';
 import { config } from '../config';
 import { log } from '../log';
 import { runAgentTurn } from '../ai/agentLoop';
+import { procesarScoring } from '../ai/scoring';
 import { getHistory } from '../ai/memory';
 import { getSession, saveSession } from '../session';
 import { once } from '../store/kv';
@@ -112,6 +113,11 @@ async function handle(req: Request) {
       log.warn('logConversationTurn falló', { err: String(e) }),
     );
   }
+
+  // Lead scoring en segundo plano (Haiku): clasifica intención/sentimiento, puntúa y guarda en el CRM.
+  void procesarScoring(dialogId, crmEntities, auth).catch((e) =>
+    log.warn('procesarScoring falló', { err: String(e) }),
+  );
 }
 
 function firstBotId(bot: any): number | undefined {

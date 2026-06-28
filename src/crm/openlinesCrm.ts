@@ -1,6 +1,9 @@
 import { callBitrix } from '../bitrix/client';
+import { config } from '../config';
 import { log } from '../log';
 import type { Auth } from '../store';
+
+export type LeadEval = { score: number; intencion: string; sentimiento: string; justificacion: string };
 
 // Integración CRM real para el bot de Open Lines.
 // Fuente de verdad: el evento ONIMBOTMESSAGEADD trae la vinculación en CHAT_ENTITY_DATA_2
@@ -223,4 +226,49 @@ export async function actualizarDatosCliente(
   }
 
   return { ok: actualizado.length > 0, actualizado };
+}
+
+/** Guarda la evaluación del lead (score/intención/sentimiento) en el CRM: campos UF (si están
+ *  configurados) en deal/contacto/lead, y opcionalmente una nota en el timeline. */
+export async function guardarEvaluacionCrm(
+  entities: CrmEntities,
+  evalData: LeadEval,
+  auth: Auth,
+  opts: { writeNote: boolean },
+): Promise<void> {
+  const targets: CrmEntity[] = [];
+  if (entities.deal) targets.push({ type: 'deal', id: entities.deal });
+  if (entities.contact) targets.push({ type: 'contact', id: entities.contact });
+  if (entities.lead && !entities.deal && !entities.contact) targets.push({ type: 'lead', id: entities.lead });
+  if (targets.length === 0) return;
+
+  // Campos personalizados (si la unidad los creó y los configuró por env).
+  const ufFields: any = {};
+  if (config.ufScore) ufFields[config.ufScore] = evalData.score;
+  if (config.ufIntent) ufFields[config.ufIntent] = evalData.intencion;
+  if (config.ufSentiment) ufFields[config.ufSentiment] = evalData.sentimiento;
+
+  for (const t of targets) {
+    if (Object.keys(ufFields).length) {
+      const method =
+        t.type === 'deal' ? 'crm.deal.update' : t.type === 'contact' ? 'crm.contact.update' : 'crm.lead.update';
+      try {
+        await callBitrix(method, { id: t.id, fields: ufFields }, auth);
+      } catch (e) {
+        log.warn('guardarEvaluacion: UF update falló', { err: String(e) });
+      }
+    }
+  }
+
+  if (opts.writeNote) {
+    const t = targets[0];
+    const nota =
+      `🎯 Evaluación IA — Score ${evalData.score}/100 · Intención: ${evalData.intencion} · ` +
+      `Sentimiento: ${evalData.sentimiento}\n${evalData.justificacion}`;
+    await callBitrix(
+      'crm.timeline.comment.add',
+      { fields: { ENTITY_ID: t.id, ENTITY_TYPE: t.type, COMMENT: nota } },
+      auth,
+    );
+  }
 }

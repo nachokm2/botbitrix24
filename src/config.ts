@@ -18,4 +18,8 @@ export const config = {
   redisUrl: process.env.REDIS_URL ?? '',
   databaseUrl: process.env.DATABASE_URL ?? '',
   pgSsl: process.env.PGSSL === 'true',
+  // Códigos de campos personalizados (UF) opcionales para guardar el scoring en el CRM.
+  ufScore: process.env.BITRIX_UF_SCORE ?? '',
+  ufIntent: process.env.BITRIX_UF_INTENT ?? '',
+  ufSentiment: process.env.BITRIX_UF_SENTIMENT ?? '',
 };
