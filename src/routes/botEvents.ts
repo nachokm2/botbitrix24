@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { extractAuth } from '../bitrix/auth';
 import { callBitrix } from '../bitrix/client';
-import { getState } from '../store';
+import { getState, setAuth } from '../store';
 import { config } from '../config';
 import { log } from '../log';
 import { runAgentTurn } from '../ai/agentLoop';
@@ -45,6 +45,7 @@ async function handle(req: Request) {
   log.info('INBOUND bot message', { event: body.event, dialogId, chatId, entity, fromUserId, botId, message });
 
   if (!auth) return log.warn('botMessage: sin auth en el evento');
+  void setAuth(auth).catch(() => {}); // mantiene el token fresco en KV para /setup y scripts
   if (!dialogId) return log.warn('botMessage: sin DIALOG_ID', { params });
   if (!message) return log.info('botMessage: evento sin texto (ignorado)');
   if (!botId) return log.warn('botMessage: sin BOT_ID — define BITRIX_BOT_ID en Railway (701561)');
