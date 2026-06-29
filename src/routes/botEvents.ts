@@ -114,8 +114,8 @@ async function handle(req: Request) {
     );
   }
 
-  // Lead scoring en segundo plano (Haiku): clasifica intención/sentimiento, puntúa y guarda en el CRM.
-  void procesarScoring(dialogId, crmEntities, auth).catch((e) =>
+  // Lead scoring en segundo plano (Haiku): puntúa, mueve etapa del deal y auto-escala si el score es alto.
+  void procesarScoring({ dialogId, chatId, botId, crmEntities, auth }).catch((e) =>
     log.warn('procesarScoring falló', { err: String(e) }),
   );
 }

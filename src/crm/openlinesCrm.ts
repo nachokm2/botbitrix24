@@ -236,24 +236,24 @@ export async function guardarEvaluacionCrm(
   auth: Auth,
   opts: { writeNote: boolean },
 ): Promise<void> {
-  const targets: CrmEntity[] = [];
-  if (entities.deal) targets.push({ type: 'deal', id: entities.deal });
-  if (entities.contact) targets.push({ type: 'contact', id: entities.contact });
-  if (entities.lead && !entities.deal && !entities.contact) targets.push({ type: 'lead', id: entities.lead });
-  if (targets.length === 0) return;
+  const primary: CrmEntity | null = entities.deal
+    ? { type: 'deal', id: entities.deal }
+    : entities.contact
+      ? { type: 'contact', id: entities.contact }
+      : entities.lead
+        ? { type: 'lead', id: entities.lead }
+        : null;
+  if (!primary) return;
 
-  // Campos personalizados (si la unidad los creó y los configuró por env).
-  const ufFields: any = {};
-  if (config.ufScore) ufFields[config.ufScore] = evalData.score;
-  if (config.ufIntent) ufFields[config.ufIntent] = evalData.intencion;
-  if (config.ufSentiment) ufFields[config.ufSentiment] = evalData.sentimiento;
-
-  for (const t of targets) {
+  // Los campos UF de scoring están en el Deal (Negociación) → solo se actualizan ahí.
+  if (entities.deal) {
+    const ufFields: any = {};
+    if (config.ufScore) ufFields[config.ufScore] = evalData.score;
+    if (config.ufIntent) ufFields[config.ufIntent] = evalData.intencion;
+    if (config.ufSentiment) ufFields[config.ufSentiment] = evalData.sentimiento;
     if (Object.keys(ufFields).length) {
-      const method =
-        t.type === 'deal' ? 'crm.deal.update' : t.type === 'contact' ? 'crm.contact.update' : 'crm.lead.update';
       try {
-        await callBitrix(method, { id: t.id, fields: ufFields }, auth);
+        await callBitrix('crm.deal.update', { id: entities.deal, fields: ufFields }, auth);
       } catch (e) {
         log.warn('guardarEvaluacion: UF update falló', { err: String(e) });
       }
@@ -261,14 +261,18 @@ export async function guardarEvaluacionCrm(
   }
 
   if (opts.writeNote) {
-    const t = targets[0];
     const nota =
       `🎯 Evaluación IA — Score ${evalData.score}/100 · Intención: ${evalData.intencion} · ` +
       `Sentimiento: ${evalData.sentimiento}\n${evalData.justificacion}`;
     await callBitrix(
       'crm.timeline.comment.add',
-      { fields: { ENTITY_ID: t.id, ENTITY_TYPE: t.type, COMMENT: nota } },
+      { fields: { ENTITY_ID: primary.id, ENTITY_TYPE: primary.type, COMMENT: nota } },
       auth,
     );
   }
+}
+
+/** Mueve el deal a una etapa (STAGE_ID) del embudo. */
+export async function moverEtapaDeal(dealId: number, stageId: string, auth: Auth): Promise<void> {
+  await callBitrix('crm.deal.update', { id: dealId, fields: { STAGE_ID: stageId } }, auth);
 }

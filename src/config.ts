@@ -18,8 +18,13 @@ export const config = {
   redisUrl: process.env.REDIS_URL ?? '',
   databaseUrl: process.env.DATABASE_URL ?? '',
   pgSsl: process.env.PGSSL === 'true',
-  // Códigos de campos personalizados (UF) opcionales para guardar el scoring en el CRM.
+  // Códigos de campos personalizados (UF) opcionales para guardar el scoring en el CRM (en el Deal/Negociación).
   ufScore: process.env.BITRIX_UF_SCORE ?? '',
   ufIntent: process.env.BITRIX_UF_INTENT ?? '',
   ufSentiment: process.env.BITRIX_UF_SENTIMENT ?? '',
+  // Mover la etapa del deal según el score (STAGE_ID del embudo; opcional).
+  stageScoreAlto: process.env.BITRIX_STAGE_SCORE_ALTO ?? '', // score >= 70
+  stageScoreMedio: process.env.BITRIX_STAGE_SCORE_MEDIO ?? '', // score 40-69
+  // Auto-escalar a humano si el score alcanza este umbral (0 = desactivado).
+  scoreEscalar: Number(process.env.SCORE_ESCALAR ?? 80),
 };
