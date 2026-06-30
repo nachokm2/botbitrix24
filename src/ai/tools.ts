@@ -49,16 +49,20 @@ export const tools = [
   {
     name: 'registrar_interes_crm',
     description:
-      'Guarda en el CRM los datos del cliente que vayas capturando: actualiza el CONTACTO (nombre, apellido, email) ' +
-      'y el DEAL (programa de interés) vinculados a la conversación, y deja una nota. Llámala apenas tengas datos ' +
-      'nuevos (no esperes a tenerlos todos); puedes llamarla varias veces a medida que el cliente los entrega.',
+      'Guarda/actualiza en el CRM los datos del cliente que vayas capturando: actualiza el CONTACTO ' +
+      '(nombre, apellido, email, teléfono) y el DEAL (programa de interés) vinculados a la conversación, y deja ' +
+      'una nota. Llámala apenas tengas datos nuevos (no esperes a tenerlos todos); puedes llamarla varias veces ' +
+      'a medida que el cliente los entrega. El email y el teléfono se agregan a la ficha sin borrar los existentes.',
     input_schema: {
       type: 'object',
       properties: {
         nombre: { type: 'string' },
         apellido: { type: 'string' },
-        email: { type: 'string' },
-        telefono: { type: 'string', description: 'Solo si el cliente da un teléfono distinto al de WhatsApp' },
+        email: { type: 'string', description: 'Correo electrónico del cliente; se agrega/actualiza en su contacto.' },
+        telefono: {
+          type: 'string',
+          description: 'Teléfono de contacto que entregue el cliente; se agrega a su ficha (no reemplaza el de WhatsApp).',
+        },
         rut: { type: 'string' },
         programa_interes: {
           type: 'string',

@@ -152,8 +152,24 @@ async function addNota(type: CrmEntity['type'], id: number, data: DatosCliente, 
 }
 
 /**
+ * Fusiona un valor (teléfono/email) en un multicampo de Bitrix SIN borrar los existentes:
+ * conserva las entradas actuales (con su ID) y agrega la nueva solo si no está ya presente.
+ * Así se actualiza el dato del cliente sin perder, p. ej., el número de WhatsApp.
+ */
+function mergeMultifield(existing: any, value: string, type: string): any[] {
+  const arr: any[] = Array.isArray(existing)
+    ? existing.map((e) => ({ ID: e.ID, VALUE: e.VALUE, VALUE_TYPE: e.VALUE_TYPE ?? type }))
+    : [];
+  const norm = (s: string) => String(s ?? '').replace(/[\s()\-.]/g, '').toLowerCase();
+  if (norm(value) && arr.some((e) => norm(e.VALUE) === norm(value))) return arr;
+  arr.push({ VALUE: value, VALUE_TYPE: type });
+  return arr;
+}
+
+/**
  * Toma los datos capturados y actualiza el CONTACTO y el DEAL vinculados al chat
- * (o el lead si esa es la entidad). No sobrescribe el teléfono de WhatsApp.
+ * (o el lead si esa es la entidad). Email y teléfono se FUSIONAN con los existentes
+ * (no se pierde el número de WhatsApp); nombre/apellido se actualizan directo.
  */
 export async function actualizarDatosCliente(
   entities: CrmEntities,
@@ -172,12 +188,21 @@ export async function actualizarDatosCliente(
 
   const actualizado: string[] = [];
 
-  // CONTACTO: nombre/apellido/email (no tocamos el teléfono de WhatsApp ya guardado).
+  // CONTACTO: nombre/apellido + email/teléfono (fusionados con los existentes).
   if (e.contact) {
     const fields: any = {};
     if (data.nombre) fields.NAME = data.nombre;
     if (data.apellido) fields.LAST_NAME = data.apellido;
-    if (data.email) fields.EMAIL = [{ VALUE: String(data.email), VALUE_TYPE: 'WORK' }];
+    if (data.email || data.telefono) {
+      let cur: any = {};
+      try {
+        cur = (await callCrm('crm.contact.get', { id: e.contact }, auth)) ?? {};
+      } catch (err) {
+        log.warn('contact.get para fusionar email/teléfono falló', { err: String(err) });
+      }
+      if (data.email) fields.EMAIL = mergeMultifield(cur.EMAIL, String(data.email), 'WORK');
+      if (data.telefono) fields.PHONE = mergeMultifield(cur.PHONE, String(data.telefono), 'MOBILE');
+    }
     try {
       if (Object.keys(fields).length) {
         await callCrm('crm.contact.update', { id: e.contact, fields }, auth);
@@ -214,7 +239,16 @@ export async function actualizarDatosCliente(
     const fields: any = {};
     if (data.nombre) fields.NAME = data.nombre;
     if (data.apellido) fields.LAST_NAME = data.apellido;
-    if (data.email) fields.EMAIL = [{ VALUE: String(data.email), VALUE_TYPE: 'WORK' }];
+    if (data.email || data.telefono) {
+      let cur: any = {};
+      try {
+        cur = (await callCrm('crm.lead.get', { id: e.lead }, auth)) ?? {};
+      } catch (err) {
+        log.warn('lead.get para fusionar email/teléfono falló', { err: String(err) });
+      }
+      if (data.email) fields.EMAIL = mergeMultifield(cur.EMAIL, String(data.email), 'WORK');
+      if (data.telefono) fields.PHONE = mergeMultifield(cur.PHONE, String(data.telefono), 'MOBILE');
+    }
     if (data.programa_interes) fields.TITLE = `Interés: ${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`;
     try {
       if (Object.keys(fields).length) {
