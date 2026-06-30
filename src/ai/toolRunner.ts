@@ -1,6 +1,6 @@
 import { buscarProgramas } from './catalog';
 import { getDetalle } from './detalles';
-import { actualizarDatosCliente, type CrmEntity, type CrmEntities } from '../crm/openlinesCrm';
+import { actualizarDatosCliente, getDealAsesores, type CrmEntity, type CrmEntities } from '../crm/openlinesCrm';
 import { markHumanTakeover } from '../session';
 import { callBitrix } from '../bitrix/client';
 import { log } from '../log';
@@ -55,8 +55,26 @@ export async function executeTool(name: string, input: any, ctx: AgentCtx): Prom
           await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: ctx.chatId }, ctx.auth);
         }
         await markHumanTakeover(ctx.dialogId); // tras escalar, el bot deja de responder en esa sesión
-        log.info('tool escalar_a_humano', { motivo: input?.motivo, chatId: ctx.chatId });
-        return { ok: true, escalado: true };
+
+        // Trae el asesor asignado (responsable del deal) para que el bot pueda nombrarlo al cliente.
+        let asesor: string | null = null;
+        if (ctx.crmEntities?.deal) {
+          try {
+            const { responsable } = await getDealAsesores(ctx.crmEntities.deal, ctx.auth);
+            if (responsable && !responsable.nombre.startsWith('Usuario ')) asesor = responsable.nombre;
+          } catch (e) {
+            log.warn('escalar_a_humano: no se pudo traer el responsable', { err: String(e) });
+          }
+        }
+        log.info('tool escalar_a_humano', { motivo: input?.motivo, chatId: ctx.chatId, asesor });
+        return {
+          ok: true,
+          escalado: true,
+          asesor,
+          mensaje: asesor
+            ? `Conversación derivada. Informa al cliente, de forma cálida, que su asesor asignado ${asesor} lo contactará a la brevedad.`
+            : 'Conversación derivada a un asesor. Informa al cliente que un asesor lo contactará a la brevedad.',
+        };
       }
 
       default:
