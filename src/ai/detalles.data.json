@@ -27,10 +27,42 @@
     ],
     "becas": "Consultar becas y beneficios vigentes con un asesor.",
     "malla": [
-      { "semestre": "I Semestre", "modulos": ["Aprendizaje en ambientes virtuales", "Políticas Públicas en Inclusión Educativa", "Teorías de la Convivencia Educativa", "Diversidad, Equidad e Inclusión", "Metodología de la Investigación en Educación"] },
-      { "semestre": "II Semestre", "modulos": ["Gestión de la Convivencia Educativa", "Diagnóstico Institucional y Clima Educativo", "Marco Normativo y Legislación Educativa", "Diseño de Programas de Inclusión", "Educación socioemocional y convivencia educativa"] },
-      { "semestre": "III Semestre", "modulos": ["Liderazgo Educativo para la Inclusión", "Métodos Cuantitativos y Cualitativos aplicados", "Evaluación de Programas en Convivencia Educativa", "Gestión del Cambio en Instituciones Educativas", "Actividad de Graduación I"] },
-      { "semestre": "IV Semestre", "modulos": ["Actividad de Graduación II"] }
+      {
+        "semestre": "I Semestre",
+        "modulos": [
+          "Aprendizaje en ambientes virtuales",
+          "Políticas Públicas en Inclusión Educativa",
+          "Teorías de la Convivencia Educativa",
+          "Diversidad, Equidad e Inclusión",
+          "Metodología de la Investigación en Educación"
+        ]
+      },
+      {
+        "semestre": "II Semestre",
+        "modulos": [
+          "Gestión de la Convivencia Educativa",
+          "Diagnóstico Institucional y Clima Educativo",
+          "Marco Normativo y Legislación Educativa",
+          "Diseño de Programas de Inclusión",
+          "Educación socioemocional y convivencia educativa"
+        ]
+      },
+      {
+        "semestre": "III Semestre",
+        "modulos": [
+          "Liderazgo Educativo para la Inclusión",
+          "Métodos Cuantitativos y Cualitativos aplicados",
+          "Evaluación de Programas en Convivencia Educativa",
+          "Gestión del Cambio en Instituciones Educativas",
+          "Actividad de Graduación I"
+        ]
+      },
+      {
+        "semestre": "IV Semestre",
+        "modulos": [
+          "Actividad de Graduación II"
+        ]
+      }
     ],
     "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/05/Magister-en-Gestion-de-la-Inclusion-y-Convivencia-Educativa.pdf"
   },
@@ -447,5 +479,1157 @@
     "requisitos": "Profesionales de administración, economía, ingeniería y/o ciencias sociales que deseen fortalecer su perfil gerencial.",
     "descripcion": "Desarrolla capacidades directivas estratégicas y competencias técnicas e interpersonales en gestión organizacional globalizada, con énfasis en habilidades socioemocionales, innovación y liderazgo.",
     "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/05/Magister-en-Direccion-de-Empresas-MBA-Presencial.pdf"
+  },
+  "diplomado-en-redaccion-de-contratos-inmobiliarios-estudio-de-titulos-y-derecho-registral": {
+    "nombre": "Diplomado en Redacción de Contratos Inmobiliarios, Estudio de Títulos y Derecho Registral",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-redaccion-de-contratos-inmobiliarios-estudio-de-titulos-y-derecho-registral/",
+    "arancel": null,
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a abogados titulados, licenciados en Ciencias Jurídicas y estudiantes de últimos años de Derecho que se desempeñen o deseen trabajar en operaciones sobre bienes inmuebles.",
+    "descripcion": "Especialización práctica que desarrolla competencias para asesorar operaciones inmobiliarias, desde el análisis jurídico hasta la redacción contractual, el cierre notarial-registral y la incorporación responsable de inteligencia artificial.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/06/Diplomado-en-Redaccion-de-Contratos-Inmobiliarios-Estudio-de-Titulos-y-Derecho-Registral.pdf"
+  },
+  "diplomado-en-psicomotricidad-y-necesidades-educativas-especiales": {
+    "nombre": "Diplomado en Psicomotricidad y Necesidades Educativas Especiales",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-psicomotricidad-y-necesidades-educativas-especiales/",
+    "arancel": null,
+    "matricula": "$120.000",
+    "requisitos": "Dirigido a profesionales de Educación Física, Educación Diferencial, Terapia Ocupacional y áreas afines que utilicen el movimiento como herramienta de desarrollo integral.",
+    "descripcion": "Especialización que forma profesionales competentes en Educación por el Movimiento aplicada a contextos de inclusión educativa, capacitándolos para intervenir estratégicamente en escuelas y centros de rehabilitación.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/06/Diplomado-en-Psicomotricidad-y-Necesidades-Educativas-Especiales.pdf"
+  },
+  "diplomado-en-delegado-en-proteccion-de-datos": {
+    "nombre": "Diplomado en Delegado en Protección de Datos",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-delegado-en-proteccion-de-datos/",
+    "arancel": "$1.190.000",
+    "matricula": "$150.000",
+    "requisitos": null,
+    "descripcion": "Capacita profesionales para diseñar, implementar y auditar programas de cumplimiento y gobernanza en protección de datos, respondiendo a la Ley chilena N.º 21.719.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/06/Diplomado-en-Delegado-en-Proteccion-De-Datos.pdf"
+  },
+  "diplomado-en-control-de-gestion": {
+    "nombre": "Diplomado en Control de Gestión",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-control-de-gestion/",
+    "arancel": null,
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a técnicos de administración, ejecutivos y emprendedores. Se recomienda experiencia básica en gestión organizacional, aunque no es obligatorio un título previo.",
+    "descripcion": "Programa práctico de 5 meses que desarrolla competencias para alinear las operaciones con la estrategia organizacional mediante herramientas como indicadores de desempeño, mapas estratégicos y análisis financiero para decisiones ejecutivas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/06/Diplomado-en-Control-de-Gestion.pdf"
+  },
+  "diplomado-en-metodologias-activas-y-gamificacion-para-la-ensenanza-del-siglo-xxi": {
+    "nombre": "Diplomado en Metodologías Activas y Gamificación para la Enseñanza del Siglo XXI",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-metodologias-activas-y-gamificacion-para-la-ensenanza-del-siglo-xxi/",
+    "arancel": null,
+    "matricula": "$120.000",
+    "requisitos": "Dirigido a docentes de todos los niveles (básica, media, técnico-profesional y superior), equipos técnico-pedagógicos, orientadores, coordinadores académicos y formadores interesados en innovación pedagógica.",
+    "descripcion": "Desarrolla competencias pedagógicas, tecnológicas y digitales para planificar, implementar y evaluar experiencias de enseñanza-aprendizaje basadas en metodologías activas, gamificación e integración de Inteligencia Artificial.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/05/Diplomado-en-Metodologias-Activas-y-Gamificacion-para-la-Ensenanza-del-Siglo-XXI.pdf"
+  },
+  "diplomado-en-gestion-y-gobernanza-cultural-de-la-ciencia": {
+    "nombre": "Diplomado en Gestión y Gobernanza Cultural de la Ciencia",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-gestion-y-gobernanza-cultural-de-la-ciencia/",
+    "arancel": "$ 990.000",
+    "matricula": "$120.000",
+    "requisitos": "No es obligatorio tener título previo, pero se recomienda formación en psicología o áreas afines para mejor aprovechamiento.",
+    "descripcion": "Programa que forma gestores estratégicos para diseñar políticas, liderar organizaciones e incidir en ecosistemas de ciencia y sociedad, combinando divulgación tradicional con gobernanza cultural de la ciencia.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/06/Diplomado-en-Gestion-y-Gobernanza-Cultural-de-la-Ciencia_PD.pdf"
+  },
+  "diplomado-en-coaching-profesional": {
+    "nombre": "Diplomado en Coaching Profesional",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-coaching-profesional/",
+    "arancel": null,
+    "matricula": null,
+    "requisitos": "No es necesario contar con un título previo. El programa está diseñado para personas con o sin formación universitaria que deseen formarse como coaches profesionales.",
+    "descripcion": "Forma profesionales capaces de comprender y aplicar procesos de coaching con enfoque integral, desarrollando habilidades conversacionales, escucha activa y gestión emocional para acompañar a personas en su cambio y logro de objetivos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/12/Programa-Doble-Titulacion-Coach-Profesional-2026-1.pdf"
+  },
+  "diplomado-en-relaciones-internacionales": {
+    "nombre": "Diplomado en Relaciones Internacionales",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-relaciones-internacionales/",
+    "arancel": "$990.000",
+    "matricula": "$120.000",
+    "requisitos": "No es obligatorio tener título previo, pero se recomienda formación en áreas de ciencias sociales, economía, derecho o relaciones internacionales.",
+    "descripcion": "Programa online de 5 meses que forma profesionales con visión crítica de dinámicas globales, brindando herramientas teóricas y analíticas para interpretar desafíos internacionales contemporáneos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Relaciones-Internacionales.pdf"
+  },
+  "diplomado-en-politica-y-sociedad": {
+    "nombre": "Diplomado en Política y Sociedad",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-politica-y-sociedad/",
+    "arancel": "$990.000",
+    "matricula": "$120.000",
+    "requisitos": "No es obligatorio tener título previo, pero se recomienda formación en áreas afines para mejor aprovechamiento.",
+    "descripcion": "Programa que forma profesionales con comprensión crítica del pensamiento político y económico, analizando ideologías, políticas públicas y gobernabilidad en contextos contemporáneos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-Politica-y-Sociedad.pdf"
+  },
+  "diplomado-en-bioestadistica-aplicada-al-area-de-la-salud": {
+    "nombre": "Diplomado en Bioestadística Aplicada al Área de la Salud",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-bioestadistica-aplicada-al-area-de-la-salud/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": null,
+    "descripcion": "Profesional competente en principios fundamentales de bioestadística, probabilidad, distribuciones estadísticas, inferencia, análisis multivariado y diseño de estudios con validez científica.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Bioestadistica-Aplicada-al-Area-de-la-Salud.pdf"
+  },
+  "diplomado-en-psicoterapia-cognitiva-constructivista-y-terapias-contextuales": {
+    "nombre": "Diplomado en Psicoterapia Cognitiva Constructivista y Terapias Contextuales",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-psicoterapia-cognitiva-constructivista-y-terapias-contextuales/",
+    "arancel": "$1.090.000 (1.090 USD)",
+    "matricula": "$150.000 (150 USD)",
+    "requisitos": "No es obligatorio título previo, pero se recomienda formación en psicología o áreas afines para mejor aprovechamiento del programa.",
+    "descripcion": "Integra teorías cognitivas constructivistas con enfoques contextuales para profesionales de salud mental. Enseña evaluación, tratamiento y reconstrucción de narrativas personales en psicoterapia.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Psicoterapia-Cognitiva-Constructivista-y-Terapias-Contextuales-1-1.pdf"
+  },
+  "diplomado-en-gestion-en-farmacia-asistencial": {
+    "nombre": "Diplomado en Gestión en Farmacia Asistencial",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-gestion-en-farmacia-asistencial/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a farmacéuticos, químicos farmacéuticos y profesionales del área de la salud con interés en gestión farmacéutica.",
+    "descripcion": "Programa online de 5 meses que capacita profesionales en gestión efectiva de farmacias asistenciales, enfatizando calidad del servicio y atención farmacéutica personalizada.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Gestion-en-Farmacia-Asistencial-.pdf"
+  },
+  "diplomado-en-pruebas-en-el-proceso-penal-acusatorio-y-litigacion-estrategica": {
+    "nombre": "Diplomado en Pruebas en el Proceso Penal Acusatorio y Litigación Estratégica",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-pruebas-en-el-proceso-penal-acusatorio-y-litigacion-estrategica/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a abogados, jueces, fiscales, defensores públicos y otros profesionales del derecho interesados en especializarse en litigación penal.",
+    "descripcion": "Programa online de 5 meses que profundiza en manejo de pruebas dentro del proceso penal acusatorio, enfocado en técnicas de litigación adversarial, argumentación legal y estrategias de defensa y acusación efectivas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Pruebas-en-el-Proceso-Penal-Acusatorio-y-Litigacion-Estrategica.pdf"
+  },
+  "diplomado-en-derecho-penal-economico-y-de-la-empresa-nueva-ley-de-delitos-economicos": {
+    "nombre": "Diplomado en Derecho Penal Económico y de la Empresa Nueva Ley de Delitos Económicos",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-derecho-penal-economico-y-de-la-empresa-nueva-ley-de-delitos-economicos/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": null,
+    "descripcion": "Programa online de 5 meses que capacita profesionales en la nueva Ley N°21.595 sobre delitos económicos, enfocándose en prevención, detección y cumplimiento corporativo.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Derecho-Penal-Economico-y-de-la-Empresa-Nueva-Ley-de-Delitos-Economicos-1-1.pdf"
+  },
+  "diplomado-en-violencia-sexual-y-maltrato-infanto-juvenil": {
+    "nombre": "Diplomado en Violencia Sexual y Maltrato Infanto-Juvenil",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-violencia-sexual-y-maltrato-infanto-juvenil/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "Programa abierto a profesionales y estudiantes de último año en psicología, trabajo social, derecho y afines, trabajando o con intención de insertarse en programas de abuso sexual o maltrato infantil.",
+    "descripcion": "Forma profesionales para problematizar, diagnosticar e intervenir en situaciones de violencia sexual y maltrato hacia niños, niñas y adolescentes con estrategias interdisciplinarias.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Violencia-Sexual-y-Maltrato-Infanto-Juvenil.pdf"
+  },
+  "diplomado-en-data-science-para-organizaciones-de-la-salud": {
+    "nombre": "Diplomado en Data Science para Organizaciones de la Salud",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-data-science-para-organizaciones-de-la-salud/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": null,
+    "descripcion": "Profesional competente para aplicar técnicas de inteligencia y análisis de datos en instituciones de salud, generando información que favorezca la toma de decisiones y mejoras estratégicas organizacionales.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Data-Science-para-Organizaciones-de-la-Salud.pdf"
+  },
+  "diplomado-en-rehabilitacion-transdisciplinaria-enfermedades-respiratorias": {
+    "nombre": "Diplomado en Rehabilitación Transdisciplinaria Enfermedades Respiratorias",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-rehabilitacion-transdisciplinaria-enfermedades-respiratorias/",
+    "arancel": "$790.000",
+    "matricula": "$150.000",
+    "requisitos": null,
+    "descripcion": "Desarrollar competencias para evaluar, planificar y tratar personas con enfermedades respiratorias, facilitando decisiones de rehabilitación y reduciendo discapacidad posterior.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Rehabilitacion-Transdisciplinaria-Enfermedades-Respiratorias.pdf"
+  },
+  "diplomado-en-inspeccion-tecnica-de-obras": {
+    "nombre": "Diplomado en Inspección Técnica de Obras",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-inspeccion-tecnica-de-obras/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Profesionales con título de Arquitecto, Ingeniero Constructor, Ingeniero Civil o Ingeniero en Ejecución de instituciones de educación superior nacionales o extranjeras.",
+    "descripcion": "Programa que forma profesionales en inspección, supervisión y control de proyectos de construcción, capacitando en gestión de calidad, normativa legal y administración técnica de obras.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Inspeccion-en-Tecnicas-de-Obras.pdf"
+  },
+  "diplomado-en-autoridad-sanitaria-nacional": {
+    "nombre": "Diplomado en Autoridad Sanitaria Nacional",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-autoridad-sanitaria-nacional/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Licenciatura o Título Universitario en profesiones del área de la salud. Dirigido a funcionarios públicos profesionales o técnicos del Ministerio de Salud.",
+    "descripcion": "Programa que capacita profesionales para desempeñarse en el Ministerio de Salud con énfasis en normativa legal-reglamentaria y salud pública, cubriendo estructura sanitaria nacional y competencias en salud pública.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/06/Diplomado-en-Autoridad-Sanitaria-Nacional.pdf"
+  },
+  "diplomado-en-docencia-basado-en-simulacion-clinica": {
+    "nombre": "Diplomado en Docencia Basado en Simulación Clínica",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-docencia-basado-en-simulacion-clinica/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a profesionales del área de la salud interesados en perfeccionarse en Simulación Clínica de la Facultad de Ciencias de la Salud.",
+    "descripcion": "Programa que capacita profesionales de salud en Simulación Clínica como herramienta metodológica. Desarrolla competencias para diseñar estrategias educativas, identificar necesidades de aprendizaje y mejorar procesos de enseñanza.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Docencia-Basado-en-Simulacion-Clinica-1.pdf"
+  },
+  "diplomado-en-bienestar-laboral-y-riesgos-psicosociales": {
+    "nombre": "Diplomado en Bienestar Laboral y Riesgos Psicosociales",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-bienestar-laboral-y-riesgos-psicosociales/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio contar con un título previo. Está dirigido principalmente a profesionales de recursos humanos, psicología, líderes de equipo y gestores organizacionales.",
+    "descripcion": "Programa que aborda estrategias y técnicas para la identificación, prevención y gestión de riesgos psicosociales en el entorno laboral, promoviendo el bienestar y la calidad de vida de los trabajadores.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Bienestar-Laboral-y-Riesgos-Psicosociales-.pdf"
+  },
+  "diplomado-en-administracion-de-obras": {
+    "nombre": "Diplomado en Administración de Obras",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-administracion-de-obras/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es necesario tener un título previo. El programa está dirigido a profesionales y técnicos del sector de la construcción, emprendedores o personas interesadas en la administración de proyectos de construcción.",
+    "descripcion": "Capacita profesionales para gestionar proyectos de construcción mediante planificación, control de costos, normativas de seguridad y sostenibilidad, optimizando recursos y mejorando la productividad.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/04/Diplomado-en-Administracion-de-Obras-.pdf"
+  },
+  "diplomado-en-arquitectura-de-software": {
+    "nombre": "Diplomado en Arquitectura de Software",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-arquitectura-de-software/",
+    "arancel": "$1.190.000",
+    "matricula": "$150.000",
+    "requisitos": "No es necesario tener un título previo, pero se recomienda tener conocimientos básicos en programación, diseño de software o experiencia en el desarrollo de aplicaciones.",
+    "descripcion": "Programa que enseña principios de arquitectura de software, patrones de diseño, sistemas distribuidos e implementación de microservicios a lo largo de cinco meses, orientado a profesionales de TI.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Arquitectura-de-Software.pdf"
+  },
+  "diplomado-en-amor-sexualidad-y-apego": {
+    "nombre": "Diplomado en Amor, Sexualidad y Apego",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-amor-sexualidad-y-apego/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Abierto a profesionales del área de la salud, educación, psicología y otras disciplinas afines.",
+    "descripcion": "Programa online de 5 meses orientado a profesionales que explora las bases científicas y psicológicas del apego, las relaciones afectivas y la sexualidad humana desde una perspectiva profesional y aplicada.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Apego-Amor-y-Sexualidad.pdf"
+  },
+  "diplomado-en-rehabilitacion-y-habilitacion-deportiva-post-lesiones-musculoesqueleticas": {
+    "nombre": "Diplomado en Rehabilitación y Habilitación Deportiva Post Lesiones Musculoesqueléticas",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-rehabilitacion-y-habilitacion-deportiva-post-lesiones-musculoesqueleticas/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio, pero se recomienda contar con formación o experiencia en kinesiología, fisioterapia, educación física o entrenamiento deportivo.",
+    "descripcion": "Programa de 5 meses que capacita profesionales en técnicas avanzadas de rehabilitación deportiva, combinando teoría y práctica clínica para la recuperación óptima de atletas tras lesiones.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Rehabilitacion-y-Habilitacion-Deportiva-Post-Lesiones-Musculoesqueleticas-1.pdf"
+  },
+  "diplomado-en-cuidados-de-enfermeria-en-paciente-oncologico": {
+    "nombre": "Diplomado en Cuidados de Enfermería en Paciente Oncológico",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-cuidados-de-enfermeria-en-paciente-oncologico/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido exclusivamente a enfermeros titulados que deseen especializarse en cuidados oncológicos, desarrollando habilidades avanzadas en el manejo del paciente con cáncer.",
+    "descripcion": "Programa que especializa en el cuidado integral del paciente oncológico, abordando fisiopatología, tratamiento, manejo del dolor y apoyo emocional con un enfoque interdisciplinario y humanizado.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Cuidados-de-Enfermeria-en-Paciente-Oncologico.pdf"
+  },
+  "diplomado-en-salud-familiar-y-comunitaria": {
+    "nombre": "Diplomado en Salud Familiar y Comunitaria",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-salud-familiar-y-comunitaria/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio, pero se recomienda contar con formación o experiencia en enfermería, trabajo social, medicina, psicología o salud pública.",
+    "descripcion": "Especialización en el enfoque familiar y comunitario de la atención sanitaria. Cubre salud preventiva, manejo de enfermedades crónicas y estrategias para mejorar la salud de comunidades y familias.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Salud-Familiar-y-Comunitaria.pdf"
+  },
+  "diplomado-en-fisiologia-clinica-del-ejercicio": {
+    "nombre": "Diplomado en Fisiología Clínica del Ejercicio",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-fisiologia-clinica-del-ejercicio/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio, pero se recomienda contar con formación o experiencia en educación física, kinesiología, fisioterapia, entrenamiento deportivo, nutrición o áreas relacionadas.",
+    "descripcion": "Programa de 5 meses que forma en fisiología del ejercicio y su aplicación clínica, enfocado en prevención, evaluación y manejo de enfermedades crónicas, además de la optimización del rendimiento físico.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Fisiologia-Clinica-del-Ejercicio.pdf"
+  },
+  "diplomado-en-gestion-de-la-calidad-y-acreditacion-en-salud": {
+    "nombre": "Diplomado en Gestión de la Calidad y Acreditación en Salud",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-gestion-de-la-calidad-y-acreditacion-en-salud/",
+    "arancel": "$1.390.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a profesionales del área de la salud, incluyendo médicos, enfermeros, químicos farmacéuticos y administradores de salud que busquen especializarse en calidad y acreditación.",
+    "descripcion": "Programa que forma profesionales para liderar y gestionar sistemas de calidad en servicios de salud, abarcando diseño, implementación y evaluación conforme a estándares de acreditación nacionales e internacionales.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Gestion-de-la-Calidad-y-Acreditacion-en-Salud-.pdf"
+  },
+  "diplomado-en-vejez-envejecimiento-y-salud-mental": {
+    "nombre": "Diplomado en Vejez, Envejecimiento y Salud Mental",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-vejez-envejecimiento-y-salud-mental/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es estrictamente obligatorio, pero se recomienda formación o experiencia en psicología, trabajo social, gerontología, enfermería, medicina o áreas relacionadas.",
+    "descripcion": "Programa integral que aborda las teorías del envejecimiento, la promoción de la salud mental positiva y la intervención en trastornos psicológicos y psiquiátricos en poblaciones de adultos mayores desde un enfoque multidisciplinario.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Diplomado-en-vejez-envejecimiento-y-salud-mental-.pdf"
+  },
+  "diplomado-en-cuidado-quirurgico-ginecoobstetrico": {
+    "nombre": "Diplomado en Cuidado Quirúrgico Gineco-obstétrico",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-cuidado-quirurgico-ginecoobstetrico/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Médicos cirujanos, ginecólogos, obstetras, enfermeras y personal de salud involucrado en el cuidado ginecoobstétrico.",
+    "descripcion": "Programa especializado enfocado en la preparación de profesionales de la salud para el cuidado quirúrgico gineco-obstétrico, integrando conocimiento médico avanzado, habilidades prácticas y un enfoque empático.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Cuidado-Quirurgico-Ginecoobstetrico.pdf"
+  },
+  "diplomado-en-enfermeria-en-cuidados-de-la-persona-en-hemodialisis": {
+    "nombre": "Diplomado en Enfermería en Cuidados de la Persona en Hemodiálisis",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-enfermeria-en-cuidados-de-la-persona-en-hemodialisis/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Enfermeros titulados que deseen especializarse en la atención de pacientes en hemodiálisis y el manejo de equipos de diálisis.",
+    "descripcion": "Programa especializado de 5 meses que capacita enfermeros en cuidados de pacientes en hemodiálisis, abarcando fisiopatología renal, gestión del tratamiento y apoyo psicosocial integral.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Enfermeria-en-Cuidados-de-la-Persona-en-Hemodialisis-.pdf"
+  },
+  "diplomado-en-paciente-critico-adulto": {
+    "nombre": "Diplomado en Paciente Crítico Adulto",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-paciente-critico-adulto/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "Médicos, enfermeros y otros profesionales de la salud que trabajan en unidades de cuidados intensivos o emergencias.",
+    "descripcion": "Programa centrado en el cuidado integral del adulto en estado crítico, desde el soporte vital avanzado hasta el manejo interdisciplinario post-intensivo, asegurando una recuperación óptima del paciente.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Diplomado-en-Paciente-Critico-Adulto.pdf"
+  },
+  "diplomado-en-enfermeria-para-los-cuidados-intensivos-del-adulto-y-adulto-mayor-en-estado-critico": {
+    "nombre": "Diplomado en Enfermería para los Cuidados Intensivos del Adulto y Adulto Mayor en Estado Crítico",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-enfermeria-para-los-cuidados-intensivos-del-adulto-y-adulto-mayor-en-estado-critico/",
+    "arancel": "$990.000",
+    "matricula": "$120.000",
+    "requisitos": "Enfermeros titulados que deseen especializarse en la atención de pacientes en estado crítico, ya sea en unidades de cuidados intensivos, intermedios o de emergencia.",
+    "descripcion": "Programa especializado en cuidados intensivos con foco en adultos y adultos mayores, integrando habilidades clínicas avanzadas, manejo de tecnología y cuidado personalizado y compasivo.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Enfermeria-para-los-Cuidados-Intensivos-del-Adulto-y-Adulto-Mayor-en-Estado-Critico-.pdf"
+  },
+  "diplomado-en-derecho-ambiental-y-gestion-sostenible": {
+    "nombre": "Diplomado en Derecho Ambiental y Gestión Sostenible",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-derecho-ambiental-y-gestion-sostenible/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a profesionales del derecho, gestores ambientales, planificadores urbanos y líderes empresariales. No es necesario ser abogado, pero se recomienda contar con conocimientos básicos en normativas o gestión ambiental.",
+    "descripcion": "Programa que combina el derecho ambiental con estrategias de gestión sostenible, abarcando legislación ambiental, evaluación de impacto, gestión de recursos naturales y políticas de sostenibilidad durante 5 meses.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Derecho-Ambiental-y-Gestion-Sostenible-1.pdf"
+  },
+  "diplomado-en-cuidados-respiratorios-para-kinesiologos": {
+    "nombre": "Diplomado en Cuidados Respiratorios para Kinesiólogos",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-cuidados-respiratorios-para-kinesiologos/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Kinesiólogos titulados que deseen especializarse en la evaluación, manejo y rehabilitación de pacientes con enfermedades respiratorias.",
+    "descripcion": "Programa diseñado para especializar kinesiólogos en el manejo avanzado de patologías respiratorias, técnicas de rehabilitación y prevención en pacientes de todas las edades, con enfoque en el cuidado basado en evidencia.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Cuidados-Respiratorios-para-Kinesiologos-1.pdf"
+  },
+  "diplomado-en-asistencia-del-recien-nacido-de-alto-riesgo": {
+    "nombre": "Diplomado en Asistencia del Recién Nacido de Alto Riesgo",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-asistencia-del-recien-nacido-de-alto-riesgo/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es necesario un título previo, pero está dirigido principalmente a profesionales del área de la salud, como médicos, enfermeros y matronas.",
+    "descripcion": "Diplomado que capacita profesionales de la salud en cuidados especializados a recién nacidos de alto riesgo, abarcando patologías neonatales, técnicas avanzadas en cuidados intensivos y apoyo integral a familias.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Asistencia-del-Recien-Nacido-de-Alto-Riesgo-.pdf"
+  },
+  "diplomado-en-neurociencia-clinica-y-neurorrehabilitacion": {
+    "nombre": "Diplomado en Neurociencia Clínica y Neurorrehabilitación",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-neurociencia-clinica-y-neurorrehabilitacion/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a kinesiólogos, terapeutas ocupacionales, médicos fisiatras, fonoaudiólogos y otros profesionales del área de la salud interesados en la rehabilitación neurológica.",
+    "descripcion": "Programa online de 5 meses que ofrece un enfoque integral de la neurociencia clínica y las técnicas de neurorrehabilitación, con un foco multidisciplinario para el tratamiento de condiciones neurológicas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Neurociencia-Clinica-y-Neurorrehabilitacion.pdf"
+  },
+  "diplomado-en-analgesia-y-sedacion-odontologica": {
+    "nombre": "Diplomado en Analgesia y sedación odontológica",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-analgesia-y-sedacion-odontologica/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido exclusivamente a odontólogos titulados, nacionales o extranjeros, que deseen especializarse en técnicas de analgesia y sedación.",
+    "descripcion": "Formación especializada para odontólogos en técnicas avanzadas de analgesia, protocolos de sedación consciente, farmacología aplicada al manejo del dolor y protocolos de seguridad en emergencias odontológicas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Analgesia-y-sedacion-odontologica-.pdf"
+  },
+  "diplomado-en-neurorrehabilitacion-del-adulto": {
+    "nombre": "Diplomado en Neurorrehabilitación del Adulto",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-neurorrehabilitacion-del-adulto/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Médicos, terapeutas ocupacionales, fisioterapeutas, enfermeros y otros profesionales de la salud involucrados en la rehabilitación neurológica.",
+    "descripcion": "Formación especializada en neurorrehabilitación desde el cuidado agudo hasta la reintegración comunitaria, enfatizando técnicas avanzadas, tecnología asistiva y la mejora de la calidad de vida de pacientes con daño neurológico.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Neurorrehabilitacion-del-Adulto.pdf"
+  },
+  "diplomado-en-piso-pelvico-para-profesionales-de-la-salud": {
+    "nombre": "Diplomado en Piso Pélvico para Profesionales de la Salud",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-piso-pelvico-para-profesionales-de-la-salud/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "Médicos, kinesiólogos, matrones, fisioterapeutas y otros profesionales del área de la salud interesados en la rehabilitación del piso pélvico.",
+    "descripcion": "Programa online especializado que ofrece formación en diagnóstico, tratamiento y prevención de trastornos del piso pélvico con un enfoque multidisciplinario centrado en el bienestar de la mujer durante 5 meses.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Piso-Pelvico-para-Profesionales-de-la-Salud.pdf"
+  },
+  "diplomado-en-enfermeria-hospitalaria-en-atencion-domiciliaria": {
+    "nombre": "Diplomado en Enfermería Hospitalaria en atención Domiciliaria",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-enfermeria-hospitalaria-en-atencion-domiciliaria/",
+    "arancel": "$990.000",
+    "matricula": "$150.000",
+    "requisitos": "Enfermeros titulados que deseen especializarse en la atención domiciliaria de pacientes con necesidades de hospitalización en el hogar.",
+    "descripcion": "Programa que prepara enfermeros para brindar atención de calidad en hospitalización domiciliaria, desarrollando competencias en tecnologías de salud, manejo de condiciones crónicas y coordinación multidisciplinaria.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Enfermeria-Hospitalaria-en-atencion-Domiciliaria.pdf"
+  },
+  "diplomado-en-cuidados-neonatales-para-matronas": {
+    "nombre": "Diplomado en Cuidados Neonatales para Matronas",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-cuidados-neonatales-para-matronas/",
+    "arancel": "$990.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a matronas tituladas que deseen especializarse en el cuidado integral del recién nacido y adquirir competencias avanzadas en atención neonatal.",
+    "descripcion": "Especializa a matronas en la atención inmediata y postnatal al recién nacido, abordando fundamentos de cuidados, manejo de emergencias, nutrición, desarrollo neuroemocional y cuidados paliativos basados en evidencia científica.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Cuidados-Neonatales-para-Matronas.pdf"
+  },
+  "diplomado-en-docencia-universitaria-en-ciencias-de-la-salud": {
+    "nombre": "Diplomado en Docencia Universitaria en Ciencias de la Salud",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-docencia-universitaria-en-ciencias-de-la-salud/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a profesionales de la salud (médicos, enfermeros, odontólogos, fisioterapeutas) interesados en la docencia universitaria o que deseen especializarse en educación.",
+    "descripcion": "Capacita a docentes en ciencias de la salud aplicando métodos de enseñanza efectivos, fomentando el pensamiento crítico y contribuyendo al desarrollo académico estudiantil mediante herramientas pedagógicas innovadoras.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Docencia-Universitaria-en-Ciencias-de-la-Salud.pdf"
+  },
+  "diplomado-en-antibioticos-y-terapia-antimicrobiana": {
+    "nombre": "Diplomado en Antibióticos y Terapia Antimicrobiana",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-antibioticos-y-terapia-antimicrobiana/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Médicos Cirujanos, Químicos Farmacéuticos, Enfermeros y otros profesionales de la salud que participan en el manejo de infecciones.",
+    "descripcion": "El profesional egresado del Diplomado en Antibióticos y Terapia Antimicrobiana de la Universidad Autónoma es competente para integrar y aplicar conocimientos especializados en el manejo de terapias antimicrobianas, con enfoque en el uso racional de antibacterianos y la prevención de la resistencia bacteriana.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Antibioticos-y-Terapia-Antimicrobiana.pdf"
+  },
+  "diplomado-en-motricidad-orofacial": {
+    "nombre": "Diplomado en Motricidad Orofacial",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-motricidad-orofacial/",
+    "arancel": "$1.390.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a fonoaudiólogos y profesionales con licenciatura en fonoaudiología.",
+    "descripcion": "El Diplomado en Motricidad Orofacial de la Universidad Autónoma de Chile se centra en la evaluación y tratamiento de las disfunciones orofaciales, con técnicas especializadas para mejorar las habilidades de habla y deglución, orientado a mejorar la calidad de vida de los pacientes.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Motricidad-Orofacial-.pdf"
+  },
+  "diplomado-en-gestion-de-riesgos-y-auditoria-clinica-para-instituciones-de-salud": {
+    "nombre": "Diplomado en Gestión de Riesgos y Auditoria Clínica para Instituciones de Salud",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-gestion-de-riesgos-y-auditoria-clinica-para-instituciones-de-salud/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Profesionales de la salud, incluyendo médicos, enfermeros, gestores hospitalarios y técnicos de calidad.",
+    "descripcion": "El Diplomado en Gestión de Riesgos y Auditoría Clínica para Instituciones de Salud de la Universidad Autónoma de Chile prepara a los profesionales para identificar, evaluar y gestionar los riesgos en salud, así como para llevar a cabo auditorías clínicas que mejoren la calidad y seguridad del paciente.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Gestion-de-Riesgos-y-Auditoria-Clinica-para-Instituciones-de-Salud.pdf"
+  },
+  "diplomado-en-psicologia-clinica-diagnostico-y-psicoterapia": {
+    "nombre": "Diplomado en Psicología Clínica: Diagnóstico y Psicoterapia",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-psicologia-clinica-diagnostico-y-psicoterapia/",
+    "arancel": "$1.390.000",
+    "matricula": "$150.000",
+    "requisitos": "Profesionales del ámbito de la salud mental, como psicólogos y psiquiatras, así como aquellos en roles de apoyo en el área de salud.",
+    "descripcion": "El Diplomado en Psicología Clínica: Diagnóstico y Psicoterapia de la Universidad Autónoma de Chile brinda a los profesionales una comprensión avanzada y práctica de los métodos de diagnóstico y las estrategias de psicoterapia, con énfasis en la evidencia empírica y la práctica reflexiva.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Psicologia-Clinica-Diagnostico-y-Psicoterapia.pdf"
+  },
+  "diplomado-en-clinica-psicoanalitica": {
+    "nombre": "Diplomado en Clínica Psicoanalítica",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-clinica-psicoanalitica/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Psicólogos clínicos, psiquiatras y otros profesionales de la salud mental con interés en la terapia psicoanalítica.",
+    "descripcion": "El Diplomado en Clínica Psicoanalítica de la Universidad Autónoma de Chile profundiza en la teoría y práctica psicoanalítica con adultos, explorando las dinámicas inconscientes, las técnicas de intervención y el desarrollo de la capacidad analítica del terapeuta.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Clinica-Psicoanalitica-.pdf"
+  },
+  "diplomado-en-psicologia-del-deporte": {
+    "nombre": "Diplomado en Psicología del Deporte",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-psicologia-del-deporte/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Profesionales de la salud mental, entrenadores deportivos y educadores físicos que deseen especializarse en el ámbito de la psicología del deporte.",
+    "descripcion": "El Diplomado en Psicología del Deporte de la Universidad Autónoma de Chile ofrece una visión completa sobre la psicología aplicada al deporte, cubriendo aspectos como la motivación, el manejo del estrés y la psicología de equipos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Psicologia-del-Deporte-.pdf"
+  },
+  "diplomado-en-psicoterapia-infanto-juvenil": {
+    "nombre": "Diplomado en Psicoterapia Infanto Juvenil",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-psicoterapia-infanto-juvenil/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a psicólogos y licenciados en psicología, psiquiatras en formación o con especialización, y otros profesionales de las ciencias sociales y la salud que trabajen con niños y adolescentes.",
+    "descripcion": "El egresado es un profesional competente en los conceptos fundamentales de la Psicología Clínica y la Psicoterapia Infanto-Juvenil, incluyendo métodos de evaluación diagnóstica, criterios clínicos y formas de intervención, capaz de diseñar estrategias de evaluación e intervención y comunicar resultados con claridad.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Psicoterapia-Infanto-Juvenil-.pdf"
+  },
+  "diplomado-en-gestion-estrategica-de-evaluacion-y-seleccion-de-personas": {
+    "nombre": "Diplomado en Gestión Estratégica de Evaluación y Selección de Personas",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-gestion-estrategica-de-evaluacion-y-seleccion-de-personas/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Profesionales de recursos humanos, gerentes de selección y reclutadores que buscan actualizar y profundizar sus habilidades en la selección de personal.",
+    "descripcion": "El Diplomado en Gestión Estratégica de Evaluación y Selección de Personas de la Universidad Autónoma de Chile está diseñado para dotar a los profesionales de recursos humanos con las herramientas y conocimientos necesarios para optimizar los procesos de evaluación y selección de personal.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Gestion-Estrategica-de-Evaluacion-y-Seleccion-de-Personas.pdf"
+  },
+  "diplomado-en-disfuncion-sexual-femenina": {
+    "nombre": "Diplomado en Disfunción Sexual Femenina",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-disfuncion-sexual-femenina/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Ginecólogos, sexólogos, psicólogos, médicos de familia y otros profesionales de la salud interesados en la salud sexual femenina.",
+    "descripcion": "El Diplomado en Disfunción Sexual Femenina de la Universidad Autónoma de Chile está orientado a profundizar en el conocimiento de la sexualidad femenina y sus disfunciones, proporcionando herramientas clínicas para el diagnóstico y tratamiento efectivo desde una perspectiva biopsicosocial.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Disfuncion-Sexual-Femenina.pdf"
+  },
+  "diplomado-en-intervencion-en-adicciones": {
+    "nombre": "Diplomado en Intervención en Adicciones",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-intervencion-en-adicciones/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Profesionales de la salud, educación y ciencias sociales, así como líderes comunitarios y responsables de políticas públicas interesados en la gestión y tratamiento de adicciones.",
+    "descripcion": "El Diplomado en Intervención en Adicciones de la Universidad Autónoma de Chile ofrece un enfoque integral y multidisciplinario para entender y abordar las adicciones, dotando a los participantes de herramientas avanzadas sobre diversas formas de adicción, desde sustancias psicoactivas hasta comportamientos compulsivos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Intervencion-en-Adicciones.pdf"
+  },
+  "diplomado-en-neurociencia-humana-y-neuropsicologia": {
+    "nombre": "Diplomado en Neurociencia Humana y Neuropsicología",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-neurociencia-humana-y-neuropsicologia/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Neuropsicólogos, psicólogos clínicos, médicos y otros profesionales de la salud interesados en la aplicación de la neurociencia a la práctica clínica.",
+    "descripcion": "El Diplomado en Neurociencia Humana y Neuropsicología de la Universidad Autónoma de Chile ofrece una exploración detallada de la neurociencia humana y su aplicación en la neuropsicología, proporcionando una comprensión de cómo las estructuras cerebrales se correlacionan con procesos psicológicos y comportamientos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Neurociencia-Humana-y-Neuropsicologia.pdf"
+  },
+  "diplomado-en-ley-karin-y-acoso-laboral": {
+    "nombre": "Diplomado en Ley Karin y Acoso Laboral",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-ley-karin-y-acoso-laboral/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Funcionarios de la administración pública (fiscales de sumarios, personal de gestión y desarrollo de personas, jefaturas), abogados y funcionarios públicos y privados en general.",
+    "descripcion": "El egresado del Diplomado en Ley Karin y Acoso Laboral es competente para aplicar eficazmente las nuevas disposiciones legales sobre violencia y acoso laboral, conociendo en profundidad los derechos, obligaciones y procedimientos administrativos, y promoviendo ambientes de trabajo seguros, respetuosos e inclusivos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Ley-Karin-y-Acoso-Laboral.pdf"
+  },
+  "diplomado-en-astronomia-general": {
+    "nombre": "Diplomado en Astronomía General",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-astronomia-general/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Abierto a personas interesadas en la astronomía sin requerir conocimientos previos; orientado a educadores, entusiastas de la ciencia y profesionales de diversas áreas.",
+    "descripcion": "Al finalizar el Diplomado en Astronomía General de la Universidad Autónoma de Chile, el egresado tendrá una sólida comprensión de los principios fundamentales de la astronomía, abarcando la formación y evolución de estrellas, planetas, galaxias y otros fenómenos cosmológicos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Astronomia-General-.pdf"
+  },
+  "diplomado-en-derecho-colectivo-del-trabajo": {
+    "nombre": "Diplomado en Derecho Colectivo del Trabajo",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-derecho-colectivo-del-trabajo/",
+    "arancel": "$990.000",
+    "matricula": "$120.000",
+    "requisitos": "Abogados, asesores laborales, gestores de recursos humanos y representantes sindicales.",
+    "descripcion": "El profesional egresado del Diplomado en Derecho Colectivo del Trabajo de la Universidad Autónoma es un profesional con competencias especializadas para desempeñarse en contextos laborales complejos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Derecho-Colectivo-del-Trabajo-.pdf"
+  },
+  "diplomado-en-derecho-migratorio": {
+    "nombre": "Diplomado en Derecho Migratorio",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-derecho-migratorio/",
+    "arancel": "$990.000",
+    "matricula": "$120.000",
+    "requisitos": "Abogados, asesores legales, funcionarios de organizaciones internacionales y ONGs relacionadas con migración.",
+    "descripcion": "El Diplomado en Derecho Migratorio de la Universidad Autónoma de Chile ofrece una perspectiva actualizada sobre el derecho migratorio, incluyendo políticas públicas, normativas internacionales y prácticas de litigio.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Derecho-Migratorio-.pdf"
+  },
+  "diplomado-en-derecho-aduanero": {
+    "nombre": "Diplomado en Derecho Aduanero",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-derecho-aduanero/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Abogados, agentes aduaneros, ejecutivos de comercio internacional y funcionarios gubernamentales.",
+    "descripcion": "El Diplomado en Derecho Aduanero de la Universidad Autónoma de Chile brinda una comprensión profunda del derecho aduanero y su impacto en el comercio internacional. Los participantes estudiarán la legislación aduanera, los procedimientos de importación y exportación y las regulaciones internacionales pertinentes.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Derecho-Aduanero-.pdf"
+  },
+  "diplomado-en-litigacion-oral": {
+    "nombre": "Diplomado en Litigación Oral",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-litigacion-oral/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a abogados/as, licenciados/as, egresados/as y estudiantes de último año que deseen adquirir y actualizar conocimientos y habilidades de litigación.",
+    "descripcion": "El egresado del Diplomado en Litigación Penal de la Universidad Autónoma de Chile es un profesional con competencias y habilidades para desempeñarse en el ámbito de la litigación penal, tanto en el sector público como en el privado.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Litigacion-Oral-.pdf"
+  },
+  "diplomado-en-neuroarquitectura-de-interiores": {
+    "nombre": "Diplomado en Neuroarquitectura de Interiores",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-neuroarquitectura-de-interiores/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Diseñadores de interiores, arquitectos, urbanistas y profesionales interesados en la psicología ambiental y el diseño humanizado.",
+    "descripcion": "El Diplomado en Neuroarquitectura de Interiores de la Universidad Autónoma de Chile une el diseño de interiores con la innovación del neurointeriorismo, aplicando avances de la neurociencia para potenciar la creación de espacios arquitectónicos orientados al bienestar, la productividad y la armonía psicológica.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Neuroarquitectura-de-Interiores.pdf"
+  },
+  "diplomado-en-compliance-e-integridad-corporativa": {
+    "nombre": "Diplomado en Compliance e Integridad Corporativa",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-compliance-e-integridad-corporativa/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Oficiales de cumplimiento, gerentes de riesgos, auditores internos y ejecutivos de nivel medio y alto interesados en fortalecer las prácticas de integridad en sus organizaciones.",
+    "descripcion": "El Diplomado en Compliance e Integridad Corporativa de la Universidad Autónoma de Chile ofrece una formación integral en las prácticas de cumplimiento y ética corporativa, esencial para la gestión de riesgos y la sostenibilidad empresarial.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Compliance-e-Integridad-Corporativa.pdf"
+  },
+  "diplomado-en-liderazgo-para-el-sector-publico": {
+    "nombre": "Diplomado en Liderazgo para el Sector Público",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-liderazgo-para-el-sector-publico/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Funcionarios públicos, líderes de equipos y gestores de proyectos interesados en ampliar sus capacidades de liderazgo.",
+    "descripcion": "El Diplomado en Liderazgo para el Sector Público de la Universidad Autónoma de Chile está diseñado para desarrollar líderes transformacionales que guíen y motiven equipos del sector público, preparándolos para enfrentar los desafíos de la administración pública con integridad y visión estratégica.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Liderazgo-para-el-Sector-Publico-.pdf"
+  },
+  "diplomado-en-hemato-oncologia-traslacional": {
+    "nombre": "Diplomado en Hemato-Oncología Traslacional",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-hemato-oncologia-traslacional/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "Profesionales del área de la salud, estudiantes de Medicina, Tecnólogos Médicos, Químicos Farmacéuticos, Enfermeros(as), entre otros.",
+    "descripcion": "El Diplomado en Hemato-Oncología Traslacional de la Universidad Autónoma de Chile aborda los constantes adelantos científicos del área, con implicancias clínicas directas: mejora del diagnóstico, seguimiento de enfermedades con detección temprana de recaídas y nuevos tratamientos como inmunoterapia, terapia dirigida y terapia celular.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Hemato-Oncologia-Traslacional.pdf"
+  },
+  "diplomado-en-neurorrehabilitacion-infantil-e-integracion-sensorial": {
+    "nombre": "Diplomado en Neurorrehabilitación Infantil e Integración Sensorial",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-neurorrehabilitacion-infantil-e-integracion-sensorial/",
+    "arancel": "$1.390.000",
+    "matricula": "$150.000",
+    "requisitos": "Licenciados/as y profesionales ligados a la rehabilitación de personas con alteraciones neuromotoras: kinesiólogos, terapeutas ocupacionales, fonoaudiólogos y médicos.",
+    "descripcion": "El Diplomado en Neurorrehabilitación Infantil e Integración Sensorial de la Universidad Autónoma de Chile busca la capacitación especializada en el área de la rehabilitación infantil, ampliando las oportunidades y herramientas actualmente utilizadas en el ámbito terapéutico.",
+    "brochureUrl": null
+  },
+  "diplomado-en-implantologia-oral-con-enfoque-quirurgico-protesico": {
+    "nombre": "Diplomado en Implantología Oral con Enfoque Quirúrgico Protésico",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-implantologia-oral-con-enfoque-quirurgico-protesico/",
+    "arancel": "$4.590.000",
+    "matricula": "$250.000",
+    "requisitos": "Dirigido exclusivamente a odontólogos titulados que desean especializarse en implantología oral y mejorar competencias en planificación, cirugía y rehabilitación con implantes.",
+    "descripcion": "Programa de 9 meses que capacita a odontólogos en implantología oral básica, cirugía de implantes y rehabilitación protésica, combinando teoría con práctica clínica especializada.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/03/Diplomado-en-Implantologia-Oral-con-Enfoque-Quirurgico-Protesico.pdf"
+  },
+  "diplomado-en-ortodoncia-preventiva-e-interceptiva-y-ortopedia-dentomaxilofacial": {
+    "nombre": "Diplomado en Ortodoncia Preventiva e Interceptiva y Ortopedia Dentomaxilofacial",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-ortodoncia-preventiva-e-interceptiva-y-ortopedia-dentomaxilofacial/",
+    "arancel": "$3.990.000",
+    "matricula": "$250.000",
+    "requisitos": "Dirigido a odontólogos especialistas, cirujanos dentistas y licenciados en odontología, nacionales o extranjeros, que ejerzan en actividades privadas o instituciones de salud pública.",
+    "descripcion": "Programa de 10 meses que capacita a odontólogos en detección, diagnóstico y tratamiento temprano de maloclusiones dentomaxilares en niños y adolescentes mediante ortodoncia preventiva e interceptiva y ortopedia.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Ortodoncia-Preventiva-e-Interceptiva-y-Ortopedia-Dentomaxilofacial-1.pdf"
+  },
+  "diplomado-en-cariologia-clinica": {
+    "nombre": "Diplomado en Cariología Clínica",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-cariologia-clinica/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a odontólogos titulados y cirujanos dentistas licenciados en odontología que deseen especializarse en caries dentales.",
+    "descripcion": "Programa online de 5 meses que profundiza en prevención, diagnóstico y tratamiento de caries dentales, combinando teoría actualizada con práctica clínica basada en evidencia científica.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Cariologia-Clinica.pdf"
+  },
+  "diplomado-en-odontopediatria-clinica": {
+    "nombre": "Diplomado en Odontopediatría Clínica",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-odontopediatria-clinica/",
+    "arancel": "$3.290.000",
+    "matricula": "$250.000",
+    "requisitos": "Dirigido a odontólogos y cirujanos dentistas chilenos y extranjeros, o estudiantes de último año de odontología sin impedimento académico.",
+    "descripcion": "Programa de 10 meses que capacita en diagnóstico, prevención y tratamiento integral de patologías orales en lactantes, niños y adolescentes, con enfoque en salud pública y privada.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Odontopediatria-Clinica-2.pdf"
+  },
+  "diplomado-en-rehabilitacion-oral-integral-y-estetica-adhesiva": {
+    "nombre": "Diplomado en Rehabilitación Oral Integral y Estética Adhesiva",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-rehabilitacion-oral-integral-y-estetica-adhesiva/",
+    "arancel": "$3.490.000",
+    "matricula": "$200.000",
+    "requisitos": "Dirigido a odontólogos cirujano dentista, licenciados en odontología, odontólogos generales y especialistas, nacionales y extranjeros.",
+    "descripcion": "Programa de 10 meses que forma profesionales en diagnóstico, planificación y ejecución de tratamientos de rehabilitación oral integral con énfasis en estética adhesiva y procedimientos mínimamente invasivos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Diplomado-en-Rehabilitacion-Oral-Integral-y-Estetica-Adhesiva.pdf"
+  },
+  "diplomado-en-endodoncia-clinica-mecanizada-con-cirugia-apical": {
+    "nombre": "Diplomado en Endodoncia Clínica Mecanizada con Cirugía Apical",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-endodoncia-clinica-mecanizada-con-cirugia-apical/",
+    "arancel": "$3.490.000",
+    "matricula": "$250.000",
+    "requisitos": "Dirigido exclusivamente a odontólogos titulados; programa abierto a odontólogos generales y especialistas, nacionales y extranjeros.",
+    "descripcion": "Programa avanzado de 10 meses que capacita en diagnóstico pulpar, tratamientos endodónticos mecanizados y cirugía apical, aplicando bases biológicas y clínicas modernas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Endodoncia-Clinica-Mecanizada-y-Cirugia-Apical.pdf"
+  },
+  "diplomado-en-trastornos-temporomandibulares-y-dolor-orofacial-vision-integrativa-interdisciplinaria": {
+    "nombre": "Diplomado en Trastornos Temporomandibulares y Dolor Orofacial – Visión Integrativa Interdisciplinaria",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-trastornos-temporomandibulares-y-dolor-orofacial-vision-integrativa-interdisciplinaria/",
+    "arancel": "$2.750.000",
+    "matricula": "$250.000",
+    "requisitos": "Dirigido a odontólogos, kinesiólogos y profesionales afines de la salud interesados en actualización; se requiere título profesional previo.",
+    "descripcion": "Diplomado semestral híbrido que capacita a profesionales de la salud en diagnóstico, tratamiento y manejo interdisciplinario de trastornos temporomandibulares y dolor orofacial con enfoque conservador.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Trastornos-Temporomandibulares-y-Dolor-Orofacial-Vision-Integrativa-Interdisciplinaria.pdf"
+  },
+  "diplomado-en-trastornos-temporomandibulares-y-dolor-orofacial": {
+    "nombre": "Diplomado en Trastornos Temporomandibulares y Dolor Orofacial",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-trastornos-temporomandibulares-y-dolor-orofacial/",
+    "arancel": "$2.790.000",
+    "matricula": "$200.000",
+    "requisitos": "Dirigido a odontólogos y profesionales de la salud oral; se requiere título previo en odontología u otra disciplina de salud.",
+    "descripcion": "Diplomado de 10 meses que proporciona formación especializada en diagnóstico y tratamiento de trastornos temporomandibulares y dolor orofacial mediante el protocolo RCD-TMD.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2024/05/universidad-autonoma-brochure-diplomado-trastornos-temporomandibulares-dolor-orofacial.pdf"
+  },
+  "diplomado-en-business-analytics-and-data-science-2": {
+    "nombre": "Diplomado en Business Analytics and Data Science",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-business-analytics-and-data-science-2/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio contar con un título previo, pero se recomienda tener conocimientos básicos en matemáticas, estadística o informática.",
+    "descripcion": "Programa online de 5 meses que forma profesionales en herramientas y técnicas avanzadas para análisis de datos, modelado predictivo y toma de decisiones empresariales basadas en datos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Business-Analytics-and-Data-Science.pdf"
+  },
+  "diplomado-en-python-y-data-science": {
+    "nombre": "Diplomado en Python y Data Science",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-python-y-data-science/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio contar con título previo, pero se recomienda conocimientos básicos de matemáticas y estadística.",
+    "descripcion": "Diplomado online de 5 meses que entrega competencias en programación Python, análisis de datos, modelado estadístico y machine learning para profesionales técnicos e ingenieros.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Python-y-Data-Science.pdf"
+  },
+  "diplomado-en-gerencia-de-proyectos-enfoque-pmp": {
+    "nombre": "Diplomado en Gerencia de Proyectos – Enfoque PMP®",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-gerencia-de-proyectos-enfoque-pmp/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio tener conocimientos previos en gestión de proyectos, aunque se recomienda experiencia en esta área o en administración para un mejor aprovechamiento.",
+    "descripcion": "Programa online de 5 meses que capacita profesionales en metodologías de gestión de proyectos alineadas con el PMBOK, fortaleciendo competencias en planificación, ejecución, control y cierre de proyectos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Gerencia-de-Proyectos-Enfoque-PMP®.pdf"
+  },
+  "diplomado-en-inteligencia-artificial-ia": {
+    "nombre": "Diplomado en Inteligencia Artificial (IA)",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-inteligencia-artificial-ia/",
+    "arancel": "$1.190.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a técnicos o profesionales de informática, computación o electrónica con conocimientos de programación, especialmente Python, estadística e interés en análisis de datos.",
+    "descripcion": "Programa online de 5 meses que enseña principios de aprendizaje automático, aprendizaje profundo, visión por computadora y procesamiento de lenguaje natural para desarrollar soluciones de IA.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/04/Diplomado-en-Inteligencia-Artificial.pdf"
+  },
+  "diplomado-en-big-data-and-machine-learning": {
+    "nombre": "Diplomado en Big Data and Machine Learning",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-big-data-and-machine-learning/",
+    "arancel": "$990.000",
+    "matricula": "$150.000",
+    "requisitos": null,
+    "descripcion": "Programa que entrega competencias para construir aplicaciones con Python, técnicas de Machine Learning y visualización de grandes volúmenes de datos, dirigido a profesionales técnicos, emprendedores y empresarios.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Big-Data-and-Machine-Learning.pdf"
+  },
+  "diplomado-en-ciberseguridad-y-ciberdefensa": {
+    "nombre": "Diplomado en Ciberseguridad y Ciberdefensa",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-ciberseguridad-y-ciberdefensa/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a profesionales de TI, ingenieros, administradores de redes e interesados; se recomienda tener conocimientos básicos en informática, redes o sistemas de información.",
+    "descripcion": "Programa online de 5 meses que forma especialistas en diseño e implementación de planes de ciberseguridad y ciberdefensa en instituciones públicas o privadas, analizando riesgos y amenazas del ciberespacio.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/04/Diplomado-en-Ciberseguridad-y-Ciberdefensa.pdf"
+  },
+  "diplomado-en-desarrollo-de-habilidades-cognitivas-desde-un-enfoque-inclusivo": {
+    "nombre": "Diplomado en Desarrollo de habilidades cognitivas desde un enfoque Inclusivo",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-desarrollo-de-habilidades-cognitivas-desde-un-enfoque-inclusivo/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Recomendable formación en educación, psicopedagogía, fonoaudiología, terapia ocupacional o disciplinas afines; se sugiere experiencia en áreas vinculadas al aprendizaje e inclusión educativa.",
+    "descripcion": "Programa online de 5 meses que capacita profesionales en estrategias cognitivas desde una perspectiva inclusiva, potenciando el aprendizaje mediante metodologías innovadoras adaptadas a la diversidad estudiantil.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Diplomado-en-Desarrollo-de-habilidades-cognitivas-desde-un-enfoque-Inclusivo.pdf"
+  },
+  "diplomado-en-fomento-y-mediacion-lectora-para-la-primera-infancia": {
+    "nombre": "Diplomado en Fomento y Mediación Lectora para la Primera Infancia",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-fomento-y-mediacion-lectora-para-la-primera-infancia/",
+    "arancel": "$900.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a profesionales de primera infancia y educadores que trabajen en establecimientos municipales, particulares subvencionados, jardines, salas cunas, JUNJI, INTEGRA o educación básica primer ciclo.",
+    "descripcion": "Forma a profesionales de educación parvularia en alfabetización inicial con prácticas pedagógicas innovadoras para potenciar la lectura y escritura desde un enfoque inclusivo.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Fomento-y-Mediacion-Lectora-para-la-Primera-Infancia.pdf"
+  },
+  "diplomado-en-gestion-y-liderazgo-para-centros-educativos-de-la-primera-infancia": {
+    "nombre": "Diplomado en Gestión y Liderazgo para Centros Educativos de la Primera Infancia",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-gestion-y-liderazgo-para-centros-educativos-de-la-primera-infancia/",
+    "arancel": "$790.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a educadoras de párvulos y profesores de educación básica primer ciclo de centros educativos públicos y privados.",
+    "descripcion": "Programa que forma profesionales en gestión organizacional de instituciones educativas de primera infancia, con énfasis en las políticas educativas del sector.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Gestion-y-Liderazgo-para-Centros-Educativos-de-la-Primera-Infancia.pdf"
+  },
+  "diplomado-en-diseno-gestion-e-innovacion-curricular": {
+    "nombre": "Diplomado en Diseño, Gestión e Innovación Curricular",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-diseno-gestion-e-innovacion-curricular/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Programa abierto a equipos directivos, profesores de enseñanza general básica y media, egresados y estudiantes de último año; se recomienda formación o experiencia en educación.",
+    "descripcion": "Programa online de 5 meses que capacita profesionales en planificación y evaluación de planes de estudio, aplicando estrategias innovadoras para responder a los desafíos educativos actuales.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Diseno-Gestion-e-Innovacion-Curricular.pdf"
+  },
+  "diplomado-en-innovacion-en-la-intervencion-social-y-educativa": {
+    "nombre": "Diplomado en Innovación en la Intervención Social y Educativa",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-innovacion-en-la-intervencion-social-y-educativa/",
+    "arancel": "$790.000",
+    "matricula": "$150.000",
+    "requisitos": null,
+    "descripcion": "Programa que analiza el contexto social y educativo actual para proporcionar respuestas innovadoras a problemas en poblaciones vulnerables, capacitando en trabajo social, educación y gestión comunitaria.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Innovacion-en-la-Intervencion-Social-y-Educativa.pdf"
+  },
+  "diplomado-en-evaluacion-autentica-y-retroalimentacion-efectiva-en-contextos-diversos-de-intervencion-educativa": {
+    "nombre": "Diplomado en Evaluación Auténtica y Retroalimentación Efectiva en Contextos Diversos de Intervención Educativa",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-evaluacion-autentica-y-retroalimentacion-efectiva-en-contextos-diversos-de-intervencion-educativa/",
+    "arancel": "$790.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a profesionales de educación que trabajen en establecimientos escolares municipales, particulares subvencionados o centros particulares de educación parvularia, básica, media y superior.",
+    "descripcion": "Programa que proporciona herramientas para implementar prácticas evaluativas auténticas, diseñar instrumentos de evaluación y aplicar retroalimentación efectiva desde un enfoque inclusivo e integral del aprendizaje.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Evaluacion-Autentinca-y-Retroalimentacion-Efectiva-en-Contextos-Diversos-de-Intervencion-Educativa-1.pdf"
+  },
+  "diplomado-en-inclusion-educativa-de-personas-en-condicion-del-espectro-autista": {
+    "nombre": "Diplomado en Inclusión Educativa de Personas en Condición del Espectro Autista",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-inclusion-educativa-de-personas-en-condicion-del-espectro-autista/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Se recomienda formación o experiencia en educación, psicopedagogía, fonoaudiología, terapia ocupacional o áreas relacionadas con la enseñanza y apoyo a personas con TEA. No es obligatorio un título previo.",
+    "descripcion": "Programa online de 5 meses que capacita profesionales en estrategias inclusivas, adaptaciones curriculares y herramientas para fomentar el aprendizaje de estudiantes con TEA.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Inclusion-Educativa-de-Personas-en-Condicion-del-Espectro-Autista.pdf"
+  },
+  "diplomado-en-gestion-de-convivencia-escolar": {
+    "nombre": "Diplomado en Gestión de Convivencia Escolar",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-gestion-de-convivencia-escolar/",
+    "arancel": "$900.000",
+    "matricula": "$150.000",
+    "requisitos": null,
+    "descripcion": "Programa especializado en gestión de convivencia escolar con cinco módulos que abordan enfoques teóricos, normativa, gestión, mediación y resolución de conflictos en contextos educativos inclusivos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-enDiplomado-en-Gestion-en-Convivencia-Escolar.pdf"
+  },
+  "diplomado-en-docencia-e-innovacion-de-la-educacion-superior": {
+    "nombre": "Diplomado en Docencia e Innovación de la Educación Superior",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-docencia-e-innovacion-de-la-educacion-superior/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a licenciados o profesionales titulados en universidades, institutos profesionales o carreras, que se desempeñen o deseen incorporarse al mundo académico de la educación superior.",
+    "descripcion": "Programa de 5 meses que capacita docentes en metodologías innovadoras, diseño curricular y evaluación de aprendizajes para educación superior, incluyendo entornos virtuales y a distancia.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Docencia-e-Innovacion-en-la-Educacion-Superior.pdf"
+  },
+  "diplomado-en-competencias-digitales-para-la-docencia": {
+    "nombre": "Diplomado en Competencias Digitales para la Docencia",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-competencias-digitales-para-la-docencia/",
+    "arancel": "$790.000",
+    "matricula": "$150.000",
+    "requisitos": null,
+    "descripcion": "Diplomado que desarrolla competencias para diseñar e implementar experiencias de aprendizaje mediadas por tecnologías emergentes, con enfoque pedagógico e innovador para docentes.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Diplomado-en-Competencias-Digitales-para-la-Docencia.pdf"
+  },
+  "diplomado-en-derecho-de-familia-infancia-y-adolescencia": {
+    "nombre": "Diplomado en Derecho de Familia, Infancia y Adolescencia",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-derecho-de-familia-infancia-y-adolescencia/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a profesionales en ciencias sociales y licenciados, chilenos o extranjeros, con interés en estudiar esta disciplina.",
+    "descripcion": "Programa de 5 meses que forma profesionales en derecho de familia, infancia y adolescencia con enfoque teórico, práctico y jurisprudencial para asesorar ante tribunales.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Derecho-de-Familia-Infancia-y-Adolescencia.pdf"
+  },
+  "diplomado-en-derecho-del-trabajo-y-proceso-laboral": {
+    "nombre": "Diplomado en Derecho del Trabajo y Proceso Laboral",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-derecho-del-trabajo-y-proceso-laboral/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a abogados y licenciados que deseen actualizar conocimientos en derecho laboral con enfoque teórico-práctico.",
+    "descripcion": "Programa online de 5 meses que desarrolla competencias para asesoría especializada en derecho laboral, procedimientos judiciales y resolución de conflictos laborales con análisis jurisprudencial.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Derecho-del-Trabajo-y-Proceso-Laboral.pdf"
+  },
+  "diplomado-en-inteligencia-artificial-y-derecho": {
+    "nombre": "Diplomado en Inteligencia Artificial y Derecho",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-inteligencia-artificial-y-derecho/",
+    "arancel": "$990.000",
+    "matricula": "$120.000",
+    "requisitos": "Fotocopia por ambos lados de la cédula de identidad y fotocopia legalizada del grado académico o título equivalente.",
+    "descripcion": "Programa que entrega herramientas jurídicas para analizar el impacto ético y regulatorio de la inteligencia artificial en propiedad intelectual, contratación, datos personales y ejercicio profesional legal.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Diplomado-en-Inteligencia-Artificial-y-Derecho.pdf"
+  },
+  "diplomado-en-intervencion-clinica-a-lo-largo-del-ciclo-vital": {
+    "nombre": "Diplomado en Intervención Clínica a lo Largo del Ciclo Vital",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-intervencion-clinica-a-lo-largo-del-ciclo-vital/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a estudiantes de cuarto o quinto año de Psicología sin impedimento académico, y a psicólogos titulados del sector público o privado de salud.",
+    "descripcion": "Programa online de 5 meses que capacita en modelos de intervención psicológica basados en evidencia, enfocándose en evaluación, diagnóstico y tratamiento a lo largo del desarrollo humano.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Intervencion-Clinica-a-lo-Largo-del-Ciclo-Vital.pdf"
+  },
+  "diplomado-en-igualdad-y-genero-en-el-ambito-publico-y-privado": {
+    "nombre": "Diplomado en Igualdad y Género en el Ámbito Público y Privado",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-igualdad-y-genero-en-el-ambito-publico-y-privado/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio contar con título previo, pero se recomienda formación o experiencia en ciencias sociales, derecho, administración, educación o áreas afines.",
+    "descripcion": "Programa online de 5 meses que forma profesionales en aplicación de estrategias de equidad de género, políticas inclusivas y liderazgo con perspectiva de género en organizaciones.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Igualdad-y-Genero-en-el-Ambito-Publico-y-Privado.pdf"
+  },
+  "diplomado-en-intervencion-terapeutica-familiar": {
+    "nombre": "Diplomado en Intervención Terapéutica Familiar",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-intervencion-terapeutica-familiar/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a psicólogos, trabajadores sociales, asistentes sociales, médicos familiares y psiquiatras que se desempeñen en ámbitos público o privado.",
+    "descripcion": "Programa online de 5 meses que desarrolla competencias teórico-técnicas para intervenciones sistémicas familiares efectivas, con enfoque en familias contemporáneas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Intervencion-Terapeutica-Familiar.pdf"
+  },
+  "diplomado-en-intervencion-social-estrategias-de-inclusion-y-gestion-de-la-diversidad": {
+    "nombre": "Diplomado en Intervención Social, Estrategias de Inclusión y Gestión de la Diversidad",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-intervencion-social-estrategias-de-inclusion-y-gestion-de-la-diversidad/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Se recomienda formación o experiencia en trabajo social, educación, psicología, administración pública o áreas relacionadas con gestión social y comunitaria. No es obligatorio título previo.",
+    "descripcion": "Programa de 5 meses que capacita profesionales en planificación e implementación de políticas inclusivas, enfocándose en metodologías para promoción de equidad, diversidad cultural y prevención de discriminación.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Intervencion-Social-Estrategias-de-Inclusion-de-la-Diversidad.pdf"
+  },
+  "diplomado-en-evaluacion-neuropsicologica": {
+    "nombre": "Diplomado en Evaluación Neuropsicológica",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-evaluacion-neuropsicologica/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a profesionales de psicología y educación. Se requiere título previo en salud o educación (psicólogos, fonoaudiólogos, terapeutas ocupacionales, neurólogos u especialistas en neuropsicología).",
+    "descripcion": "Programa online de 5 meses que capacita profesionales en evaluación neuropsicológica, diagnóstico de alteraciones cognitivas e intervención basada en evidencia científica para población infanto-juvenil y adulta.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Evaluacion-Neuropsicologica.pdf"
+  },
+  "diplomado-en-psicologia-forense-y-evaluacion-pericial": {
+    "nombre": "Diplomado en Psicología Forense y Evaluación Pericial",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-psicologia-forense-y-evaluacion-pericial/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio tener título previo, pero se recomienda conocimientos en psicología, derecho o ciencias forenses. Dirigido a psicólogos, trabajadores sociales, psiquiatras, abogados y otros profesionales, egresados o estudiantes de últimos años.",
+    "descripcion": "Programa online de 5 meses que capacita profesionales en metodologías psicológicas forenses para evaluaciones periciales en contextos jurídicos, con énfasis en elaboración de informes y resolución de conflictos judiciales.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Psicologia-Forense-y-Evaluacion-Pericial.pdf"
+  },
+  "diplomado-en-metodos-de-investigacion-y-publicaciones-academicas": {
+    "nombre": "Diplomado en Métodos de Investigación y Publicaciones Académicas",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-metodos-de-investigacion-y-publicaciones-academicas/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Egresados de programas de octavo semestre o más. Abierto a postulantes nacionales y extranjeros que cumplan los requisitos de postulación.",
+    "descripcion": "Programa de 5 meses que capacita en desarrollo de investigaciones científicas, análisis de datos cualitativos y cuantitativos, y publicación de artículos académicos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Metodos-de-Investigacion-y-Publicaciones-Academicas.pdf"
+  },
+  "diplomado-en-intervencion-en-problemas-de-pareja": {
+    "nombre": "Diplomado en Intervención en Problemas de Pareja",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-intervencion-en-problemas-de-pareja/",
+    "arancel": "$790.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a psicólogos y médicos psiquiatras que requieren conocimientos en terapia de pareja.",
+    "descripcion": "Programa de 5 meses que proporciona herramientas psicoterapéuticas para intervención en problemas de pareja desde una perspectiva vincular y relacional.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Intervencion-en-Problemas-de-Pareja.pdf"
+  },
+  "diplomado-en-gestion-del-riesgo-de-desastres": {
+    "nombre": "Diplomado en Gestión del Riesgo de Desastres",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-gestion-del-riesgo-de-desastres/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio un título previo, aunque se recomienda formación en gestión ambiental, planificación territorial, ingeniería, seguridad, salud o administración pública.",
+    "descripcion": "Programa online de 5 meses que capacita profesionales en identificación, planificación y ejecución de estrategias de prevención, mitigación y recuperación ante desastres con enfoque en desarrollo sostenible.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Gestion-del-Riesgo-de-Desastres.pdf"
+  },
+  "diplomado-en-neonatologia-y-pediatria-interprofesional-desde-la-atencion-temprana": {
+    "nombre": "Diplomado en Neonatología y Pediatría Interprofesional desde la Atención Temprana",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-neonatologia-y-pediatria-interprofesional-desde-la-atencion-temprana/",
+    "arancel": "$790.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a profesionales de salud (terapeutas ocupacionales, fonoaudiólogos, kinesiólogos y carreras relacionadas con ciencias de la rehabilitación) que se desempeñen o quieran desempeñarse en atención temprana clínica.",
+    "descripcion": "Programa online de 5 meses que desarrolla competencias en análisis crítico de neurociencia del desarrollo e intervenciones en atención temprana pediátrica, con enfoque interprofesional en neurorrehabilitación.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Neonatologia-y-Pediatria-Interprofesional-desde-la-Atencion-Temprana.pdf"
+  },
+  "diplomado-en-urgencias-hospitalarias": {
+    "nombre": "Diplomado en Urgencias Hospitalarias",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-urgencias-hospitalarias/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a profesionales de la salud (médicos, enfermeros, paramédicos) que trabajen o deseen especializarse en urgencias hospitalarias.",
+    "descripcion": "Formación especializada de 5 meses en gestión, diagnóstico y tratamiento de urgencias médicas hospitalarias, basada en protocolos actualizados y evidencia científica.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Urgencias-Hospitalarias.pdf"
+  },
+  "diplomado-en-consejeria-en-lactancia-materna": {
+    "nombre": "Diplomado en Consejería en Lactancia Materna",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-consejeria-en-lactancia-materna/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio tener título previo, pero está dirigido principalmente a profesionales de la salud interesados en la promoción de la lactancia materna.",
+    "descripcion": "Programa online de 5 meses que forma profesionales en consejería de lactancia materna, abordando técnicas de amamantamiento, atención materno-infantil y promoción de beneficios para la salud de madre y bebé.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Consejeria-en-Lactancia-Materna.pdf"
+  },
+  "diplomado-en-enfermeria-pediatrica": {
+    "nombre": "Diplomado en Enfermería Pediátrica",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-enfermeria-pediatrica/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Diplomado dirigido exclusivamente a enfermeros titulados que deseen especializarse en atención pediátrica.",
+    "descripcion": "Programa online de 5 meses que capacita enfermeros en atención especializada de pacientes pediátricos, enfocándose en patologías frecuentes, tratamientos y acompañamiento familiar.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Enfermeria-Pediatrica.pdf"
+  },
+  "diplomado-en-mindfulness": {
+    "nombre": "Diplomado en Mindfulness",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-mindfulness/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a estudiantes y profesionales que busquen adquirir metodología práctica para el autocuidado. Se recomienda contar con conocimientos básicos en bienestar emocional, psicología o salud mental.",
+    "descripcion": "Programa online de 5 meses que desarrolla formación experiencial y teórica en mindfulness. Aborda fundamentos, modelos, evidencia científica neurobiológica y aplicaciones psicoterapéuticas actuales.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Mindfulness.pdf"
+  },
+  "diplomado-en-gestion-de-cuidados-y-practicas-enfermeras-avanzadas": {
+    "nombre": "Diplomado en Gestión de Cuidados y Prácticas Enfermeras Avanzadas",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-gestion-de-cuidados-y-practicas-enfermeras-avanzadas/",
+    "arancel": "$990.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido exclusivamente a enfermeros titulados que deseen especializarse en gestión del cuidado, liderazgo y prácticas avanzadas en enfermería.",
+    "descripcion": "Programa online de 5 meses que desarrolla competencias para liderazgo clínico en práctica avanzada y gestión de cuidados. Forma profesionales en roles clínico, docente, investigador, gestor y consultor.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Gestion-de-Cuidados-y-Praticas-Enfermeras-Avanzadas.pdf"
+  },
+  "diplomado-en-epidemiologia-clinica-y-salud-publica": {
+    "nombre": "Diplomado en Epidemiología Clínica y Salud Pública",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-epidemiologia-clinica-y-salud-publica/",
+    "arancel": "$900.000",
+    "matricula": "$150.000",
+    "requisitos": "Profesionales de las Ciencias de la Salud, Biomédicas, Farmacológicas y carreras afines que deseen fortalecer principios básicos de Epidemiología Clínica y Salud Pública.",
+    "descripcion": "Programa online de 5 meses que capacita profesionales en epidemiología clínica y salud pública para tomar decisiones clínicas, diseñar vigilancia y control de enfermedades en sectores públicos y privados.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Epidemiologia-Clinica.pdf"
+  },
+  "diplomado-en-intervencion-en-trastorno-del-espectro-autista": {
+    "nombre": "Diplomado en Intervención en Trastorno del Espectro Autista",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-intervencion-en-trastorno-del-espectro-autista/",
+    "arancel": "$1.390.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio tener título previo, pero se recomienda formación o experiencia en psicología, educación, fonoaudiología, terapia ocupacional o afines.",
+    "descripcion": "Programa online de 5 meses que capacita profesionales en evaluación, diagnóstico e intervención terapéutica para personas con TEA usando modelos basados en evidencia.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/01/Diplomado-en-Intervencion-en-Trastorno-del-Espectro-Autista.pdf"
+  },
+  "diplomado-en-infeccion-asociadas-a-atencion-en-salud-iaas": {
+    "nombre": "Diplomado en Infección Asociadas a Atención en Salud (IAAS)",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-infeccion-asociadas-a-atencion-en-salud-iaas/",
+    "arancel": "$790.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido exclusivamente a profesionales del área de la salud como médicos, enfermeros, tecnólogos médicos y especialistas en prevención y control de infecciones.",
+    "descripcion": "Programa online de 5 meses para capacitar profesionales de salud en prevención, vigilancia y control de infecciones asociadas a atención sanitaria.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Infecciones-Asociadas-a-la-Atencion-en-Salud-IASS.pdf"
+  },
+  "diplomado-en-nutricion-y-alimentacion-para-el-rendimiento-deportivo-y-salud": {
+    "nombre": "Diplomado en Nutrición y Alimentación para el Rendimiento Deportivo y Salud",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-nutricion-y-alimentacion-para-el-rendimiento-deportivo-y-salud/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a nutricionistas y licenciados en nutrición. Se recomienda tener conocimientos básicos en nutrición, ciencias del deporte o salud.",
+    "descripcion": "Programa online de 5 meses que capacita profesionales en estrategias de nutrición aplicada al deporte, planificación alimentaria, metabolismo y evaluación de composición corporal.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Diplomado-en-Nutricion-y-Alimentacion-para-el-Rendimiento-Deportivo-y-Salud.pdf"
+  },
+  "diplomado-en-gestion-de-instituciones-de-organizaciones-de-salud": {
+    "nombre": "Diplomado en Gestión de Instituciones de Organizaciones de Salud",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-gestion-de-instituciones-de-organizaciones-de-salud/",
+    "arancel": "$1.290.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a profesionales del área de la salud como médicos, enfermeras, kinesiólogos, tecnólogos médicos, matronas y fonoaudiólogos.",
+    "descripcion": "Programa online de 5 meses que capacita en administración y liderazgo en el sector salud, enfocándose en planificación estratégica, gestión de recursos y calidad.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Gestion-de-Instituciones-de-Organizaciones-de-Salud.pdf"
+  },
+  "diplomado-en-cuidados-paliativos-y-manejo-del-dolor": {
+    "nombre": "Diplomado en Cuidados Paliativos y Manejo del Dolor",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-cuidados-paliativos-y-manejo-del-dolor/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Profesionales de la salud, como médicos, enfermeros, matronas, kinesiólogos y otros especialistas que deseen formarse en el manejo del dolor y los cuidados paliativos.",
+    "descripcion": "Programa online de 5 meses que capacita a profesionales sanitarios en atención integral de pacientes con enfermedades avanzadas, abordando dolor, cuidados paliativos y apoyo familiar.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Cuidados-Paliativos-y-Manejo-del-Dolor.pdf"
+  },
+  "diplomado-en-salud-mental-y-psiquiatria": {
+    "nombre": "Diplomado en Salud Mental y Psiquiatría",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-salud-mental-y-psiquiatria/",
+    "arancel": "$1.390.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio, pero se recomienda formación o experiencia en psicología, trabajo social, enfermería, medicina o disciplinas afines.",
+    "descripcion": "Diplomado online de 5 meses que entrega formación en identificación, evaluación y abordaje de trastornos mentales desde enfoque integral, combinando aspectos clínicos, terapéuticos y comunitarios.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Salud-Mental-y-Psiquiatria.pdf"
+  },
+  "diplomado-en-oncologia-prevencion-y-deteccion-precoz-del-cancer": {
+    "nombre": "Diplomado en Oncología: Prevención y Detección Precoz del Cáncer",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-oncologia-prevencion-y-deteccion-precoz-del-cancer/",
+    "arancel": "$790.000",
+    "matricula": "$150.000",
+    "requisitos": "Profesionales del área de la salud como médicos, kinesiólogos, enfermeros, nutricionistas, terapistas ocupacionales y títulos afines.",
+    "descripcion": "Programa interdisciplinario online de 5 meses que forma profesionales de salud en oncología, prevención y detección precoz del cáncer con competencias actualizadas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Oncologia-Prevencion-y-Deteccion-Precoz-del-Cancer.pdf"
+  },
+  "diplomado-en-gestion-en-seguridad-y-salud-ocupacional-iso-45-001": {
+    "nombre": "Diplomado en Gestión en Seguridad y Salud Ocupacional ISO 45.001",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-gestion-en-seguridad-y-salud-ocupacional-iso-45-001/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio contar con título previo, pero se recomienda formación en prevención de riesgos, ingeniería, administración, recursos humanos o áreas afines.",
+    "descripcion": "Programa online de 5 meses que capacita profesionales en implementación, auditoría y mejora continua de sistemas de gestión de seguridad y salud ocupacional bajo norma ISO 45.001.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Gestion-en-Seguridad-y-Salud-Ocupacional-ISO-45001-1.pdf"
+  },
+  "diplomado-en-geriatria-y-gerontologia": {
+    "nombre": "Diplomado en Geriatría y Gerontología",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-geriatria-y-gerontologia/",
+    "arancel": "$1.390.000",
+    "matricula": "$150.000",
+    "requisitos": "Dirigido a profesionales de la salud como médicos, enfermeros, kinesiólogos, terapeutas ocupacionales, psicólogos y otros especialistas interesados en el cuidado del adulto mayor.",
+    "descripcion": "Programa online de 5 meses que capacita profesionales en atención integral de personas mayores, enfocándose en envejecimiento saludable, prevención y aspectos clínico-sociales.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Geriatria-y-Gerontologia.pdf"
+  },
+  "diplomado-en-energias-renovables-eerr": {
+    "nombre": "Diplomado en Energías Renovables (EERR)",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-energias-renovables-eerr/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": null,
+    "descripcion": "Programa online de 5 meses que capacita profesionales en diseño, implementación y gestión de proyectos de energías renovables, enfocándose en transición energética y normativas del sector.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Energias-Renovables-EERR.pdf"
+  },
+  "diplomado-en-habilidades-directivas": {
+    "nombre": "Diplomado en Habilidades Directivas",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-habilidades-directivas/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio contar con título previo, pero se recomienda experiencia en gestión, administración o liderazgo.",
+    "descripcion": "Programa online de 5 meses que fortalece competencias para liderazgo efectivo en entornos cambiantes, incluyendo gestión de equipos, toma de decisiones estratégicas y transformación cultural.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Diplomado-en-Habilidades-Directivas.pdf"
+  },
+  "diplomado-en-economia-financiera-y-gestion-empresarial": {
+    "nombre": "Diplomado en Economía Financiera y Gestión Empresarial",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-economia-financiera-y-gestion-empresarial/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": null,
+    "descripcion": "Programa online de 5 meses que capacita profesionales en toma de decisiones financieras estratégicas, análisis de riesgos, gestión de inversiones y optimización de recursos empresariales.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Economia-Financiera-y-Gestion-Empresarial.pdf"
+  },
+  "diplomado-en-trading-e-inversiones": {
+    "nombre": "Diplomado en Trading e Inversiones",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-trading-e-inversiones/",
+    "arancel": "$1.190.000",
+    "matricula": "$150.000",
+    "requisitos": "No es obligatorio tener título previo, pero se recomienda tener nociones básicas de finanzas y economía.",
+    "descripcion": "Diplomado online de 5 meses que proporciona conocimientos sobre mercados financieros, análisis técnico y fundamental, gestión de riesgos y estrategias de inversión.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Trading-e-Inversiones.pdf"
+  },
+  "diplomado-en-marketing-y-comunicacion-digital": {
+    "nombre": "Diplomado en Marketing y Comunicación Digital",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-marketing-y-comunicacion-digital/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": null,
+    "descripcion": "Programa online de 5 meses que capacita profesionales en estrategias de marketing digital, gestión de redes sociales, publicidad online y análisis de datos para mejorar la presencia de marcas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Marketing-y-Comunicacion-Digital.pdf"
+  },
+  "diplomado-en-economia-y-politicas-publicas": {
+    "nombre": "Diplomado en Economía y Políticas Públicas",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-economia-y-politicas-publicas/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": null,
+    "descripcion": "Programa online de 5 meses que capacita profesionales en análisis económico aplicado a formulación, implementación y evaluación de políticas públicas.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Economia-y-Politicas-Publicas.pdf"
+  },
+  "diplomado-en-normas-internacionales-de-informacion-financiera-niif": {
+    "nombre": "Diplomado en Normas Internacionales de Información Financiera (NIIF)",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-normas-internacionales-de-informacion-financiera-niif/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Se recomienda que los participantes tengan conocimientos básicos en contabilidad, auditoría o finanzas, ya que el programa se enfoca en la aplicación práctica de las NIIF.",
+    "descripcion": "Programa online de 5 meses que capacita en aplicación de normas contables internacionales, enfocándose en reconocimiento, medición, presentación y revelación de información financiera conforme a estándares NIIF.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Normas-Internacionales-de-Informacion-Financiera.pdf"
+  },
+  "diplomado-en-gestion-de-personas": {
+    "nombre": "Diplomado en Gestión de personas",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-gestion-de-personas/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "Estudiantes de último año y profesionales de carreras en Ciencias Económicas, Ciencias Sociales y afines, o personas que deseen adquirir conocimientos en Gestión de Personas.",
+    "descripcion": "Programa online de 5 meses que capacita profesionales en administración estratégica del capital humano, liderazgo organizacional, gestión del talento y desarrollo de habilidades.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/01/Diplomado-en-Gestion-de-Personas.pdf"
+  },
+  "diplomado-en-procesos-de-formulacion-y-planificacion-estrategica": {
+    "nombre": "Diplomado en Procesos de Formulación y Planificación Estratégica",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-procesos-de-formulacion-y-planificacion-estrategica/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": null,
+    "descripcion": "Programa online de 5 meses que capacita profesionales en formulación, implementación y evaluación de estrategias organizacionales con enfoque en análisis del entorno y ejecución de planes efectivos.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/10/Diplomado-en-Procesos-de-Formulacion-y-Planificacion-Estrategica.pdf"
+  },
+  "diplomado-en-comunicacion-estrategica": {
+    "nombre": "Diplomado en Comunicación Estratégica",
+    "url": "https://postgrados.uautonoma.cl/programas/diplomados/diplomado-en-comunicacion-estrategica/",
+    "arancel": "$1.090.000",
+    "matricula": "$150.000",
+    "requisitos": "No se requiere título previo. Diseñado para profesionales y técnicos interesados en el posicionamiento estratégico desde la comunicación, el marketing y el liderazgo organizacional.",
+    "descripcion": "Programa online de 5 meses que desarrolla habilidades para construir estrategias de comunicación organizacional y marketing, incluyendo discursos argumentativos, posicionamiento digital y gestión de crisis.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Comunicacion-Estrategica.pdf"
   }
 }
