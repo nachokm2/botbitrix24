@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 // Extraído el 2026-06-28. Para refrescar: volver a leer esos listados y regenerar este arreglo.
 export type Programa = {
   nombre: string;
-  tipo: 'magister' | 'diplomado';
+  tipo: 'magister' | 'diplomado' | 'especialidad';
   facultad: string;
   modalidad: string; // 'online' | 'presencial' | '' (no especificada)
   duracion: string;
@@ -77,8 +77,20 @@ const DIPLOMADOS: Programa[] = (JSON.parse(readFileSync(DIPLO_PATH, 'utf8')) as 
   url: d.url,
 }));
 
-/** Catálogo completo: magísteres + diplomados. */
-export const PROGRAMAS: Programa[] = [...MAGISTERES, ...DIPLOMADOS];
+// Especialidades (9, médicas y odontológicas) extraídas de
+// postgrados.uautonoma.cl/programas/especialidades/ el 2026-06-29.
+const ESP_PATH = fileURLToPath(new URL('./especialidades.data.json', import.meta.url));
+const ESPECIALIDADES: Programa[] = (JSON.parse(readFileSync(ESP_PATH, 'utf8')) as any[]).map((e) => ({
+  nombre: e.nombre,
+  tipo: 'especialidad' as const,
+  facultad: e.facultad ?? '',
+  modalidad: e.modalidad ?? '',
+  duracion: e.duracion ?? '',
+  url: e.url,
+}));
+
+/** Catálogo completo: magísteres + diplomados + especialidades. */
+export const PROGRAMAS: Programa[] = [...MAGISTERES, ...DIPLOMADOS, ...ESPECIALIDADES];
 
 export const FACULTADES = [
   'Administración y Negocios',
@@ -88,6 +100,7 @@ export const FACULTADES = [
   'Derecho',
   'Educación',
   'Ingeniería',
+  'Odontología',
 ] as const;
 
 export function buscarProgramas(filtros: {

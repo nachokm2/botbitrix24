@@ -1631,5 +1631,104 @@
     "requisitos": "No se requiere título previo. Diseñado para profesionales y técnicos interesados en el posicionamiento estratégico desde la comunicación, el marketing y el liderazgo organizacional.",
     "descripcion": "Programa online de 5 meses que desarrolla habilidades para construir estrategias de comunicación organizacional y marketing, incluyendo discursos argumentativos, posicionamiento digital y gestión de crisis.",
     "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/09/Diplomado-en-Comunicacion-Estrategica.pdf"
+  },
+  "especialidad-en-ortodoncia-y-ortopedia-dentomaxifacial": {
+    "nombre": "Especialidad en Ortodoncia y Ortopedia Dentomaxifacial",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-en-ortodoncia-y-ortopedia-dentomaxifacial/",
+    "arancel": null,
+    "matricula": "$350.000",
+    "duracion": "6 Semestres",
+    "modalidad": "presencial",
+    "requisitos": "Personas con título de Cirujano Dentista / profesionales con título de Odontólogo.",
+    "descripcion": "Especialista con capacidades avanzadas para diagnosticar y tratar anomalías dentomaxilofaciales, integrando tecnologías digitales e IA bajo un enfoque crítico, ético y basado en evidencia científica.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/05/Especialidad-en-Ortodoncia-y-Ortopedia-Dentomaxifacial.pdf"
+  },
+  "especialidad-en-implantologia-bucomaxilofacial": {
+    "nombre": "Especialidad en Implantología Bucomaxilofacial",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-en-implantologia-bucomaxilofacial/",
+    "arancel": "$10.490.000",
+    "matricula": "$350.000",
+    "duracion": "5 Semestres",
+    "modalidad": "presencial",
+    "requisitos": "Cirujanos Dentistas con título otorgado por universidad nacional o extranjera, debidamente legalizado ante notario público.",
+    "descripcion": "Cirujano Dentista con sólidos conocimientos científicos, teóricos y clínicos para resolver situaciones de rehabilitación protésica implanto-asistida mediante diagnóstico, planificación y ejecución de tratamiento quirúrgico y protésico.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Especialidad-en-Implantologia-Buco-Maxilofacial.pdf"
+  },
+  "especialidad-medica-en-imagenologia": {
+    "nombre": "Especialidad Médica en Imagenología",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-medica-en-imagenologia/",
+    "arancel": "$11.891.000",
+    "matricula": "$383.000",
+    "duracion": "3 años",
+    "modalidad": "presencial",
+    "requisitos": "Médicos Cirujanos nacionales o extranjeros con inclinación, interés y experiencia para el ejercicio de la radiología.",
+    "descripcion": "Médico especialista en anatomía radiológica con conocimientos en patología adulta y pediátrica. Domina metodologías de investigación, protección radiológica y recursos tecnológicos. Posee competencias bioéticas, comunicacionales y de liderazgo clínico.",
+    "brochureUrl": null
+  },
+  "especialidad-medica-en-medicina-familiar": {
+    "nombre": "Especialidad Médica en Medicina Familiar",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-medica-en-medicina-familiar/",
+    "arancel": "$11.891.000",
+    "matricula": "$383.000",
+    "duracion": "3 años",
+    "modalidad": "presencial",
+    "requisitos": "Médicos Cirujanos nacionales o extranjeros con inclinación, interés y experiencia para el ejercicio de la Medicina Familiar.",
+    "descripcion": "Especialista en atención integral de salud al individuo, familia y comunidad con enfoque preventivo. Desarrolla razonamiento clínico profundo, gestión sanitaria, investigación y compromiso ético en medicina basada en evidencia.",
+    "brochureUrl": null
+  },
+  "especialidad-medica-en-medicina-de-urgencia": {
+    "nombre": "Especialidad Médica en Medicina de Urgencia",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-medica-en-medicina-de-urgencia/",
+    "arancel": "$11.891.000",
+    "matricula": "$383.000",
+    "duracion": "3 años",
+    "modalidad": "presencial",
+    "requisitos": "Médicos Cirujanos nacionales o extranjeros reconocidos por la autoridad correspondiente, con interés y motivación para el ejercicio de la medicina de urgencia.",
+    "descripcion": "Profesional competente para manejar situaciones de urgencia y emergencia médica, basado en amplio conocimiento fisiopatológico, diagnóstico y tratamiento, gestionando condiciones agudas aplicando protocolos vigentes y medicina basada en evidencia.",
+    "brochureUrl": null
+  },
+  "especialidad-medica-en-medicina-interna": {
+    "nombre": "Especialidad Médica en Medicina Interna",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-medica-en-medicina-interna/",
+    "arancel": "$11.891.000",
+    "matricula": "$383.000",
+    "duracion": "3 años",
+    "modalidad": "presencial",
+    "requisitos": "Médicos Cirujanos nacionales o extranjeros con inclinación, interés y experiencia para el ejercicio de la Medicina Interna.",
+    "descripcion": "Profesional médico capacitado para manejar integralmente enfermedades del adulto utilizando medicina basada en evidencia, con sólidos conocimientos en semiología, patogenia, clínica y prevención, trabajando éticamente en equipos multidisciplinarios.",
+    "brochureUrl": null
+  },
+  "especialidad-en-imagenologia-oral-y-maxilofacial": {
+    "nombre": "Especialidad en Imagenología Oral y Maxilofacial",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-en-imagenologia-oral-y-maxilofacial/",
+    "arancel": "$7.990.000",
+    "matricula": "$350.000",
+    "duracion": "4 Semestres",
+    "modalidad": "hibrida",
+    "requisitos": "Personas con título de Cirujano Dentista / Odontólogo emitido por institución nacional o extranjera reconocida.",
+    "descripcion": "Profesional competente en diagnóstico de patologías prevalentes y de alta complejidad; selecciona, maneja e interpreta distintas técnicas imagenológicas; ejerce odontología basada en evidencia y principios bioéticos; lidera equipos interdisciplinarios.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/06/Especialidad-en-Imagenologia-Oral-y-Maxilofacial.pdf"
+  },
+  "especialidad-en-endodoncia": {
+    "nombre": "Especialidad en Endodoncia",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-en-endodoncia/",
+    "arancel": "$8.990.000",
+    "matricula": "$350.000",
+    "duracion": "4 Semestres",
+    "modalidad": "presencial",
+    "requisitos": "Personas con título de Cirujano Dentista otorgado por universidad nacional o extranjera, debidamente legalizado.",
+    "descripcion": "El egresado evaluará y resolverá problemas endodónticos usando evidencia científica, integrando conocimientos para brindar atención odontológica integral con eficacia técnica y ética.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Especialidad-en-Endodoncia.pdf"
+  },
+  "especialidad-en-rehabilitacion-oral": {
+    "nombre": "Especialidad en Rehabilitación Oral",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-en-rehabilitacion-oral/",
+    "arancel": "$10.490.000",
+    "matricula": "$350.000",
+    "duracion": "5 Semestres",
+    "modalidad": "presencial",
+    "requisitos": "Cirujanos Dentistas con título otorgado por universidad nacional o extranjera, debidamente legalizado ante notario público.",
+    "descripcion": "Odontólogo especialista capacitado para resolver casos de mediana y alta complejidad mediante diagnóstico integral, pronóstico y tratamiento restaurador de tejidos orales duros y blandos del sistema cráneo-cérvico-mandíbulo-dentario.",
+    "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2025/11/Especialidad-en-Rehabilitacion-Oral.pdf"
   }
 }

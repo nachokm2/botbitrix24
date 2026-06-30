@@ -1,0 +1,65 @@
+[
+  {
+    "nombre": "Especialidad en Ortodoncia y Ortopedia Dentomaxifacial",
+    "facultad": "Odontología",
+    "modalidad": "presencial",
+    "duracion": "6 Semestres",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-en-ortodoncia-y-ortopedia-dentomaxifacial/"
+  },
+  {
+    "nombre": "Especialidad en Implantología Bucomaxilofacial",
+    "facultad": "Odontología",
+    "modalidad": "presencial",
+    "duracion": "5 Semestres",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-en-implantologia-bucomaxilofacial/"
+  },
+  {
+    "nombre": "Especialidad Médica en Imagenología",
+    "facultad": "Ciencias de la Salud",
+    "modalidad": "presencial",
+    "duracion": "3 años",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-medica-en-imagenologia/"
+  },
+  {
+    "nombre": "Especialidad Médica en Medicina Familiar",
+    "facultad": "Ciencias de la Salud",
+    "modalidad": "presencial",
+    "duracion": "3 años",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-medica-en-medicina-familiar/"
+  },
+  {
+    "nombre": "Especialidad Médica en Medicina de Urgencia",
+    "facultad": "Ciencias de la Salud",
+    "modalidad": "presencial",
+    "duracion": "3 años",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-medica-en-medicina-de-urgencia/"
+  },
+  {
+    "nombre": "Especialidad Médica en Medicina Interna",
+    "facultad": "Ciencias de la Salud",
+    "modalidad": "presencial",
+    "duracion": "3 años",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-medica-en-medicina-interna/"
+  },
+  {
+    "nombre": "Especialidad en Imagenología Oral y Maxilofacial",
+    "facultad": "Odontología",
+    "modalidad": "hibrida",
+    "duracion": "4 Semestres",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-en-imagenologia-oral-y-maxilofacial/"
+  },
+  {
+    "nombre": "Especialidad en Endodoncia",
+    "facultad": "Odontología",
+    "modalidad": "presencial",
+    "duracion": "4 Semestres",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-en-endodoncia/"
+  },
+  {
+    "nombre": "Especialidad en Rehabilitación Oral",
+    "facultad": "Odontología",
+    "modalidad": "presencial",
+    "duracion": "5 Semestres",
+    "url": "https://postgrados.uautonoma.cl/programas/especialidades/especialidad-en-rehabilitacion-oral/"
+  }
+]
