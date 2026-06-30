@@ -189,11 +189,13 @@ export async function actualizarDatosCliente(
     }
   }
 
-  // DEAL: título con el programa de interés + nota.
+  // DEAL: título + campo UF "Programa de interés" + nota.
   if (e.deal) {
     const fields: any = {};
     if (data.programa_interes) {
       fields.TITLE = `${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`;
+      // Campo personalizado dedicado, para reportería/filtrado (se actualiza según la conversación).
+      if (config.ufPrograma) fields[config.ufPrograma] = data.programa_interes;
     }
     if (data.comentario) fields.COMMENTS = data.comentario;
     try {

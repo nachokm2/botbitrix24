@@ -60,7 +60,13 @@ export const tools = [
         email: { type: 'string' },
         telefono: { type: 'string', description: 'Solo si el cliente da un teléfono distinto al de WhatsApp' },
         rut: { type: 'string' },
-        programa_interes: { type: 'string' },
+        programa_interes: {
+          type: 'string',
+          description:
+            'Nombre del programa que más le interesa al cliente AHORA. Si durante la conversación cambia de ' +
+            'opinión o se enfoca en otro programa, vuelve a llamar la herramienta con el programa actualizado ' +
+            '(se sobrescribe el campo en el CRM). Usa el nombre exacto del catálogo cuando lo tengas.',
+        },
         comentario: { type: 'string' },
       },
       required: [],

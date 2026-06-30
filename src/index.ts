@@ -40,6 +40,13 @@ app.get('/debug/config', (_req, res) =>
     hasAnthropicKey: Boolean(config.anthropicApiKey),
     hasClientId: Boolean(config.bitrixClientId),
     hasClientSecret: Boolean(config.bitrixClientSecret),
+    hasWebhook: Boolean(config.bitrixWebhookUrl),
+    uf: {
+      score: config.ufScore || '(vacío)',
+      intent: config.ufIntent || '(vacío)',
+      sentiment: config.ufSentiment || '(vacío)',
+      programa: config.ufPrograma || '(vacío)',
+    },
   }),
 );
 

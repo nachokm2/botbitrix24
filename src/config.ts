@@ -33,6 +33,8 @@ export const config = {
   ufScore: process.env.BITRIX_UF_SCORE ?? '',
   ufIntent: process.env.BITRIX_UF_INTENT ?? '',
   ufSentiment: process.env.BITRIX_UF_SENTIMENT ?? '',
+  // Campo UF (en el Deal) para el "Programa de interés" que el bot actualiza según la conversación.
+  ufPrograma: process.env.BITRIX_UF_PROGRAMA ?? '',
   // Mover la etapa del deal según el score. Mapa por embudo (recomendado, multi-flujo):
   stageMap: parseStageMap(process.env.BITRIX_STAGE_MAP),
   // Fallback de un solo embudo (legacy):
