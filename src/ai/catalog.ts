@@ -1,9 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 // Catálogo REAL de programas de postgrado de la Universidad Autónoma de Chile.
 // Fuente: https://postgrados.uautonoma.cl/programas/magisteres/ (paginado) y /programas/doctorados/
 // Extraído el 2026-06-28. Para refrescar: volver a leer esos listados y regenerar este arreglo.
 export type Programa = {
   nombre: string;
-  tipo: 'magister' | 'doctorado';
+  tipo: 'magister' | 'doctorado' | 'diplomado';
   facultad: string;
   modalidad: string; // 'online' | 'presencial' | '' (no especificada)
   duracion: string;
@@ -12,7 +15,7 @@ export type Programa = {
 
 const M = 'https://postgrados.uautonoma.cl/programas/magisteres/';
 
-export const PROGRAMAS: Programa[] = [
+const MAGISTERES_DOCTORADOS: Programa[] = [
   // ── Magísteres ──
   { nombre: 'Magíster en Gestión de la Inclusión y Convivencia Educativa', tipo: 'magister', facultad: 'Educación', modalidad: 'online', duracion: '4 semestres', url: `${M}magister-en-gestion-de-la-inclusion-y-convivencia-educativa/` },
   { nombre: 'Máster Formación Permanente en Sexología', tipo: 'magister', facultad: 'Ciencias de la Salud', modalidad: 'presencial', duracion: '4 semestres', url: `${M}master-formacion-permanente-en-sexologia/` },
@@ -68,6 +71,20 @@ export const PROGRAMAS: Programa[] = [
   { nombre: 'Doctorado en Ciencias Biomédicas', tipo: 'doctorado', facultad: 'Ciencias de la Salud', modalidad: '', duracion: '8 semestres', url: 'https://www.uautonoma.cl/doctorado-en-ciencias-biomedicas/' },
   { nombre: 'Doctorado en Derecho', tipo: 'doctorado', facultad: 'Derecho', modalidad: '', duracion: '8 semestres', url: 'https://www.uautonoma.cl/doctorado-en-derecho/' },
 ];
+
+// Diplomados (128) extraídos de postgrados.uautonoma.cl/programas/diplomados/ el 2026-06-29.
+const DIPLO_PATH = fileURLToPath(new URL('./diplomados.data.json', import.meta.url));
+const DIPLOMADOS: Programa[] = (JSON.parse(readFileSync(DIPLO_PATH, 'utf8')) as any[]).map((d) => ({
+  nombre: d.nombre,
+  tipo: 'diplomado' as const,
+  facultad: d.facultad ?? '',
+  modalidad: d.modalidad ?? '',
+  duracion: d.duracion ?? '',
+  url: d.url,
+}));
+
+/** Catálogo completo: magísteres + doctorados + diplomados. */
+export const PROGRAMAS: Programa[] = [...MAGISTERES_DOCTORADOS, ...DIPLOMADOS];
 
 export const FACULTADES = [
   'Administración y Negocios',

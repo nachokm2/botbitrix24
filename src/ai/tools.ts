@@ -9,7 +9,7 @@ export const tools = [
     input_schema: {
       type: 'object',
       properties: {
-        tipo: { type: 'string', enum: ['magister', 'doctorado'] },
+        tipo: { type: 'string', enum: ['magister', 'doctorado', 'diplomado'] },
         facultad: {
           type: 'string',
           enum: [
