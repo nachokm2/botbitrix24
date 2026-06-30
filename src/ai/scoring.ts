@@ -1,7 +1,13 @@
 import { anthropic, CLASSIFIER } from './client';
 import { getHistory } from './memory';
 import { getSession, saveSession } from '../session';
-import { guardarEvaluacionCrm, moverEtapaDeal, type CrmEntities, type LeadEval } from '../crm/openlinesCrm';
+import {
+  guardarEvaluacionCrm,
+  moverEtapaDeal,
+  getDealCategory,
+  type CrmEntities,
+  type LeadEval,
+} from '../crm/openlinesCrm';
 import { callBitrix } from '../bitrix/client';
 import { config } from '../config';
 import { inc } from '../obs/metrics';
@@ -83,11 +89,26 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
   sess.intencion = evalData.intencion;
   sess.sentimiento = evalData.sentimiento;
 
-  // 1) Mover la etapa del deal según el score (si hay deal y etapas configuradas).
+  // 1) Mover la etapa del deal según el score, usando la etapa del EMBUDO del deal (C1, C3, ...).
   if (crmEntities.deal) {
+    let m: { alto?: string; medio?: string } | undefined;
+    if (Object.keys(config.stageMap).length) {
+      // Lee la categoría (embudo) real del deal y la cachea en la sesión.
+      let cat = sess.dealCategory;
+      if (cat === undefined) {
+        cat = (await getDealCategory(crmEntities.deal, auth)) ?? -1;
+        sess.dealCategory = cat;
+      }
+      m = config.stageMap[String(cat)];
+    } else if (config.stageScoreAlto || config.stageScoreMedio) {
+      m = { alto: config.stageScoreAlto, medio: config.stageScoreMedio }; // legacy de un solo embudo
+    }
+
     let target = '';
-    if (evalData.score >= 70 && config.stageScoreAlto) target = config.stageScoreAlto;
-    else if (evalData.score >= 40 && config.stageScoreMedio) target = config.stageScoreMedio;
+    if (m) {
+      if (evalData.score >= 70 && m.alto) target = m.alto;
+      else if (evalData.score >= 40 && m.medio) target = m.medio;
+    }
     if (target && target !== sess.lastStage) {
       try {
         await moverEtapaDeal(crmEntities.deal, target, auth);
@@ -97,9 +118,14 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
           type: 'stage_move',
           dialogId,
           crmEntity: `deal#${crmEntities.deal}`,
-          detail: { stage: target, score: evalData.score },
+          detail: { stage: target, score: evalData.score, categoryId: sess.dealCategory },
         });
-        log.info('etapa del deal movida por score', { dealId: crmEntities.deal, stage: target, score: evalData.score });
+        log.info('etapa del deal movida por score', {
+          dealId: crmEntities.deal,
+          stage: target,
+          score: evalData.score,
+          categoryId: sess.dealCategory,
+        });
       } catch (e) {
         log.warn('moverEtapaDeal falló', { err: String(e) });
       }

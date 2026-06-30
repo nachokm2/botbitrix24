@@ -276,3 +276,15 @@ export async function guardarEvaluacionCrm(
 export async function moverEtapaDeal(dealId: number, stageId: string, auth: Auth): Promise<void> {
   await callCrm('crm.deal.update', { id: dealId, fields: { STAGE_ID: stageId } }, auth);
 }
+
+/** Devuelve el CATEGORY_ID (embudo) de un deal, para elegir la etapa correcta del mapa. */
+export async function getDealCategory(dealId: number, auth: Auth): Promise<number | null> {
+  try {
+    const r: any = await callCrm('crm.deal.get', { id: dealId }, auth);
+    const cat = r?.CATEGORY_ID ?? r?.categoryId;
+    return cat !== undefined && cat !== null ? Number(cat) : null;
+  } catch (e) {
+    log.warn('getDealCategory falló', { err: String(e) });
+    return null;
+  }
+}

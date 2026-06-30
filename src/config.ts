@@ -1,5 +1,16 @@
 import 'dotenv/config';
 
+// Mapa de etapas por embudo para el movimiento por score, ej:
+// {"1":{"alto":"C1:PREPARATION","medio":"C1:UC_JARL1O"},"3":{"alto":"C3:PREPAYMENT_INVOICE","medio":"C3:PREPARATION"}}
+function parseStageMap(s?: string): Record<string, { alto?: string; medio?: string }> {
+  if (!s) return {};
+  try {
+    return JSON.parse(s);
+  } catch {
+    return {};
+  }
+}
+
 export const config = {
   port: Number(process.env.PORT ?? 3000),
   /** URL pública del app (Railway o túnel), sin slash final. */
@@ -22,7 +33,9 @@ export const config = {
   ufScore: process.env.BITRIX_UF_SCORE ?? '',
   ufIntent: process.env.BITRIX_UF_INTENT ?? '',
   ufSentiment: process.env.BITRIX_UF_SENTIMENT ?? '',
-  // Mover la etapa del deal según el score (STAGE_ID del embudo; opcional).
+  // Mover la etapa del deal según el score. Mapa por embudo (recomendado, multi-flujo):
+  stageMap: parseStageMap(process.env.BITRIX_STAGE_MAP),
+  // Fallback de un solo embudo (legacy):
   stageScoreAlto: process.env.BITRIX_STAGE_SCORE_ALTO ?? '', // score >= 70
   stageScoreMedio: process.env.BITRIX_STAGE_SCORE_MEDIO ?? '', // score 40-69
   // Auto-escalar a humano si el score alcanza este umbral (0 = desactivado).

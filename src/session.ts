@@ -11,6 +11,7 @@ export type SessionState = {
   sentimiento?: string;
   lastStage?: string;
   escalatedByScore?: boolean;
+  dealCategory?: number;
 };
 
 const KEY = (dialogId: string) => `sess:${dialogId}`;
