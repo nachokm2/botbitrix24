@@ -1,4 +1,5 @@
 import Bottleneck from 'bottleneck';
+import { config } from '../config';
 import type { Auth } from '../store';
 import { refreshAuth } from './refresh';
 
@@ -60,4 +61,14 @@ export async function callWebhook<T = any>(
     throw new Error(`Bitrix ${method}: ${json.error} ${json.error_description ?? ''}`);
   }
   return json.result as T;
+}
+
+/**
+ * Llamadas CRM: usa el webhook entrante (admin, permisos completos) si está configurado;
+ * si no, el token del evento/app. El token del bot es no-Intranet y tiene CRM limitado,
+ * por eso las escrituras al CRM se canalizan por el webhook cuando existe.
+ */
+export async function callCrm<T = any>(method: string, params: Record<string, unknown>, auth: Auth): Promise<T> {
+  if (config.bitrixWebhookUrl) return callWebhook<T>(method, params, config.bitrixWebhookUrl);
+  return callBitrix<T>(method, params, auth);
 }

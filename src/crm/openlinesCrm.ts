@@ -1,4 +1,4 @@
-import { callBitrix } from '../bitrix/client';
+import { callBitrix, callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { log } from '../log';
 import type { Auth } from '../store';
@@ -92,7 +92,7 @@ export async function ensureLeadForChat(chatId: any, auth: Auth): Promise<CrmEnt
 /** Registra un turno de la conversación en el timeline de la entidad. */
 export async function logConversationTurn(entity: CrmEntity, userText: string, botText: string, auth: Auth) {
   const comment = `🤖 Conversación IA\n👤 Cliente: ${userText}\n🤖 Agente: ${botText}`;
-  await callBitrix(
+  await callCrm(
     'crm.timeline.comment.add',
     { fields: { ENTITY_ID: entity.id, ENTITY_TYPE: entity.type, COMMENT: comment } },
     auth,
@@ -102,7 +102,7 @@ export async function logConversationTurn(entity: CrmEntity, userText: string, b
 /** Carga los últimos registros de conversación IA del CRM como "memoria" entre sesiones. */
 export async function loadPriorContext(entity: CrmEntity, auth: Auth): Promise<string> {
   try {
-    const r: any = await callBitrix(
+    const r: any = await callCrm(
       'crm.timeline.comment.list',
       {
         filter: { ENTITY_ID: entity.id, ENTITY_TYPE: entity.type },
@@ -148,7 +148,7 @@ async function addNota(type: CrmEntity['type'], id: number, data: DatosCliente, 
     ]
       .filter(Boolean)
       .join('\n');
-  await callBitrix('crm.timeline.comment.add', { fields: { ENTITY_ID: id, ENTITY_TYPE: type, COMMENT: nota } }, auth);
+  await callCrm('crm.timeline.comment.add', { fields: { ENTITY_ID: id, ENTITY_TYPE: type, COMMENT: nota } }, auth);
 }
 
 /**
@@ -180,7 +180,7 @@ export async function actualizarDatosCliente(
     if (data.email) fields.EMAIL = [{ VALUE: String(data.email), VALUE_TYPE: 'WORK' }];
     try {
       if (Object.keys(fields).length) {
-        await callBitrix('crm.contact.update', { id: e.contact, fields }, auth);
+        await callCrm('crm.contact.update', { id: e.contact, fields }, auth);
         actualizado.push(`contact#${e.contact}`);
       }
       await addNota('contact', e.contact, data, auth);
@@ -198,7 +198,7 @@ export async function actualizarDatosCliente(
     if (data.comentario) fields.COMMENTS = data.comentario;
     try {
       if (Object.keys(fields).length) {
-        await callBitrix('crm.deal.update', { id: e.deal, fields }, auth);
+        await callCrm('crm.deal.update', { id: e.deal, fields }, auth);
       }
       await addNota('deal', e.deal, data, auth);
       actualizado.push(`deal#${e.deal}`);
@@ -216,7 +216,7 @@ export async function actualizarDatosCliente(
     if (data.programa_interes) fields.TITLE = `Interés: ${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`;
     try {
       if (Object.keys(fields).length) {
-        await callBitrix('crm.lead.update', { id: e.lead, fields }, auth);
+        await callCrm('crm.lead.update', { id: e.lead, fields }, auth);
       }
       await addNota('lead', e.lead, data, auth);
       actualizado.push(`lead#${e.lead}`);
@@ -253,7 +253,7 @@ export async function guardarEvaluacionCrm(
     if (config.ufSentiment) ufFields[config.ufSentiment] = evalData.sentimiento;
     if (Object.keys(ufFields).length) {
       try {
-        await callBitrix('crm.deal.update', { id: entities.deal, fields: ufFields }, auth);
+        await callCrm('crm.deal.update', { id: entities.deal, fields: ufFields }, auth);
       } catch (e) {
         log.warn('guardarEvaluacion: UF update falló', { err: String(e) });
       }
@@ -264,7 +264,7 @@ export async function guardarEvaluacionCrm(
     const nota =
       `🎯 Evaluación IA — Score ${evalData.score}/100 · Intención: ${evalData.intencion} · ` +
       `Sentimiento: ${evalData.sentimiento}\n${evalData.justificacion}`;
-    await callBitrix(
+    await callCrm(
       'crm.timeline.comment.add',
       { fields: { ENTITY_ID: primary.id, ENTITY_TYPE: primary.type, COMMENT: nota } },
       auth,
@@ -274,5 +274,5 @@ export async function guardarEvaluacionCrm(
 
 /** Mueve el deal a una etapa (STAGE_ID) del embudo. */
 export async function moverEtapaDeal(dealId: number, stageId: string, auth: Auth): Promise<void> {
-  await callBitrix('crm.deal.update', { id: dealId, fields: { STAGE_ID: stageId } }, auth);
+  await callCrm('crm.deal.update', { id: dealId, fields: { STAGE_ID: stageId } }, auth);
 }
