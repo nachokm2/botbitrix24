@@ -3,7 +3,7 @@ import { config } from './config';
 import { log } from './log';
 import { installHandler } from './routes/install';
 import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes/botEvents';
-import { registerBotManual, unregisterBotManual, listDealStages } from './routes/setup';
+import { registerBotManual, unregisterBotManual, listDealStages, dealResponsable } from './routes/setup';
 import { initDb, dbRecentAudit, dbEnabled } from './store/db';
 import { snapshot } from './obs/metrics';
 import { kvKind } from './store/kv';
@@ -79,6 +79,7 @@ app.post('/events/bot/delete', botDeleteHandler);
 app.get('/setup/register-bot', registerBotManual);
 app.get('/setup/unregister-bot', unregisterBotManual);
 app.get('/setup/deal-stages', listDealStages);
+app.get('/setup/deal-responsable', dealResponsable);
 
 // Inicializa Postgres (auditoría) en segundo plano; el app funciona mientras conecta.
 initDb().catch((e) => log.error('initDb error', { err: String(e) }));

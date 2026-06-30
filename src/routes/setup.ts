@@ -2,8 +2,37 @@ import type { Request, Response } from 'express';
 import { getState, setBotId } from '../store';
 import { registerBot, unregisterBot } from '../bot/register';
 import { callBitrix, callWebhook } from '../bitrix/client';
+import { getDealAsesores } from '../crm/openlinesCrm';
 import { config } from '../config';
 import { log } from '../log';
+
+/** Diagnóstico: trae el responsable (ASSIGNED_BY_ID) y observadores de un deal. GET /setup/deal-responsable?id=NNN */
+export async function dealResponsable(req: Request, res: Response) {
+  const id = Number(req.query.id);
+  if (!id) return res.status(400).json({ ok: false, error: 'Falta ?id=<dealId> (ej. /setup/deal-responsable?id=77)' });
+  const st = await getState();
+  if (!st.auth && !config.bitrixWebhookUrl) {
+    return res.status(400).json({ ok: false, error: 'No hay auth ni BITRIX_WEBHOOK_URL.' });
+  }
+  try {
+    const { responsable, observadores, info } = await getDealAsesores(id, st.auth ?? ({} as any));
+    res.json({
+      ok: true,
+      via: config.bitrixWebhookUrl ? 'webhook' : 'app-token',
+      dealId: id,
+      titulo: info.titulo,
+      categoryId: info.categoryId,
+      stageId: info.stageId,
+      responsable,
+      observadores,
+      nota: responsable?.nombre?.startsWith('Usuario ')
+        ? 'Se obtuvo el ID del responsable pero no su nombre: agrega el scope "user" (Usuarios) al webhook entrante para resolver nombre/email.'
+        : undefined,
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e) });
+  }
+}
 
 /** Lista las etapas (STAGE_ID) de cada embudo de Deal + diagnóstico, para configurar BITRIX_STAGE_SCORE_*. */
 export async function listDealStages(_req: Request, res: Response) {
