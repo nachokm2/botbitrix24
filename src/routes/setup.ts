@@ -4,37 +4,56 @@ import { registerBot, unregisterBot } from '../bot/register';
 import { callBitrix } from '../bitrix/client';
 import { log } from '../log';
 
-/** Lista las etapas (STAGE_ID) de cada embudo de Deal, para configurar BITRIX_STAGE_SCORE_*. */
+/** Lista las etapas (STAGE_ID) de cada embudo de Deal + diagnóstico, para configurar BITRIX_STAGE_SCORE_*. */
 export async function listDealStages(_req: Request, res: Response) {
   const st = await getState();
   if (!st.auth) return res.status(400).json({ ok: false, error: 'No hay auth. Instala el app primero.' });
-  try {
-    // 1) Embudos (categorías) de deal. Siempre incluimos el General (id 0).
-    const cats = new Map<number, string>([[0, 'General']]);
-    try {
-      const c: any = await callBitrix('crm.category.list', { entityTypeId: 2 }, st.auth);
-      const list: any[] = c?.categories ?? (Array.isArray(c) ? c : []);
-      for (const x of list) cats.set(Number(x.id), String(x.name ?? `Embudo ${x.id}`));
-    } catch (e) {
-      log.warn('crm.category.list falló (uso solo General)', { err: String(e) });
-    }
 
-    // 2) Etapas por embudo (ENTITY_ID = DEAL_STAGE para id 0, DEAL_STAGE_<id> para el resto).
-    const stages: any[] = [];
-    for (const [id, name] of cats) {
-      const entityId = id === 0 ? 'DEAL_STAGE' : `DEAL_STAGE_${id}`;
+  const debug: any = {};
+  const stages: any[] = [];
+
+  // 1) Embudos (categorías) de deal.
+  let categoryIds: number[] = [0];
+  try {
+    const c: any = await callBitrix('crm.category.list', { entityTypeId: 2 }, st.auth);
+    debug.categoryListRaw = c;
+    const list: any[] = c?.categories ?? (Array.isArray(c) ? c : []);
+    categoryIds = Array.from(new Set([0, ...list.map((x: any) => Number(x.id))]));
+  } catch (e) {
+    debug.categoryListError = String(e);
+  }
+  debug.categoryIds = categoryIds;
+
+  // 2) Método A: crm.status.list por ENTITY_ID.
+  debug.statusList = [];
+  for (const id of categoryIds) {
+    const entityId = id === 0 ? 'DEAL_STAGE' : `DEAL_STAGE_${id}`;
+    try {
+      const r: any = await callBitrix('crm.status.list', { filter: { ENTITY_ID: entityId } }, st.auth);
+      const arr: any[] = Array.isArray(r) ? r : (r?.result ?? []);
+      debug.statusList.push({ entityId, count: arr.length });
+      for (const s of arr) stages.push({ categoryId: id, STATUS_ID: s.STATUS_ID, NAME: s.NAME });
+    } catch (e) {
+      debug.statusList.push({ entityId, error: String(e) });
+    }
+  }
+
+  // 3) Método B (fallback): crm.dealcategory.stage.list.
+  if (stages.length === 0) {
+    debug.dealcategoryStage = [];
+    for (const id of categoryIds) {
       try {
-        const r: any = await callBitrix('crm.status.list', { filter: { ENTITY_ID: entityId }, order: { SORT: 'ASC' } }, st.auth);
-        const arr: any[] = Array.isArray(r) ? r : (r?.result ?? []);
-        for (const s of arr) stages.push({ embudo: name, categoryId: id, STATUS_ID: s.STATUS_ID, NAME: s.NAME });
+        const r: any = await callBitrix('crm.dealcategory.stage.list', { id }, st.auth);
+        const arr: any[] = Array.isArray(r) ? r : (r?.result ?? r?.stages ?? []);
+        debug.dealcategoryStage.push({ id, count: arr.length, sample: arr.slice(0, 1) });
+        for (const s of arr) stages.push({ categoryId: id, STATUS_ID: s.STATUS_ID, NAME: s.NAME });
       } catch (e) {
-        log.warn('crm.status.list falló', { entityId, err: String(e) });
+        debug.dealcategoryStage.push({ id, error: String(e) });
       }
     }
-    res.json({ ok: true, total: stages.length, stages });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: String(e) });
   }
+
+  res.json({ ok: true, total: stages.length, stages, debug });
 }
 
 /** Registro manual del bot (si el auto-registro en /install no se ejecutó). */
