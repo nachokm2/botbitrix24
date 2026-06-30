@@ -1,35 +1,41 @@
 import type { Request, Response } from 'express';
 import { getState, setBotId } from '../store';
 import { registerBot, unregisterBot } from '../bot/register';
-import { callBitrix } from '../bitrix/client';
+import { callBitrix, callWebhook } from '../bitrix/client';
+import { config } from '../config';
 import { log } from '../log';
 
 /** Lista las etapas (STAGE_ID) de cada embudo de Deal + diagnóstico, para configurar BITRIX_STAGE_SCORE_*. */
 export async function listDealStages(_req: Request, res: Response) {
   const st = await getState();
-  if (!st.auth) return res.status(400).json({ ok: false, error: 'No hay auth. Instala el app primero.' });
+  if (!st.auth && !config.bitrixWebhookUrl) {
+    return res.status(400).json({ ok: false, error: 'No hay auth ni BITRIX_WEBHOOK_URL. Instala el app o define el webhook.' });
+  }
 
-  const debug: any = {};
+  // El token del bot es no-Intranet (crm.category.list da allowed_only_intranet_user).
+  // Si hay un webhook entrante (creado por un admin), úsalo: corre con permisos completos.
+  const useWebhook = Boolean(config.bitrixWebhookUrl);
+  const call = (method: string, params: any) =>
+    useWebhook ? callWebhook(method, params, config.bitrixWebhookUrl) : callBitrix(method, params, st.auth!);
+
+  const debug: any = { via: useWebhook ? 'webhook' : 'app-token' };
   const stages: any[] = [];
 
-  // 1) Embudos (categorías) de deal.
   let categoryIds: number[] = [0];
   try {
-    const c: any = await callBitrix('crm.category.list', { entityTypeId: 2 }, st.auth);
-    debug.categoryListRaw = c;
+    const c: any = await call('crm.category.list', { entityTypeId: 2 });
     const list: any[] = c?.categories ?? (Array.isArray(c) ? c : []);
     categoryIds = Array.from(new Set([0, ...list.map((x: any) => Number(x.id))]));
+    debug.categories = list.map((x: any) => ({ id: x.id, name: x.name }));
   } catch (e) {
     debug.categoryListError = String(e);
   }
-  debug.categoryIds = categoryIds;
 
-  // 2) Método A: crm.status.list por ENTITY_ID.
   debug.statusList = [];
   for (const id of categoryIds) {
     const entityId = id === 0 ? 'DEAL_STAGE' : `DEAL_STAGE_${id}`;
     try {
-      const r: any = await callBitrix('crm.status.list', { filter: { ENTITY_ID: entityId } }, st.auth);
+      const r: any = await call('crm.status.list', { filter: { ENTITY_ID: entityId } });
       const arr: any[] = Array.isArray(r) ? r : (r?.result ?? []);
       debug.statusList.push({ entityId, count: arr.length });
       for (const s of arr) stages.push({ categoryId: id, STATUS_ID: s.STATUS_ID, NAME: s.NAME });
@@ -38,22 +44,7 @@ export async function listDealStages(_req: Request, res: Response) {
     }
   }
 
-  // 3) Método B (fallback): crm.dealcategory.stage.list.
-  if (stages.length === 0) {
-    debug.dealcategoryStage = [];
-    for (const id of categoryIds) {
-      try {
-        const r: any = await callBitrix('crm.dealcategory.stage.list', { id }, st.auth);
-        const arr: any[] = Array.isArray(r) ? r : (r?.result ?? r?.stages ?? []);
-        debug.dealcategoryStage.push({ id, count: arr.length, sample: arr.slice(0, 1) });
-        for (const s of arr) stages.push({ categoryId: id, STATUS_ID: s.STATUS_ID, NAME: s.NAME });
-      } catch (e) {
-        debug.dealcategoryStage.push({ id, error: String(e) });
-      }
-    }
-  }
-
-  res.json({ ok: true, total: stages.length, stages, debug });
+  res.json({ ok: true, via: debug.via, total: stages.length, stages, debug });
 }
 
 /** Registro manual del bot (si el auto-registro en /install no se ejecutó). */
