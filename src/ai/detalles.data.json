@@ -447,41 +447,5 @@
     "requisitos": "Profesionales de administración, economía, ingeniería y/o ciencias sociales que deseen fortalecer su perfil gerencial.",
     "descripcion": "Desarrolla capacidades directivas estratégicas y competencias técnicas e interpersonales en gestión organizacional globalizada, con énfasis en habilidades socioemocionales, innovación y liderazgo.",
     "brochureUrl": "https://postgrados.uautonoma.cl/content/uploads/2026/05/Magister-en-Direccion-de-Empresas-MBA-Presencial.pdf"
-  },
-  "doctorado-en-ciencias-sociales": {
-    "nombre": "Doctorado en Ciencias Sociales",
-    "url": "https://www.uautonoma.cl/doctorado-en-ciencias-sociales/",
-    "arancel": "$3.375.000",
-    "matricula": "$120.000",
-    "requisitos": "Título profesional o grado de licenciado en una disciplina de las ciencias sociales o afín; grado de magíster según evaluación del Comité Académico; inglés a nivel básico.",
-    "descripcion": "Programa de Ciencias Sociales y Humanidades enfocado en la investigación autónoma, con énfasis en tensiones sociales contemporáneas, instituciones, actores sociales y desarrollo territorial.",
-    "brochureUrl": null
-  },
-  "doctorado-en-ciencias-aplicadas": {
-    "nombre": "Doctorado en Ciencias Aplicadas",
-    "url": "https://www.uautonoma.cl/doctorado-en-ciencias-aplicadas/",
-    "arancel": null,
-    "matricula": null,
-    "requisitos": "Título profesional o grado en áreas afines a ciencias naturales, química, física, biología o ingeniería; manejo instrumental de inglés; aprobación del proceso de selección.",
-    "descripcion": "Programa doctoral del Instituto de Ciencias Aplicadas (Facultad de Ingeniería) orientado a la investigación aplicada en energía, medio ambiente y biotecnología, frente a problemáticas sociales, territoriales y productivas.",
-    "brochureUrl": null
-  },
-  "doctorado-en-ciencias-biomedicas": {
-    "nombre": "Doctorado en Ciencias Biomédicas",
-    "url": "https://www.uautonoma.cl/doctorado-en-ciencias-biomedicas/",
-    "arancel": null,
-    "matricula": null,
-    "requisitos": "Grado de licenciado en alguna de las áreas de las ciencias biomédicas o afines. Se da preferencia a postulantes con magíster.",
-    "descripcion": "Forma investigadores de excelencia en ciencias biomédicas, capaces de liderar líneas de investigación e innovación. Programa presencial, de jornada diurna y dedicación exclusiva.",
-    "brochureUrl": null
-  },
-  "doctorado-en-derecho": {
-    "nombre": "Doctorado en Derecho",
-    "url": "https://www.uautonoma.cl/doctorado-en-derecho/",
-    "arancel": null,
-    "matricula": null,
-    "requisitos": "Título de Licenciado en Derecho o equivalente y Magíster en Derecho o equivalente; idioma extranjero (preferentemente inglés) a nivel B1.",
-    "descripcion": "Forma investigadores expertos en derecho con capacidad de producir investigaciones originales, con formación avanzada en metodología jurídica, líneas de investigación consolidadas y redes internacionales.",
-    "brochureUrl": null
   }
 }

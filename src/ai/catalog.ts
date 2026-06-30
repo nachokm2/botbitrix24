@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 // Extraído el 2026-06-28. Para refrescar: volver a leer esos listados y regenerar este arreglo.
 export type Programa = {
   nombre: string;
-  tipo: 'magister' | 'doctorado' | 'diplomado';
+  tipo: 'magister' | 'diplomado';
   facultad: string;
   modalidad: string; // 'online' | 'presencial' | '' (no especificada)
   duracion: string;
@@ -15,7 +15,7 @@ export type Programa = {
 
 const M = 'https://postgrados.uautonoma.cl/programas/magisteres/';
 
-const MAGISTERES_DOCTORADOS: Programa[] = [
+const MAGISTERES: Programa[] = [
   // ── Magísteres ──
   { nombre: 'Magíster en Gestión de la Inclusión y Convivencia Educativa', tipo: 'magister', facultad: 'Educación', modalidad: 'online', duracion: '4 semestres', url: `${M}magister-en-gestion-de-la-inclusion-y-convivencia-educativa/` },
   { nombre: 'Máster Formación Permanente en Sexología', tipo: 'magister', facultad: 'Ciencias de la Salud', modalidad: 'presencial', duracion: '4 semestres', url: `${M}master-formacion-permanente-en-sexologia/` },
@@ -64,12 +64,6 @@ const MAGISTERES_DOCTORADOS: Programa[] = [
   { nombre: 'Magíster en Dirección de Personas y Gestión del Talento', tipo: 'magister', facultad: 'Administración y Negocios', modalidad: 'online', duracion: '4 semestres', url: `${M}magister-en-direccion-de-personas-y-gestion-del-talento/` },
   { nombre: 'Magíster en Dirección de Empresas - MBA - Online', tipo: 'magister', facultad: 'Administración y Negocios', modalidad: 'online', duracion: '4 semestres', url: `${M}magister-en-direccion-de-empresas-mba-online/` },
   { nombre: 'Magíster en Dirección de Empresas - MBA', tipo: 'magister', facultad: 'Administración y Negocios', modalidad: 'presencial', duracion: '4 semestres', url: `${M}magister-en-direccion-de-empresas-mba/` },
-
-  // ── Doctorados ── (el listado no especifica facultad ni modalidad)
-  { nombre: 'Doctorado en Ciencias Sociales', tipo: 'doctorado', facultad: 'Ciencias Sociales y Humanidades', modalidad: '', duracion: '8 semestres', url: 'https://www.uautonoma.cl/doctorado-en-ciencias-sociales/' },
-  { nombre: 'Doctorado en Ciencias Aplicadas', tipo: 'doctorado', facultad: '', modalidad: '', duracion: '8 semestres', url: 'https://www.uautonoma.cl/doctorado-en-ciencias-aplicadas/' },
-  { nombre: 'Doctorado en Ciencias Biomédicas', tipo: 'doctorado', facultad: 'Ciencias de la Salud', modalidad: '', duracion: '8 semestres', url: 'https://www.uautonoma.cl/doctorado-en-ciencias-biomedicas/' },
-  { nombre: 'Doctorado en Derecho', tipo: 'doctorado', facultad: 'Derecho', modalidad: '', duracion: '8 semestres', url: 'https://www.uautonoma.cl/doctorado-en-derecho/' },
 ];
 
 // Diplomados (128) extraídos de postgrados.uautonoma.cl/programas/diplomados/ el 2026-06-29.
@@ -83,8 +77,8 @@ const DIPLOMADOS: Programa[] = (JSON.parse(readFileSync(DIPLO_PATH, 'utf8')) as 
   url: d.url,
 }));
 
-/** Catálogo completo: magísteres + doctorados + diplomados. */
-export const PROGRAMAS: Programa[] = [...MAGISTERES_DOCTORADOS, ...DIPLOMADOS];
+/** Catálogo completo: magísteres + diplomados. */
+export const PROGRAMAS: Programa[] = [...MAGISTERES, ...DIPLOMADOS];
 
 export const FACULTADES = [
   'Administración y Negocios',

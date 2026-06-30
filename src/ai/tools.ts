@@ -4,12 +4,12 @@ export const tools = [
     name: 'consultar_programas',
     description:
       'Consulta el catálogo oficial de programas de postgrado de la Universidad Autónoma de Chile ' +
-      '(magísteres y doctorados). Úsala SIEMPRE antes de informar sobre programas; nunca inventes ' +
+      '(magísteres y diplomados). Úsala SIEMPRE antes de informar sobre programas; nunca inventes ' +
       'nombres, facultades, duraciones, modalidades ni URLs. Devuelve la URL oficial de cada programa.',
     input_schema: {
       type: 'object',
       properties: {
-        tipo: { type: 'string', enum: ['magister', 'doctorado', 'diplomado'] },
+        tipo: { type: 'string', enum: ['magister', 'diplomado'] },
         facultad: {
           type: 'string',
           enum: [
