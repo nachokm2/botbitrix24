@@ -4,7 +4,7 @@ import { log } from './log';
 import { installHandler } from './routes/install';
 import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes/botEvents';
 import { registerBotManual, unregisterBotManual, listDealStages, dealResponsable } from './routes/setup';
-import { voiceRegister, voiceTurn, voiceFinish, verifyVoiceSecret } from './routes/voice';
+import { vapiEvents, voiceOutbound, verifyVapiSecret } from './routes/vapi';
 import { initDb, dbRecentAudit, dbEnabled } from './store/db';
 import { snapshot } from './obs/metrics';
 import { kvKind } from './store/kv';
@@ -49,10 +49,12 @@ app.get('/debug/config', (_req, res) =>
       programa: config.ufPrograma || '(vacío)',
     },
     voz: {
-      model: config.voiceModel,
+      vapiApiKey: Boolean(config.vapiApiKey),
+      vapiAssistantId: Boolean(config.vapiAssistantId),
+      vapiPhoneNumberId: Boolean(config.vapiPhoneNumberId),
+      vapiSecret: Boolean(config.vapiSecret),
       telephonyUserId: config.voiceUserId || '(vacío)',
       transferFallback: Boolean(config.voiceTransferFallback),
-      sharedSecret: Boolean(config.voiceSharedSecret),
     },
   }),
 );
@@ -95,10 +97,9 @@ app.get('/setup/unregister-bot', unregisterBotManual);
 app.get('/setup/deal-stages', listDealStages);
 app.get('/setup/deal-responsable', dealResponsable);
 
-// Fase 2: agente de voz (endpoints consumidos por el escenario VoxEngine de Voximplant)
-app.post('/voice/call/register', verifyVoiceSecret, voiceRegister);
-app.post('/voice/turn', verifyVoiceSecret, voiceTurn);
-app.post('/voice/call/finish', verifyVoiceSecret, voiceFinish);
+// Fase 2: agente de voz con Vapi
+app.post('/vapi/events', verifyVapiSecret, vapiEvents); // webhook de Vapi (tool-calls, end-of-call-report)
+app.post('/voice/outbound', voiceOutbound); // dispara una llamada saliente con Vapi
 
 // Inicializa Postgres (auditoría) en segundo plano; el app funciona mientras conecta.
 initDb().catch((e) => log.error('initDb error', { err: String(e) }));

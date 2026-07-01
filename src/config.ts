@@ -43,15 +43,15 @@ export const config = {
   // Auto-escalar a humano si el score alcanza este umbral (0 = desactivado).
   scoreEscalar: Number(process.env.SCORE_ESCALAR ?? 80),
 
-  // ── Fase 2: Agente de voz (Voximplant VoxEngine + telefonía Bitrix) ──
-  // Usuario Bitrix "dueño" de las llamadas del bot (para telephony.externalCall.*).
-  voiceUserId: Number(process.env.BITRIX_TELEPHONY_USER_ID ?? 0),
-  // Número de línea externa (para vinculación/analítica en Bitrix).
-  voiceLineNumber: process.env.BITRIX_TELEPHONY_LINE ?? '',
-  // Modelo de Claude para la voz (Haiku por latencia; "equilibrado").
-  voiceModel: process.env.VOICE_MODEL ?? process.env.ANTHROPIC_CLASSIFIER ?? 'claude-haiku-4-5',
+  // ── Fase 2: Agente de voz (Vapi + Twilio + registro en telefonía Bitrix) ──
+  // Vapi corre la conversación (STT/TTS/barge-in + Claude) y llama a nuestro backend por webhooks.
+  vapiApiKey: process.env.VAPI_API_KEY ?? '', // API key privada de Vapi (para outbound / setup)
+  vapiAssistantId: process.env.VAPI_ASSISTANT_ID ?? '',
+  vapiPhoneNumberId: process.env.VAPI_PHONE_NUMBER_ID ?? '', // número (BYO Twilio) importado a Vapi
+  vapiSecret: process.env.VAPI_SECRET ?? '', // server.secret: Vapi lo envía en header x-vapi-secret
+  // Registro de la llamada en el CRM de Bitrix (telephony.externalCall.*):
+  voiceUserId: Number(process.env.BITRIX_TELEPHONY_USER_ID ?? 0), // usuario Bitrix "dueño" de las llamadas
+  voiceLineNumber: process.env.BITRIX_TELEPHONY_LINE ?? '', // nº de línea externa (opcional)
   // Destino de derivación a humano cuando no hay asesor asignado (número PSTN o SIP URI).
   voiceTransferFallback: process.env.VOICE_TRANSFER_FALLBACK ?? '',
-  // Secreto compartido que el escenario VoxEngine envía en cada request (valida el origen).
-  voiceSharedSecret: process.env.VOICE_SHARED_SECRET ?? '',
 };

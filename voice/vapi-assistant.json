@@ -1,0 +1,89 @@
+{
+  "_comment": "Plantilla del asistente Vapi (UA Postgrados, voz). Créalo/actualízalo en el dashboard de Vapi o vía POST https://api.vapi.ai/assistant. Reemplaza <BACKEND_BASE> y <VAPI_SECRET>. Verifica los nombres de campos contra https://docs.vapi.ai/api-reference (el esquema puede evolucionar). El modelo/voz/idioma es-CL son ajustables en el dashboard.",
+  "name": "UA Postgrados - Voz",
+  "firstMessage": "Hola, le saluda el asistente de Postgrados de la Universidad Autónoma de Chile. ¿En qué le puedo ayudar?",
+  "model": {
+    "provider": "anthropic",
+    "model": "claude-3-5-haiku-20241022",
+    "temperature": 0.4,
+    "messages": [
+      {
+        "role": "system",
+        "content": "Eres el asistente telefónico de voz de la Universidad Autónoma de Chile (Postgrados). Hablas por teléfono en español de Chile, cercano y profesional. Respuestas MUY breves (1 a 3 frases), una sola pregunta a la vez; no leas URLs ni listas largas. Usa SIEMPRE las herramientas para datos de programas/precios; nunca inventes nombres, aranceles, becas ni fechas. Flujo: (1) entiende qué área/programa le interesa; (2) informa con 'consultar_programas' y 'detalle_programa'; (3) capta datos por voz en este orden y uno a la vez — nombre, luego correo, luego teléfono — y regístralos con 'registrar_interes_crm' apenas los tengas, manteniendo el programa de interés actualizado; (4) si pide un asesor, muestra intención alta o algo fuera de tu alcance, usa 'transferir_a_asesor' (si devuelve el nombre del asesor, menciónalo con calidez; nunca lo inventes); (5) al terminar, despídete brevemente."
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "consultar_programas",
+          "description": "Consulta el catálogo oficial (magísteres, diplomados y especialidades). Úsala antes de informar de programas.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "tipo": { "type": "string", "enum": ["magister", "diplomado", "especialidad"] },
+              "facultad": { "type": "string" },
+              "modalidad": { "type": "string", "enum": ["online", "presencial"] },
+              "texto": { "type": "string", "description": "Búsqueda libre por nombre o tema" }
+            }
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "detalle_programa",
+          "description": "Detalle de UN programa: arancel, matrícula, requisitos, descripción. Pásale nombre o url.",
+          "parameters": {
+            "type": "object",
+            "properties": { "nombre": { "type": "string" }, "url": { "type": "string" } }
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "registrar_interes_crm",
+          "description": "Guarda/actualiza en el CRM los datos del cliente (nombre, apellido, email, teléfono) y el programa de interés.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "nombre": { "type": "string" },
+              "apellido": { "type": "string" },
+              "email": { "type": "string" },
+              "telefono": { "type": "string" },
+              "programa_interes": { "type": "string" },
+              "comentario": { "type": "string" }
+            }
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "transferir_a_asesor",
+          "description": "Indica que hay que derivar la llamada a un asesor humano. Devuelve el asesor asignado y el destino.",
+          "parameters": {
+            "type": "object",
+            "properties": { "motivo": { "type": "string" } },
+            "required": ["motivo"]
+          }
+        }
+      }
+    ]
+  },
+  "transcriber": {
+    "provider": "deepgram",
+    "model": "nova-2",
+    "language": "es"
+  },
+  "voice": {
+    "provider": "azure",
+    "voiceId": "es-CL-CatalinaNeural"
+  },
+  "server": {
+    "url": "<BACKEND_BASE>/vapi/events",
+    "secret": "<VAPI_SECRET>"
+  },
+  "serverMessages": ["tool-calls", "end-of-call-report", "status-update"]
+}
