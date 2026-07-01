@@ -4,6 +4,7 @@ import { log } from './log';
 import { installHandler } from './routes/install';
 import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes/botEvents';
 import { registerBotManual, unregisterBotManual, listDealStages, dealResponsable } from './routes/setup';
+import { voiceRegister, voiceTurn, voiceFinish, verifyVoiceSecret } from './routes/voice';
 import { initDb, dbRecentAudit, dbEnabled } from './store/db';
 import { snapshot } from './obs/metrics';
 import { kvKind } from './store/kv';
@@ -47,6 +48,12 @@ app.get('/debug/config', (_req, res) =>
       sentiment: config.ufSentiment || '(vacío)',
       programa: config.ufPrograma || '(vacío)',
     },
+    voz: {
+      model: config.voiceModel,
+      telephonyUserId: config.voiceUserId || '(vacío)',
+      transferFallback: Boolean(config.voiceTransferFallback),
+      sharedSecret: Boolean(config.voiceSharedSecret),
+    },
   }),
 );
 
@@ -87,6 +94,11 @@ app.get('/setup/register-bot', registerBotManual);
 app.get('/setup/unregister-bot', unregisterBotManual);
 app.get('/setup/deal-stages', listDealStages);
 app.get('/setup/deal-responsable', dealResponsable);
+
+// Fase 2: agente de voz (endpoints consumidos por el escenario VoxEngine de Voximplant)
+app.post('/voice/call/register', verifyVoiceSecret, voiceRegister);
+app.post('/voice/turn', verifyVoiceSecret, voiceTurn);
+app.post('/voice/call/finish', verifyVoiceSecret, voiceFinish);
 
 // Inicializa Postgres (auditoría) en segundo plano; el app funciona mientras conecta.
 initDb().catch((e) => log.error('initDb error', { err: String(e) }));

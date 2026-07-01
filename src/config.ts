@@ -42,4 +42,16 @@ export const config = {
   stageScoreMedio: process.env.BITRIX_STAGE_SCORE_MEDIO ?? '', // score 40-69
   // Auto-escalar a humano si el score alcanza este umbral (0 = desactivado).
   scoreEscalar: Number(process.env.SCORE_ESCALAR ?? 80),
+
+  // ── Fase 2: Agente de voz (Voximplant VoxEngine + telefonía Bitrix) ──
+  // Usuario Bitrix "dueño" de las llamadas del bot (para telephony.externalCall.*).
+  voiceUserId: Number(process.env.BITRIX_TELEPHONY_USER_ID ?? 0),
+  // Número de línea externa (para vinculación/analítica en Bitrix).
+  voiceLineNumber: process.env.BITRIX_TELEPHONY_LINE ?? '',
+  // Modelo de Claude para la voz (Haiku por latencia; "equilibrado").
+  voiceModel: process.env.VOICE_MODEL ?? process.env.ANTHROPIC_CLASSIFIER ?? 'claude-haiku-4-5',
+  // Destino de derivación a humano cuando no hay asesor asignado (número PSTN o SIP URI).
+  voiceTransferFallback: process.env.VOICE_TRANSFER_FALLBACK ?? '',
+  // Secreto compartido que el escenario VoxEngine envía en cada request (valida el origen).
+  voiceSharedSecret: process.env.VOICE_SHARED_SECRET ?? '',
 };
