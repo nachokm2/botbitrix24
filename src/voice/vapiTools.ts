@@ -58,8 +58,12 @@ export async function runVapiTool(name: string, args: any, ctx: VoiceCallCtx, au
         };
       }
       case 'registrar_interes_crm': {
-        const r = await actualizarDatosCliente(mapCrm(ctx.crm), undefined, args ?? {}, auth);
-        return { ok: r.ok, actualizado: r.actualizado, error: r.error };
+        // No bloqueamos la conversación esperando a Bitrix: guardamos en segundo plano
+        // y respondemos al instante para que la voz siga fluida.
+        void actualizarDatosCliente(mapCrm(ctx.crm), undefined, args ?? {}, auth).catch((e) =>
+          log.warn('registrar_interes_crm (voz) async falló', { err: String(e) }),
+        );
+        return { ok: true, guardado: true };
       }
       case 'transferir_a_asesor': {
         let asesor: string | null = null;
