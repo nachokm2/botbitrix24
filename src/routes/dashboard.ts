@@ -2,19 +2,25 @@ import type { Request, Response } from 'express';
 import { snapshot } from '../obs/metrics';
 import { dbMetricsSummary, dbRecentAudit, dbEnabled } from '../store/db';
 import { kvKind } from '../store/kv';
+import { config } from '../config';
+
+const RANGES = ['today', '7d', '30d', 'all'];
 
 /** JSON con métricas de negocio (persistentes) + técnicas (en memoria) + actividad reciente. */
-export async function metricsSummary(_req: Request, res: Response) {
+export async function metricsSummary(req: Request, res: Response) {
+  const range = RANGES.includes(String(req.query.range)) ? String(req.query.range) : '7d';
   const live = snapshot();
-  const [agg, recent] = await Promise.all([dbMetricsSummary(), dbRecentAudit(15)]);
+  const [agg, recent] = await Promise.all([dbMetricsSummary(range), dbRecentAudit(15)]);
   res.json({
     ok: true,
+    range,
     kv: kvKind,
     db: dbEnabled() ? 'postgres' : 'off',
     startedAt: live.startedAt,
     live: { counters: live.counters, llm: live.llm },
     agg,
     recent,
+    funnelLabels: config.funnelLabels,
   });
 }
 
@@ -47,6 +53,9 @@ const DASHBOARD_HTML = `<!doctype html>
   .tag{font-size:11px;padding:1px 6px;border-radius:6px;background:#eef1f5;color:#42526e}
   .muted{color:var(--muted)}.err{color:var(--bad)}
   footer{margin-top:18px;color:var(--muted);font-size:11px;text-align:center}
+  .ranges{display:flex;gap:6px;margin-bottom:14px}
+  .ranges button{border:1px solid var(--line);background:#fff;color:#42526e;border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;cursor:pointer}
+  .ranges button.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
   .days{display:flex;align-items:flex-end;gap:6px;height:90px}
   .days .d{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
   .days .col{width:100%;background:var(--brand);border-radius:4px 4px 0 0;min-height:2px}
@@ -58,7 +67,16 @@ const DASHBOARD_HTML = `<!doctype html>
     <div id="status"><span class="pill">cargando…</span></div>
   </header>
 
+  <div class="ranges" id="ranges">
+    <button data-r="today">Hoy</button>
+    <button data-r="7d" class="on">7 días</button>
+    <button data-r="30d">30 días</button>
+    <button data-r="all">Todo</button>
+  </div>
+
   <div class="grid" id="kpis"></div>
+
+  <div class="sec"><h2>Por embudo</h2><div class="card"><div id="embudo"></div></div></div>
 
   <div class="sec"><h2>Mensajes por día (últimos 7)</h2><div class="card"><div class="days" id="days"></div></div></div>
 
@@ -107,6 +125,12 @@ const DASHBOARD_HTML = `<!doctype html>
       kpi(num(consultas),'Consultas de programas') + kpi(num(etapas),'Etapas de deal movidas') +
       kpi(scoreAvg,'Score promedio') + kpi(num(errores),'Errores');
 
+    // Por embudo
+    var emb=(agg&&agg.porEmbudo)||[]; var labels=d.funnelLabels||{}; var embEl=document.getElementById('embudo');
+    if(emb.length){ var emax=Math.max.apply(null,emb.map(function(x){return x.c;}))||1;
+      embEl.innerHTML=emb.map(function(x){ var name=labels[x.cat]||('Embudo '+x.cat); var extra=(x.avg!=null)?(' · score prom '+x.avg):''; return barRow(name+extra, x.c, emax); }).join('');
+    } else embEl.innerHTML='<span class="muted">Sin evaluaciones por embudo aún (se llena cuando el bot puntúe leads con deal).</span>';
+
     // Mensajes por día
     var days = (agg&&agg.porDia)||[]; var dEl=document.getElementById('days');
     if(days.length){ var mx=Math.max.apply(null,days.map(function(x){return x.c;}))||1;
@@ -136,7 +160,14 @@ const DASHBOARD_HTML = `<!doctype html>
     document.getElementById('foot').textContent = 'Latencia LLM: '+num(live.llm.avgMs)+' ms (p95 '+num(live.llm.p95Ms)+' ms) · activo desde '+ new Date(d.startedAt).toLocaleString('es-CL') + ' · se actualiza cada 15 s';
   }
 
-  function load(){ fetch('/metrics/summary').then(function(r){return r.json();}).then(render).catch(function(e){ document.getElementById('status').innerHTML='<span class="pill err">error al cargar</span>'; }); }
+  var currentRange='7d';
+  function load(){ fetch('/metrics/summary?range='+currentRange).then(function(r){return r.json();}).then(render).catch(function(e){ document.getElementById('status').innerHTML='<span class="pill err">error al cargar</span>'; }); }
+  document.getElementById('ranges').addEventListener('click', function(e){
+    var b=e.target.closest('button'); if(!b) return;
+    currentRange=b.getAttribute('data-r');
+    [].forEach.call(this.querySelectorAll('button'), function(x){ x.classList.toggle('on', x===b); });
+    load();
+  });
   load(); setInterval(load, 15000);
 </script>
 </body></html>`;

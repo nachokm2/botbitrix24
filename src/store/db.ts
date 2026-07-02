@@ -71,23 +71,33 @@ export function dbEnabled(): boolean {
   return pool !== null;
 }
 
-/** Agregaciones de negocio desde audit_log (persistentes). Devuelve null si no hay Postgres. */
-export async function dbMetricsSummary(): Promise<Record<string, any> | null> {
+// Intervalos permitidos (whitelist, para evitar inyección en el SQL).
+const RANGE_INTERVAL: Record<string, string | null> = {
+  today: '1 day',
+  '7d': '7 days',
+  '30d': '30 days',
+  all: null,
+};
+
+/** Agregaciones de negocio desde audit_log (persistentes), filtradas por rango. null si no hay Postgres. */
+export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any> | null> {
   if (!pool) return null;
   const p = pool;
+  const interval = range in RANGE_INTERVAL ? RANGE_INTERVAL[range] : '7 days';
+  const W = interval ? `AND ts >= now() - interval '${interval}'` : ''; // interval viene de whitelist
   const q = (sql: string) => p.query(sql);
   try {
-    const [byType, conv, turns7d, turnsToday, tools, leadsOk, scoreAgg, intenc, sentim, perDay] = await Promise.all([
-      q(`SELECT type, count(*)::int c FROM audit_log GROUP BY type`),
-      q(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE dialog_id IS NOT NULL`),
-      q(`SELECT count(*)::int c FROM audit_log WHERE type='turn' AND ts >= now() - interval '7 days'`),
-      q(`SELECT count(*)::int c FROM audit_log WHERE type='turn' AND ts >= now() - interval '1 day'`),
-      q(`SELECT detail->>'name' name, count(*)::int c FROM audit_log WHERE type='tool_call' GROUP BY 1`),
-      q(`SELECT count(*)::int c FROM audit_log WHERE type='tool_call' AND detail->>'name'='registrar_interes_crm' AND detail->>'ok'='true'`),
-      q(`SELECT round(avg((detail->>'score')::numeric))::int avg, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'score' IS NOT NULL`),
-      q(`SELECT detail->>'intencion' k, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'intencion' IS NOT NULL GROUP BY 1`),
-      q(`SELECT detail->>'sentimiento' k, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'sentimiento' IS NOT NULL GROUP BY 1`),
+    const [byType, conv, tools, leadsOk, scoreAgg, intenc, sentim, perDay, embudo] = await Promise.all([
+      q(`SELECT type, count(*)::int c FROM audit_log WHERE true ${W} GROUP BY type`),
+      q(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE dialog_id IS NOT NULL ${W}`),
+      q(`SELECT detail->>'name' name, count(*)::int c FROM audit_log WHERE type='tool_call' ${W} GROUP BY 1`),
+      q(`SELECT count(*)::int c FROM audit_log WHERE type='tool_call' AND detail->>'name'='registrar_interes_crm' AND detail->>'ok'='true' ${W}`),
+      q(`SELECT round(avg((detail->>'score')::numeric))::int avg, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'score' IS NOT NULL ${W}`),
+      q(`SELECT detail->>'intencion' k, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'intencion' IS NOT NULL ${W} GROUP BY 1`),
+      q(`SELECT detail->>'sentimiento' k, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'sentimiento' IS NOT NULL ${W} GROUP BY 1`),
       q(`SELECT to_char(date_trunc('day', ts),'YYYY-MM-DD') d, count(*)::int c FROM audit_log WHERE type='turn' AND ts >= now() - interval '7 days' GROUP BY 1 ORDER BY 1`),
+      q(`SELECT detail->>'categoryId' cat, count(*)::int c, round(avg((detail->>'score')::numeric))::int avg
+         FROM audit_log WHERE type='lead_score' AND detail->>'categoryId' IS NOT NULL ${W} GROUP BY 1 ORDER BY 2 DESC`),
     ]);
     const map = (rows: any[], k: string, v = 'c') =>
       Object.fromEntries(rows.filter((r) => r[k] != null).map((r) => [r[k], r[v]]));
@@ -96,8 +106,6 @@ export async function dbMetricsSummary(): Promise<Record<string, any> | null> {
     return {
       conversaciones: conv.rows[0]?.c ?? 0,
       turnos: byTypeMap['turn'] ?? 0,
-      turnos7d: turns7d.rows[0]?.c ?? 0,
-      turnosHoy: turnsToday.rows[0]?.c ?? 0,
       tools: toolMap,
       leadsCapturados: leadsOk.rows[0]?.c ?? 0,
       escalamientos: (byTypeMap['auto_escalation'] ?? 0) + (toolMap['escalar_a_humano'] ?? 0),
@@ -107,6 +115,7 @@ export async function dbMetricsSummary(): Promise<Record<string, any> | null> {
       intencion: map(intenc.rows, 'k'),
       sentimiento: map(sentim.rows, 'k'),
       porDia: perDay.rows,
+      porEmbudo: embudo.rows, // [{cat, c, avg}]
       byType: byTypeMap,
     };
   } catch (e) {

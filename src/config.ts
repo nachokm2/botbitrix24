@@ -11,6 +11,18 @@ function parseStageMap(s?: string): Record<string, { alto?: string; medio?: stri
   }
 }
 
+// Etiquetas de embudo por CATEGORY_ID. Default: 0=General, 1=Diplomados, 3=Magísteres.
+function parseFunnelLabels(s?: string): Record<string, string> {
+  const def = { '0': 'General', '1': 'Diplomados', '3': 'Magísteres' };
+  if (!s) return def;
+  try {
+    const p = JSON.parse(s);
+    return p && typeof p === 'object' && Object.keys(p).length ? p : def;
+  } catch {
+    return def;
+  }
+}
+
 export const config = {
   port: Number(process.env.PORT ?? 3000),
   /** URL pública del app (Railway o túnel), sin slash final. */
@@ -37,6 +49,8 @@ export const config = {
   ufPrograma: process.env.BITRIX_UF_PROGRAMA ?? '',
   // Mover la etapa del deal según el score. Mapa por embudo (recomendado, multi-flujo):
   stageMap: parseStageMap(process.env.BITRIX_STAGE_MAP),
+  // Etiquetas legibles por CATEGORY_ID de embudo, para el panel (C1=Diplomados, C3=Magísteres).
+  funnelLabels: parseFunnelLabels(process.env.BITRIX_FUNNEL_LABELS),
   // Fallback de un solo embudo (legacy):
   stageScoreAlto: process.env.BITRIX_STAGE_SCORE_ALTO ?? '', // score >= 70
   stageScoreMedio: process.env.BITRIX_STAGE_SCORE_MEDIO ?? '', // score 40-69

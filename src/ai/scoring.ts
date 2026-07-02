@@ -175,7 +175,13 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
     await audit({
       type: 'lead_score',
       dialogId,
-      detail: { score: evalData.score, intencion: evalData.intencion, sentimiento: evalData.sentimiento },
+      crmEntity: crmEntities.deal ? `deal#${crmEntities.deal}` : undefined,
+      detail: {
+        score: evalData.score,
+        intencion: evalData.intencion,
+        sentimiento: evalData.sentimiento,
+        categoryId: sess.dealCategory,
+      },
     });
   }
   log.info('lead score', {
