@@ -13,6 +13,7 @@ export type SessionState = {
   escalatedByScore?: boolean;
   dealCategory?: number;
   responsableId?: number; // ASSIGNED_BY_ID del deal (asesor a cargo), cacheado
+  briefingDone?: boolean; // ya se generó el resumen para el asesor (evita duplicados)
 };
 
 const KEY = (dialogId: string) => `sess:${dialogId}`;

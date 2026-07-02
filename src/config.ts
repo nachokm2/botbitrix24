@@ -56,6 +56,9 @@ export const config = {
   stageScoreMedio: process.env.BITRIX_STAGE_SCORE_MEDIO ?? '', // score 40-69
   // Auto-escalar a humano si el score alcanza este umbral (0 = desactivado).
   scoreEscalar: Number(process.env.SCORE_ESCALAR ?? 80),
+  // Precio Anthropic por millón de tokens (USD) para estimar costo en el panel (0 = no mostrar).
+  costInPerMtok: Number(process.env.ANTHROPIC_COST_IN_PER_MTOK ?? 0),
+  costOutPerMtok: Number(process.env.ANTHROPIC_COST_OUT_PER_MTOK ?? 0),
 
   // ── Fase 2: Agente de voz (Vapi + Twilio + registro en telefonía Bitrix) ──
   // Vapi corre la conversación (STT/TTS/barge-in + Claude) y llama a nuestro backend por webhooks.

@@ -1,7 +1,8 @@
 import { buscarProgramas } from './catalog';
 import { getDetalle } from './detalles';
 import { actualizarDatosCliente, getDealAsesores, type CrmEntity, type CrmEntities } from '../crm/openlinesCrm';
-import { markHumanTakeover } from '../session';
+import { generarBriefing } from './briefing';
+import { markHumanTakeover, getSession, saveSession } from '../session';
 import { callBitrix } from '../bitrix/client';
 import { log } from '../log';
 import type { Auth } from '../store';
@@ -55,6 +56,17 @@ export async function executeTool(name: string, input: any, ctx: AgentCtx): Prom
           await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: ctx.chatId }, ctx.auth);
         }
         await markHumanTakeover(ctx.dialogId); // tras escalar, el bot deja de responder en esa sesión
+
+        // Genera (una vez) un resumen del lead para el asesor y lo deja en el CRM.
+        const entityBrief = ctx.crmEntity ?? null;
+        if (entityBrief) {
+          const s = await getSession(ctx.dialogId);
+          if (!s.briefingDone) {
+            s.briefingDone = true;
+            await saveSession(ctx.dialogId, s);
+            void generarBriefing(ctx.dialogId, entityBrief, ctx.auth);
+          }
+        }
 
         // Trae el asesor asignado (responsable del deal) para que el bot pueda nombrarlo al cliente.
         let asesor: string | null = null;

@@ -3,7 +3,7 @@ import { tools } from './tools';
 import { executeTool, type AgentCtx } from './toolRunner';
 import { getHistory, setHistory } from './memory';
 import { SYSTEM_PROMPT } from './prompt';
-import { inc, recordLlmLatency } from '../obs/metrics';
+import { inc, recordLlmLatency, recordTokens } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
 
@@ -28,6 +28,7 @@ export async function runAgentTurn(ctx: AgentCtx, userText: string, priorContext
         tools: tools as any,
       });
       recordLlmLatency(Date.now() - t0);
+      recordTokens((resp as any).usage);
       inc('llm_calls');
 
       messages.push({ role: 'assistant', content: resp.content });

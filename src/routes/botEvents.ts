@@ -68,6 +68,7 @@ async function handle(req: Request) {
     sess.humanTookOver = true; // mensaje de un operador u otro usuario
     await saveSession(dialogId, sess);
     inc('operator_msg');
+    void audit({ type: 'operator_msg', dialogId, detail: { fromUser } });
     return log.info('botMessage: mensaje de operador/otro usuario; bot en silencio', {
       fromUser,
       clientId: sess.clientId,

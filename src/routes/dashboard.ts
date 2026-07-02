@@ -29,6 +29,13 @@ export async function metricsSummary(req: Request, res: Response) {
     }
   }
 
+  const tin = Number(live.counters['tokens_in'] || 0);
+  const tout = Number(live.counters['tokens_out'] || 0);
+  const cost =
+    config.costInPerMtok > 0 || config.costOutPerMtok > 0
+      ? Number(((tin / 1e6) * config.costInPerMtok + (tout / 1e6) * config.costOutPerMtok).toFixed(2))
+      : null;
+
   res.json({
     ok: true,
     range,
@@ -36,6 +43,7 @@ export async function metricsSummary(req: Request, res: Response) {
     db: dbEnabled() ? 'postgres' : 'off',
     startedAt: live.startedAt,
     live: { counters: live.counters, llm: live.llm },
+    tokens: { in: tin, out: tout, costUsd: cost },
     agg,
     recent,
     funnelLabels: config.funnelLabels,
@@ -99,6 +107,23 @@ const DASHBOARD_HTML = `<!doctype html>
     <div class="card"><h2 style="margin-top:0">Por asesor responsable</h2><div id="asesores"></div></div>
   </div>
 
+  <div class="sec"><h2>Conversión del bot</h2><div class="card">
+    <div class="grid" id="convkpis" style="margin-bottom:10px"></div>
+    <div class="sub" style="margin-bottom:6px">Score por conversación</div>
+    <div id="scorebuckets"></div>
+  </div></div>
+
+  <div class="sec row">
+    <div class="card"><h2 style="margin-top:0">Programas más consultados</h2><div id="topprog"></div></div>
+    <div class="card"><h2 style="margin-top:0">Mayor interés registrado</h2><div id="topinteres"></div></div>
+  </div>
+  <div class="sec row">
+    <div class="card"><h2 style="margin-top:0">Consultas por facultad</h2><div id="porfacultad"></div></div>
+    <div class="card"><h2 style="margin-top:0">Consultas por tipo</h2><div id="portipo"></div></div>
+  </div>
+  <div class="sec"><h2>Gaps del catálogo (programas sin detalle)</h2><div class="card"><div id="gaps"></div></div></div>
+  <div class="sec"><h2>Horario de contacto (mensajes por hora del día)</h2><div class="card"><div class="days" id="horas"></div></div></div>
+
   <div class="sec"><h2>Mensajes por día (últimos 7)</h2><div class="card"><div class="days" id="days"></div></div></div>
 
   <div class="sec row">
@@ -127,6 +152,8 @@ const DASHBOARD_HTML = `<!doctype html>
   function kpi(n,l){ return '<div class="card kpi"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
   function barRow(lab,v,max,color){ var w=max>0?Math.round(v/max*100):0; return '<div class="bar"><div class="lab">'+esc(lab)+'</div><div class="track"><div class="fill" style="width:'+w+'%'+(color?';background:'+color:'')+'"></div></div><div class="v">'+num(v)+'</div></div>'; }
   function dist(obj, colors){ obj=obj||{}; var keys=Object.keys(obj); if(!keys.length) return '<div class="muted">Sin datos aún.</div>'; var max=Math.max.apply(null,keys.map(function(k){return obj[k];})); return keys.map(function(k){return barRow(k, obj[k], max, colors&&colors[k]);}).join(''); }
+  function progName(k){ var s=String(k||''); if(s.indexOf('http')===0){ s=s.replace(/\\/+$/,''); s=s.substring(s.lastIndexOf('/')+1); } return s.replace(/-/g,' '); }
+  function barsRows(rows, labFn){ rows=rows||[]; if(!rows.length) return '<div class="muted">Sin datos aún.</div>'; var mx=Math.max.apply(null,rows.map(function(r){return r.c;}))||1; return rows.map(function(r){ return barRow(labFn?labFn(r):r.k, r.c, mx); }).join(''); }
 
   function render(d){
     var live=d.live||{counters:{},llm:{}}, c=live.counters||{}, agg=d.agg;
@@ -139,12 +166,13 @@ const DASHBOARD_HTML = `<!doctype html>
     var etapas = agg? agg.etapasMovidas : pick(c.stage_move);
     var scoreAvg = agg&&agg.scoreAvg!=null? agg.scoreAvg : '—';
     var errores = pick(c.errors);
+    var operador = agg? agg.operadorMsgs : pick(c.operator_msg);
 
     document.getElementById('kpis').innerHTML =
       kpi(num(conversaciones),'Conversaciones') + kpi(num(mensajes),'Mensajes') +
       kpi(num(leads),'Leads capturados') + kpi(num(escal),'Escalamientos a asesor') +
       kpi(num(consultas),'Consultas de programas') + kpi(num(etapas),'Etapas de deal movidas') +
-      kpi(scoreAvg,'Score promedio') + kpi(num(errores),'Errores');
+      kpi(scoreAvg,'Score promedio') + kpi(num(operador),'Intervención humana') + kpi(num(errores),'Errores');
 
     // Por embudo
     var emb=(agg&&agg.porEmbudo)||[]; var labels=d.funnelLabels||{}; var embEl=document.getElementById('embudo');
@@ -157,6 +185,29 @@ const DASHBOARD_HTML = `<!doctype html>
     if(ases.length){ var amax=Math.max.apply(null,ases.map(function(x){return x.convs||x.c;}))||1;
       asEl.innerHTML=ases.map(function(x){ var nm=x.nombre||('Asesor '+x.id); var extra=(x.avg!=null)?(' · score prom '+x.avg):''; return barRow(nm+extra, x.convs||x.c, amax); }).join('');
     } else asEl.innerHTML='<span class="muted">Sin datos por asesor aún (se llena cuando el bot puntúe leads con deal asignado).</span>';
+
+    // Conversión del bot
+    var capt = agg? agg.capturaConvs : 0, escConv = agg? agg.escalConvs : 0;
+    var captRate = conversaciones>0? Math.round(capt/conversaciones*100) : 0;
+    var escRate = conversaciones>0? Math.round(escConv/conversaciones*100) : 0;
+    var tpc = conversaciones>0? (mensajes/conversaciones).toFixed(1) : '0';
+    document.getElementById('convkpis').innerHTML =
+      kpi(captRate+'%','Tasa de captura de datos') + kpi(escRate+'%','Tasa de escalamiento') + kpi(tpc,'Mensajes por conversación');
+    document.getElementById('scorebuckets').innerHTML = dist(agg?agg.scoreBuckets:{}, {alto:'#12b76a',medio:'#f79009',bajo:'#f04438'});
+
+    // Demanda de programas
+    document.getElementById('topprog').innerHTML = barsRows(agg&&agg.topProgramas, function(r){return progName(r.k);});
+    document.getElementById('topinteres').innerHTML = barsRows(agg&&agg.topInteres, function(r){return r.k;});
+    document.getElementById('porfacultad').innerHTML = barsRows(agg&&agg.porFacultad, function(r){return r.k;});
+    document.getElementById('portipo').innerHTML = dist(agg?agg.porTipo:{});
+    var gapsRows=(agg&&agg.gapsCatalogo)||[];
+    document.getElementById('gaps').innerHTML = gapsRows.length? barsRows(gapsRows, function(r){return progName(r.k);}) : '<div class="muted">Sin gaps detectados 🎉</div>';
+
+    // Horario de contacto (0-23h)
+    var hmap={}; ((agg&&agg.porHora)||[]).forEach(function(x){hmap[x.h]=x.c;});
+    var hmx=1; for(var h=0;h<24;h++) hmx=Math.max(hmx, hmap[h]||0);
+    var hbars=[]; for(var h2=0;h2<24;h2++){ var v=hmap[h2]||0; hbars.push('<div class="d"><div class="col" style="height:'+Math.round(v/hmx*80)+'px" title="'+v+'"></div><div class="dl">'+h2+'</div></div>'); }
+    document.getElementById('horas').innerHTML = agg? hbars.join('') : '<span class="muted">Requiere Postgres (DATABASE_URL).</span>';
 
     // Mensajes por día
     var days = (agg&&agg.porDia)||[]; var dEl=document.getElementById('days');
@@ -184,7 +235,8 @@ const DASHBOARD_HTML = `<!doctype html>
     }).join('') : '<tr><td colspan="4" class="muted">Sin actividad'+(d.db!=='postgres'?' (Postgres apagado: la actividad histórica requiere DATABASE_URL)':'')+'.</td></tr>';
 
     document.getElementById('status').innerHTML = '<span class="pill">KV: '+esc(d.kv)+' · DB: '+esc(d.db)+'</span>';
-    document.getElementById('foot').textContent = 'Latencia LLM: '+num(live.llm.avgMs)+' ms (p95 '+num(live.llm.p95Ms)+' ms) · activo desde '+ new Date(d.startedAt).toLocaleString('es-CL') + ' · se actualiza cada 15 s';
+    var tk=d.tokens||{}; var costStr=(tk.costUsd!=null)?(' · costo estim. US$'+tk.costUsd):'';
+    document.getElementById('foot').textContent = 'Latencia LLM: '+num(live.llm.avgMs)+' ms (p95 '+num(live.llm.p95Ms)+' ms) · tokens '+num(tk.in)+' in / '+num(tk.out)+' out'+costStr+' · activo desde '+ new Date(d.startedAt).toLocaleString('es-CL') + ' · actualiza cada 15 s';
   }
 
   var currentRange='7d';

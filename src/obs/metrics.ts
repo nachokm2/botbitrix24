@@ -12,6 +12,13 @@ export function recordLlmLatency(ms: number): void {
   if (latencies.length > 500) latencies.shift();
 }
 
+/** Suma tokens de una respuesta Anthropic (usage) a los contadores. */
+export function recordTokens(usage: any): void {
+  if (!usage) return;
+  inc('tokens_in', Number(usage.input_tokens) || 0);
+  inc('tokens_out', Number(usage.output_tokens) || 0);
+}
+
 function pct(arr: number[], p: number): number {
   if (arr.length === 0) return 0;
   const s = [...arr].sort((a, b) => a - b);

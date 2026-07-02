@@ -5,12 +5,14 @@ import {
   guardarEvaluacionCrm,
   moverEtapaDeal,
   getDealInfo,
+  primaryEntity,
   type CrmEntities,
   type LeadEval,
 } from '../crm/openlinesCrm';
+import { generarBriefing } from './briefing';
 import { callBitrix } from '../bitrix/client';
 import { config } from '../config';
-import { inc } from '../obs/metrics';
+import { inc, recordTokens } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
 import type { Auth } from '../store';
@@ -56,6 +58,7 @@ export async function evaluarLead(messages: any[]): Promise<LeadEval | null> {
       system: SCORING_SYSTEM,
       messages: [{ role: 'user', content: `Conversación:\n${t}\n\nDevuelve el JSON.` }],
     });
+    recordTokens((resp as any).usage);
     const raw = (resp.content as any[]).filter((b) => b.type === 'text').map((b) => b.text).join('');
     const json = JSON.parse(raw.slice(raw.indexOf('{'), raw.lastIndexOf('}') + 1));
     return {
@@ -154,6 +157,16 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
       await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: chatId }, auth);
       sess.escalatedByScore = true;
       sess.humanTookOver = true; // el bot deja de responder; atiende el asesor
+
+      // Resumen del lead para el asesor (una sola vez).
+      if (!sess.briefingDone) {
+        const ent = primaryEntity(crmEntities);
+        if (ent) {
+          sess.briefingDone = true;
+          void generarBriefing(dialogId, ent, auth);
+        }
+      }
+
       inc('auto_escalation');
       await audit({
         type: 'auto_escalation',
