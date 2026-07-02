@@ -3,8 +3,17 @@ import { getState, setBotId } from '../store';
 import { registerBot, unregisterBot } from '../bot/register';
 import { callBitrix, callWebhook } from '../bitrix/client';
 import { getDealAsesores } from '../crm/openlinesCrm';
+import { bindDashboard } from '../bitrix/placement';
 import { config } from '../config';
 import { log } from '../log';
+
+/** (Re)enlaza el panel de métricas como página dentro de Bitrix24. GET /setup/bind-dashboard */
+export async function bindDashboardManual(_req: Request, res: Response) {
+  const st = await getState();
+  if (!st.auth) return res.status(400).json({ ok: false, error: 'No hay auth. Instala el app (/install) primero.' });
+  const r = await bindDashboard(st.auth);
+  return res.status(r.ok ? 200 : 500).json(r);
+}
 
 /** Diagnóstico: trae el responsable (ASSIGNED_BY_ID) y observadores de un deal. GET /setup/deal-responsable?id=NNN */
 export async function dealResponsable(req: Request, res: Response) {

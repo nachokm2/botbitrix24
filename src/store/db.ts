@@ -70,3 +70,47 @@ export async function dbRecentAudit(limit = 20): Promise<any[]> {
 export function dbEnabled(): boolean {
   return pool !== null;
 }
+
+/** Agregaciones de negocio desde audit_log (persistentes). Devuelve null si no hay Postgres. */
+export async function dbMetricsSummary(): Promise<Record<string, any> | null> {
+  if (!pool) return null;
+  const p = pool;
+  const q = (sql: string) => p.query(sql);
+  try {
+    const [byType, conv, turns7d, turnsToday, tools, leadsOk, scoreAgg, intenc, sentim, perDay] = await Promise.all([
+      q(`SELECT type, count(*)::int c FROM audit_log GROUP BY type`),
+      q(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE dialog_id IS NOT NULL`),
+      q(`SELECT count(*)::int c FROM audit_log WHERE type='turn' AND ts >= now() - interval '7 days'`),
+      q(`SELECT count(*)::int c FROM audit_log WHERE type='turn' AND ts >= now() - interval '1 day'`),
+      q(`SELECT detail->>'name' name, count(*)::int c FROM audit_log WHERE type='tool_call' GROUP BY 1`),
+      q(`SELECT count(*)::int c FROM audit_log WHERE type='tool_call' AND detail->>'name'='registrar_interes_crm' AND detail->>'ok'='true'`),
+      q(`SELECT round(avg((detail->>'score')::numeric))::int avg, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'score' IS NOT NULL`),
+      q(`SELECT detail->>'intencion' k, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'intencion' IS NOT NULL GROUP BY 1`),
+      q(`SELECT detail->>'sentimiento' k, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'sentimiento' IS NOT NULL GROUP BY 1`),
+      q(`SELECT to_char(date_trunc('day', ts),'YYYY-MM-DD') d, count(*)::int c FROM audit_log WHERE type='turn' AND ts >= now() - interval '7 days' GROUP BY 1 ORDER BY 1`),
+    ]);
+    const map = (rows: any[], k: string, v = 'c') =>
+      Object.fromEntries(rows.filter((r) => r[k] != null).map((r) => [r[k], r[v]]));
+    const byTypeMap = map(byType.rows, 'type');
+    const toolMap = map(tools.rows, 'name');
+    return {
+      conversaciones: conv.rows[0]?.c ?? 0,
+      turnos: byTypeMap['turn'] ?? 0,
+      turnos7d: turns7d.rows[0]?.c ?? 0,
+      turnosHoy: turnsToday.rows[0]?.c ?? 0,
+      tools: toolMap,
+      leadsCapturados: leadsOk.rows[0]?.c ?? 0,
+      escalamientos: (byTypeMap['auto_escalation'] ?? 0) + (toolMap['escalar_a_humano'] ?? 0),
+      etapasMovidas: byTypeMap['stage_move'] ?? 0,
+      scoreAvg: scoreAgg.rows[0]?.avg ?? null,
+      scoreCount: scoreAgg.rows[0]?.c ?? 0,
+      intencion: map(intenc.rows, 'k'),
+      sentimiento: map(sentim.rows, 'k'),
+      porDia: perDay.rows,
+      byType: byTypeMap,
+    };
+  } catch (e) {
+    log.warn('dbMetricsSummary falló', { err: String(e) });
+    return null;
+  }
+}

@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { extractAuth } from '../bitrix/auth';
 import { registerBot } from '../bot/register';
+import { bindDashboard } from '../bitrix/placement';
 import { setAuth, setBotId } from '../store';
 import { log } from '../log';
 
@@ -21,11 +22,16 @@ export async function installHandler(req: Request, res: Response) {
     const botId = await registerBot(auth);
     await setBotId(botId);
     log.info('install: bot registrado', { botId, domain: auth.domain });
+
+    // Registra el panel de métricas como página dentro de Bitrix24 (no crítico).
+    const panel = await bindDashboard(auth);
+    log.info('install: bindDashboard', panel);
     // finish=true → la página llama BX24.installFinish() para FINALIZAR la instalación.
     // Sin esto, Bitrix NO entrega los eventos del bot al handler.
     return res.send(
       page(
-        `✅ PoC instalado y finalizado. Bot de Open Lines registrado (BOT_ID=${botId}).<br><br>` +
+        `✅ PoC instalado y finalizado. Bot de Open Lines registrado (BOT_ID=${botId}).<br>` +
+          `Panel de métricas: ${panel.ok ? '✅ agregado al menú («Agente Postgrados»)' : '⚠️ no se pudo enlazar (' + (panel.error ?? '') + ') — reintenta en /setup/bind-dashboard'}.<br><br>` +
           `Ya puedes probar: inicia una conversación NUEVA en el canal y el bot debería responder.`,
         true,
       ),
