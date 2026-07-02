@@ -2,6 +2,8 @@ import type { Request, Response } from 'express';
 import { snapshot } from '../obs/metrics';
 import { dbMetricsSummary, dbRecentAudit, dbEnabled } from '../store/db';
 import { kvKind } from '../store/kv';
+import { getState } from '../store';
+import { getUsuarios } from '../crm/openlinesCrm';
 import { config } from '../config';
 
 const RANGES = ['today', '7d', '30d', 'all'];
@@ -11,6 +13,22 @@ export async function metricsSummary(req: Request, res: Response) {
   const range = RANGES.includes(String(req.query.range)) ? String(req.query.range) : '7d';
   const live = snapshot();
   const [agg, recent] = await Promise.all([dbMetricsSummary(range), dbRecentAudit(15)]);
+
+  // Resuelve el nombre de cada asesor responsable (por su ASSIGNED_BY_ID) para el desglose "Por asesor".
+  if (agg?.porAsesor?.length) {
+    const st = await getState();
+    if (st.auth) {
+      try {
+        const ids = agg.porAsesor.map((r: any) => Number(r.id)).filter((n: number) => n > 0);
+        const usuarios = await getUsuarios(ids, st.auth);
+        const byId = new Map(usuarios.map((u) => [u.id, u.nombre]));
+        agg.porAsesor = agg.porAsesor.map((r: any) => ({ ...r, nombre: byId.get(Number(r.id)) ?? `Asesor ${r.id}` }));
+      } catch {
+        /* deja los IDs si no se pueden resolver nombres */
+      }
+    }
+  }
+
   res.json({
     ok: true,
     range,
@@ -76,7 +94,10 @@ const DASHBOARD_HTML = `<!doctype html>
 
   <div class="grid" id="kpis"></div>
 
-  <div class="sec"><h2>Por embudo</h2><div class="card"><div id="embudo"></div></div></div>
+  <div class="sec row">
+    <div class="card"><h2 style="margin-top:0">Por embudo</h2><div id="embudo"></div></div>
+    <div class="card"><h2 style="margin-top:0">Por asesor responsable</h2><div id="asesores"></div></div>
+  </div>
 
   <div class="sec"><h2>Mensajes por día (últimos 7)</h2><div class="card"><div class="days" id="days"></div></div></div>
 
@@ -130,6 +151,12 @@ const DASHBOARD_HTML = `<!doctype html>
     if(emb.length){ var emax=Math.max.apply(null,emb.map(function(x){return x.c;}))||1;
       embEl.innerHTML=emb.map(function(x){ var name=labels[x.cat]||('Embudo '+x.cat); var extra=(x.avg!=null)?(' · score prom '+x.avg):''; return barRow(name+extra, x.c, emax); }).join('');
     } else embEl.innerHTML='<span class="muted">Sin evaluaciones por embudo aún (se llena cuando el bot puntúe leads con deal).</span>';
+
+    // Por asesor responsable
+    var ases=(agg&&agg.porAsesor)||[]; var asEl=document.getElementById('asesores');
+    if(ases.length){ var amax=Math.max.apply(null,ases.map(function(x){return x.convs||x.c;}))||1;
+      asEl.innerHTML=ases.map(function(x){ var nm=x.nombre||('Asesor '+x.id); var extra=(x.avg!=null)?(' · score prom '+x.avg):''; return barRow(nm+extra, x.convs||x.c, amax); }).join('');
+    } else asEl.innerHTML='<span class="muted">Sin datos por asesor aún (se llena cuando el bot puntúe leads con deal asignado).</span>';
 
     // Mensajes por día
     var days = (agg&&agg.porDia)||[]; var dEl=document.getElementById('days');

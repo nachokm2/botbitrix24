@@ -87,7 +87,7 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
   const W = interval ? `AND ts >= now() - interval '${interval}'` : ''; // interval viene de whitelist
   const q = (sql: string) => p.query(sql);
   try {
-    const [byType, conv, tools, leadsOk, scoreAgg, intenc, sentim, perDay, embudo] = await Promise.all([
+    const [byType, conv, tools, leadsOk, scoreAgg, intenc, sentim, perDay, embudo, asesores] = await Promise.all([
       q(`SELECT type, count(*)::int c FROM audit_log WHERE true ${W} GROUP BY type`),
       q(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE dialog_id IS NOT NULL ${W}`),
       q(`SELECT detail->>'name' name, count(*)::int c FROM audit_log WHERE type='tool_call' ${W} GROUP BY 1`),
@@ -98,6 +98,8 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
       q(`SELECT to_char(date_trunc('day', ts),'YYYY-MM-DD') d, count(*)::int c FROM audit_log WHERE type='turn' AND ts >= now() - interval '7 days' GROUP BY 1 ORDER BY 1`),
       q(`SELECT detail->>'categoryId' cat, count(*)::int c, round(avg((detail->>'score')::numeric))::int avg
          FROM audit_log WHERE type='lead_score' AND detail->>'categoryId' IS NOT NULL ${W} GROUP BY 1 ORDER BY 2 DESC`),
+      q(`SELECT detail->>'responsableId' id, count(*)::int c, count(DISTINCT dialog_id)::int convs, round(avg((detail->>'score')::numeric))::int avg
+         FROM audit_log WHERE type='lead_score' AND detail->>'responsableId' IS NOT NULL AND detail->>'responsableId' NOT IN ('-1','0') ${W} GROUP BY 1 ORDER BY 3 DESC LIMIT 25`),
     ]);
     const map = (rows: any[], k: string, v = 'c') =>
       Object.fromEntries(rows.filter((r) => r[k] != null).map((r) => [r[k], r[v]]));
@@ -116,6 +118,7 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
       sentimiento: map(sentim.rows, 'k'),
       porDia: perDay.rows,
       porEmbudo: embudo.rows, // [{cat, c, avg}]
+      porAsesor: asesores.rows, // [{id, c, convs, avg}]
       byType: byTypeMap,
     };
   } catch (e) {

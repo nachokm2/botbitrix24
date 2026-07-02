@@ -12,6 +12,7 @@ export type SessionState = {
   lastStage?: string;
   escalatedByScore?: boolean;
   dealCategory?: number;
+  responsableId?: number; // ASSIGNED_BY_ID del deal (asesor a cargo), cacheado
 };
 
 const KEY = (dialogId: string) => `sess:${dialogId}`;

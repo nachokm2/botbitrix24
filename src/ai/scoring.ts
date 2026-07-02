@@ -4,7 +4,7 @@ import { getSession, saveSession } from '../session';
 import {
   guardarEvaluacionCrm,
   moverEtapaDeal,
-  getDealCategory,
+  getDealInfo,
   type CrmEntities,
   type LeadEval,
 } from '../crm/openlinesCrm';
@@ -91,15 +91,16 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
 
   // 1) Mover la etapa del deal según el score, usando la etapa del EMBUDO del deal (C1, C3, ...).
   if (crmEntities.deal) {
+    // Resuelve embudo (CATEGORY_ID) + responsable (ASSIGNED_BY_ID) del deal en UNA llamada, cacheados.
+    if (sess.dealCategory === undefined || sess.responsableId === undefined) {
+      const info = await getDealInfo(crmEntities.deal, auth);
+      if (sess.dealCategory === undefined) sess.dealCategory = info.categoryId ?? -1;
+      if (sess.responsableId === undefined) sess.responsableId = info.responsableId ?? -1;
+    }
+
     let m: { alto?: string; medio?: string } | undefined;
     if (Object.keys(config.stageMap).length) {
-      // Lee la categoría (embudo) real del deal y la cachea en la sesión.
-      let cat = sess.dealCategory;
-      if (cat === undefined) {
-        cat = (await getDealCategory(crmEntities.deal, auth)) ?? -1;
-        sess.dealCategory = cat;
-      }
-      m = config.stageMap[String(cat)];
+      m = config.stageMap[String(sess.dealCategory)];
     } else if (config.stageScoreAlto || config.stageScoreMedio) {
       m = { alto: config.stageScoreAlto, medio: config.stageScoreMedio }; // legacy de un solo embudo
     }
@@ -181,6 +182,7 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
         intencion: evalData.intencion,
         sentimiento: evalData.sentimiento,
         categoryId: sess.dealCategory,
+        responsableId: sess.responsableId,
       },
     });
   }
