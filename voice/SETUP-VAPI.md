@@ -53,14 +53,20 @@ En el asistente, sección **Messaging → Server URL** (o "Advanced → Server")
 - Secret: inventa un valor (ej. una cadena larga aleatoria) → será `VAPI_SECRET` (lo pondrás igual en Railway).
 - Server Messages: activa **tool-calls** y **end-of-call-report** (y status-update si está).
 
-**b) Tools (herramientas)**
-Agrega 4 herramientas de tipo **Function** (Tools → Create Tool → Function). Sus nombres y parámetros están en [`vapi-assistant.json`](vapi-assistant.json) → `model.tools`:
-- `consultar_programas` (tipo, facultad, modalidad, texto)
-- `detalle_programa` (nombre, url)
-- `registrar_interes_crm` (nombre, apellido, email, telefono, programa_interes, comentario)
-- `transferir_a_asesor` (motivo)
+**b) Tools (herramientas)** — solo **2** (el catálogo va por Base de conocimiento, ver paso 2.5)
+Agrega 2 herramientas de tipo **Function** (Tools → Create Tool → Function), con su mensaje **Request Start**:
+- `registrar_interes_crm` (nombre, apellido, email, telefono, programa_interes, comentario) — request-start: "Perfecto, lo anoto…"
+- `transferir_a_asesor` (motivo) — request-start: "Le conecto con un asesor, un momento…"
 
-Como el asistente ya tiene el **Server URL**, Vapi enviará los `tool-calls` ahí y nuestro backend responde. (No necesitas poner otra URL por herramienta si usas la del asistente.)
+Parámetros exactos en [`vapi-assistant.json`](vapi-assistant.json) → `model.tools`. Como el asistente ya tiene el **Server URL**, Vapi enviará los `tool-calls` ahí y nuestro backend responde.
+
+## 2.5. Base de conocimiento (catálogo de programas)
+En vez de consultar el catálogo por herramienta (más lento), el asistente responde desde una **Base de conocimiento**:
+1. Genera/actualiza el archivo: `npx tsx scripts/gen-kb.mts` → crea [`voice/base-conocimiento-programas.md`](base-conocimiento-programas.md) (184 programas con arancel, matrícula, requisitos, descripción).
+2. En Vapi: **Knowledge Base / Files** → **Upload** ese `.md` → crea una Knowledge Base con ese archivo.
+3. En el asistente → **Model → Knowledge Base** → asigna la que creaste.
+4. El prompt ya instruye responder SOLO desde la base y derivar a un asesor si un dato no aparece (nunca inventar precios).
+> Cuando cambie el catálogo, corre de nuevo el script y vuelve a subir el archivo.
 
 > **Alternativa rápida (1 comando):** en vez de hacerlo a mano, crea el asistente por API con nuestra plantilla:
 > ```bash

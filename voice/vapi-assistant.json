@@ -10,39 +10,10 @@
     "messages": [
       {
         "role": "system",
-        "content": "Asistente de voz de Postgrados, Universidad Autónoma de Chile. Español de Chile, cálido. Respuestas de 1–2 frases, una pregunta a la vez, sin URLs ni listas. Usa las herramientas para datos de programas/precios; nunca inventes nombres, aranceles ni fechas. Pide en orden: nombre, luego correo, luego teléfono, y guárdalos con 'registrar_interes_crm' apenas los tengas. Si piden un asesor o hay interés alto, usa 'transferir_a_asesor' (nombra al asesor si la herramienta lo devuelve; nunca lo inventes). Al terminar, despídete corto."
+        "content": "Asistente de voz de Postgrados, Universidad Autónoma de Chile. Español de Chile, cálido. Respuestas de 1–2 frases, una pregunta a la vez, sin URLs ni listas. Responde sobre programas, aranceles y requisitos SOLO con la base de conocimiento adjunta; si un dato no aparece ahí, dilo y ofrece derivar a un asesor; nunca inventes nombres, precios ni fechas. Pide en orden: nombre, luego correo, luego teléfono, y guárdalos con 'registrar_interes_crm' apenas los tengas. Si piden un asesor o hay interés alto, usa 'transferir_a_asesor' (nombra al asesor si la herramienta lo devuelve; nunca lo inventes). Al terminar, despídete corto."
       }
     ],
     "tools": [
-      {
-        "type": "function",
-        "messages": [{ "type": "request-start", "content": "Déjeme revisar los programas…" }],
-        "function": {
-          "name": "consultar_programas",
-          "description": "Consulta el catálogo oficial (magísteres, diplomados y especialidades). Úsala antes de informar de programas.",
-          "parameters": {
-            "type": "object",
-            "properties": {
-              "tipo": { "type": "string", "enum": ["magister", "diplomado", "especialidad"] },
-              "facultad": { "type": "string" },
-              "modalidad": { "type": "string", "enum": ["online", "presencial"] },
-              "texto": { "type": "string", "description": "Búsqueda libre por nombre o tema" }
-            }
-          }
-        }
-      },
-      {
-        "type": "function",
-        "messages": [{ "type": "request-start", "content": "Un momento, busco el detalle…" }],
-        "function": {
-          "name": "detalle_programa",
-          "description": "Detalle de UN programa: arancel, matrícula, requisitos, descripción. Pásale nombre o url.",
-          "parameters": {
-            "type": "object",
-            "properties": { "nombre": { "type": "string" }, "url": { "type": "string" } }
-          }
-        }
-      },
       {
         "type": "function",
         "messages": [{ "type": "request-start", "content": "Perfecto, lo anoto…" }],
