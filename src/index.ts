@@ -5,6 +5,7 @@ import { installHandler } from './routes/install';
 import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes/botEvents';
 import { registerBotManual, unregisterBotManual, listDealStages, dealResponsable, bindDashboardManual } from './routes/setup';
 import { vapiEvents, voiceOutbound, verifyVapiSecret } from './routes/vapi';
+import { voiceTool, voiceCallFinish, verifyVoiceSecret } from './routes/voiceApi';
 import { dashboardPage, metricsSummary } from './routes/dashboard';
 import { initDb, dbRecentAudit, dbEnabled } from './store/db';
 import { snapshot } from './obs/metrics';
@@ -106,6 +107,10 @@ app.get('/setup/bind-dashboard', bindDashboardManual);
 // Fase 2: agente de voz con Vapi
 app.post('/vapi/events', verifyVapiSecret, vapiEvents); // webhook de Vapi (tool-calls, end-of-call-report)
 app.post('/voice/outbound', voiceOutbound); // dispara una llamada saliente con Vapi
+
+// Fase 2 (alternativa self-hosted): API de voz genérica para el agente Pipecat
+app.post('/voice/tool', verifyVoiceSecret, voiceTool); // ejecuta herramientas (catálogo/CRM)
+app.post('/voice/call/finish', verifyVoiceSecret, voiceCallFinish); // registra la llamada en el CRM
 
 // Inicializa Postgres (auditoría) en segundo plano; el app funciona mientras conecta.
 initDb().catch((e) => log.error('initDb error', { err: String(e) }));

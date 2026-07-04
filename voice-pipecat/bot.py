@@ -1,0 +1,196 @@
+"""
+Agente de voz UA Postgrados — Pipecat (self-hosted).  PoC / esqueleto.
+
+Pipeline: Twilio (Media Streams) -> Deepgram STT (es) -> Claude (Anthropic) -> Azure TTS (es-CL)
+con Silero VAD + barge-in. Las herramientas (catalogo/CRM) se ejecutan llamando a NUESTRO
+backend Node (/voice/tool); al colgar se registra la llamada en Bitrix (/voice/call/finish).
+
+NOTA DE VERSION: la API de Pipecat esta en transicion. Este esqueleto usa el patron clasico
+(Pipeline/PipelineTask/PipelineRunner + OpenAILLMContext + create_context_aggregator). Fija una
+version de pipecat-ai (requirements.txt) y ajusta imports si usas la variante nueva
+(PipelineWorker/WorkerRunner, LLMContext). Docs: https://docs.pipecat.ai
+"""
+
+import os
+import time
+
+import aiohttp
+from pipecat.pipeline.pipeline import Pipeline
+from pipecat.pipeline.task import PipelineParams, PipelineTask
+from pipecat.pipeline.runner import PipelineRunner
+from pipecat.frames.frames import LLMRunFrame
+from pipecat.audio.vad.silero import SileroVADAnalyzer
+from pipecat.serializers.twilio import TwilioFrameSerializer
+from pipecat.transports.websocket.fastapi import (
+    FastAPIWebsocketTransport,
+    FastAPIWebsocketParams,
+)
+from pipecat.services.deepgram.stt import DeepgramSTTService
+from pipecat.services.anthropic.llm import AnthropicLLMService
+from pipecat.services.azure.tts import AzureTTSService
+from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
+from pipecat.adapters.schemas.function_schema import FunctionSchema
+from pipecat.adapters.schemas.tools_schema import ToolsSchema
+from pipecat.services.llm_service import FunctionCallParams
+
+BACKEND_BASE = os.getenv("BACKEND_BASE", "").rstrip("/")  # ej. https://botbitrix24-production.up.railway.app
+VOICE_SECRET = os.getenv("VOICE_SECRET", "")
+
+SYSTEM_PROMPT = (
+    "Asistente de voz de Postgrados, Universidad Autónoma de Chile. Español de Chile, cálido. "
+    "Saluda al comenzar la llamada. Respuestas de 1–2 frases, una pregunta a la vez, sin URLs ni listas. "
+    "Usa 'consultar_programas' y 'detalle_programa' para datos de programas/precios; nunca inventes nombres, "
+    "aranceles ni fechas. Pide en orden: nombre, luego correo, luego teléfono, y guárdalos con "
+    "'registrar_interes_crm' apenas los tengas. Si piden un asesor o hay interés alto, usa 'transferir_a_asesor'. "
+    "Al terminar, despídete corto."
+)
+
+
+def _tools() -> ToolsSchema:
+    return ToolsSchema(
+        standard_tools=[
+            FunctionSchema(
+                name="consultar_programas",
+                description="Consulta el catálogo (magísteres, diplomados, especialidades).",
+                properties={
+                    "tipo": {"type": "string", "enum": ["magister", "diplomado", "especialidad"]},
+                    "facultad": {"type": "string"},
+                    "modalidad": {"type": "string"},
+                    "texto": {"type": "string"},
+                },
+                required=[],
+            ),
+            FunctionSchema(
+                name="detalle_programa",
+                description="Arancel, matrícula, requisitos y descripción de UN programa. Pasa nombre o url.",
+                properties={"nombre": {"type": "string"}, "url": {"type": "string"}},
+                required=[],
+            ),
+            FunctionSchema(
+                name="registrar_interes_crm",
+                description="Guarda en el CRM nombre/apellido/email/teléfono y programa de interés.",
+                properties={
+                    "nombre": {"type": "string"},
+                    "apellido": {"type": "string"},
+                    "email": {"type": "string"},
+                    "telefono": {"type": "string"},
+                    "programa_interes": {"type": "string"},
+                    "comentario": {"type": "string"},
+                },
+                required=[],
+            ),
+            FunctionSchema(
+                name="transferir_a_asesor",
+                description="Deriva la llamada a un asesor humano.",
+                properties={"motivo": {"type": "string"}},
+                required=["motivo"],
+            ),
+        ]
+    )
+
+
+async def _call_backend_tool(name: str, args: dict, call_id: str, phone: str) -> dict:
+    """Ejecuta la herramienta en nuestro backend Node (catálogo/CRM)."""
+    try:
+        async with aiohttp.ClientSession() as s:
+            async with s.post(
+                f"{BACKEND_BASE}/voice/tool",
+                json={"name": name, "args": args, "callId": call_id, "phone": phone},
+                headers={"x-voice-secret": VOICE_SECRET, "Content-Type": "application/json"},
+                timeout=aiohttp.ClientTimeout(total=8),
+            ) as r:
+                data = await r.json()
+                return data.get("result", {})
+    except Exception as e:  # noqa: BLE001
+        return {"error": f"backend: {e}"}
+
+
+async def run_bot(websocket, call_data: dict):
+    call_id = call_data.get("call_id") or ""
+    phone = call_data.get("from") or ""
+
+    serializer = TwilioFrameSerializer(
+        stream_sid=call_data["stream_id"],
+        call_sid=call_id,
+        account_sid=os.getenv("TWILIO_ACCOUNT_SID", ""),
+        auth_token=os.getenv("TWILIO_AUTH_TOKEN", ""),
+    )
+    transport = FastAPIWebsocketTransport(
+        websocket=websocket,
+        params=FastAPIWebsocketParams(
+            audio_in_enabled=True,
+            audio_out_enabled=True,
+            add_wav_header=False,
+            vad_analyzer=SileroVADAnalyzer(),
+            serializer=serializer,
+        ),
+    )
+
+    stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY", ""), language="es")
+    llm = AnthropicLLMService(
+        api_key=os.getenv("ANTHROPIC_API_KEY", ""),
+        model=os.getenv("VOICE_MODEL", "claude-3-5-haiku-20241022"),
+    )
+    tts = AzureTTSService(
+        api_key=os.getenv("AZURE_SPEECH_API_KEY", ""),
+        region=os.getenv("AZURE_SPEECH_REGION", ""),
+        voice="es-CL-CatalinaNeural",
+    )
+
+    context = OpenAILLMContext([{"role": "system", "content": SYSTEM_PROMPT}], tools=_tools())
+    aggregator = llm.create_context_aggregator(context)
+
+    def _make_handler(tool_name: str):
+        async def handler(params: FunctionCallParams):
+            res = await _call_backend_tool(tool_name, params.arguments or {}, call_id, phone)
+            await params.result_callback(res)
+        return handler
+
+    for tname in ("consultar_programas", "detalle_programa", "registrar_interes_crm", "transferir_a_asesor"):
+        llm.register_function(tname, _make_handler(tname))
+
+    pipeline = Pipeline([
+        transport.input(),
+        stt,
+        aggregator.user(),
+        llm,
+        tts,
+        transport.output(),
+        aggregator.assistant(),
+    ])
+    task = PipelineTask(
+        pipeline,
+        params=PipelineParams(
+            audio_in_sample_rate=8000,
+            audio_out_sample_rate=8000,
+            allow_interruptions=True,
+        ),
+    )
+
+    started = time.time()
+
+    @transport.event_handler("on_client_connected")
+    async def _connected(_t, _c):
+        await task.queue_frames([LLMRunFrame()])  # el bot saluda primero (según el system prompt)
+
+    @transport.event_handler("on_client_disconnected")
+    async def _disconnected(_t, _c):
+        transcript = "\n".join(
+            f"{m.get('role')}: {m.get('content')}"
+            for m in context.messages
+            if isinstance(m.get("content"), str) and m.get("role") in ("user", "assistant")
+        )
+        dur = int(time.time() - started)
+        try:
+            async with aiohttp.ClientSession() as s:
+                await s.post(
+                    f"{BACKEND_BASE}/voice/call/finish",
+                    json={"callId": call_id, "phone": phone, "type": 2, "duration": dur, "transcript": transcript},
+                    headers={"x-voice-secret": VOICE_SECRET, "Content-Type": "application/json"},
+                    timeout=aiohttp.ClientTimeout(total=8),
+                )
+        except Exception:  # noqa: BLE001
+            pass
+        await task.cancel()
+
+    await PipelineRunner().run(task)
