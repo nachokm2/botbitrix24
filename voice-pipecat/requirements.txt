@@ -1,5 +1,5 @@
 # Fija/ajusta la versión de pipecat-ai tras probar (la API evoluciona).
-pipecat-ai[websocket,silero,deepgram,anthropic,azure,runner]>=0.0.60
+pipecat-ai[websocket,silero,deepgram,anthropic,cartesia,runner]>=0.0.60
 twilio>=9.0.0
 fastapi>=0.110.0
 uvicorn>=0.29.0

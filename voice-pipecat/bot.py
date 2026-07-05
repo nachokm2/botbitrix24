@@ -27,7 +27,7 @@ from pipecat.transports.websocket.fastapi import (
 )
 from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.anthropic.llm import AnthropicLLMService
-from pipecat.services.azure.tts import AzureTTSService
+from pipecat.services.cartesia.tts import CartesiaTTSService
 from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.adapters.schemas.function_schema import FunctionSchema
 from pipecat.adapters.schemas.tools_schema import ToolsSchema
@@ -131,10 +131,12 @@ async def run_bot(websocket, call_data: dict):
         api_key=os.getenv("ANTHROPIC_API_KEY", ""),
         model=os.getenv("VOICE_MODEL", "claude-3-5-haiku-20241022"),
     )
-    tts = AzureTTSService(
-        api_key=os.getenv("AZURE_SPEECH_API_KEY", ""),
-        region=os.getenv("AZURE_SPEECH_REGION", ""),
-        voice="es-CL-CatalinaNeural",
+    # TTS Cartesia (español). El voice_id se saca de play.cartesia.ai → Voices (filtra Spanish).
+    # Nota de versión: si tu pipecat-ai exige el patrón Settings, usa
+    # CartesiaTTSService(api_key=..., settings=CartesiaTTSService.Settings(voice=os.getenv("CARTESIA_VOICE_ID"), language="es"))
+    tts = CartesiaTTSService(
+        api_key=os.getenv("CARTESIA_API_KEY", ""),
+        voice_id=os.getenv("CARTESIA_VOICE_ID", ""),
     )
 
     context = OpenAILLMContext([{"role": "system", "content": SYSTEM_PROMPT}], tools=_tools())
