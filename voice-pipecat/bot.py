@@ -27,6 +27,7 @@ from pipecat.transports.websocket.fastapi import (
     FastAPIWebsocketParams,
 )
 from pipecat.services.deepgram.stt import DeepgramSTTService
+from pipecat.transcriptions.language import Language
 from pipecat.services.anthropic.llm import AnthropicLLMService
 from pipecat.services.cartesia.tts import CartesiaTTSService
 from pipecat.processors.aggregators.llm_context import LLMContext
@@ -131,7 +132,7 @@ async def run_bot(websocket, call_data: dict):
         ),
     )
 
-    stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY", ""), model="nova-2", language="es")
+    stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY", ""), model="nova-2", language=Language.ES)
     llm = AnthropicLLMService(
         api_key=os.getenv("ANTHROPIC_API_KEY", ""),
         settings=AnthropicLLMService.Settings(
