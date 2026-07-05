@@ -28,7 +28,8 @@ from pipecat.transports.websocket.fastapi import (
 from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.anthropic.llm import AnthropicLLMService
 from pipecat.services.cartesia.tts import CartesiaTTSService
-from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
+from pipecat.processors.aggregators.llm_context import LLMContext
+from pipecat.processors.aggregators.llm_response_universal import LLMContextAggregatorPair
 from pipecat.adapters.schemas.function_schema import FunctionSchema
 from pipecat.adapters.schemas.tools_schema import ToolsSchema
 from pipecat.services.llm_service import FunctionCallParams
@@ -139,8 +140,8 @@ async def run_bot(websocket, call_data: dict):
         voice_id=os.getenv("CARTESIA_VOICE_ID", ""),
     )
 
-    context = OpenAILLMContext([{"role": "system", "content": SYSTEM_PROMPT}], tools=_tools())
-    aggregator = llm.create_context_aggregator(context)
+    context = LLMContext(messages=[{"role": "system", "content": SYSTEM_PROMPT}], tools=_tools())
+    aggregator = LLMContextAggregatorPair(context)
 
     def _make_handler(tool_name: str):
         async def handler(params: FunctionCallParams):
@@ -177,11 +178,18 @@ async def run_bot(websocket, call_data: dict):
 
     @transport.event_handler("on_client_disconnected")
     async def _disconnected(_t, _c):
-        transcript = "\n".join(
-            f"{m.get('role')}: {m.get('content')}"
-            for m in context.messages
-            if isinstance(m.get("content"), str) and m.get("role") in ("user", "assistant")
-        )
+        transcript = ""
+        try:
+            msgs = context.get_messages() if hasattr(context, "get_messages") else getattr(context, "messages", [])
+            parts = []
+            for m in msgs:
+                role = m.get("role") if isinstance(m, dict) else getattr(m, "role", None)
+                content = m.get("content") if isinstance(m, dict) else getattr(m, "content", None)
+                if role in ("user", "assistant") and isinstance(content, str):
+                    parts.append(f"{role}: {content}")
+            transcript = "\n".join(parts)
+        except Exception:  # noqa: BLE001
+            transcript = ""
         dur = int(time.time() - started)
         try:
             async with aiohttp.ClientSession() as s:
