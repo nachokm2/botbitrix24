@@ -132,20 +132,16 @@ async def run_bot(websocket, call_data: dict):
         ),
     )
 
-    # STT Deepgram. Modelo e idioma por env:
-    #   - nova-2 + es    -> transcribe (calidad justa en teléfono 8 kHz). Default seguro.
-    #   - nova-3 + multi -> mejor precisión multilingüe. OJO: nova-3 NO transcribe con 'es', necesita 'multi'.
-    # Para probar nova-3:  VOICE_STT_MODEL=nova-3  y  VOICE_STT_LANGUAGE=multi
+    # STT Deepgram. Idioma FORZADO a español (Language.ES). Motivo: con 'multi' (o sin idioma)
+    # Deepgram cae a inglés y transcribe "Hola" como "Hello"/"Yes sis". Aquí NO se lee el idioma
+    # del env para evitar ese error. El modelo sí es configurable, pero nova-3 no transcribe en
+    # este setup -> default nova-2.
     _stt_model = os.getenv("VOICE_STT_MODEL", "nova-2")
-    _stt_lang_code = os.getenv("VOICE_STT_LANGUAGE", "es")
-    try:
-        _stt_lang = Language(_stt_lang_code)  # "es" -> Language.ES, "multi" -> Language.MULTI (si existe)
-    except ValueError:
-        _stt_lang = _stt_lang_code  # pasa el código crudo (p.ej. "multi") si el enum no lo tiene
+    print(f"[STT] modelo={_stt_model} idioma=es (Language.ES) — español forzado", flush=True)
     stt = DeepgramSTTService(
         api_key=os.getenv("DEEPGRAM_API_KEY", ""),
         model=_stt_model,
-        language=_stt_lang,
+        language=Language.ES,
     )
     llm = AnthropicLLMService(
         api_key=os.getenv("ANTHROPIC_API_KEY", ""),
