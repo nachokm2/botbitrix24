@@ -132,7 +132,13 @@ async def run_bot(websocket, call_data: dict):
         ),
     )
 
-    stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY", ""), model="nova-2", language=Language.ES)
+    # STT: nova-2 transcribe español pero en teléfono (8 kHz) rinde justo. Prueba nova-3 con
+    # VOICE_STT_MODEL=nova-3 (mejor multilingüe). Si nova-3 diera error de idioma, vuelve a nova-2.
+    stt = DeepgramSTTService(
+        api_key=os.getenv("DEEPGRAM_API_KEY", ""),
+        model=os.getenv("VOICE_STT_MODEL", "nova-2"),
+        language=Language.ES,
+    )
     llm = AnthropicLLMService(
         api_key=os.getenv("ANTHROPIC_API_KEY", ""),
         settings=AnthropicLLMService.Settings(
@@ -150,8 +156,8 @@ async def run_bot(websocket, call_data: dict):
     )
 
     context = LLMContext(messages=[{"role": "system", "content": SYSTEM_PROMPT}], tools=_tools())
-    # Fin de turno por SILENCIO (no Smart Turn): predecible, sin "dead air".
-    # start = inicio por VAD (permite interrumpir); stop = tras ~0.6s de silencio, responde.
+    # Fin de turno por SILENCIO (SpeechTimeout): probado y FUNCIONA (el bot responde).
+    # start = inicio por transcripción (permite barge-in); stop = tras ~0.6s de silencio -> responde.
     aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
