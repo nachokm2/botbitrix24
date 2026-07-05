@@ -130,7 +130,7 @@ async def run_bot(websocket, call_data: dict):
     stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY", ""), language="es")
     llm = AnthropicLLMService(
         api_key=os.getenv("ANTHROPIC_API_KEY", ""),
-        model=os.getenv("VOICE_MODEL", "claude-3-5-haiku-20241022"),
+        model=os.getenv("VOICE_MODEL", "claude-haiku-4-5-20251001"),
     )
     # TTS Cartesia (español). El voice_id se saca de play.cartesia.ai → Voices (filtra Spanish).
     # Nota de versión: si tu pipecat-ai exige el patrón Settings, usa

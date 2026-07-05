@@ -4,7 +4,7 @@
   "firstMessage": "Hola, le saluda el asistente de Postgrados de la Universidad Autónoma de Chile. ¿En qué le puedo ayudar?",
   "model": {
     "provider": "anthropic",
-    "model": "claude-3-5-haiku-20241022",
+    "model": "claude-haiku-4-5-20251001",
     "temperature": 0.4,
     "maxTokens": 150,
     "messages": [
