@@ -39,7 +39,7 @@ BACKEND_BASE = os.getenv("BACKEND_BASE", "").rstrip("/")  # ej. https://botbitri
 VOICE_SECRET = os.getenv("VOICE_SECRET", "")
 
 SYSTEM_PROMPT = (
-    "Asistente de voz de Postgrados, Universidad Autónoma de Chile. Español de Chile, cálido. "
+    "Asistente de voz de Postgrados, Universidad Autónoma de Chile. Español de Chile, cálido y profesional; no uses jerga. "
     "Saluda al comenzar la llamada. Respuestas de 1–2 frases, una pregunta a la vez, sin URLs ni listas. "
     "Usa 'consultar_programas' y 'detalle_programa' para datos de programas/precios; nunca inventes nombres, "
     "aranceles ni fechas. Pide en orden: nombre, luego correo, luego teléfono, y guárdalos con "
@@ -123,12 +123,13 @@ async def run_bot(websocket, call_data: dict):
             audio_in_enabled=True,
             audio_out_enabled=True,
             add_wav_header=False,
-            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
+            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.6)),
+            turn_analyzer=None,  # desactiva Smart Turn: usa VAD (silencio) para fin de turno, más predecible
             serializer=serializer,
         ),
     )
 
-    stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY", ""), language="es")
+    stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY", ""), model="nova-2", language="es")
     llm = AnthropicLLMService(
         api_key=os.getenv("ANTHROPIC_API_KEY", ""),
         settings=AnthropicLLMService.Settings(
