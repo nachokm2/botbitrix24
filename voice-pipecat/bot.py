@@ -127,7 +127,7 @@ async def run_bot(websocket, call_data: dict):
             audio_in_enabled=True,
             audio_out_enabled=True,
             add_wav_header=False,
-            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.5)),
+            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
             serializer=serializer,
         ),
     )
@@ -155,7 +155,7 @@ async def run_bot(websocket, call_data: dict):
     aggregator = LLMContextAggregatorPair(
         context,
         user_params=LLMUserAggregatorParams(
-            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.5)),
+            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
             user_turn_strategies=UserTurnStrategies(
                 start=[TranscriptionUserTurnStartStrategy()],
                 stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.6)],
