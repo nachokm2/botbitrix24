@@ -30,7 +30,10 @@ from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.services.anthropic.llm import AnthropicLLMService
 from pipecat.services.cartesia.tts import CartesiaTTSService
 from pipecat.processors.aggregators.llm_context import LLMContext
-from pipecat.processors.aggregators.llm_response_universal import LLMContextAggregatorPair
+from pipecat.processors.aggregators.llm_response_universal import LLMContextAggregatorPair, LLMUserAggregatorParams
+from pipecat.turns.user_turn_strategies import UserTurnStrategies
+from pipecat.turns.user_start import VADUserTurnStartStrategy
+from pipecat.turns.user_stop import SpeechTimeoutUserTurnStopStrategy
 from pipecat.adapters.schemas.function_schema import FunctionSchema
 from pipecat.adapters.schemas.tools_schema import ToolsSchema
 from pipecat.services.llm_service import FunctionCallParams
@@ -123,8 +126,7 @@ async def run_bot(websocket, call_data: dict):
             audio_in_enabled=True,
             audio_out_enabled=True,
             add_wav_header=False,
-            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.6)),
-            turn_analyzer=None,  # desactiva Smart Turn: usa VAD (silencio) para fin de turno, más predecible
+            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.5)),
             serializer=serializer,
         ),
     )
@@ -147,7 +149,17 @@ async def run_bot(websocket, call_data: dict):
     )
 
     context = LLMContext(messages=[{"role": "system", "content": SYSTEM_PROMPT}], tools=_tools())
-    aggregator = LLMContextAggregatorPair(context)
+    # Fin de turno por SILENCIO (no Smart Turn): predecible, sin "dead air".
+    # start = inicio por VAD (permite interrumpir); stop = tras ~0.6s de silencio, responde.
+    aggregator = LLMContextAggregatorPair(
+        context,
+        user_params=LLMUserAggregatorParams(
+            user_turn_strategies=UserTurnStrategies(
+                start=[VADUserTurnStartStrategy(enable_interruptions=True)],
+                stop=[SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=0.6)],
+            ),
+        ),
+    )
 
     def _make_handler(tool_name: str):
         async def handler(params: FunctionCallParams):
