@@ -20,6 +20,7 @@ from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.frames.frames import LLMRunFrame
 from pipecat.audio.vad.silero import SileroVADAnalyzer
+from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.serializers.twilio import TwilioFrameSerializer
 from pipecat.transports.websocket.fastapi import (
     FastAPIWebsocketTransport,
@@ -122,7 +123,7 @@ async def run_bot(websocket, call_data: dict):
             audio_in_enabled=True,
             audio_out_enabled=True,
             add_wav_header=False,
-            vad_analyzer=SileroVADAnalyzer(),
+            vad_analyzer=SileroVADAnalyzer(params=VADParams(stop_secs=0.2)),
             serializer=serializer,
         ),
     )
@@ -130,7 +131,11 @@ async def run_bot(websocket, call_data: dict):
     stt = DeepgramSTTService(api_key=os.getenv("DEEPGRAM_API_KEY", ""), language="es")
     llm = AnthropicLLMService(
         api_key=os.getenv("ANTHROPIC_API_KEY", ""),
-        model=os.getenv("VOICE_MODEL", "claude-haiku-4-5-20251001"),
+        settings=AnthropicLLMService.Settings(
+            model=os.getenv("VOICE_MODEL", "claude-haiku-4-5-20251001"),
+            max_tokens=200,
+            temperature=0.4,
+        ),
     )
     # TTS Cartesia (español). El voice_id se saca de play.cartesia.ai → Voices (filtra Spanish).
     # Nota de versión: si tu pipecat-ai exige el patrón Settings, usa
