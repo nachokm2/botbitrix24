@@ -29,6 +29,8 @@ export async function vapiEvents(req: Request, res: Response) {
       const phone: string | undefined = call.customer?.number;
       const ctx = await getVoiceCtx(call.id ?? 'unknown', phone, auth);
       const toolCalls: any[] = message.toolCallList ?? message.toolCalls ?? [];
+      // Diagnóstico: estructura cruda de la tool-call que envía Vapi (para ver si los args llegan vacíos).
+      log.info('vapi tool-calls payload', { count: toolCalls.length, raw: JSON.stringify(toolCalls).slice(0, 1500) });
       const results: any[] = [];
       for (const tc of toolCalls) {
         const fn = tc.function ?? tc;
@@ -40,6 +42,7 @@ export async function vapiEvents(req: Request, res: Response) {
             args = {};
           }
         }
+        log.info('vapi tool-call', { name: fn.name, argsType: typeof fn.arguments, args: args ?? null });
         const result = await runVapiTool(fn.name, args, ctx, auth);
         results.push({ toolCallId: tc.id ?? fn.id, result: JSON.stringify(result) });
       }
