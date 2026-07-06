@@ -3,7 +3,7 @@ import { getState } from '../store';
 import { callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { log } from '../log';
-import { registerCall, finishCall, attachCallRecord, type CallType } from '../crm/telephony';
+import { registerCall, finishCall, attachCallRecord, toCrmRef, type CallType } from '../crm/telephony';
 import { getVoiceCtx, runVapiTool } from '../voice/vapiTools';
 
 // Webhook único que recibe los "server messages" de Vapi (tool-calls, end-of-call-report, etc.).
@@ -74,13 +74,14 @@ async function handleEndOfCall(message: any, auth: any) {
   }
 
   const ctx = await getVoiceCtx(call.id ?? 'unknown', phone, auth);
-  const reg = await registerCall({ phone, type, userId: config.voiceUserId, crm: ctx.crm, crmCreate: true }, auth);
+  const crmRef = toCrmRef(ctx.crm);
+  const reg = await registerCall({ phone, type, userId: config.voiceUserId, crm: crmRef, crmCreate: true }, auth);
   if (reg.callId) {
     await finishCall({ callId: reg.callId, userId: config.voiceUserId, duration, statusCode: duration > 0 ? '200' : '304' }, auth);
     if (recordingUrl) await attachCallRecord({ callId: reg.callId, recordUrl: recordingUrl }, auth);
   }
 
-  const entity = reg.crm ?? ctx.crm;
+  const entity = reg.crm ?? crmRef;
   if (transcript && entity) {
     await callCrm(
       'crm.timeline.comment.add',

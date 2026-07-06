@@ -4,7 +4,7 @@ import { callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { log } from '../log';
 import { getVoiceCtx, runVapiTool } from '../voice/vapiTools';
-import { registerCall, finishCall, attachCallRecord, type CallType } from '../crm/telephony';
+import { registerCall, finishCall, attachCallRecord, toCrmRef, type CallType } from '../crm/telephony';
 
 // API de voz genérica (transport-agnóstica) para el agente Pipecat self-hosted.
 // - POST /voice/tool        → ejecuta una herramienta (catálogo/CRM/responsable) y devuelve el resultado.
@@ -48,12 +48,13 @@ export async function voiceCallFinish(req: Request, res: Response) {
   }
 
   const ctx = await getVoiceCtx(callId || `p-${phone}`, phone, auth);
-  const reg = await registerCall({ phone, type, userId: config.voiceUserId, crm: ctx.crm, crmCreate: true }, auth);
+  const crmRef = toCrmRef(ctx.crm);
+  const reg = await registerCall({ phone, type, userId: config.voiceUserId, crm: crmRef, crmCreate: true }, auth);
   if (reg.callId) {
     await finishCall({ callId: reg.callId, userId: config.voiceUserId, duration, statusCode: duration > 0 ? '200' : '304' }, auth);
     if (recordingUrl) await attachCallRecord({ callId: reg.callId, recordUrl: recordingUrl }, auth);
   }
-  const entity = reg.crm ?? ctx.crm;
+  const entity = reg.crm ?? crmRef;
   if (transcript && entity) {
     await callCrm(
       'crm.timeline.comment.add',

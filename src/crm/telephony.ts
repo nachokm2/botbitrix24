@@ -26,6 +26,16 @@ export async function searchCrmByPhone(phone: string, auth: Auth): Promise<CrmRe
   }
 }
 
+/** Convierte el mapa de entidades del chat/voz ({deal,contact,lead}) al CrmRef de telefonía (prioridad deal→contact→lead). */
+export function toCrmRef(e?: { deal?: number; contact?: number; lead?: number; company?: number } | null): CrmRef | null {
+  if (!e) return null;
+  if (e.deal) return { type: 'DEAL', id: e.deal };
+  if (e.contact) return { type: 'CONTACT', id: e.contact };
+  if (e.lead) return { type: 'LEAD', id: e.lead };
+  if (e.company) return { type: 'COMPANY', id: e.company };
+  return null;
+}
+
 export type RegisterResult = {
   callId: string | null;
   crm: CrmRef | null;

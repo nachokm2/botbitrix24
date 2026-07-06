@@ -264,6 +264,80 @@ export async function actualizarDatosCliente(
   return { ok: actualizado.length > 0, actualizado };
 }
 
+/**
+ * Busca una entidad CRM por número de teléfono usando el webhook admin (crm.duplicate.findbycomm),
+ * SIN depender del scope `telephony`. Prioridad: Contacto (con su negociación abierta) → Lead.
+ * Se usa en el agente de VOZ para vincular la llamada a un cliente ya existente antes de actualizar.
+ */
+export async function buscarCrmPorTelefono(phone: string, auth: Auth): Promise<CrmEntities | null> {
+  const clean = String(phone || '').trim();
+  if (!clean) return null;
+  try {
+    // 1) ¿Hay un CONTACTO con ese teléfono?
+    const c: any = await callCrm('crm.duplicate.findbycomm', { type: 'PHONE', entity_type: 'CONTACT', values: [clean] }, auth);
+    const contactId = Array.isArray(c?.CONTACT) && c.CONTACT.length ? Number(c.CONTACT[0]) : 0;
+    if (contactId) {
+      const out: CrmEntities = { contact: contactId };
+      // Traemos su negociación abierta más reciente para guardar ahí el "programa de interés".
+      try {
+        const deals: any = await callCrm(
+          'crm.deal.list',
+          { filter: { CONTACT_ID: contactId, CLOSED: 'N' }, select: ['ID'], order: { ID: 'DESC' } },
+          auth,
+        );
+        const dealId = Array.isArray(deals) && deals.length ? Number(deals[0].ID) : 0;
+        if (dealId) out.deal = dealId;
+      } catch (e) {
+        log.warn('buscarCrmPorTelefono: deal.list falló', { err: String(e) });
+      }
+      return out;
+    }
+    // 2) ¿Hay un LEAD con ese teléfono?
+    const l: any = await callCrm('crm.duplicate.findbycomm', { type: 'PHONE', entity_type: 'LEAD', values: [clean] }, auth);
+    const leadId = Array.isArray(l?.LEAD) && l.LEAD.length ? Number(l.LEAD[0]) : 0;
+    if (leadId) return { lead: leadId };
+    return null;
+  } catch (e) {
+    log.warn('buscarCrmPorTelefono falló', { err: String(e) });
+    return null;
+  }
+}
+
+/**
+ * Crea un LEAD nuevo con los datos capturados en la llamada (cuando el teléfono no existía en el CRM).
+ * Usa el teléfono de la llamada si el cliente no dictó otro. Deja también una nota con lo capturado.
+ */
+export async function crearLeadDesdeVoz(
+  phone: string | undefined,
+  data: DatosCliente,
+  auth: Auth,
+): Promise<CrmEntities | null> {
+  const fields: any = {
+    TITLE: data.programa_interes
+      ? `Interés: ${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`
+      : `Llamada IA${data.nombre ? ' – ' + data.nombre : ''}`,
+    SOURCE_ID: 'CALL',
+    OPENED: 'Y',
+  };
+  if (data.nombre) fields.NAME = data.nombre;
+  if (data.apellido) fields.LAST_NAME = data.apellido;
+  if (data.email) fields.EMAIL = [{ VALUE: String(data.email), VALUE_TYPE: 'WORK' }];
+  const tel = data.telefono || phone;
+  if (tel) fields.PHONE = [{ VALUE: String(tel), VALUE_TYPE: 'MOBILE' }];
+  if (config.ufPrograma && data.programa_interes) fields[config.ufPrograma] = data.programa_interes;
+  try {
+    const id: any = await callCrm('crm.lead.add', { fields, params: { REGISTER_SONET_EVENT: 'Y' } }, auth);
+    const leadId = Number(id);
+    if (!leadId) return null;
+    await addNota('lead', leadId, data, auth).catch((e) => log.warn('crearLeadDesdeVoz: nota falló', { err: String(e) }));
+    log.info('crearLeadDesdeVoz: lead creado', { leadId });
+    return { lead: leadId };
+  } catch (e) {
+    log.warn('crearLeadDesdeVoz falló', { err: String(e) });
+    return null;
+  }
+}
+
 /** Guarda la evaluación del lead (score/intención/sentimiento) en el CRM: campos UF (si están
  *  configurados) en deal/contacto/lead, y opcionalmente una nota en el timeline. */
 export async function guardarEvaluacionCrm(
