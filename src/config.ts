@@ -11,6 +11,17 @@ function parseStageMap(s?: string): Record<string, { alto?: string; medio?: stri
   }
 }
 
+// Mapa simple embudo→etapa (un solo STAGE_ID por embudo), ej: {"1":"C1:UC_ABC","3":"C3:UC_XYZ"}
+function parseSimpleStageMap(s?: string): Record<string, string> {
+  if (!s) return {};
+  try {
+    const p = JSON.parse(s);
+    return p && typeof p === 'object' ? p : {};
+  } catch {
+    return {};
+  }
+}
+
 // Etiquetas de embudo por CATEGORY_ID. Default: 0=General, 1=Diplomados, 3=Magísteres.
 function parseFunnelLabels(s?: string): Record<string, string> {
   const def = { '0': 'General', '1': 'Diplomados', '3': 'Magísteres' };
@@ -71,4 +82,14 @@ export const config = {
   voiceLineNumber: process.env.BITRIX_TELEPHONY_LINE ?? '', // nº de línea externa (opcional)
   // Destino de derivación a humano cuando no hay asesor asignado (número PSTN o SIP URI).
   voiceTransferFallback: process.env.VOICE_TRANSFER_FALLBACK ?? '',
+
+  // ── Acciones de "lead caliente" cuando el agente de voz capta interés en un programa ──
+  // Etapa a la que mover el Deal, por embudo: {"1":"C1:UC_XXX","3":"C3:UC_YYY"}.
+  // Si no está, cae a config.stageMap[cat].alto (el mismo de scoring alto).
+  voiceStageMap: parseSimpleStageMap(process.env.VOICE_STAGE_MAP),
+  voiceStageInteresado: process.env.VOICE_STAGE_INTERESADO ?? '', // fallback de un solo embudo
+  // Minutos de plazo (DEADLINE) de la tarea al asesor. Default 15.
+  voiceTaskMinutes: Number(process.env.VOICE_TASK_MINUTES ?? 15),
+  // Asesor por defecto para la tarea si el Deal no tiene responsable (o es un lead nuevo). 0 = no crear.
+  voiceTaskUserId: Number(process.env.VOICE_TASK_FALLBACK_USER ?? 0),
 };

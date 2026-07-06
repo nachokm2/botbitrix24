@@ -1,6 +1,7 @@
 import { buscarProgramas } from '../ai/catalog';
 import { getDetalle } from '../ai/detalles';
 import {
+  accionInteresVoz,
   actualizarDatosCliente,
   buscarCrmPorTelefono,
   crearLeadDesdeVoz,
@@ -14,7 +15,13 @@ import { log } from '../log';
 import type { Auth } from '../store';
 
 // Contexto de una llamada Vapi (resuelto una vez por callId y cacheado en KV).
-export type VoiceCallCtx = { callId: string; phone?: string; crm?: CrmEntities | null };
+export type VoiceCallCtx = {
+  callId: string;
+  phone?: string;
+  crm?: CrmEntities | null;
+  /** Acciones de lead caliente (tarea + mover etapa) ya ejecutadas en esta llamada. */
+  interesAccionado?: boolean;
+};
 
 const ctxKey = (callId: string) => `vapi:ctx:${callId}`;
 const CTX_TTL = 2 * 60 * 60; // 2 h
@@ -46,6 +53,15 @@ async function guardarInteresVoz(ctx: VoiceCallCtx, data: DatosCliente, auth: Au
   if (ref && ref !== ctx.crm) {
     ctx.crm = ref;
     await setJson(ctxKey(ctx.callId), ctx, CTX_TTL);
+  }
+
+  // Acciones de "lead caliente" (UF programa + mover etapa + tarea al asesor con plazo de 15 min):
+  // una sola vez por llamada, en cuanto hay programa de interés capturado.
+  if (ref && data.programa_interes && !ctx.interesAccionado) {
+    ctx.interesAccionado = true;
+    await setJson(ctxKey(ctx.callId), ctx, CTX_TTL);
+    const res = await accionInteresVoz(ref, data, auth);
+    log.info('registrar_interes_crm (voz): acciones lead caliente', { callId: ctx.callId, ...res });
   }
 }
 

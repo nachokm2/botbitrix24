@@ -324,7 +324,8 @@ export async function crearLeadDesdeVoz(
   if (data.email) fields.EMAIL = [{ VALUE: String(data.email), VALUE_TYPE: 'WORK' }];
   const tel = data.telefono || phone;
   if (tel) fields.PHONE = [{ VALUE: String(tel), VALUE_TYPE: 'MOBILE' }];
-  if (config.ufPrograma && data.programa_interes) fields[config.ufPrograma] = data.programa_interes;
+  // Nota: el UF de "programa de interés" (BITRIX_UF_PROGRAMA) vive en la Negociación (Deal), no en el Lead;
+  // en un lead el programa queda en el TITLE. Se escribe en el Deal vía accionInteresVoz cuando existe.
   try {
     const id: any = await callCrm('crm.lead.add', { fields, params: { REGISTER_SONET_EVENT: 'Y' } }, auth);
     const leadId = Number(id);
@@ -455,6 +456,94 @@ export async function getUsuarios(ids: number[], auth: Auth): Promise<Responsabl
       out.push({ id, nombre: `Usuario ${id}` });
     }
   }
+  return out;
+}
+
+/** Etapa destino para "interesado" según el embudo: VOICE_STAGE_MAP → VOICE_STAGE_INTERESADO → stageMap[cat].alto. */
+function resolveVoiceStage(categoryId: number | null): string {
+  const cat = String(categoryId ?? 0);
+  return config.voiceStageMap[cat] || config.voiceStageInteresado || config.stageMap[cat]?.alto || '';
+}
+
+export type AccionInteresResult = { asesorId?: number; tareaId?: number; etapa?: string };
+
+/**
+ * Acciones de "lead caliente" cuando el agente de voz capta interés en un programa. Sobre la
+ * NEGOCIACIÓN (Deal) del contacto:
+ *   1) escribe el programa en el UF (BITRIX_UF_PROGRAMA),
+ *   2) mueve el Deal a la etapa de "interesado" (resolveVoiceStage),
+ *   3) crea una TAREA al asesor responsable con plazo (VOICE_TASK_MINUTES, default 15 min).
+ * Si solo hay lead/contacto (sin Deal), crea la tarea al asesor de respaldo (VOICE_TASK_FALLBACK_USER)
+ * y omite UF/etapa (esos campos viven en el Deal). Best-effort: cada paso falla de forma aislada.
+ */
+export async function accionInteresVoz(ref: CrmEntities, data: DatosCliente, auth: Auth): Promise<AccionInteresResult> {
+  const out: AccionInteresResult = {};
+  const dealId = ref.deal;
+  let asesorId = config.voiceTaskUserId || 0;
+  let categoryId: number | null = null;
+
+  if (dealId) {
+    const info = await getDealInfo(dealId, auth);
+    if (info.responsableId) asesorId = info.responsableId;
+    categoryId = info.categoryId;
+
+    // 1) Programa de interés en el UF del Deal.
+    if (config.ufPrograma && data.programa_interes) {
+      try {
+        await callCrm('crm.deal.update', { id: dealId, fields: { [config.ufPrograma]: data.programa_interes } }, auth);
+      } catch (e) {
+        log.warn('accionInteresVoz: UF programa falló', { err: String(e) });
+      }
+    }
+
+    // 2) Mover de etapa.
+    const stage = resolveVoiceStage(categoryId);
+    if (stage) {
+      try {
+        await moverEtapaDeal(dealId, stage, auth);
+        out.etapa = stage;
+      } catch (e) {
+        log.warn('accionInteresVoz: mover etapa falló', { err: String(e) });
+      }
+    }
+  }
+
+  // 3) Tarea al asesor con plazo. Vinculada al Deal (o al lead/contacto si no hay Deal).
+  if (asesorId) {
+    const mins = config.voiceTaskMinutes || 15;
+    const deadline = new Date(Date.now() + mins * 60_000).toISOString();
+    const nombre = [data.nombre, data.apellido].filter(Boolean).join(' ').trim() || 'el prospecto';
+    const prog = data.programa_interes ? ` – ${data.programa_interes}` : '';
+    const link = dealId ? `D_${dealId}` : ref.contact ? `C_${ref.contact}` : ref.lead ? `L_${ref.lead}` : '';
+    try {
+      const t: any = await callCrm(
+        'tasks.task.add',
+        {
+          fields: {
+            TITLE: `☎️ Llamar en ${mins} min: ${nombre}${prog}`,
+            DESCRIPTION:
+              `Lead caliente detectado por el agente de voz (IA).\n` +
+              `Programa de interés: ${data.programa_interes ?? '—'}\n` +
+              `Teléfono: ${data.telefono ?? '—'} · Correo: ${data.email ?? '—'}\n` +
+              `Contactar dentro de ${mins} minutos.`,
+            RESPONSIBLE_ID: asesorId,
+            DEADLINE: deadline,
+            PRIORITY: 2, // alta
+            ...(link ? { UF_CRM_TASK: [link] } : {}),
+          },
+        },
+        auth,
+      );
+      const taskId = Number(t?.task?.id ?? t?.id);
+      if (taskId) out.tareaId = taskId;
+      out.asesorId = asesorId;
+    } catch (e) {
+      log.warn('accionInteresVoz: crear tarea falló', { err: String(e) });
+    }
+  } else {
+    log.warn('accionInteresVoz: sin asesor (deal sin responsable y sin VOICE_TASK_FALLBACK_USER); no se crea tarea');
+  }
+
   return out;
 }
 
