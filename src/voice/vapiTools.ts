@@ -43,10 +43,22 @@ export async function getVoiceCtx(callId: string, phone: string | undefined, aut
  * tool-calls de la misma llamada (así no se duplica el lead cuando el bot registra en varios pasos).
  */
 async function guardarInteresVoz(ctx: VoiceCallCtx, data: DatosCliente, auth: Auth): Promise<void> {
+  // Diagnóstico: qué datos llegaron del bot (¿vino programa_interes?).
+  log.info('registrar_interes_crm (voz): entrada', {
+    callId: ctx.callId,
+    phone: ctx.phone ?? null,
+    programa_interes: data?.programa_interes ?? null,
+    campos: Object.keys(data ?? {}),
+  });
+
   let ref: CrmEntities | null = ctx.crm ?? null;
   if (!ref && ctx.phone) ref = await buscarCrmPorTelefono(ctx.phone, auth);
+  // Diagnóstico: qué entidad se resolvió (¿hay deal/negociación?).
+  log.info('registrar_interes_crm (voz): entidad resuelta', { callId: ctx.callId, ref: ref ?? null });
+
   if (ref) {
-    await actualizarDatosCliente(ref, undefined, data, auth);
+    const r = await actualizarDatosCliente(ref, undefined, data, auth);
+    log.info('registrar_interes_crm (voz): actualizado', { callId: ctx.callId, ...r });
   } else {
     ref = await crearLeadDesdeVoz(ctx.phone, data, auth);
   }
@@ -62,6 +74,8 @@ async function guardarInteresVoz(ctx: VoiceCallCtx, data: DatosCliente, auth: Au
     await setJson(ctxKey(ctx.callId), ctx, CTX_TTL);
     const res = await accionInteresVoz(ref, data, auth);
     log.info('registrar_interes_crm (voz): acciones lead caliente', { callId: ctx.callId, ...res });
+  } else if (ref && !data.programa_interes) {
+    log.warn('registrar_interes_crm (voz): SIN programa_interes → no se actualiza UF/etapa/tarea', { callId: ctx.callId });
   }
 }
 
