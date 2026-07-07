@@ -5,10 +5,12 @@ import {
   guardarEvaluacionCrm,
   moverEtapaDeal,
   getDealInfo,
+  getTelefonoCliente,
   primaryEntity,
   type CrmEntities,
   type LeadEval,
 } from '../crm/openlinesCrm';
+import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { generarBriefing } from './briefing';
 import { callBitrix } from '../bitrix/client';
 import { config } from '../config';
@@ -136,7 +138,37 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
     }
   }
 
-  // 2) Auto-escalar a un asesor humano si el score alcanza el umbral.
+  // 2) Auto-LLAMAR por voz (Vapi) si el score alcanza el umbral (SCORE_LLAMAR), una sola vez por diálogo.
+  if (
+    config.scoreLlamar > 0 &&
+    evalData.score >= config.scoreLlamar &&
+    !sess.autoCalled &&
+    !sess.humanTookOver
+  ) {
+    const telefono = await getTelefonoCliente(crmEntities, auth);
+    if (telefono) {
+      sess.autoCalled = true; // marca antes de llamar para evitar duplicados en pases concurrentes
+      await saveSession(dialogId, sess);
+      const r = await iniciarLlamadaSaliente(telefono);
+      if (r.ok) {
+        inc('auto_call');
+        await audit({
+          type: 'auto_call',
+          dialogId,
+          crmEntity: crmEntities.deal ? `deal#${crmEntities.deal}` : undefined,
+          detail: { score: evalData.score, telefono, callId: r.callId },
+        });
+        log.info('auto-llamada por score', { dialogId, score: evalData.score, callId: r.callId });
+      } else {
+        sess.autoCalled = false; // permite reintentar en el próximo turno si falló
+        log.warn('auto-llamada falló', { err: r.error, dialogId });
+      }
+    } else {
+      log.info('auto-llamada omitida: sin teléfono en el CRM', { dialogId, score: evalData.score });
+    }
+  }
+
+  // 3) Auto-escalar a un asesor humano si el score alcanza el umbral.
   if (
     config.scoreEscalar > 0 &&
     evalData.score >= config.scoreEscalar &&

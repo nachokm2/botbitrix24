@@ -264,6 +264,33 @@ export async function actualizarDatosCliente(
   return { ok: actualizado.length > 0, actualizado };
 }
 
+/** Devuelve el primer teléfono guardado del cliente (contacto → lead). Para llamarlo por voz. */
+export async function getTelefonoCliente(entities: CrmEntities, auth: Auth): Promise<string | null> {
+  const readPhone = (r: any): string | null => {
+    const arr = r?.PHONE;
+    if (Array.isArray(arr) && arr.length) {
+      const v = String(arr[0]?.VALUE ?? '').trim();
+      return v || null;
+    }
+    return null;
+  };
+  try {
+    if (entities.contact) {
+      const c = await callCrm('crm.contact.get', { id: entities.contact }, auth);
+      const p = readPhone(c);
+      if (p) return p;
+    }
+    if (entities.lead) {
+      const l = await callCrm('crm.lead.get', { id: entities.lead }, auth);
+      const p = readPhone(l);
+      if (p) return p;
+    }
+  } catch (e) {
+    log.warn('getTelefonoCliente falló', { err: String(e) });
+  }
+  return null;
+}
+
 /**
  * Busca una entidad CRM por número de teléfono usando el webhook admin (crm.duplicate.findbycomm),
  * SIN depender del scope `telephony`. Prioridad: Contacto (con su negociación abierta) → Lead.

@@ -67,6 +67,8 @@ export const config = {
   stageScoreMedio: process.env.BITRIX_STAGE_SCORE_MEDIO ?? '', // score 40-69
   // Auto-escalar a humano si el score alcanza este umbral (0 = desactivado).
   scoreEscalar: Number(process.env.SCORE_ESCALAR ?? 80),
+  // Auto-LLAMAR por voz (Vapi) si el score alcanza este umbral (0 = desactivado). Ej: 50.
+  scoreLlamar: Number(process.env.SCORE_LLAMAR ?? 0),
   // Precio Anthropic por millón de tokens (USD) para estimar costo en el panel (0 = no mostrar).
   costInPerMtok: Number(process.env.ANTHROPIC_COST_IN_PER_MTOK ?? 0),
   costOutPerMtok: Number(process.env.ANTHROPIC_COST_OUT_PER_MTOK ?? 0),

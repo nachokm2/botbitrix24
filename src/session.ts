@@ -14,6 +14,7 @@ export type SessionState = {
   dealCategory?: number;
   responsableId?: number; // ASSIGNED_BY_ID del deal (asesor a cargo), cacheado
   briefingDone?: boolean; // ya se generó el resumen para el asesor (evita duplicados)
+  autoCalled?: boolean; // ya se disparó la llamada de voz por score (evita llamar dos veces)
 };
 
 const KEY = (dialogId: string) => `sess:${dialogId}`;
