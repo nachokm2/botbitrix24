@@ -5,6 +5,7 @@ import { config } from '../config';
 import { log } from '../log';
 import { registerCall, finishCall, attachCallRecord, toCrmRef, type CallType } from '../crm/telephony';
 import { getVoiceCtx, runVapiTool } from '../voice/vapiTools';
+import { iniciarLlamadaSaliente } from '../voice/outbound';
 
 // Webhook único que recibe los "server messages" de Vapi (tool-calls, end-of-call-report, etc.).
 // Vapi corre la conversación (STT/TTS/Claude); aquí ejecutamos herramientas y registramos en Bitrix.
@@ -99,23 +100,7 @@ async function handleEndOfCall(message: any, auth: any) {
 export async function voiceOutbound(req: Request, res: Response) {
   const phone = String((req.body as any)?.phone ?? '').trim();
   if (!phone) return res.status(400).json({ ok: false, error: 'Falta phone (E.164, ej. +56912345678)' });
-  if (!config.vapiApiKey || !config.vapiAssistantId || !config.vapiPhoneNumberId) {
-    return res.status(400).json({ ok: false, error: 'Faltan VAPI_API_KEY / VAPI_ASSISTANT_ID / VAPI_PHONE_NUMBER_ID' });
-  }
-  try {
-    const r = await fetch('https://api.vapi.ai/call', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${config.vapiApiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        assistantId: config.vapiAssistantId,
-        phoneNumberId: config.vapiPhoneNumberId,
-        customer: { number: phone },
-      }),
-    });
-    const json: any = await r.json();
-    if (!r.ok) return res.status(502).json({ ok: false, error: json });
-    return res.json({ ok: true, callId: json.id ?? json.callId ?? null });
-  } catch (e) {
-    return res.status(500).json({ ok: false, error: String(e) });
-  }
+  const r = await iniciarLlamadaSaliente(phone);
+  if (!r.ok) return res.status(502).json({ ok: false, error: r.error });
+  return res.json({ ok: true, callId: r.callId ?? null });
 }

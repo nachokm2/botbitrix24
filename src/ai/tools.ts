@@ -77,6 +77,25 @@ export const tools = [
     },
   },
   {
+    name: 'solicitar_llamada',
+    description:
+      'Dispara una llamada telefónica INMEDIATA de nuestra asistente de voz al cliente. Úsala SOLO cuando el cliente ' +
+      'ACEPTA explícitamente que lo llamemos por teléfono. Antes de llamarla, confirma con el cliente el número al que ' +
+      'llamar (formato chileno, ej. +56 9 1234 5678) y pásalo en "telefono". Tras usarla, dile que recibirá la llamada ' +
+      'en unos momentos. No la uses si el cliente no ha aceptado la llamada.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        telefono: {
+          type: 'string',
+          description: 'Teléfono del cliente en formato E.164 (ej. +56912345678), ya confirmado con él.',
+        },
+        motivo: { type: 'string', description: 'Breve contexto de por qué se llama (opcional, para el registro).' },
+      },
+      required: ['telefono'],
+    },
+  },
+  {
     name: 'escalar_a_humano',
     description:
       'Deriva la conversación a un asesor humano. Úsala si el cliente lo pide, si hay intención alta de matrícula, ' +

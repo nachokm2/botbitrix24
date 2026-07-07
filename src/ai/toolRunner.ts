@@ -2,6 +2,7 @@ import { buscarProgramas } from './catalog';
 import { getDetalle } from './detalles';
 import { actualizarDatosCliente, getDealAsesores, type CrmEntity, type CrmEntities } from '../crm/openlinesCrm';
 import { generarBriefing } from './briefing';
+import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { markHumanTakeover, getSession, saveSession } from '../session';
 import { callBitrix } from '../bitrix/client';
 import { log } from '../log';
@@ -49,6 +50,28 @@ export async function executeTool(name: string, input: any, ctx: AgentCtx): Prom
         if (!r.ok) return { ok: false, error: r.error };
         log.info('tool registrar_interes_crm', { actualizado: r.actualizado });
         return { ok: true, actualizado: r.actualizado };
+      }
+
+      case 'solicitar_llamada': {
+        const telefono = String(input?.telefono ?? '').replace(/[\s()\-.]/g, '');
+        if (!telefono) return { ok: false, error: 'FALTA_TELEFONO', mensaje: 'Pide y confirma el número antes de llamar.' };
+        // Guarda/actualiza el teléfono en el CRM antes de llamar (best-effort, no bloquea).
+        void actualizarDatosCliente(ctx.crmEntities ?? {}, ctx.chatId, { telefono }, ctx.auth).catch(() => {});
+        const r = await iniciarLlamadaSaliente(telefono);
+        if (!r.ok) {
+          log.warn('tool solicitar_llamada falló', { err: r.error });
+          return {
+            ok: false,
+            error: r.error,
+            mensaje: 'No se pudo iniciar la llamada ahora. Ofrece que un asesor lo contacte en su lugar.',
+          };
+        }
+        log.info('tool solicitar_llamada', { telefono, callId: r.callId });
+        return {
+          ok: true,
+          llamando: true,
+          mensaje: 'Llamada iniciada. Dile al cliente que recibirá la llamada de nuestra asistente en unos momentos.',
+        };
       }
 
       case 'escalar_a_humano': {
