@@ -119,10 +119,31 @@ Bitrix (Desarrolladores → tu webhook entrante → marca "Telefonía" → guard
 
 ---
 
+## 6b. Modo Postgres (KPIs exactos) — IMPLEMENTADO
+
+Para que los KPIs sean exactos sobre TODO el período (y no una muestra), las llamadas se
+**sincronizan a Postgres** (tabla `calls`, espejo de `voximplant.statistic.get`):
+
+- **`src/crm/callSync.ts`** — `syncCalls()` incremental por **marca de agua** (ISO de la última
+  llamada guardada, con 1 min de solape); backfill inicial desde `CALLS_SYNC_SINCE` o últimos 30 días.
+  Upsert por `id` (sin duplicados). `startCallSync()` = scheduler cada `CALLS_SYNC_MINUTES`.
+- **`src/store/db.ts`** — tabla `calls` + `dbUpsertCalls`, `dbCallsWatermarkIso`, `dbCallAnalytics`
+  (KPIs, series por hora/día y últimas 1.000 filas, **todo en SQL** con filtros parametrizados).
+- **`/calls/data`** usa Postgres si hay datos sincronizados; si no, cae al modo en vivo (muestra).
+  El pie de la UI indica el modo (`KPIs exactos` vs `muestra`).
+
+**Activación:**
+1. `DATABASE_URL` en Railway (plugin Postgres) — ya presente.
+2. Backfill inicial: `GET /setup/sync-calls` (corre en segundo plano) **o** define
+   `CALLS_SYNC_MINUTES=15` para que el scheduler sincronice solo cada 15 min.
+3. (Opcional) `CALLS_SYNC_SINCE=2026-01-01` para traer histórico más largo en el primer backfill.
+
+> La tabla siempre muestra las **últimas 1.000** filas del rango; los KPIs/gráficos son exactos
+> sobre el **total**. Los `CALL_FAILED_CODE` con sufijo ("603-S") se normalizan por código base.
+
 ## 7. Mejoras futuras
 
-- **Sincronización a Postgres** (job periódico que vuelca las llamadas): permite reportes sobre
-  meses/años sin el tope de páginas y consultas instantáneas.
+- **Ranking por asesor** (contestadas, duración media, tasa de pérdida por persona).
 - **Métricas por asesor** (ranking de contestadas, duración media, tasa de pérdida por persona).
 - **Exportar a CSV/Excel** el historial filtrado.
 - **Embudo bot→humano**: cruzar llamadas del agente de voz (por `REST_APP_ID`) vs. asesores.
