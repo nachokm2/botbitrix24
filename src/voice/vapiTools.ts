@@ -90,8 +90,13 @@ export async function runVapiTool(name: string, args: any, ctx: VoiceCallCtx, au
         const all = buscarProgramas(args ?? {});
         return {
           total: all.length,
-          programas: all.slice(0, 5).map((p) => ({ nombre: p.nombre, tipo: p.tipo, modalidad: p.modalidad })),
-          nota: all.length > 5 ? 'Hay más resultados; pide afinar por facultad o tema.' : undefined,
+          programas: all.slice(0, 8).map((p) => ({ nombre: p.nombre, tipo: p.tipo, facultad: p.facultad, modalidad: p.modalidad })),
+          nota:
+            all.length === 0
+              ? 'No hay coincidencias; sugiere afinar el tema o derivar a un asesor. No inventes programas.'
+              : all.length > 8
+                ? 'Hay más resultados; pide afinar por facultad o tema.'
+                : undefined,
         };
       }
       case 'detalle_programa': {

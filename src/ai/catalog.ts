@@ -103,6 +103,17 @@ export const FACULTADES = [
   'Odontología',
 ] as const;
 
+/** Normaliza: minúsculas + sin acentos (para búsquedas robustas por voz/chat). */
+const strip = (s: string) =>
+  (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+// Palabras vacías que no aportan a la búsqueda por tema (se ignoran al tokenizar).
+const STOP = new Set([
+  'de', 'la', 'el', 'en', 'y', 'para', 'del', 'los', 'las', 'un', 'una', 'con', 'por',
+  'programa', 'programas', 'curso', 'cursos', 'magister', 'diplomado', 'diplomados',
+  'especialidad', 'especialidades', 'sobre', 'info', 'informacion', 'quiero', 'busco',
+]);
+
 export function buscarProgramas(filtros: {
   tipo?: string;
   facultad?: string;
@@ -110,13 +121,18 @@ export function buscarProgramas(filtros: {
   texto?: string;
 }): Programa[] {
   const { tipo, facultad, modalidad, texto } = filtros ?? {};
-  const t = (texto ?? '').toLowerCase().trim();
-  const norm = (s: string) => (s ?? '').toLowerCase();
-  return PROGRAMAS.filter(
-    (p) =>
+  // Normaliza el texto y expande sinónimos frecuentes por voz ("IA", "i.a." → inteligencia artificial).
+  let t = strip(texto ?? '').trim().replace(/\bi\.?\s?a\.?\b/g, 'inteligencia artificial');
+  const tokens = t.split(/\s+/).filter((w) => w.length >= 3 && !STOP.has(w));
+  const needles = tokens.length ? tokens : t ? [t] : []; // si no quedan tokens, usa el texto crudo
+  const nf = strip(facultad ?? '');
+  return PROGRAMAS.filter((p) => {
+    const hay = strip(`${p.nombre} ${p.facultad} ${p.tipo}`);
+    return (
       (!tipo || p.tipo === tipo) &&
-      (!facultad || norm(p.facultad).includes(norm(facultad))) &&
-      (!modalidad || norm(p.modalidad) === norm(modalidad)) &&
-      (!t || norm(`${p.nombre} ${p.facultad}`).includes(t)),
-  );
+      (!facultad || strip(p.facultad).includes(nf)) &&
+      (!modalidad || strip(p.modalidad) === strip(modalidad)) &&
+      needles.every((n) => hay.includes(n)) // todas las palabras clave deben aparecer
+    );
+  });
 }
