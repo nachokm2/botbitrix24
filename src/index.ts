@@ -8,6 +8,8 @@ import { vapiEvents, voiceOutbound, verifyVapiSecret } from './routes/vapi';
 import { voiceTool, voiceCallFinish, verifyVoiceSecret } from './routes/voiceApi';
 import { dashboardPage, metricsSummary } from './routes/dashboard';
 import { callsPage, callsData } from './routes/calls';
+import { getState } from './store';
+import { callCrm } from './bitrix/client';
 import { initDb, dbRecentAudit, dbEnabled } from './store/db';
 import { snapshot } from './obs/metrics';
 import { kvKind } from './store/kv';
@@ -61,6 +63,22 @@ app.get('/debug/config', (_req, res) =>
     },
   }),
 );
+
+// Diagnóstico: qué scopes tiene REALMENTE el webhook admin (para verificar 'telephony').
+app.get('/debug/scopes', async (_req, res) => {
+  const st = await getState();
+  try {
+    const scopes = await callCrm<string[]>('scope', {}, st.auth ?? ({} as any));
+    res.json({
+      ok: true,
+      via: config.bitrixWebhookUrl ? 'webhook' : 'oauth',
+      telephony: Array.isArray(scopes) && scopes.includes('telephony'),
+      scopes,
+    });
+  } catch (e) {
+    res.json({ ok: false, error: String(e) });
+  }
+});
 
 // Panel de métricas embebible en Bitrix24 (placement) + su API de datos.
 app.all('/app', dashboardPage); // Bitrix abre la página del placement (GET/POST con auth)
