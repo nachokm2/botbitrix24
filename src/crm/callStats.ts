@@ -49,8 +49,12 @@ function tipoLabel(t: number): CallRow['tipo'] {
   if (t === 4) return 'callback';
   return 'otro';
 }
+/** El proveedor puede anexar sufijo al CALL_FAILED_CODE (ej. "603-S"); tomamos el código base numérico. */
+function baseCode(code: string): string {
+  return String(code ?? '').split('-')[0].trim();
+}
 function isAnswered(code: string): boolean {
-  return String(code) === '200';
+  return baseCode(code) === '200';
 }
 /** Traduce el CALL_FAILED_CODE (tipo SIP) a un estado legible. */
 function estadoLabel(code: string): string {
@@ -67,7 +71,7 @@ function estadoLabel(code: string): string {
     '500': 'Error',
     '503': 'Servicio no disponible',
   };
-  return map[String(code)] || `Código ${code}`;
+  return map[baseCode(code)] || `Código ${code}`;
 }
 
 /** Hora local del portal (0-23) tomada del string ISO, sin depender del huso del servidor. */
@@ -93,8 +97,8 @@ function buildFilter(f: CallFilters): Record<string, unknown> {
   if (f.userId) filter['PORTAL_USER_ID'] = f.userId;
   if (f.type === 'out') filter['@CALL_TYPE'] = [1, 4];
   if (f.type === 'in') filter['@CALL_TYPE'] = [2, 3];
-  if (f.status === 'answered') filter['CALL_FAILED_CODE'] = '200';
-  if (f.status === 'missed') filter['!CALL_FAILED_CODE'] = '200';
+  // El estado (contestada/perdida) se filtra por CÓDIGO BASE del lado servidor no es fiable con sufijos
+  // ("200-S"): se filtra en getCallAnalytics con baseCode. Aquí no se agrega al FILTER.
   if (f.phone) filter['%PHONE_NUMBER'] = f.phone;
   return filter;
 }
@@ -176,7 +180,14 @@ export type CallAnalytics = {
 
 /** Orquesta: trae llamadas, resuelve nombres, agrega KPIs y series. */
 export async function getCallAnalytics(f: CallFilters, auth: Auth): Promise<CallAnalytics> {
-  const { rows: raw, total } = await fetchCalls(f, auth);
+  const { rows: fetched, total } = await fetchCalls(f, auth);
+  // Filtro de estado por código base (robusto ante sufijos tipo "200-S").
+  const raw =
+    f.status === 'answered'
+      ? fetched.filter((r) => isAnswered(r.CALL_FAILED_CODE))
+      : f.status === 'missed'
+        ? fetched.filter((r) => !isAnswered(r.CALL_FAILED_CODE))
+        : fetched;
 
   // Nombres de asesores (todos los IDs presentes) y de entidades CRM (para la tabla).
   const userIds = Array.from(new Set(raw.map((r) => Number(r.PORTAL_USER_ID)).filter((n) => n > 0)));
