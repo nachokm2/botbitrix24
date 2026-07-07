@@ -11,21 +11,35 @@ const limiter = new Bottleneck({
   maxConcurrent: 2,
 });
 
+/** Sobre de respuesta de Bitrix: result + paginación (next/total) cuando aplica (métodos .list/.get de estadística). */
+export type BitrixEnvelope<T = any> = { result: T; next?: number; total?: number };
+
 /** Llamada REST autenticada por OAuth. Si el token expiró, lo renueva una vez y reintenta. */
 export async function callBitrix<T = any>(
   method: string,
   params: Record<string, unknown>,
   auth: Auth,
 ): Promise<T> {
-  return limiter.schedule(() => doCall<T>(method, params, auth, false));
+  const json = await limiter.schedule(() => doCall(method, params, auth, false));
+  return json.result as T;
 }
 
-async function doCall<T>(
+/** Igual que callBitrix pero devuelve el sobre completo (result + next + total) para paginar. */
+export async function callBitrixEnvelope<T = any>(
+  method: string,
+  params: Record<string, unknown>,
+  auth: Auth,
+): Promise<BitrixEnvelope<T>> {
+  const json = await limiter.schedule(() => doCall(method, params, auth, false));
+  return { result: json.result, next: json.next, total: json.total };
+}
+
+async function doCall(
   method: string,
   params: Record<string, unknown>,
   auth: Auth,
   retried: boolean,
-): Promise<T> {
+): Promise<any> {
   const res = await fetch(`https://${auth.domain}/rest/${method}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -37,19 +51,15 @@ async function doCall<T>(
     const expired = err === 'expired_token' || err === 'invalid_token';
     if (expired && !retried && auth.refresh_token) {
       const fresh = await refreshAuth(auth); // renueva on-demand y persiste
-      return doCall<T>(method, params, fresh, true);
+      return doCall(method, params, fresh, true);
     }
     throw new Error(`Bitrix ${method}: ${json.error} ${json.error_description ?? ''}`);
   }
-  return json.result as T;
+  return json; // sobre completo (result + next + total)
 }
 
-/** Llamada vía webhook entrante (sin OAuth) — solo para smoke rápido. */
-export async function callWebhook<T = any>(
-  method: string,
-  params: Record<string, unknown>,
-  webhookUrl: string,
-): Promise<T> {
+/** Petición cruda al webhook entrante; devuelve el sobre completo (result + next + total). */
+async function webhookRaw(method: string, params: Record<string, unknown>, webhookUrl: string): Promise<any> {
   const url = `${webhookUrl.replace(/\/$/, '')}/${method}`;
   const res = await fetch(url, {
     method: 'POST',
@@ -60,7 +70,29 @@ export async function callWebhook<T = any>(
   if (json.error) {
     throw new Error(`Bitrix ${method}: ${json.error} ${json.error_description ?? ''}`);
   }
-  return json.result as T;
+  return json;
+}
+
+/** Llamada vía webhook entrante (sin OAuth) — solo para smoke rápido. */
+export async function callWebhook<T = any>(
+  method: string,
+  params: Record<string, unknown>,
+  webhookUrl: string,
+): Promise<T> {
+  return (await webhookRaw(method, params, webhookUrl)).result as T;
+}
+
+/** Como callCrm, pero devuelve result + next + total (para paginar voximplant.statistic.get, crm.*.list, etc.). */
+export async function callCrmEnvelope<T = any>(
+  method: string,
+  params: Record<string, unknown>,
+  auth: Auth,
+): Promise<BitrixEnvelope<T>> {
+  if (config.bitrixWebhookUrl) {
+    const json = await webhookRaw(method, params, config.bitrixWebhookUrl);
+    return { result: json.result, next: json.next, total: json.total };
+  }
+  return callBitrixEnvelope<T>(method, params, auth);
 }
 
 /**

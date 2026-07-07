@@ -3,7 +3,7 @@ import { getState, setBotId } from '../store';
 import { registerBot, unregisterBot } from '../bot/register';
 import { callBitrix, callWebhook } from '../bitrix/client';
 import { getDealAsesores } from '../crm/openlinesCrm';
-import { bindDashboard } from '../bitrix/placement';
+import { bindDashboard, bindCalls } from '../bitrix/placement';
 import { config } from '../config';
 import { log } from '../log';
 
@@ -12,6 +12,14 @@ export async function bindDashboardManual(_req: Request, res: Response) {
   const st = await getState();
   if (!st.auth) return res.status(400).json({ ok: false, error: 'No hay auth. Instala el app (/install) primero.' });
   const r = await bindDashboard(st.auth);
+  return res.status(r.ok ? 200 : 500).json(r);
+}
+
+/** (Re)enlaza la página de Analítica de Llamadas dentro de Bitrix24. GET /setup/bind-calls */
+export async function bindCallsManual(_req: Request, res: Response) {
+  const st = await getState();
+  if (!st.auth) return res.status(400).json({ ok: false, error: 'No hay auth. Instala el app (/install) primero.' });
+  const r = await bindCalls(st.auth);
   return res.status(r.ok ? 200 : 500).json(r);
 }
 

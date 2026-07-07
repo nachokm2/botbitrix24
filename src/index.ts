@@ -3,10 +3,11 @@ import { config } from './config';
 import { log } from './log';
 import { installHandler } from './routes/install';
 import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes/botEvents';
-import { registerBotManual, unregisterBotManual, listDealStages, dealResponsable, bindDashboardManual } from './routes/setup';
+import { registerBotManual, unregisterBotManual, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual } from './routes/setup';
 import { vapiEvents, voiceOutbound, verifyVapiSecret } from './routes/vapi';
 import { voiceTool, voiceCallFinish, verifyVoiceSecret } from './routes/voiceApi';
 import { dashboardPage, metricsSummary } from './routes/dashboard';
+import { callsPage, callsData } from './routes/calls';
 import { initDb, dbRecentAudit, dbEnabled } from './store/db';
 import { snapshot } from './obs/metrics';
 import { kvKind } from './store/kv';
@@ -65,6 +66,10 @@ app.get('/debug/config', (_req, res) =>
 app.all('/app', dashboardPage); // Bitrix abre la página del placement (GET/POST con auth)
 app.get('/metrics/summary', metricsSummary);
 
+// Módulo de analítica de llamadas (telefonía Bitrix24): página embebible + su API de datos.
+app.all('/calls', callsPage);
+app.get('/calls/data', callsData);
+
 // Observabilidad: métricas (JSON) y panel de estadísticas (HTML).
 app.get('/metrics', (_req, res) =>
   res.json({ ...snapshot(), kv: kvKind, db: dbEnabled() ? 'postgres' : 'off' }),
@@ -103,6 +108,7 @@ app.get('/setup/unregister-bot', unregisterBotManual);
 app.get('/setup/deal-stages', listDealStages);
 app.get('/setup/deal-responsable', dealResponsable);
 app.get('/setup/bind-dashboard', bindDashboardManual);
+app.get('/setup/bind-calls', bindCallsManual);
 
 // Fase 2: agente de voz con Vapi
 app.post('/vapi/events', verifyVapiSecret, vapiEvents); // webhook de Vapi (tool-calls, end-of-call-report)
