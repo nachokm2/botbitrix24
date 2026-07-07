@@ -1,7 +1,8 @@
 import type { Request, Response } from 'express';
 import { getState } from '../store';
 import { config } from '../config';
-import { getCallAnalytics, type CallFilters } from '../crm/callStats';
+import { getCallAnalytics, getCallAnalyticsFromDb, type CallFilters } from '../crm/callStats';
+import { dbEnabled, dbCallsCount } from '../store/db';
 
 const str = (v: unknown): string | undefined => {
   const s = String(v ?? '').trim();
@@ -28,7 +29,9 @@ export async function callsData(req: Request, res: Response) {
     limit: q.limit ? Number(q.limit) : undefined,
   };
   try {
-    const data = await getCallAnalytics(f, auth);
+    // Si hay Postgres con llamadas sincronizadas → KPIs exactos del período; si no, muestra en vivo (REST).
+    const useDb = dbEnabled() && (await dbCallsCount()) > 0;
+    const data = useDb ? await getCallAnalyticsFromDb(f, auth) : await getCallAnalytics(f, auth);
     res.json({ ok: true, ...data });
   } catch (e) {
     res.json({ ok: false, error: String(e) });
@@ -207,9 +210,15 @@ const CALLS_HTML = `<!doctype html>
       var sel=document.getElementById('userId'); if(sel.options.length<=1 && d.usuarios){ d.usuarios.forEach(function(u){var o=document.createElement('option');o.value=u.id;o.textContent=u.nombre;sel.appendChild(o);}); }
       renderKpis(d.kpis||{}); drawCharts(d);
       ALL=d.rows||[]; page=1; renderTable();
-      var partial = d.total>d.fetched? (' · mostrando '+num(d.fetched)+' de '+num(d.total)+' (ajusta el rango para ver todas)') : '';
-      document.getElementById('status').innerHTML='<span class="pill">'+num(d.fetched)+' llamadas</span>';
-      document.getElementById('foot').textContent='Fuente: voximplant.statistic.get (telefonía Bitrix24)'+partial;
+      if(d.mode==='db'){
+        document.getElementById('status').innerHTML='<span class="pill">'+num(d.total)+' llamadas · KPIs exactos</span>';
+        var extra = d.total>d.fetched? (' · tabla: últimas '+num(d.fetched)+' de '+num(d.total)) : '';
+        document.getElementById('foot').textContent='KPIs y gráficos sobre TODO el rango ('+num(d.total)+' llamadas)'+extra+' · fuente: Postgres (sincronizado)';
+      } else {
+        document.getElementById('status').innerHTML='<span class="pill">'+num(d.fetched)+' llamadas (muestra)</span>';
+        var partial = d.total>d.fetched? (' · KPIs sobre muestra de '+num(d.fetched)+' de '+num(d.total)+' (acorta el rango o sincroniza a Postgres para exactos)') : '';
+        document.getElementById('foot').textContent='Fuente: voximplant.statistic.get en vivo'+partial;
+      }
     }).catch(function(e){ document.getElementById('status').innerHTML='<span class="pill err">error al cargar</span>'; });
   }
 

@@ -4,6 +4,8 @@ import { registerBot, unregisterBot } from '../bot/register';
 import { callBitrix, callWebhook } from '../bitrix/client';
 import { getDealAsesores } from '../crm/openlinesCrm';
 import { bindDashboard, bindCalls } from '../bitrix/placement';
+import { syncCalls } from '../crm/callSync';
+import { dbEnabled } from '../store/db';
 import { config } from '../config';
 import { log } from '../log';
 
@@ -21,6 +23,15 @@ export async function bindCallsManual(_req: Request, res: Response) {
   if (!st.auth) return res.status(400).json({ ok: false, error: 'No hay auth. Instala el app (/install) primero.' });
   const r = await bindCalls(st.auth);
   return res.status(r.ok ? 200 : 500).json(r);
+}
+
+/** Sincroniza las llamadas (voximplant.statistic.get → Postgres) EN SEGUNDO PLANO. GET /setup/sync-calls */
+export async function syncCallsManual(_req: Request, res: Response) {
+  if (!dbEnabled()) return res.status(400).json({ ok: false, error: 'Postgres desactivado (define DATABASE_URL en Railway).' });
+  const st = await getState();
+  // Fire-and-forget: el backfill puede tardar minutos; no bloqueamos la respuesta HTTP.
+  void syncCalls(st.auth ?? ({} as any)).then((r) => log.info('sync manual de llamadas', r));
+  return res.json({ ok: true, started: true, mensaje: 'Sincronización iniciada en segundo plano. Revisa /calls en unos minutos.' });
 }
 
 /** Diagnóstico: trae el responsable (ASSIGNED_BY_ID) y observadores de un deal. GET /setup/deal-responsable?id=NNN */

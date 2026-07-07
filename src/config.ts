@@ -69,6 +69,9 @@ export const config = {
   scoreEscalar: Number(process.env.SCORE_ESCALAR ?? 80),
   // Auto-LLAMAR por voz (Vapi) si el score alcanza este umbral (0 = desactivado). Ej: 50.
   scoreLlamar: Number(process.env.SCORE_LLAMAR ?? 0),
+  // Sincronización de llamadas a Postgres (para KPIs exactos del período):
+  callsSyncMinutes: Number(process.env.CALLS_SYNC_MINUTES ?? 0), // 0 = scheduler desactivado (se puede sincronizar manual)
+  callsSyncSince: process.env.CALLS_SYNC_SINCE ?? '', // backfill inicial desde esta fecha ISO (vacío = últimos 90 días)
   // Precio Anthropic por millón de tokens (USD) para estimar costo en el panel (0 = no mostrar).
   costInPerMtok: Number(process.env.ANTHROPIC_COST_IN_PER_MTOK ?? 0),
   costOutPerMtok: Number(process.env.ANTHROPIC_COST_OUT_PER_MTOK ?? 0),
