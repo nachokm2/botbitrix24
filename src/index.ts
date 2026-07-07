@@ -67,11 +67,16 @@ app.get('/debug/config', (_req, res) =>
 // Diagnóstico: qué scopes tiene REALMENTE el webhook admin (para verificar 'telephony').
 app.get('/debug/scopes', async (_req, res) => {
   const st = await getState();
+  // Pista enmascarada del webhook que usa Railway (para confirmar cuál se está editando en Bitrix).
+  const wh = config.bitrixWebhookUrl || '';
+  const m = /https?:\/\/([^/]+)\/rest\/(\d+)\/(\w{0,4})/.exec(wh);
+  const webhookHint = m ? `${m[1]} · user ${m[2]} · code ${m[3]}…` : '(sin webhook)';
   try {
     const scopes = await callCrm<string[]>('scope', {}, st.auth ?? ({} as any));
     res.json({
       ok: true,
       via: config.bitrixWebhookUrl ? 'webhook' : 'oauth',
+      webhookHint,
       telephony: Array.isArray(scopes) && scopes.includes('telephony'),
       scopes,
     });
