@@ -9,7 +9,8 @@
     "start": "tsx src/index.ts",
     "smoke:anthropic": "tsx scripts/smoke-anthropic.ts",
     "smoke:bitrix": "tsx scripts/smoke-bitrix.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test \"test/*.test.ts\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",
