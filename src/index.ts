@@ -1,6 +1,8 @@
 import express from 'express';
+import crypto from 'crypto';
 import { config } from './config';
 import { log } from './log';
+import { runWithRequestContext } from './obs/requestContext';
 import { installHandler } from './routes/install';
 import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes/botEvents';
 import { registerBotManual, unregisterBotManual, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, syncCallsManual } from './routes/setup';
@@ -9,7 +11,7 @@ import { vapiEvents, voiceOutbound, verifyVapiSecret } from './routes/vapi';
 import { voiceTool, voiceCallFinish, verifyVoiceSecret } from './routes/voiceApi';
 import { dashboardPage, metricsSummary } from './routes/dashboard';
 import { callsPage, callsData } from './routes/calls';
-import { initDb, dbRecentAudit, dbEnabled } from './store/db';
+import { initDb, dbRecentAudit, dbEnabled, startRetentionSweep } from './store/db';
 import { snapshot } from './obs/metrics';
 import { kvKind } from './store/kv';
 import { requireDashboardToken, requireAdminToken } from './routes/guard';
@@ -21,6 +23,13 @@ app.set('trust proxy', 1); // detrás del proxy de Railway → req.ip refleja X-
 // Bitrix envía eventos como x-www-form-urlencoded con claves anidadas (data[PARAMS][...]).
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(express.json({ limit: '2mb' }));
+
+// Correlación: asigna un requestId por petición y lo propaga (AsyncLocalStorage) a todos los logs.
+app.use((req, res, next) => {
+  const requestId = req.header('x-request-id') || crypto.randomUUID();
+  res.setHeader('x-request-id', requestId);
+  runWithRequestContext({ requestId }, () => next());
+});
 
 // DIAGNÓSTICO: registra TODA petición entrante (método + ruta + evento si lo trae).
 app.use((req, _res, next) => {
@@ -135,7 +144,10 @@ app.post('/voice/call/finish', verifyVoiceSecret, voiceCallFinish); // registra 
 
 // Inicializa Postgres (auditoría + espejo de llamadas) y arranca el scheduler de sync de llamadas.
 initDb()
-  .then(() => startCallSync())
+  .then(() => {
+    startCallSync();
+    startRetentionSweep();
+  })
   .catch((e) => log.error('initDb error', { err: String(e) }));
 
 app.listen(config.port, () =>

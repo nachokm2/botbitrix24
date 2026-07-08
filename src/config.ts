@@ -77,6 +77,8 @@ export const config = {
   // Sincronización de llamadas a Postgres (para KPIs exactos del período):
   callsSyncMinutes: Number(process.env.CALLS_SYNC_MINUTES ?? 0), // 0 = scheduler desactivado (se puede sincronizar manual)
   callsSyncSince: process.env.CALLS_SYNC_SINCE ?? '', // backfill inicial desde esta fecha ISO (vacío = últimos 90 días)
+  // Retención de auditoría: borra audit_log más antiguo que N días (0 = desactivado, no borra nada).
+  auditRetentionDays: Number(process.env.AUDIT_RETENTION_DAYS ?? 0),
   // Precio Anthropic por millón de tokens (USD) para estimar costo en el panel (0 = no mostrar).
   costInPerMtok: Number(process.env.ANTHROPIC_COST_IN_PER_MTOK ?? 0),
   costOutPerMtok: Number(process.env.ANTHROPIC_COST_OUT_PER_MTOK ?? 0),

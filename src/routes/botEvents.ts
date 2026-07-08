@@ -13,6 +13,7 @@ import { inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { resolveAllEntities, primaryEntity, loadPriorContext, logConversationTurn } from '../crm/openlinesCrm';
 import { createSemaphore, createKeyedLock } from '../util/concurrency';
+import { getRequestContext, runWithRequestContext } from '../obs/requestContext';
 
 // Backpressure: acota los turnos concurrentes por instancia y serializa por diálogo
 // (evita carreras read-modify-write de historial/sesión del mismo cliente).
@@ -34,9 +35,12 @@ export async function botMessageHandler(req: Request, res: Response) {
   res.status(200).json({ ok: true }); // ACK inmediato
   // Serializa por diálogo (evita carreras de historial/sesión) y acota la concurrencia global.
   const dialogId = String((req.body as any)?.data?.PARAMS?.DIALOG_ID ?? 'unknown');
-  void dialogLock(dialogId, () => turnLimit(() => handle(req))).catch((e) =>
-    log.error('botMessage: error', { err: String(e) }),
-  );
+  const requestId = getRequestContext()?.requestId ?? '-';
+  // Re-vincula el contexto (reqId + dialogId) dentro del lock/semáforo: garantiza que el
+  // trabajo en segundo plano loguee con la correlación correcta, sin fugas entre peticiones.
+  void dialogLock(dialogId, () =>
+    turnLimit(() => runWithRequestContext({ requestId, dialogId }, () => handle(req))),
+  ).catch((e) => log.error('botMessage: error', { err: String(e) }));
 }
 
 async function handle(req: Request) {

@@ -1,6 +1,8 @@
 import pg from 'pg';
 import { config } from '../config';
 import { log } from '../log';
+import { once } from './kv';
+import { inc } from '../obs/metrics';
 import type { NormCall, CallFilters, CallKpis } from '../crm/callStats';
 
 // Auditoría persistente en Postgres (si hay DATABASE_URL). Si no, no-op (solo logs).
@@ -79,6 +81,7 @@ export async function dbInsertAudit(e: AuditEntry): Promise<void> {
       [e.type, e.dialogId ?? null, e.crmEntity ?? null, e.detail ? JSON.stringify(e.detail) : null],
     );
   } catch (err) {
+    inc('errors:audit'); // BAJ-13: visibilizar pérdida de auditoría
     log.warn('dbInsertAudit falló', { err: String(err) });
   }
 }
@@ -100,6 +103,38 @@ export async function dbRecentAudit(limit = 20): Promise<any[]> {
 
 export function dbEnabled(): boolean {
   return pool !== null;
+}
+
+/** Borra auditoría más antigua que `days` días. Devuelve cuántas filas se borraron. */
+export async function dbPurgeOldAudit(days: number): Promise<number> {
+  if (!pool || days <= 0) return 0;
+  try {
+    const r = await pool.query(`DELETE FROM audit_log WHERE ts < now() - ($1 || ' days')::interval`, [String(days)]);
+    return r.rowCount ?? 0;
+  } catch (e) {
+    log.warn('dbPurgeOldAudit falló', { err: String(e) });
+    return 0;
+  }
+}
+
+/**
+ * Arranca el barrido de retención de auditoría (si AUDIT_RETENTION_DAYS>0 y hay Postgres).
+ * Corre ~1 vez al día, con lock distribuido (once) para que solo una réplica purgue.
+ */
+export function startRetentionSweep(): void {
+  const days = config.auditRetentionDays;
+  if (!pool || days <= 0) {
+    log.info('retención de auditoría: desactivada (define AUDIT_RETENTION_DAYS>0).');
+    return;
+  }
+  const run = async () => {
+    if (!(await once('lock:audit-purge', 23 * 3600))) return; // ~1 vez/día entre réplicas
+    const deleted = await dbPurgeOldAudit(days);
+    if (deleted) log.info('retención de auditoría: filas borradas', { deleted, days });
+  };
+  setTimeout(run, 60_000); // primera pasada al minuto del arranque
+  setInterval(run, 24 * 3600 * 1000);
+  log.info('retención de auditoría: activa', { retencionDias: days });
 }
 
 // ─────────────────────────── Espejo de llamadas (analítica exacta) ───────────────────────────
