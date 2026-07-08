@@ -3,6 +3,7 @@ import { getUsuarios } from './openlinesCrm';
 import { dbCallAnalytics } from '../store/db';
 import { log } from '../log';
 import type { Auth } from '../store';
+import type { VoximplantCall, BitrixCrmListItem, BitrixCrmListResponse } from '../bitrix/types';
 
 // Analítica de llamadas: lee la estadística de telefonía de Bitrix24 (voximplant.statistic.get),
 // que reúne TODAS las llamadas entrantes/salientes del portal (asesores humanos y agente de voz,
@@ -107,7 +108,7 @@ function diaSemanaDe(fecha: string): number {
 }
 
 /** Normaliza una fila cruda de voximplant.statistic.get. */
-export function normalizeCall(r: any): NormCall {
+export function normalizeCall(r: VoximplantCall): NormCall {
   const iso = String(r.CALL_START_DATE ?? '');
   const code = String(r.CALL_FAILED_CODE ?? '');
   return {
@@ -140,19 +141,19 @@ export async function resolveEntidades(pairs: { tipo: string; id: number }[], au
   const chunk = (a: number[], n: number) => a.reduce<number[][]>((r, _, i) => (i % n ? r : [...r, a.slice(i, i + n)]), []);
   const MAXU = 300;
   const jobs: Promise<void>[] = [];
-  const run = (tipo: string, method: string, select: string[], name: (r: any) => string) => {
+  const run = (tipo: string, method: string, select: string[], name: (r: BitrixCrmListItem) => string) => {
     for (const ids50 of chunk(porTipo[tipo].slice(0, MAXU), 50)) {
       jobs.push(
-        callCrm(method, { filter: { '@ID': ids50 }, select: ['ID', ...select] }, auth)
-          .then((res: any) => {
-            const list = Array.isArray(res) ? res : (res?.items ?? []);
+        callCrm<BitrixCrmListResponse>(method, { filter: { '@ID': ids50 }, select: ['ID', ...select] }, auth)
+          .then((res) => {
+            const list: BitrixCrmListItem[] = Array.isArray(res) ? res : (res?.items ?? []);
             for (const r of list) out.set(`${tipo}:${r.ID}`, name(r));
           })
           .catch((e) => log.warn(`resolveEntidades ${tipo} falló`, { err: String(e) })),
       );
     }
   };
-  const full = (r: any) => [r.NAME, r.LAST_NAME].filter(Boolean).join(' ').trim() || r.COMPANY_TITLE || '';
+  const full = (r: BitrixCrmListItem) => [r.NAME, r.LAST_NAME].filter(Boolean).join(' ').trim() || r.COMPANY_TITLE || '';
   if (porTipo.CONTACT.length) run('CONTACT', 'crm.contact.list', ['NAME', 'LAST_NAME', 'COMPANY_TITLE'], full);
   if (porTipo.COMPANY.length) run('COMPANY', 'crm.company.list', ['TITLE'], (r) => r.TITLE || '');
   if (porTipo.LEAD.length) run('LEAD', 'crm.lead.list', ['TITLE', 'NAME', 'LAST_NAME'], (r) => r.TITLE || full(r));
@@ -244,14 +245,14 @@ function buildFilter(f: CallFilters): Record<string, unknown> {
   return filter;
 }
 
-async function fetchCalls(f: CallFilters, auth: Auth): Promise<{ rows: any[]; total: number }> {
+async function fetchCalls(f: CallFilters, auth: Auth): Promise<{ rows: VoximplantCall[]; total: number }> {
   const limit = Math.min(Math.max(Number(f.limit) || MAX_DEFAULT, 1), MAX_HARD);
   const filter = buildFilter(f);
-  const rows: any[] = [];
+  const rows: VoximplantCall[] = [];
   let start = 0;
   let total = 0;
   for (let page = 0; page < Math.ceil(limit / 50) + 1; page++) {
-    const env = await callCrmEnvelope<any[]>(
+    const env = await callCrmEnvelope<VoximplantCall[]>(
       'voximplant.statistic.get',
       { FILTER: filter, SORT: 'CALL_START_DATE', ORDER: 'DESC', start },
       auth,

@@ -3,6 +3,7 @@ import { config } from '../config';
 import { log } from '../log';
 import type { Auth } from '../store';
 import { parseEntityData2, type CrmEntity, type CrmEntities } from './entities';
+import type { BitrixContact, BitrixLead, BitrixDialog, BitrixMultifield } from '../bitrix/types';
 
 // Escrituras al CRM: creación/actualización de contacto/lead/deal, notas de timeline,
 // persistencia del scoring y lectura del teléfono del cliente.
@@ -23,7 +24,7 @@ export type DatosCliente = {
 export async function ensureLeadForChat(chatId: any, auth: Auth): Promise<CrmEntity | null> {
   try {
     await callBitrix('imopenlines.crm.lead.create', { CHAT_ID: chatId }, auth);
-    const r: any = await callBitrix('imopenlines.dialog.get', { CHAT_ID: chatId }, auth);
+    const r = await callBitrix<BitrixDialog>('imopenlines.dialog.get', { CHAT_ID: chatId }, auth);
     return parseEntityData2(r?.entity_data_2);
   } catch (e) {
     log.error('ensureLeadForChat falló', { err: String(e) });
@@ -53,11 +54,11 @@ export async function addNota(type: CrmEntity['type'], id: number, data: DatosCl
  * conserva las entradas actuales (con su ID) y agrega la nueva solo si no está ya presente.
  * Así se actualiza el dato del cliente sin perder, p. ej., el número de WhatsApp.
  */
-function mergeMultifield(existing: any, value: string, type: string): any[] {
-  const arr: any[] = Array.isArray(existing)
+function mergeMultifield(existing: BitrixMultifield[] | undefined, value: string, type: string): BitrixMultifield[] {
+  const arr: BitrixMultifield[] = Array.isArray(existing)
     ? existing.map((e) => ({ ID: e.ID, VALUE: e.VALUE, VALUE_TYPE: e.VALUE_TYPE ?? type }))
     : [];
-  const norm = (s: string) => String(s ?? '').replace(/[\s()\-.]/g, '').toLowerCase();
+  const norm = (s: string | undefined) => String(s ?? '').replace(/[\s()\-.]/g, '').toLowerCase();
   if (norm(value) && arr.some((e) => norm(e.VALUE) === norm(value))) return arr;
   arr.push({ VALUE: value, VALUE_TYPE: type });
   return arr;
@@ -91,9 +92,9 @@ export async function actualizarDatosCliente(
     if (data.nombre) fields.NAME = data.nombre;
     if (data.apellido) fields.LAST_NAME = data.apellido;
     if (data.email || data.telefono) {
-      let cur: any = {};
+      let cur: BitrixContact = {};
       try {
-        cur = (await callCrm('crm.contact.get', { id: e.contact }, auth)) ?? {};
+        cur = (await callCrm<BitrixContact>('crm.contact.get', { id: e.contact }, auth)) ?? {};
       } catch (err) {
         log.warn('contact.get para fusionar email/teléfono falló', { err: String(err) });
       }
@@ -137,9 +138,9 @@ export async function actualizarDatosCliente(
     if (data.nombre) fields.NAME = data.nombre;
     if (data.apellido) fields.LAST_NAME = data.apellido;
     if (data.email || data.telefono) {
-      let cur: any = {};
+      let cur: BitrixLead = {};
       try {
-        cur = (await callCrm('crm.lead.get', { id: e.lead }, auth)) ?? {};
+        cur = (await callCrm<BitrixLead>('crm.lead.get', { id: e.lead }, auth)) ?? {};
       } catch (err) {
         log.warn('lead.get para fusionar email/teléfono falló', { err: String(err) });
       }
@@ -163,7 +164,7 @@ export async function actualizarDatosCliente(
 
 /** Devuelve el primer teléfono guardado del cliente (contacto → lead). Para llamarlo por voz. */
 export async function getTelefonoCliente(entities: CrmEntities, auth: Auth): Promise<string | null> {
-  const readPhone = (r: any): string | null => {
+  const readPhone = (r: BitrixContact | BitrixLead): string | null => {
     const arr = r?.PHONE;
     if (Array.isArray(arr) && arr.length) {
       const v = String(arr[0]?.VALUE ?? '').trim();
@@ -173,12 +174,12 @@ export async function getTelefonoCliente(entities: CrmEntities, auth: Auth): Pro
   };
   try {
     if (entities.contact) {
-      const c = await callCrm('crm.contact.get', { id: entities.contact }, auth);
+      const c = await callCrm<BitrixContact>('crm.contact.get', { id: entities.contact }, auth);
       const p = readPhone(c);
       if (p) return p;
     }
     if (entities.lead) {
-      const l = await callCrm('crm.lead.get', { id: entities.lead }, auth);
+      const l = await callCrm<BitrixLead>('crm.lead.get', { id: entities.lead }, auth);
       const p = readPhone(l);
       if (p) return p;
     }

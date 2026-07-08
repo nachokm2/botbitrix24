@@ -1,5 +1,6 @@
 import { config } from '../config';
 import { setAuth, type Auth } from '../store';
+import type { BitrixOAuthTokenResponse } from './types';
 
 /**
  * Renueva el access_token usando el refresh_token (válido 180 días).
@@ -36,14 +37,14 @@ async function doRefresh(auth: Auth): Promise<Auth> {
   url.searchParams.set('refresh_token', auth.refresh_token);
 
   const res = await fetch(url, { method: 'GET' });
-  const j: any = await res.json();
+  const j = (await res.json()) as BitrixOAuthTokenResponse;
   if (j.error) {
     throw new Error(`OAuth refresh: ${j.error} ${j.error_description ?? ''}`);
   }
 
   const updated: Auth = {
     domain: auth.domain || j.domain || '',
-    access_token: j.access_token,
+    access_token: j.access_token ?? auth.access_token,
     refresh_token: j.refresh_token ?? auth.refresh_token,
     member_id: j.member_id ?? auth.member_id,
     expires: j.expires ? Number(j.expires) : undefined,

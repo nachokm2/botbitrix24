@@ -8,6 +8,7 @@ import { syncCalls } from '../crm/callSync';
 import { dbEnabled } from '../store/db';
 import { config } from '../config';
 import { log } from '../log';
+import type { BitrixCategory, BitrixCategoryListResponse, BitrixStatus, BitrixStatusListResponse } from '../bitrix/types';
 
 /** (Re)enlaza el panel de métricas como página dentro de Bitrix24. GET /setup/bind-dashboard */
 export async function bindDashboardManual(_req: Request, res: Response) {
@@ -80,10 +81,10 @@ export async function listDealStages(_req: Request, res: Response) {
 
   let categoryIds: number[] = [0];
   try {
-    const c: any = await call('crm.category.list', { entityTypeId: 2 });
-    const list: any[] = c?.categories ?? (Array.isArray(c) ? c : []);
-    categoryIds = Array.from(new Set([0, ...list.map((x: any) => Number(x.id))]));
-    debug.categories = list.map((x: any) => ({ id: x.id, name: x.name }));
+    const c = (await call('crm.category.list', { entityTypeId: 2 })) as BitrixCategoryListResponse;
+    const list: BitrixCategory[] = Array.isArray(c) ? c : (c?.categories ?? []);
+    categoryIds = Array.from(new Set([0, ...list.map((x) => Number(x.id))]));
+    debug.categories = list.map((x) => ({ id: x.id, name: x.name }));
   } catch (e) {
     debug.categoryListError = String(e);
   }
@@ -92,8 +93,8 @@ export async function listDealStages(_req: Request, res: Response) {
   for (const id of categoryIds) {
     const entityId = id === 0 ? 'DEAL_STAGE' : `DEAL_STAGE_${id}`;
     try {
-      const r: any = await call('crm.status.list', { filter: { ENTITY_ID: entityId } });
-      const arr: any[] = Array.isArray(r) ? r : (r?.result ?? []);
+      const r = (await call('crm.status.list', { filter: { ENTITY_ID: entityId } })) as BitrixStatusListResponse;
+      const arr: BitrixStatus[] = Array.isArray(r) ? r : (r?.result ?? []);
       debug.statusList.push({ entityId, count: arr.length });
       for (const s of arr) stages.push({ categoryId: id, STATUS_ID: s.STATUS_ID, NAME: s.NAME });
     } catch (e) {

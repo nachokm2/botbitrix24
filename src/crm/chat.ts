@@ -2,6 +2,7 @@ import { callBitrix, callCrm } from '../bitrix/client';
 import { log } from '../log';
 import type { Auth } from '../store';
 import { parseEntityData2, parseAllEntities, type CrmEntity, type CrmEntities } from './entities';
+import type { BitrixDialog, BitrixTimelineComment, BitrixTimelineCommentResponse } from '../bitrix/types';
 
 // Binding chat ↔ CRM: resolución de la entidad del diálogo y registro/lectura de la conversación
 // en el timeline (memoria entre sesiones).
@@ -12,7 +13,7 @@ export async function resolveCrmEntity(params: any, chatId: any, auth: Auth): Pr
   if (fromEvent) return fromEvent;
   if (!chatId) return null;
   try {
-    const r: any = await callBitrix('imopenlines.dialog.get', { CHAT_ID: chatId }, auth);
+    const r = await callBitrix<BitrixDialog>('imopenlines.dialog.get', { CHAT_ID: chatId }, auth);
     return parseEntityData2(r?.entity_data_2);
   } catch (e) {
     log.warn('resolveCrmEntity: dialog.get falló', { err: String(e) });
@@ -26,7 +27,7 @@ export async function resolveAllEntities(params: any, chatId: any, auth: Auth): 
   if (Object.keys(fromEvent).length) return fromEvent;
   if (!chatId) return {};
   try {
-    const r: any = await callBitrix('imopenlines.dialog.get', { CHAT_ID: chatId }, auth);
+    const r = await callBitrix<BitrixDialog>('imopenlines.dialog.get', { CHAT_ID: chatId }, auth);
     return parseAllEntities(r?.entity_data_2);
   } catch (e) {
     log.warn('resolveAllEntities: dialog.get falló', { err: String(e) });
@@ -47,7 +48,7 @@ export async function logConversationTurn(entity: CrmEntity, userText: string, b
 /** Carga los últimos registros de conversación IA del CRM como "memoria" entre sesiones. */
 export async function loadPriorContext(entity: CrmEntity, auth: Auth): Promise<string> {
   try {
-    const r: any = await callCrm(
+    const r = await callCrm<BitrixTimelineCommentResponse>(
       'crm.timeline.comment.list',
       {
         filter: { ENTITY_ID: entity.id, ENTITY_TYPE: entity.type },
@@ -56,7 +57,7 @@ export async function loadPriorContext(entity: CrmEntity, auth: Auth): Promise<s
       },
       auth,
     );
-    const arr: any[] = Array.isArray(r) ? r : (r?.comments ?? []);
+    const arr: BitrixTimelineComment[] = Array.isArray(r) ? r : (r?.comments ?? []);
     return arr
       .filter((c) => typeof c.COMMENT === 'string' && c.COMMENT.includes('Conversación IA'))
       .slice(0, 6)

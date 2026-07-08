@@ -1,7 +1,7 @@
 import { callCrm } from '../bitrix/client';
 import { log } from '../log';
 import type { Auth } from '../store';
-import type { BitrixDeal } from '../bitrix/types';
+import type { BitrixDeal, BitrixUser } from '../bitrix/types';
 
 // Directorio CRM: lectura de negociaciones (deal) y resolución de usuarios/asesores de Bitrix.
 
@@ -59,8 +59,11 @@ export async function getUsuarios(ids: number[], auth: Auth): Promise<Responsabl
   const out: Responsable[] = [];
   for (const id of uniq) {
     try {
-      const r: any = await callCrm('user.get', { ID: id }, auth);
-      const u = Array.isArray(r) ? r[0] : (r?.result?.[0] ?? r?.[0] ?? r);
+      const raw = await callCrm<BitrixUser | BitrixUser[] | { result?: BitrixUser[] }>('user.get', { ID: id }, auth);
+      let u: BitrixUser | undefined;
+      if (Array.isArray(raw)) u = raw[0];
+      else if (raw && 'result' in raw && Array.isArray(raw.result)) u = raw.result[0];
+      else u = raw as BitrixUser;
       if (u && (u.NAME || u.LAST_NAME || u.EMAIL)) {
         const nombre = [u.NAME, u.LAST_NAME].filter(Boolean).join(' ').trim() || String(u.EMAIL) || `Usuario ${id}`;
         const email = Array.isArray(u.EMAIL) ? u.EMAIL?.[0]?.VALUE : u.EMAIL;

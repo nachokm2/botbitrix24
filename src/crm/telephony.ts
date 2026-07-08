@@ -1,6 +1,7 @@
 import { callBitrix } from '../bitrix/client';
 import { log } from '../log';
 import type { Auth } from '../store';
+import type { BitrixTelephonyEntity, BitrixCallRegisterResult } from '../bitrix/types';
 
 // Registro de llamadas en el CRM de Bitrix24 vía telephony.externalCall.*
 // IMPORTANTE: estos métodos SOLO funcionan con token de APLICACIÓN OAuth (no webhook entrante)
@@ -14,10 +15,10 @@ export type CrmRef = { type: 'CONTACT' | 'COMPANY' | 'LEAD' | 'DEAL'; id: number
 /** Busca una entidad CRM por número de teléfono (para vincular la llamada a un cliente existente). */
 export async function searchCrmByPhone(phone: string, auth: Auth): Promise<CrmRef | null> {
   try {
-    const r: any = await callBitrix('telephony.externalCall.searchCrmEntities', { PHONE_NUMBER: phone }, auth);
-    const first = Array.isArray(r) ? r[0] : (r?.[0] ?? null);
+    const r = await callBitrix<BitrixTelephonyEntity[]>('telephony.externalCall.searchCrmEntities', { PHONE_NUMBER: phone }, auth);
+    const first = Array.isArray(r) ? r[0] : undefined;
     if (first?.CRM_ENTITY_TYPE && first?.CRM_ENTITY_ID) {
-      return { type: first.CRM_ENTITY_TYPE, id: Number(first.CRM_ENTITY_ID) };
+      return { type: first.CRM_ENTITY_TYPE as CrmRef['type'], id: Number(first.CRM_ENTITY_ID) };
     }
     return null;
   } catch (e) {
@@ -60,9 +61,9 @@ export async function registerCall(
   }
   if (params.startDate) fields.CALL_START_DATE = params.startDate;
   try {
-    const r: any = await callBitrix('telephony.externalCall.register', fields, auth);
+    const r = await callBitrix<BitrixCallRegisterResult>('telephony.externalCall.register', fields, auth);
     const crm: CrmRef | null =
-      r?.CRM_ENTITY_TYPE && r?.CRM_ENTITY_ID ? { type: r.CRM_ENTITY_TYPE, id: Number(r.CRM_ENTITY_ID) } : (params.crm ?? null);
+      r?.CRM_ENTITY_TYPE && r?.CRM_ENTITY_ID ? { type: r.CRM_ENTITY_TYPE as CrmRef['type'], id: Number(r.CRM_ENTITY_ID) } : (params.crm ?? null);
     return { callId: r?.CALL_ID ?? null, crm, createdLeadId: r?.CRM_CREATED_LEAD ? Number(r.CRM_CREATED_LEAD) : undefined };
   } catch (e) {
     log.error('registerCall falló', { err: String(e) });

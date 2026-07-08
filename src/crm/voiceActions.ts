@@ -5,6 +5,7 @@ import type { Auth } from '../store';
 import type { CrmEntities } from './entities';
 import { addNota, moverEtapaDeal, type DatosCliente } from './crmWrite';
 import { getDealInfo } from './directory';
+import type { BitrixDuplicateResult, BitrixDealListItem, BitrixTaskAddResult } from '../bitrix/types';
 
 // Acciones del agente de VOZ sobre el CRM: buscar cliente por teléfono, crear lead desde una
 // llamada y las acciones de "lead caliente" (UF de programa + mover etapa + tarea al asesor).
@@ -19,13 +20,13 @@ export async function buscarCrmPorTelefono(phone: string, auth: Auth): Promise<C
   if (!clean) return null;
   try {
     // 1) ¿Hay un CONTACTO con ese teléfono?
-    const c: any = await callCrm('crm.duplicate.findbycomm', { type: 'PHONE', entity_type: 'CONTACT', values: [clean] }, auth);
+    const c = await callCrm<BitrixDuplicateResult>('crm.duplicate.findbycomm', { type: 'PHONE', entity_type: 'CONTACT', values: [clean] }, auth);
     const contactId = Array.isArray(c?.CONTACT) && c.CONTACT.length ? Number(c.CONTACT[0]) : 0;
     if (contactId) {
       const out: CrmEntities = { contact: contactId };
       // Traemos su negociación abierta más reciente para guardar ahí el "programa de interés".
       try {
-        const deals: any = await callCrm(
+        const deals = await callCrm<BitrixDealListItem[]>(
           'crm.deal.list',
           { filter: { CONTACT_ID: contactId, CLOSED: 'N' }, select: ['ID'], order: { ID: 'DESC' } },
           auth,
@@ -38,7 +39,7 @@ export async function buscarCrmPorTelefono(phone: string, auth: Auth): Promise<C
       return out;
     }
     // 2) ¿Hay un LEAD con ese teléfono?
-    const l: any = await callCrm('crm.duplicate.findbycomm', { type: 'PHONE', entity_type: 'LEAD', values: [clean] }, auth);
+    const l = await callCrm<BitrixDuplicateResult>('crm.duplicate.findbycomm', { type: 'PHONE', entity_type: 'LEAD', values: [clean] }, auth);
     const leadId = Array.isArray(l?.LEAD) && l.LEAD.length ? Number(l.LEAD[0]) : 0;
     if (leadId) return { lead: leadId };
     return null;
@@ -72,7 +73,7 @@ export async function crearLeadDesdeVoz(
   // Nota: el UF de "programa de interés" (BITRIX_UF_PROGRAMA) vive en la Negociación (Deal), no en el Lead;
   // en un lead el programa queda en el TITLE. Se escribe en el Deal vía accionInteresVoz cuando existe.
   try {
-    const id: any = await callCrm('crm.lead.add', { fields, params: { REGISTER_SONET_EVENT: 'Y' } }, auth);
+    const id = await callCrm<string | number>('crm.lead.add', { fields, params: { REGISTER_SONET_EVENT: 'Y' } }, auth);
     const leadId = Number(id);
     if (!leadId) return null;
     await addNota('lead', leadId, data, auth).catch((e) => log.warn('crearLeadDesdeVoz: nota falló', { err: String(e) }));
@@ -141,7 +142,7 @@ export async function accionInteresVoz(ref: CrmEntities, data: DatosCliente, aut
     const prog = data.programa_interes ? ` – ${data.programa_interes}` : '';
     const link = dealId ? `D_${dealId}` : ref.contact ? `C_${ref.contact}` : ref.lead ? `L_${ref.lead}` : '';
     try {
-      const t: any = await callCrm(
+      const t = await callCrm<BitrixTaskAddResult>(
         'tasks.task.add',
         {
           fields: {

@@ -6,6 +6,7 @@ import { once } from '../store/kv';
 import { config } from '../config';
 import { log } from '../log';
 import type { Auth } from '../store';
+import type { VoximplantCall } from '../bitrix/types';
 
 // Sincroniza voximplant.statistic.get → tabla `calls` en Postgres, de forma INCREMENTAL:
 // usa la marca de agua (ISO de la última llamada guardada) y trae solo lo nuevo (con 1 min de solape).
@@ -33,7 +34,7 @@ export async function syncCalls(auth: Auth): Promise<{ ok: boolean; synced?: num
     let synced = 0;
     let pages = 0;
     for (; pages < MAX_PAGES; pages++) {
-      const env = await callCrmEnvelope<any[]>(
+      const env = await callCrmEnvelope<VoximplantCall[]>(
         'voximplant.statistic.get',
         { FILTER: { '>=CALL_START_DATE': since }, SORT: 'CALL_START_DATE', ORDER: 'ASC', start },
         auth,
