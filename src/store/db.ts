@@ -22,8 +22,12 @@ export async function initDb(): Promise<void> {
     pool = new pg.Pool({
       connectionString: config.databaseUrl,
       ssl: config.pgSsl ? { rejectUnauthorized: false } : undefined,
-      max: 4,
+      max: Number(process.env.PGPOOL_MAX ?? 10),
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 5_000,
     });
+    // Un cliente idle cerrado por el servidor (reinicio/failover de PG) NO debe tumbar el proceso.
+    pool.on('error', (err) => log.warn('pg pool: error en cliente idle', { err: String(err) }));
     await pool.query(`
       CREATE TABLE IF NOT EXISTS audit_log (
         id BIGSERIAL PRIMARY KEY,
@@ -35,6 +39,8 @@ export async function initDb(): Promise<void> {
       );
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS audit_log_ts_idx ON audit_log (ts DESC);`);
+    // Índice para las agregaciones por `type` de /metrics/summary (evita seq-scan al crecer la tabla).
+    await pool.query(`CREATE INDEX IF NOT EXISTS audit_log_type_ts_idx ON audit_log (type, ts DESC);`);
     // Tabla de llamadas (espejo de voximplant.statistic.get) para KPIs exactos del período.
     await pool.query(`
       CREATE TABLE IF NOT EXISTS calls (
@@ -81,7 +87,8 @@ export async function dbRecentAudit(limit = 20): Promise<any[]> {
   if (!pool) return [];
   try {
     const r = await pool.query(
-      `SELECT ts, type, dialog_id, crm_entity, detail FROM audit_log ORDER BY ts DESC LIMIT $1`,
+      // No devolver `detail` (contiene el texto de la conversación / PII); el panel solo usa type/dialog_id/crm_entity.
+      `SELECT ts, type, dialog_id, crm_entity FROM audit_log ORDER BY ts DESC LIMIT $1`,
       [limit],
     );
     return r.rows;
@@ -150,6 +157,17 @@ export async function dbCallsCount(): Promise<number> {
     return r.rows[0]?.c ?? 0;
   } catch {
     return 0;
+  }
+}
+
+/** ¿Hay al menos una llamada sincronizada? Más barato que count(*) para decidir db vs live. */
+export async function dbHasCalls(): Promise<boolean> {
+  if (!pool) return false;
+  try {
+    const r = await pool.query(`SELECT 1 FROM calls LIMIT 1`);
+    return r.rows.length > 0;
+  } catch {
+    return false;
   }
 }
 

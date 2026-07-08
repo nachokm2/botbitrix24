@@ -6,7 +6,22 @@ import { setAuth, type Auth } from '../store';
  * Endpoint OAuth de Bitrix24: https://oauth.bitrix.info/oauth/token/
  * Persiste el nuevo par de tokens en el store.
  */
-export async function refreshAuth(auth: Auth): Promise<Auth> {
+// Single-flight: si ya hay un refresh en curso para el mismo portal, reutiliza esa promesa.
+// Evita grants paralelos que rotan el refresh_token y se invalidan entre sí (corrompiendo el estado).
+const inFlight = new Map<string, Promise<Auth>>();
+
+export function refreshAuth(auth: Auth): Promise<Auth> {
+  const key = auth.member_id || auth.domain || 'default';
+  const existing = inFlight.get(key);
+  if (existing) return existing;
+  const p = doRefresh(auth).finally(() => {
+    if (inFlight.get(key) === p) inFlight.delete(key);
+  });
+  inFlight.set(key, p);
+  return p;
+}
+
+async function doRefresh(auth: Auth): Promise<Auth> {
   if (!auth.refresh_token) {
     throw new Error('No hay refresh_token para renovar el access_token.');
   }

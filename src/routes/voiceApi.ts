@@ -1,8 +1,10 @@
-import type { Request, Response, NextFunction } from 'express';
-import { getState } from '../store';
+import type { Request, Response } from 'express';
+import { verifyHeaderSecret } from './verifySecret';
+import { getState, EMPTY_AUTH } from '../store';
 import { callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { log } from '../log';
+import { audit } from '../obs/audit';
 import { getVoiceCtx, runVapiTool } from '../voice/vapiTools';
 import { registerCall, finishCall, attachCallRecord, toCrmRef, type CallType } from '../crm/telephony';
 
@@ -11,12 +13,8 @@ import { registerCall, finishCall, attachCallRecord, toCrmRef, type CallType } f
 // - POST /voice/call/finish → registra la llamada en el CRM (register→finish→attachRecord + transcripción).
 // Reutiliza la misma lógica del bot (runVapiTool, telephony.externalCall.*).
 
-/** Valida el secreto compartido con el servicio de voz (reusa VAPI_SECRET). */
-export function verifyVoiceSecret(req: Request, res: Response, next: NextFunction) {
-  if (!config.vapiSecret) return next();
-  if (req.header('x-voice-secret') !== config.vapiSecret) return res.status(401).json({ ok: false, error: 'unauthorized' });
-  next();
-}
+/** Valida el secreto compartido con el servicio de voz (reusa VAPI_SECRET). Timing-safe; fail-closed en producción. */
+export const verifyVoiceSecret = verifyHeaderSecret('x-voice-secret');
 
 /** Ejecuta una tool solicitada por el agente de voz (Pipecat). Body: { name, args, callId, phone }. */
 export async function voiceTool(req: Request, res: Response) {
@@ -24,9 +22,10 @@ export async function voiceTool(req: Request, res: Response) {
   const name = String(b.name ?? '').trim();
   if (!name) return res.status(400).json({ ok: false, error: 'Falta name' });
   const st = await getState();
-  const auth = st.auth ?? ({} as any);
+  const auth = st.auth ?? EMPTY_AUTH;
   const ctx = await getVoiceCtx(String(b.callId ?? 'unknown'), b.phone ? String(b.phone) : undefined, auth);
   const result = await runVapiTool(name, b.args ?? {}, ctx, auth);
+  void audit({ type: 'voice_tool', detail: { name, callId: String(b.callId ?? '') || null, ok: (result as any)?.ok } });
   res.json({ ok: true, result });
 }
 
@@ -63,5 +62,10 @@ export async function voiceCallFinish(req: Request, res: Response) {
     ).catch((e) => log.warn('voiceCallFinish: nota transcripción falló', { err: String(e) }));
   }
   log.info('voiceCallFinish: registrada en CRM', { callId: reg.callId, duration });
+  void audit({
+    type: 'voice_call',
+    crmEntity: entity ? `${entity.type}#${entity.id}` : undefined,
+    detail: { callId: reg.callId ?? null, duration, type },
+  });
   res.json({ ok: true, callId: reg.callId });
 }

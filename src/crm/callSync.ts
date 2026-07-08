@@ -1,7 +1,8 @@
 import { callCrmEnvelope } from '../bitrix/client';
 import { normalizeCall } from './callStats';
 import { dbEnabled, dbUpsertCalls, dbCallsWatermarkIso } from '../store/db';
-import { getState } from '../store';
+import { getState, EMPTY_AUTH } from '../store';
+import { once } from '../store/kv';
 import { config } from '../config';
 import { log } from '../log';
 import type { Auth } from '../store';
@@ -60,8 +61,13 @@ export function startCallSync(): void {
     return;
   }
   const run = async () => {
+    // Lock distribuido (TTL ≈ ventana): solo UNA réplica sincroniza por corrida (evita N barridos).
+    const lockTtl = Math.max(60, config.callsSyncMinutes * 60 - 10);
+    if (!(await once('lock:callsync', lockTtl))) {
+      return log.info('sync de llamadas: otra réplica tiene el lock; se omite esta corrida');
+    }
     const st = await getState();
-    await syncCalls(st.auth ?? ({} as any));
+    await syncCalls(st.auth ?? EMPTY_AUTH);
   };
   setTimeout(run, 15_000); // primera corrida a los 15 s del arranque
   setInterval(run, config.callsSyncMinutes * 60_000);

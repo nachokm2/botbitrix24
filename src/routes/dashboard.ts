@@ -239,8 +239,9 @@ const DASHBOARD_HTML = `<!doctype html>
     document.getElementById('foot').textContent = 'Latencia LLM: '+num(live.llm.avgMs)+' ms (p95 '+num(live.llm.p95Ms)+' ms) · tokens '+num(tk.in)+' in / '+num(tk.out)+' out'+costStr+' · activo desde '+ new Date(d.startedAt).toLocaleString('es-CL') + ' · actualiza cada 15 s';
   }
 
+  var K = new URLSearchParams(location.search).get('k') || '';
   var currentRange='7d';
-  function load(){ fetch('/metrics/summary?range='+currentRange).then(function(r){return r.json();}).then(render).catch(function(e){ document.getElementById('status').innerHTML='<span class="pill err">error al cargar</span>'; }); }
+  function load(){ fetch('/metrics/summary?range='+currentRange+(K?'&k='+encodeURIComponent(K):'')).then(function(r){return r.json();}).then(render).catch(function(e){ document.getElementById('status').innerHTML='<span class="pill err">error al cargar</span>'; }); }
   document.getElementById('ranges').addEventListener('click', function(e){
     var b=e.target.closest('button'); if(!b) return;
     currentRange=b.getAttribute('data-r');

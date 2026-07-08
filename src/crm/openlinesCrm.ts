@@ -2,6 +2,7 @@ import { callBitrix, callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { log } from '../log';
 import type { Auth } from '../store';
+import type { BitrixDeal } from '../bitrix/types';
 
 export type LeadEval = { score: number; intencion: string; sentimiento: string; justificacion: string };
 
@@ -439,7 +440,7 @@ const toIdArray = (raw: any): number[] =>
  */
 export async function getDealInfo(dealId: number, auth: Auth): Promise<DealInfo> {
   try {
-    const r: any = await callCrm('crm.deal.get', { id: dealId }, auth);
+    const r = await callCrm<BitrixDeal>('crm.deal.get', { id: dealId }, auth);
     const cat = r?.CATEGORY_ID ?? r?.categoryId;
     const asg = r?.ASSIGNED_BY_ID ?? r?.assignedById;
     return {

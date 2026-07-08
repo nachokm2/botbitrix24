@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { getState, setBotId } from '../store';
+import { getState, setBotId, EMPTY_AUTH } from '../store';
 import { registerBot, unregisterBot } from '../bot/register';
 import { callBitrix, callWebhook } from '../bitrix/client';
 import { getDealAsesores } from '../crm/openlinesCrm';
@@ -30,7 +30,7 @@ export async function syncCallsManual(_req: Request, res: Response) {
   if (!dbEnabled()) return res.status(400).json({ ok: false, error: 'Postgres desactivado (define DATABASE_URL en Railway).' });
   const st = await getState();
   // Fire-and-forget: el backfill puede tardar minutos; no bloqueamos la respuesta HTTP.
-  void syncCalls(st.auth ?? ({} as any)).then((r) => log.info('sync manual de llamadas', r));
+  void syncCalls(st.auth ?? EMPTY_AUTH).then((r) => log.info('sync manual de llamadas', r));
   return res.json({ ok: true, started: true, mensaje: 'Sincronización iniciada en segundo plano. Revisa /calls en unos minutos.' });
 }
 
@@ -43,7 +43,7 @@ export async function dealResponsable(req: Request, res: Response) {
     return res.status(400).json({ ok: false, error: 'No hay auth ni BITRIX_WEBHOOK_URL.' });
   }
   try {
-    const { responsable, observadores, info } = await getDealAsesores(id, st.auth ?? ({} as any));
+    const { responsable, observadores, info } = await getDealAsesores(id, st.auth ?? EMPTY_AUTH);
     res.json({
       ok: true,
       via: config.bitrixWebhookUrl ? 'webhook' : 'app-token',

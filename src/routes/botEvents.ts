@@ -12,6 +12,12 @@ import { once } from '../store/kv';
 import { inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { resolveAllEntities, primaryEntity, loadPriorContext, logConversationTurn } from '../crm/openlinesCrm';
+import { createSemaphore, createKeyedLock } from '../util/concurrency';
+
+// Backpressure: acota los turnos concurrentes por instancia y serializa por diálogo
+// (evita carreras read-modify-write de historial/sesión del mismo cliente).
+const turnLimit = createSemaphore(Number(process.env.MAX_CONCURRENT_TURNS ?? 8));
+const dialogLock = createKeyedLock();
 
 /**
  * Handler de ONIMBOTMESSAGEADD (mensaje del cliente al bot de Open Lines).
@@ -26,7 +32,11 @@ export async function botMessageHandler(req: Request, res: Response) {
   // Confirma que el endpoint fue invocado (aunque el payload no sea el esperado).
   log.info('POST /events/bot/message recibido', { event: (req.body as any)?.event });
   res.status(200).json({ ok: true }); // ACK inmediato
-  void handle(req).catch((e) => log.error('botMessage: error', { err: String(e) }));
+  // Serializa por diálogo (evita carreras de historial/sesión) y acota la concurrencia global.
+  const dialogId = String((req.body as any)?.data?.PARAMS?.DIALOG_ID ?? 'unknown');
+  void dialogLock(dialogId, () => turnLimit(() => handle(req))).catch((e) =>
+    log.error('botMessage: error', { err: String(e) }),
+  );
 }
 
 async function handle(req: Request) {
@@ -42,7 +52,7 @@ async function handle(req: Request) {
   const auth = extractAuth(req);
   const botId = firstBotId(body?.data?.BOT) ?? (await getState()).botId ?? config.botId;
 
-  log.info('INBOUND bot message', { event: body.event, dialogId, chatId, entity, fromUserId, botId, message });
+  log.info('INBOUND bot message', { event: body.event, dialogId, chatId, entity, fromUserId, botId, msgLen: message?.length ?? 0 });
 
   if (!auth) return log.warn('botMessage: sin auth en el evento');
   void setAuth(auth).catch(() => {}); // mantiene el token fresco en KV para /setup y scripts

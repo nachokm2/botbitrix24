@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express';
-import { getState } from '../store';
+import { getState, EMPTY_AUTH } from '../store';
 import { config } from '../config';
 import { getCallAnalytics, getCallAnalyticsFromDb, type CallFilters } from '../crm/callStats';
-import { dbEnabled, dbCallsCount } from '../store/db';
+import { dbEnabled, dbHasCalls } from '../store/db';
 
 const str = (v: unknown): string | undefined => {
   const s = String(v ?? '').trim();
@@ -12,7 +12,7 @@ const str = (v: unknown): string | undefined => {
 /** API JSON de analítica de llamadas (KPIs + series + tabla), con filtros por querystring. */
 export async function callsData(req: Request, res: Response) {
   const st = await getState();
-  const auth = st.auth ?? ({} as any);
+  const auth = st.auth ?? EMPTY_AUTH;
   if (!config.bitrixWebhookUrl && !st.auth) {
     return res.json({ ok: false, error: 'Sin credenciales: configura BITRIX_WEBHOOK_URL (scope telephony) o instala el app.' });
   }
@@ -30,7 +30,7 @@ export async function callsData(req: Request, res: Response) {
   };
   try {
     // Si hay Postgres con llamadas sincronizadas → KPIs exactos del período; si no, muestra en vivo (REST).
-    const useDb = dbEnabled() && (await dbCallsCount()) > 0;
+    const useDb = dbEnabled() && (await dbHasCalls());
     const data = useDb ? await getCallAnalyticsFromDb(f, auth) : await getCallAnalytics(f, auth);
     res.json({ ok: true, ...data });
   } catch (e) {
@@ -145,6 +145,7 @@ const CALLS_HTML = `<!doctype html>
   function qs(){
     var p=new URLSearchParams();
     ['from','to','userId','type','status','phone'].forEach(function(id){var v=document.getElementById(id).value; if(v) p.set(id,v);});
+    var K=new URLSearchParams(location.search).get('k'); if(K) p.set('k', K);
     return p.toString();
   }
 

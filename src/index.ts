@@ -12,8 +12,12 @@ import { callsPage, callsData } from './routes/calls';
 import { initDb, dbRecentAudit, dbEnabled } from './store/db';
 import { snapshot } from './obs/metrics';
 import { kvKind } from './store/kv';
+import { requireDashboardToken, requireAdminToken } from './routes/guard';
+import { verifyBitrixEvent } from './bitrix/verifyEvent';
+import { rateLimit } from './routes/rateLimit';
 
 const app = express();
+app.set('trust proxy', 1); // detrás del proxy de Railway → req.ip refleja X-Forwarded-For
 // Bitrix envía eventos como x-www-form-urlencoded con claves anidadas (data[PARAMS][...]).
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(express.json({ limit: '2mb' }));
@@ -25,6 +29,12 @@ app.use((req, _res, next) => {
   next();
 });
 
+// Rate limiting en memoria (por IP): global + estricto para endpoints costosos (eventos, llamadas).
+const RL_WINDOW = 60_000;
+const globalLimiter = rateLimit({ windowMs: RL_WINDOW, max: Number(process.env.RATE_LIMIT_MAX ?? 600) });
+const strictLimiter = rateLimit({ windowMs: RL_WINDOW, max: Number(process.env.RATE_LIMIT_STRICT ?? 240) });
+app.use(globalLimiter);
+
 // Bitrix abre la "Ruta del controlador" (esta URL) por POST al entrar al app → aceptamos ambos.
 app.all('/', (_req, res) =>
   res.send(
@@ -33,10 +43,12 @@ app.all('/', (_req, res) =>
       `</body>`,
   ),
 );
-app.get('/health', (_req, res) => res.json({ ok: true, t: new Date().toISOString() }));
+app.get('/health', (_req, res) =>
+  res.json({ ok: true, kv: kvKind, persistent: kvKind === 'redis', t: new Date().toISOString() }),
+);
 
 // Diagnóstico: confirma qué configuración ve la instancia (sin exponer secretos).
-app.get('/debug/config', (_req, res) =>
+app.get('/debug/config', requireDashboardToken, (_req, res) =>
   res.json({
     baseUrl: config.baseUrl || '(vacío)',
     eventHandler: config.baseUrl ? `${config.baseUrl}/events/bot/message` : '(BASE_URL vacío)',
@@ -64,18 +76,18 @@ app.get('/debug/config', (_req, res) =>
 );
 
 // Panel de métricas embebible en Bitrix24 (placement) + su API de datos.
-app.all('/app', dashboardPage); // Bitrix abre la página del placement (GET/POST con auth)
-app.get('/metrics/summary', metricsSummary);
+app.all('/app', requireDashboardToken, dashboardPage); // Bitrix abre la página del placement (GET/POST con auth)
+app.get('/metrics/summary', requireDashboardToken, metricsSummary);
 
 // Módulo de analítica de llamadas (telefonía Bitrix24): página embebible + su API de datos.
-app.all('/calls', callsPage);
-app.get('/calls/data', callsData);
+app.all('/calls', requireDashboardToken, callsPage);
+app.get('/calls/data', requireDashboardToken, callsData);
 
 // Observabilidad: métricas (JSON) y panel de estadísticas (HTML).
-app.get('/metrics', (_req, res) =>
+app.get('/metrics', requireDashboardToken, (_req, res) =>
   res.json({ ...snapshot(), kv: kvKind, db: dbEnabled() ? 'postgres' : 'off' }),
 );
-app.get('/stats', async (_req, res) => {
+app.get('/stats', requireDashboardToken, async (_req, res) => {
   const m = snapshot();
   const audits = await dbRecentAudit(25);
   const rows = audits
@@ -98,12 +110,13 @@ app.get('/stats', async (_req, res) => {
 // Instalación del app local (registra el bot)
 app.all('/install', installHandler);
 
-// Eventos del bot de Open Lines
-app.post('/events/bot/message', botMessageHandler);
-app.post('/events/bot/welcome', botWelcomeHandler);
-app.post('/events/bot/delete', botDeleteHandler);
+// Eventos del bot de Open Lines (rate-limit estricto + verificación del application_token de Bitrix).
+app.post('/events/bot/message', strictLimiter, verifyBitrixEvent, botMessageHandler);
+app.post('/events/bot/welcome', strictLimiter, verifyBitrixEvent, botWelcomeHandler);
+app.post('/events/bot/delete', strictLimiter, verifyBitrixEvent, botDeleteHandler);
 
-// Utilidades de setup manual
+// Utilidades de setup manual (protegidas con ADMIN_TOKEN).
+app.use('/setup', requireAdminToken);
 app.get('/setup/register-bot', registerBotManual);
 app.get('/setup/unregister-bot', unregisterBotManual);
 app.get('/setup/deal-stages', listDealStages);
@@ -114,7 +127,7 @@ app.get('/setup/sync-calls', syncCallsManual);
 
 // Fase 2: agente de voz con Vapi
 app.post('/vapi/events', verifyVapiSecret, vapiEvents); // webhook de Vapi (tool-calls, end-of-call-report)
-app.post('/voice/outbound', voiceOutbound); // dispara una llamada saliente con Vapi
+app.post('/voice/outbound', strictLimiter, verifyVapiSecret, voiceOutbound); // dispara una llamada saliente con Vapi
 
 // Fase 2 (alternativa self-hosted): API de voz genérica para el agente Pipecat
 app.post('/voice/tool', verifyVoiceSecret, voiceTool); // ejecuta herramientas (catálogo/CRM)

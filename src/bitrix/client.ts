@@ -34,24 +34,46 @@ export async function callBitrixEnvelope<T = any>(
   return { result: json.result, next: json.next, total: json.total };
 }
 
+/** POST JSON con reintentos ante errores transitorios (429 / 5xx / respuesta no-JSON de gateway). */
+async function postJsonWithRetry(url: string, body: unknown, attempt = 0): Promise<any> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if ((res.status === 429 || res.status >= 500) && attempt < 3) {
+    const wait = Math.min(2000 * 2 ** attempt, 8000) + Math.random() * 250;
+    await new Promise((r) => setTimeout(r, wait));
+    return postJsonWithRetry(url, body, attempt + 1);
+  }
+  try {
+    return await res.json();
+  } catch {
+    throw new Error(`Bitrix HTTP ${res.status}: respuesta no-JSON`);
+  }
+}
+
 async function doCall(
   method: string,
   params: Record<string, unknown>,
   auth: Auth,
   retried: boolean,
+  qlRetry = 0,
 ): Promise<any> {
-  const res = await fetch(`https://${auth.domain}/rest/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...params, auth: auth.access_token }),
+  const json: any = await postJsonWithRetry(`https://${auth.domain}/rest/${method}`, {
+    ...params,
+    auth: auth.access_token,
   });
-  const json: any = await res.json();
   if (json.error) {
     const err = String(json.error);
     const expired = err === 'expired_token' || err === 'invalid_token';
     if (expired && !retried && auth.refresh_token) {
-      const fresh = await refreshAuth(auth); // renueva on-demand y persiste
-      return doCall(method, params, fresh, true);
+      const fresh = await refreshAuth(auth); // renueva on-demand y persiste (single-flight)
+      return doCall(method, params, fresh, true, qlRetry);
+    }
+    if (err === 'QUERY_LIMIT_EXCEEDED' && qlRetry < 2) {
+      await new Promise((r) => setTimeout(r, 1000 * 2 ** qlRetry));
+      return doCall(method, params, auth, retried, qlRetry + 1);
     }
     throw new Error(`Bitrix ${method}: ${json.error} ${json.error_description ?? ''}`);
   }
@@ -61,12 +83,7 @@ async function doCall(
 /** Petición cruda al webhook entrante; devuelve el sobre completo (result + next + total). */
 async function webhookRaw(method: string, params: Record<string, unknown>, webhookUrl: string): Promise<any> {
   const url = `${webhookUrl.replace(/\/$/, '')}/${method}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-  const json: any = await res.json();
+  const json: any = await postJsonWithRetry(url, params);
   if (json.error) {
     throw new Error(`Bitrix ${method}: ${json.error} ${json.error_description ?? ''}`);
   }

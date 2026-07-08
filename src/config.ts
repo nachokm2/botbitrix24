@@ -46,6 +46,11 @@ export const config = {
   // OAuth de la app local (para renovar el access_token cuando expira).
   bitrixClientId: process.env.BITRIX_CLIENT_ID ?? '',
   bitrixClientSecret: process.env.BITRIX_CLIENT_SECRET ?? '',
+  // application_token que Bitrix envía en cada evento/instalación (verificación de origen del webhook).
+  bitrixAppToken: process.env.BITRIX_APPLICATION_TOKEN ?? '',
+  // Secretos propios del backend para proteger paneles (DASHBOARD_TOKEN) y utilidades admin (ADMIN_TOKEN).
+  dashboardToken: process.env.DASHBOARD_TOKEN ?? '',
+  adminToken: process.env.ADMIN_TOKEN ?? '',
   // Fallback de BOT_ID (el storage de Railway es efímero entre deploys).
   botId: process.env.BITRIX_BOT_ID ? Number(process.env.BITRIX_BOT_ID) : undefined,
   // Persistencia (opcionales; si faltan, se usa memoria/no-op).

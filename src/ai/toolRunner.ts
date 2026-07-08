@@ -5,6 +5,7 @@ import { generarBriefing } from './briefing';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { markHumanTakeover, getSession, saveSession } from '../session';
 import { callBitrix } from '../bitrix/client';
+import { once } from '../store/kv';
 import { log } from '../log';
 import type { Auth } from '../store';
 
@@ -53,8 +54,24 @@ export async function executeTool(name: string, input: any, ctx: AgentCtx): Prom
       }
 
       case 'solicitar_llamada': {
-        const telefono = String(input?.telefono ?? '').replace(/[\s()\-.]/g, '');
-        if (!telefono) return { ok: false, error: 'FALTA_TELEFONO', mensaje: 'Pide y confirma el número antes de llamar.' };
+        const raw = String(input?.telefono ?? '').replace(/[\s()\-.]/g, '');
+        // Normaliza a E.164 chileno y valida (+569XXXXXXXX). Evita marcar a números arbitrarios/premium.
+        const telefono = raw.startsWith('+') ? raw : raw.startsWith('56') ? `+${raw}` : `+56${raw.replace(/^0+/, '')}`;
+        if (!/^\+569\d{8}$/.test(telefono)) {
+          return {
+            ok: false,
+            error: 'TELEFONO_INVALIDO',
+            mensaje: 'Número inválido; confirma un móvil chileno (+56 9 ...) u ofrece derivar a un asesor.',
+          };
+        }
+        // Rate-limit: máximo una llamada solicitada por diálogo/hora (evita abuso y coste).
+        if (!(await once(`call:${ctx.dialogId}`, 3600))) {
+          return {
+            ok: false,
+            error: 'LIMITE_LLAMADAS',
+            mensaje: 'Ya se solicitó una llamada hace poco; ofrece que un asesor lo contacte.',
+          };
+        }
         // Guarda/actualiza el teléfono en el CRM antes de llamar (best-effort, no bloquea).
         void actualizarDatosCliente(ctx.crmEntities ?? {}, ctx.chatId, { telefono }, ctx.auth).catch(() => {});
         const r = await iniciarLlamadaSaliente(telefono);

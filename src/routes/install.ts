@@ -2,7 +2,8 @@ import type { Request, Response } from 'express';
 import { extractAuth } from '../bitrix/auth';
 import { registerBot } from '../bot/register';
 import { bindDashboard } from '../bitrix/placement';
-import { setAuth, setBotId } from '../store';
+import { setAuth, setBotId, setAppToken } from '../store';
+import { config } from '../config';
 import { log } from '../log';
 
 /**
@@ -16,7 +17,15 @@ export async function installHandler(req: Request, res: Response) {
     return res.status(400).send(page('❌ No se recibió auth de Bitrix24.'));
   }
 
+  // application_token de esta instalación: se usa para verificar el origen de los eventos posteriores.
+  const appToken = String((req.body as any)?.auth?.application_token ?? (req.body as any)?.application_token ?? '');
+  if (config.bitrixAppToken && appToken && appToken !== config.bitrixAppToken) {
+    log.warn('install: application_token no coincide con BITRIX_APPLICATION_TOKEN');
+    return res.status(401).send(page('❌ application_token inválido.'));
+  }
+
   await setAuth(auth);
+  if (appToken) await setAppToken(appToken);
 
   try {
     const botId = await registerBot(auth);

@@ -19,7 +19,9 @@ async function bindPage(
   if (!config.baseUrl) {
     return { ok: false, placement: PLACEMENT, error: 'BASE_URL vacío: no se puede fijar el handler' };
   }
-  const handler = `${config.baseUrl}${path}`;
+  // Propaga el token del panel en la URL del placement (?k=) para que el iframe autentique sus fetch.
+  const tokenQs = config.dashboardToken ? `?k=${encodeURIComponent(config.dashboardToken)}` : '';
+  const handler = `${config.baseUrl}${path}${tokenQs}`;
   try {
     await callBitrix('placement.bind', { PLACEMENT, HANDLER: handler, TITLE: title, DESCRIPTION: description }, auth);
     log.info('placement.bind OK', { placement: PLACEMENT, handler });
@@ -46,7 +48,8 @@ export function bindCalls(auth: Auth) {
 export async function unbindDashboard(auth: Auth): Promise<void> {
   if (!config.baseUrl) return;
   try {
-    await callBitrix('placement.unbind', { PLACEMENT, HANDLER: `${config.baseUrl}/app` }, auth);
+    const tokenQs = config.dashboardToken ? `?k=${encodeURIComponent(config.dashboardToken)}` : '';
+    await callBitrix('placement.unbind', { PLACEMENT, HANDLER: `${config.baseUrl}/app${tokenQs}` }, auth);
   } catch (e) {
     log.warn('placement.unbind falló', { err: String(e) });
   }

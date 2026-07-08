@@ -1,8 +1,11 @@
-import type { Request, Response, NextFunction } from 'express';
-import { getState } from '../store';
+import type { Request, Response } from 'express';
+import { verifyHeaderSecret } from './verifySecret';
+import { getState, EMPTY_AUTH } from '../store';
+import { once } from '../store/kv';
 import { callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { log } from '../log';
+import { audit } from '../obs/audit';
 import { registerCall, finishCall, attachCallRecord, toCrmRef, type CallType } from '../crm/telephony';
 import { getVoiceCtx, runVapiTool } from '../voice/vapiTools';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
@@ -11,18 +14,14 @@ import { iniciarLlamadaSaliente } from '../voice/outbound';
 // Vapi corre la conversación (STT/TTS/Claude); aquí ejecutamos herramientas y registramos en Bitrix.
 // Doc: https://docs.vapi.ai/server-url/events · https://docs.vapi.ai/tools/custom-tools
 
-/** Valida el secreto del servidor de Vapi (header x-vapi-secret), si está configurado. */
-export function verifyVapiSecret(req: Request, res: Response, next: NextFunction) {
-  if (!config.vapiSecret) return next();
-  if (req.header('x-vapi-secret') !== config.vapiSecret) return res.status(401).json({ error: 'unauthorized' });
-  next();
-}
+/** Valida el secreto del servidor de Vapi (header x-vapi-secret). Timing-safe; fail-closed en producción. */
+export const verifyVapiSecret = verifyHeaderSecret('x-vapi-secret');
 
 export async function vapiEvents(req: Request, res: Response) {
   const message: any = (req.body as any)?.message ?? {};
   const type: string = message.type ?? '';
   const st = await getState();
-  const auth = st.auth ?? ({} as any);
+  const auth = st.auth ?? EMPTY_AUTH;
 
   try {
     if (type === 'tool-calls') {
@@ -30,8 +29,12 @@ export async function vapiEvents(req: Request, res: Response) {
       const phone: string | undefined = call.customer?.number;
       const ctx = await getVoiceCtx(call.id ?? 'unknown', phone, auth);
       const toolCalls: any[] = message.toolCallList ?? message.toolCalls ?? [];
-      // Diagnóstico: estructura cruda de la tool-call que envía Vapi (para ver si los args llegan vacíos).
-      log.info('vapi tool-calls payload', { count: toolCalls.length, raw: JSON.stringify(toolCalls).slice(0, 1500) });
+      // Diagnóstico: estructura cruda de la tool-call (solo bajo DEBUG_VAPI=1; puede contener PII).
+      if (process.env.DEBUG_VAPI === '1') {
+        log.info('vapi tool-calls payload', { count: toolCalls.length, raw: JSON.stringify(toolCalls).slice(0, 1500) });
+      } else {
+        log.info('vapi tool-calls', { count: toolCalls.length });
+      }
       const results: any[] = [];
       for (const tc of toolCalls) {
         const fn = tc.function ?? tc;
@@ -45,12 +48,18 @@ export async function vapiEvents(req: Request, res: Response) {
         }
         log.info('vapi tool-call', { name: fn.name, argsType: typeof fn.arguments, args: args ?? null });
         const result = await runVapiTool(fn.name, args, ctx, auth);
+        void audit({ type: 'voice_tool', detail: { name: fn.name, callId: call.id ?? null, ok: (result as any)?.ok } });
         results.push({ toolCallId: tc.id ?? fn.id, result: JSON.stringify(result) });
       }
       return res.json({ results });
     }
 
     if (type === 'end-of-call-report') {
+      // Idempotencia: descarta reintentos/duplicados del mismo call.id (evita llamada/lead/nota dobles).
+      const callId = String((message.call ?? {}).id ?? '');
+      if (callId && !(await once(`vapi:eoc:${callId}`, 24 * 3600))) {
+        return res.json({ ok: true, dup: true });
+      }
       await handleEndOfCall(message, auth);
       return res.json({ ok: true });
     }
@@ -94,12 +103,19 @@ async function handleEndOfCall(message: any, auth: any) {
     ).catch((e) => log.warn('vapi endOfCall: nota transcripción falló', { err: String(e) }));
   }
   log.info('vapi: llamada registrada en CRM', { callId: reg.callId, duration, crm: entity });
+  void audit({
+    type: 'voice_call',
+    crmEntity: entity ? `${entity.type}#${entity.id}` : undefined,
+    detail: { callId: reg.callId ?? call.id ?? null, duration, type },
+  });
 }
 
 /** Dispara una llamada SALIENTE con Vapi (p. ej. al detectarse un lead caliente). */
 export async function voiceOutbound(req: Request, res: Response) {
   const phone = String((req.body as any)?.phone ?? '').trim();
-  if (!phone) return res.status(400).json({ ok: false, error: 'Falta phone (E.164, ej. +56912345678)' });
+  if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
+    return res.status(400).json({ ok: false, error: 'phone inválido: usa formato E.164 (ej. +56912345678)' });
+  }
   const r = await iniciarLlamadaSaliente(phone);
   if (!r.ok) return res.status(502).json({ ok: false, error: r.error });
   return res.json({ ok: true, callId: r.callId ?? null });
