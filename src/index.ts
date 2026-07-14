@@ -8,7 +8,6 @@ import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes
 import { registerBotManual, unregisterBotManual, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, syncCallsManual } from './routes/setup';
 import { startCallSync } from './crm/callSync';
 import { vapiEvents, voiceOutbound, verifyVapiSecret } from './routes/vapi';
-import { voiceTool, voiceCallFinish, verifyVoiceSecret } from './routes/voiceApi';
 import { dashboardPage, metricsSummary } from './routes/dashboard';
 import { callsPage, callsData } from './routes/calls';
 import { initDb, dbRecentAudit, dbEnabled, startRetentionSweep } from './store/db';
@@ -137,10 +136,6 @@ app.get('/setup/sync-calls', syncCallsManual);
 // Fase 2: agente de voz con Vapi
 app.post('/vapi/events', verifyVapiSecret, vapiEvents); // webhook de Vapi (tool-calls, end-of-call-report)
 app.post('/voice/outbound', strictLimiter, verifyVapiSecret, voiceOutbound); // dispara una llamada saliente con Vapi
-
-// Fase 2 (alternativa self-hosted): API de voz genérica para el agente Pipecat
-app.post('/voice/tool', verifyVoiceSecret, voiceTool); // ejecuta herramientas (catálogo/CRM)
-app.post('/voice/call/finish', verifyVoiceSecret, voiceCallFinish); // registra la llamada en el CRM
 
 // Inicializa Postgres (auditoría + espejo de llamadas) y arranca el scheduler de sync de llamadas.
 initDb()
