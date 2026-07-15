@@ -1,0 +1,25 @@
+:root{--bg:#f4f6f9;--card:#fff;--ink:#1a2734;--muted:#7a8794;--line:#e6ebf1;--brand:#2f6fed;--ok:#12b76a;--warn:#f79009;--bad:#f04438}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:20px}
+header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+h1{font-size:20px;margin:0}.sub{color:var(--muted);font-size:12px}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef3fe;color:var(--brand);font-size:12px;font-weight:600}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.kpi .n{font-size:26px;font-weight:700;line-height:1.1}.kpi .l{color:var(--muted);font-size:12px;margin-top:4px}
+.sec{margin-top:20px}.sec h2{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 10px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:720px){.row{grid-template-columns:1fr}}
+.bar{display:flex;align-items:center;gap:8px;margin:6px 0}.bar .lab{width:120px;color:var(--muted);font-size:12px;text-align:right}
+.bar .track{flex:1;background:#eef1f5;border-radius:6px;height:14px;overflow:hidden}.bar .fill{height:100%;background:var(--brand);border-radius:6px}
+.bar .v{width:44px;font-weight:600;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-weight:600}
+.tag{font-size:11px;padding:1px 6px;border-radius:6px;background:#eef1f5;color:#42526e}
+.muted{color:var(--muted)}.err{color:var(--bad)}
+footer{margin-top:18px;color:var(--muted);font-size:11px;text-align:center}
+.ranges{display:flex;gap:6px;margin-bottom:14px}
+.ranges button{border:1px solid var(--line);background:#fff;color:#42526e;border-radius:8px;padding:6px 12px;font:inherit;font-size:12px;cursor:pointer}
+.ranges button.on{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+.days{display:flex;align-items:flex-end;gap:6px;height:90px}
+.days .d{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.days .col{width:100%;background:var(--brand);border-radius:4px 4px 0 0;min-height:2px}
+.days .dl{font-size:10px;color:var(--muted)}

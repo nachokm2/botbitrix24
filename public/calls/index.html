@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analítica de Llamadas — UA Postgrados</title>
+<script src="//api.bitrix24.com/api/v1/"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<link rel="stylesheet" href="/assets/calls/styles.css">
+</head>
+<body><div class="wrap">
+  <header>
+    <div><h1>Analítica de Llamadas</h1><div class="sub">Universidad Autónoma de Chile · telefonía Bitrix24 (asesores + agente de voz)</div></div>
+    <div><a class="link" href="/app">← Panel del agente</a> &nbsp; <span id="status"><span class="pill">cargando…</span></span></div>
+  </header>
+
+  <div class="filters" id="filters">
+    <div class="f"><label>Desde</label><input type="date" id="from"></div>
+    <div class="f"><label>Hasta</label><input type="date" id="to"></div>
+    <div class="f"><label>Asesor</label><select id="userId"><option value="">Todos</option></select></div>
+    <div class="f"><label>Tipo</label><select id="type"><option value="">Todos</option><option value="in">Entrante</option><option value="out">Saliente</option></select></div>
+    <div class="f"><label>Estado</label><select id="status"><option value="">Todos</option><option value="answered">Contestada</option><option value="missed">Perdida</option></select></div>
+    <div class="f"><label>Teléfono</label><input type="text" id="phone" placeholder="+569..."></div>
+    <div class="f"><label>&nbsp;</label><button class="btn" id="apply">Aplicar</button></div>
+    <div class="f"><label>&nbsp;</label><button class="btn sec" id="reset">Limpiar</button></div>
+  </div>
+
+  <div class="grid" id="kpis"></div>
+
+  <div class="sec row">
+    <div class="card"><h2 style="margin-top:0">Llamadas por hora del día (entrante vs saliente)</h2><canvas id="chHora"></canvas></div>
+    <div class="card"><h2 style="margin-top:0">Llamadas por día de la semana</h2><canvas id="chDia"></canvas></div>
+  </div>
+  <div class="sec row">
+    <div class="card"><h2 style="margin-top:0">Entrantes vs Salientes</h2><canvas id="chTipo"></canvas></div>
+    <div class="card"><h2 style="margin-top:0">Contestadas vs Perdidas</h2><canvas id="chEstado"></canvas></div>
+  </div>
+
+  <div class="sec"><h2>Historial de llamadas</h2><div class="card">
+    <div class="tablebar">
+      <input type="text" id="search" placeholder="Buscar por contacto o teléfono…" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;min-width:240px">
+      <div class="sub" id="tcount"></div>
+    </div>
+    <div style="overflow-x:auto"><table id="tbl">
+      <thead><tr>
+        <th data-k="contacto">Contacto</th><th data-k="telefono">Teléfono</th><th data-k="tipo">Tipo</th>
+        <th data-k="fecha">Fecha y hora</th><th data-k="duracion">Duración</th><th data-k="usuario">Asesor</th>
+        <th data-k="estado">Estado</th><th>Grabación</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table></div>
+    <div class="pag" id="pag"></div>
+  </div></div>
+
+  <footer id="foot"></footer>
+</div>
+<script src="/assets/calls/app.js"></script>
+</body></html>

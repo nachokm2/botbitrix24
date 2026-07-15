@@ -1,5 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
+import { fileURLToPath } from 'node:url';
 import { config } from './config';
 import { log } from './log';
 import { runWithRequestContext } from './obs/requestContext';
@@ -87,6 +88,11 @@ app.get('/debug/config', requireDashboardToken, (_req, res) =>
     },
   }),
 );
+
+// CSS/JS de los paneles (public/dashboard, public/calls): sin datos de negocio, no requieren token
+// (el token protege las páginas y las APIs de datos, no estos assets estáticos — ver ALT-Baja-7).
+app.use('/assets/dashboard', express.static(fileURLToPath(new URL('../public/dashboard', import.meta.url))));
+app.use('/assets/calls', express.static(fileURLToPath(new URL('../public/calls', import.meta.url))));
 
 // Panel de métricas embebible en Bitrix24 (placement) + su API de datos.
 app.all('/app', requireDashboardToken, dashboardPage); // Bitrix abre la página del placement (GET/POST con auth)

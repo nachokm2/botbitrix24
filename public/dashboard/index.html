@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agente Postgrados — Panel</title>
+<script src="//api.bitrix24.com/api/v1/"></script>
+<link rel="stylesheet" href="/assets/dashboard/styles.css">
+</head>
+<body><div class="wrap">
+  <header>
+    <div><h1>Agente de Postgrados — Panel</h1><div class="sub">Universidad Autónoma de Chile · métricas del asistente de IA</div></div>
+    <div id="status"><span class="pill">cargando…</span></div>
+  </header>
+
+  <div class="ranges" id="ranges">
+    <button data-r="today">Hoy</button>
+    <button data-r="7d" class="on">7 días</button>
+    <button data-r="30d">30 días</button>
+    <button data-r="all">Todo</button>
+  </div>
+
+  <div class="grid" id="kpis"></div>
+
+  <div class="sec row">
+    <div class="card"><h2 style="margin-top:0">Por embudo</h2><div id="embudo"></div></div>
+    <div class="card"><h2 style="margin-top:0">Por asesor responsable</h2><div id="asesores"></div></div>
+  </div>
+
+  <div class="sec"><h2>Conversión del bot</h2><div class="card">
+    <div class="grid" id="convkpis" style="margin-bottom:10px"></div>
+    <div class="sub" style="margin-bottom:6px">Score por conversación</div>
+    <div id="scorebuckets"></div>
+  </div></div>
+
+  <div class="sec row">
+    <div class="card"><h2 style="margin-top:0">Programas más consultados</h2><div id="topprog"></div></div>
+    <div class="card"><h2 style="margin-top:0">Mayor interés registrado</h2><div id="topinteres"></div></div>
+  </div>
+  <div class="sec row">
+    <div class="card"><h2 style="margin-top:0">Consultas por facultad</h2><div id="porfacultad"></div></div>
+    <div class="card"><h2 style="margin-top:0">Consultas por tipo</h2><div id="portipo"></div></div>
+  </div>
+  <div class="sec"><h2>Gaps del catálogo (programas sin detalle)</h2><div class="card"><div id="gaps"></div></div></div>
+  <div class="sec"><h2>Horario de contacto (mensajes por hora del día)</h2><div class="card"><div class="days" id="horas"></div></div></div>
+
+  <div class="sec"><h2>Mensajes por día (últimos 7)</h2><div class="card"><div class="days" id="days"></div></div></div>
+
+  <div class="sec row">
+    <div class="card"><h2 style="margin-top:0">Intención de los leads</h2><div id="intencion"></div></div>
+    <div class="card"><h2 style="margin-top:0">Sentimiento</h2><div id="sentimiento"></div></div>
+  </div>
+
+  <div class="sec"><h2>Uso de herramientas</h2><div class="card"><div id="tools"></div></div></div>
+
+  <div class="sec"><h2>Actividad reciente</h2><div class="card" style="overflow-x:auto">
+    <table><thead><tr><th>Fecha</th><th>Evento</th><th>Diálogo</th><th>CRM</th></tr></thead><tbody id="recent"></tbody></table>
+  </div></div>
+
+  <footer id="foot"></footer>
+</div>
+<script src="/assets/dashboard/app.js"></script>
+</body></html>
