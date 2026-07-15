@@ -1,0 +1,29 @@
+{
+  "_comment": "M2 — Plantilla del asistente Vapi en modo CUSTOM LLM. Aquí Vapi hace SOLO voz (STT/TTS/turn-taking/barge-in) y delega el 'cerebro' a NUESTRO backend: en cada turno llama a model.url + '/chat/completions'. El prompt, las herramientas y la lógica ya NO viven aquí, sino en nuestro código (core/channel.ts VOICE_PROFILE + el motor runConversation). Reemplaza <BACKEND_BASE> y <VAPI_SECRET>. Crea/actualiza el asistente en el dashboard de Vapi o vía POST https://api.vapi.ai/assistant. Verifica los nombres de campos contra https://docs.vapi.ai/customization/custom-llm/using-your-server (el esquema puede evolucionar).",
+  "name": "UA Postgrados - Voz (Custom LLM)",
+  "firstMessage": "Hola, le saluda el asistente de Postgrados de la Universidad Autónoma de Chile. ¿En qué le puedo ayudar?",
+  "model": {
+    "provider": "custom-llm",
+    "url": "<BACKEND_BASE>/vapi/llm",
+    "model": "ua-postgrados-voz",
+    "temperature": 0.4,
+    "maxTokens": 200,
+    "headers": {
+      "x-vapi-secret": "<VAPI_SECRET>"
+    }
+  },
+  "transcriber": {
+    "provider": "deepgram",
+    "model": "nova-2",
+    "language": "es"
+  },
+  "voice": {
+    "provider": "azure",
+    "voiceId": "es-CL-CatalinaNeural"
+  },
+  "serverMessages": ["end-of-call-report", "status-update"],
+  "server": {
+    "url": "<BACKEND_BASE>/vapi/events",
+    "secret": "<VAPI_SECRET>"
+  }
+}

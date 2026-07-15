@@ -37,3 +37,36 @@ SALIENTE:  Trigger (score alto/manual) → POST /voice/outbound → Vapi POST /c
 
 ## Estado
 PoC / esqueleto: compila y expone el webhook y el disparador de salientes. **Falta** conectar cuentas reales (Twilio nº +56 + Vapi) para pruebas end-to-end y verificar la voz **es-CL** en el picker de Vapi.
+
+---
+
+## M2 — Voz al núcleo (Vapi Custom LLM)
+
+Hay **dos modos** de operar la voz; conviven en el backend y se eligen desde la config del asistente en Vapi:
+
+| Modo | Quién es el "cerebro" | Prompt y tools | Endpoint |
+|---|---|---|---|
+| **Nativo** (actual) | Claude **dentro de Vapi** | En el dashboard de Vapi ([`vapi-assistant.json`](vapi-assistant.json)) — fuente separada, puede divergir | `POST /vapi/events` (tool-calls + end-of-call) |
+| **Custom LLM** (M2) | **Nuestro** motor (`runConversation` + `VOICE_PROFILE`) | En el código (`src/core/channel.ts`) — **misma fuente que WhatsApp** | `POST /vapi/llm/chat/completions` |
+
+En Custom LLM, Vapi hace solo STT/TTS/turn-taking/barge-in y en cada turno llama a nuestro `model.url` en formato OpenAI. Nosotros corremos el **mismo motor** que el chat (perfil de voz: respuestas cortas, sin URLs) y ejecutamos las tools de voz. Así el prompt/tools dejan de estar duplicados en el dashboard.
+
+### Activar Custom LLM (cuando haya cuentas reales conectadas)
+1. Crea/actualiza el asistente con [`vapi-assistant-customllm.json`](vapi-assistant-customllm.json): reemplaza `<BACKEND_BASE>` y `<VAPI_SECRET>`.
+   - `model.provider = "custom-llm"`, `model.url = https://<tu-backend>/vapi/llm`.
+   - `model.headers["x-vapi-secret"] = <VAPI_SECRET>` (así protegemos el endpoint; el backend lo valida en tiempo constante y falla cerrado en producción).
+2. Deja `server.url = /vapi/events` para el `end-of-call-report` (el registro de la llamada en Bitrix sigue por ahí, sin cambios).
+3. `VAPI_SECRET` en Railway debe coincidir con el header del asistente.
+
+> **Fallback:** el modo nativo (`/vapi/events` tool-calls) queda intacto. Si Custom LLM diera problemas, se revierte cambiando solo la config del asistente en Vapi — sin desplegar código.
+
+### Checklist de validación EN VIVO (requiere Vapi + Twilio +56 reales)
+- [ ] Latencia percibida aceptable (tiempo hasta el primer audio) frente al modo nativo.
+- [ ] Naturalidad: respuestas de 1–2 frases, sin URLs ni listas (perfil de voz).
+- [ ] `consultar_programas` / `detalle_programa` responden con datos reales del catálogo, sin inventar.
+- [ ] `registrar_interes_crm` crea/actualiza el lead y dispara las acciones de "lead caliente".
+- [ ] `end-of-call-report` sigue registrando la llamada + transcripción en Bitrix.
+
+### Pendiente conocido (para completar en la integración en vivo)
+- **Transferencia real de la llamada** (`transferir_a_asesor`): hoy el motor devuelve el mensaje al cliente, pero disparar la transferencia física de Vapi (`transferCall`) desde Custom LLM requiere devolver un `tool_call` de Vapi en la respuesta OpenAI. Se afina contra la cuenta real. Mientras tanto, el modo nativo mantiene la transferencia por la tool de Vapi.
+- **Streaming**: hoy emitimos el texto final en un delta SSE. Para reducir el tiempo hasta el primer audio se puede migrar a streaming token-a-token del mensaje final de Claude.

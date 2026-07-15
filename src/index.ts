@@ -8,6 +8,7 @@ import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes
 import { registerBotManual, unregisterBotManual, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, syncCallsManual } from './routes/setup';
 import { startCallSync } from './crm/callSync';
 import { vapiEvents, voiceOutbound, verifyVapiSecret } from './routes/vapi';
+import { vapiChatCompletions } from './routes/vapiLlm';
 import { dashboardPage, metricsSummary } from './routes/dashboard';
 import { callsPage, callsData } from './routes/calls';
 import { initDb, dbRecentAudit, dbEnabled, startRetentionSweep } from './store/db';
@@ -137,6 +138,10 @@ app.get('/setup/sync-calls', syncCallsManual);
 // Fase 2: agente de voz con Vapi
 app.post('/vapi/events', verifyVapiSecret, vapiEvents); // webhook de Vapi (tool-calls, end-of-call-report)
 app.post('/voice/outbound', strictLimiter, verifyVapiSecret, voiceOutbound); // dispara una llamada saliente con Vapi
+// M2: modo Custom LLM (Vapi hace STT/TTS y delega el "cerebro" a nuestro motor, con el perfil de voz).
+// Vapi llama a {model.url}/chat/completions; aceptamos también /vapi/llm por conveniencia.
+app.post('/vapi/llm/chat/completions', strictLimiter, verifyVapiSecret, vapiChatCompletions);
+app.post('/vapi/llm', strictLimiter, verifyVapiSecret, vapiChatCompletions);
 
 // Inicializa Postgres (auditoría + espejo de llamadas) y arranca el scheduler de sync de llamadas.
 initDb()

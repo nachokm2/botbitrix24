@@ -108,4 +108,19 @@ export const tools = [
       required: ['motivo'],
     },
   },
+  {
+    // Solo la habilita el perfil de VOZ (VOICE_PROFILE.toolNames). En chat se usa escalar_a_humano.
+    name: 'transferir_a_asesor',
+    description:
+      'Deriva la LLAMADA en curso a un asesor humano. Úsala si el cliente lo pide, si hay intención alta de ' +
+      'matrícula, o si la consulta excede tu alcance. Devuelve el asesor asignado (si lo hay) y el destino; ' +
+      'nombra al asesor solo si la herramienta lo entrega, nunca lo inventes.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        motivo: { type: 'string' },
+      },
+      required: ['motivo'],
+    },
+  },
 ] as const;
