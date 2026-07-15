@@ -11,8 +11,7 @@ const RANGES = ['today', '7d', '30d', 'all'];
 /** JSON con métricas de negocio (persistentes) + técnicas (en memoria) + actividad reciente. */
 export async function metricsSummary(req: Request, res: Response) {
   const range = RANGES.includes(String(req.query.range)) ? String(req.query.range) : '7d';
-  const live = snapshot();
-  const [agg, recent] = await Promise.all([dbMetricsSummary(range), dbRecentAudit(15)]);
+  const [live, agg, recent] = await Promise.all([snapshot(), dbMetricsSummary(range), dbRecentAudit(15)]);
 
   // Resuelve el nombre de cada asesor responsable (por su ASSIGNED_BY_ID) para el desglose "Por asesor".
   if (agg?.porAsesor?.length) {

@@ -12,13 +12,15 @@ import { once } from '../store/kv';
 import { inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { resolveAllEntities, primaryEntity, loadPriorContext, logConversationTurn } from '../crm/openlinesCrm';
-import { createSemaphore, createKeyedLock } from '../util/concurrency';
+import { createSemaphore } from '../util/concurrency';
+import { withKeyedLock } from '../util/distlock';
 import { getRequestContext, runWithRequestContext } from '../obs/requestContext';
 
-// Backpressure: acota los turnos concurrentes por instancia y serializa por diálogo
-// (evita carreras read-modify-write de historial/sesión del mismo cliente).
+// Backpressure: el semáforo acota los turnos concurrentes POR INSTANCIA (decisión deliberada: la
+// contrapresión de recursos es un problema por-réplica; el 429 de Anthropic ya lo maneja el SDK con
+// reintentos). El lock por diálogo, en cambio, SÍ es distribuido (withKeyedLock): serializa el mismo
+// cliente entre réplicas para evitar carreras read-modify-write de historial/sesión.
 const turnLimit = createSemaphore(Number(process.env.MAX_CONCURRENT_TURNS ?? 8));
-const dialogLock = createKeyedLock();
 
 /**
  * Handler de ONIMBOTMESSAGEADD (mensaje del cliente al bot de Open Lines).
@@ -38,7 +40,7 @@ export async function botMessageHandler(req: Request, res: Response) {
   const requestId = getRequestContext()?.requestId ?? '-';
   // Re-vincula el contexto (reqId + dialogId) dentro del lock/semáforo: garantiza que el
   // trabajo en segundo plano loguee con la correlación correcta, sin fugas entre peticiones.
-  void dialogLock(dialogId, () =>
+  void withKeyedLock(dialogId, () =>
     turnLimit(() => runWithRequestContext({ requestId, dialogId }, () => handle(req))),
   ).catch((e) => log.error('botMessage: error', { err: String(e) }));
 }

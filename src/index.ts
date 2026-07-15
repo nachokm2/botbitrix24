@@ -39,8 +39,8 @@ app.use((req, _res, next) => {
 
 // Rate limiting en memoria (por IP): global + estricto para endpoints costosos (eventos, llamadas).
 const RL_WINDOW = 60_000;
-const globalLimiter = rateLimit({ windowMs: RL_WINDOW, max: Number(process.env.RATE_LIMIT_MAX ?? 600) });
-const strictLimiter = rateLimit({ windowMs: RL_WINDOW, max: Number(process.env.RATE_LIMIT_STRICT ?? 240) });
+const globalLimiter = rateLimit({ name: 'global', windowMs: RL_WINDOW, max: Number(process.env.RATE_LIMIT_MAX ?? 600) });
+const strictLimiter = rateLimit({ name: 'strict', windowMs: RL_WINDOW, max: Number(process.env.RATE_LIMIT_STRICT ?? 240) });
 app.use(globalLimiter);
 
 // Bitrix abre la "Ruta del controlador" (esta URL) por POST al entrar al app → aceptamos ambos.
@@ -92,11 +92,12 @@ app.all('/calls', requireDashboardToken, callsPage);
 app.get('/calls/data', requireDashboardToken, callsData);
 
 // Observabilidad: métricas (JSON) y panel de estadísticas (HTML).
-app.get('/metrics', requireDashboardToken, (_req, res) =>
-  res.json({ ...snapshot(), kv: kvKind, db: dbEnabled() ? 'postgres' : 'off' }),
-);
+app.get('/metrics', requireDashboardToken, async (_req, res) => {
+  const s = await snapshot();
+  res.json({ ...s, kv: kvKind, db: dbEnabled() ? 'postgres' : 'off' });
+});
 app.get('/stats', requireDashboardToken, async (_req, res) => {
-  const m = snapshot();
+  const m = await snapshot();
   const audits = await dbRecentAudit(25);
   const rows = audits
     .map(

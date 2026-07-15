@@ -66,18 +66,20 @@ class RedisKv implements KvBackend {
 }
 
 let backend: KvBackend;
+let redisClient: Redis | null = null;
 export let kvKind = 'memory';
 
 if (config.redisUrl) {
   try {
-    const client = new Redis(config.redisUrl, { maxRetriesPerRequest: 2, lazyConnect: false });
-    client.on('error', (e) => log.warn('redis error', { err: String(e?.message ?? e) }));
-    backend = new RedisKv(client);
+    redisClient = new Redis(config.redisUrl, { maxRetriesPerRequest: 2, lazyConnect: false });
+    redisClient.on('error', (e) => log.warn('redis error', { err: String(e?.message ?? e) }));
+    backend = new RedisKv(redisClient);
     kvKind = 'redis';
     log.info('KV: usando Redis');
   } catch (e) {
     log.error('KV: Redis falló, uso memoria', { err: String(e) });
     backend = new MemoryKv();
+    redisClient = null;
   }
 } else {
   if (process.env.NODE_ENV === 'production') {
@@ -88,6 +90,15 @@ if (config.redisUrl) {
   }
   backend = new MemoryKv();
   log.warn('KV: MEMORIA (solo desarrollo; NO escalar a >1 réplica; el estado se pierde en cada reinicio)');
+}
+
+/**
+ * Cliente Redis crudo para infraestructura que necesita comandos atómicos no cubiertos por la
+ * abstracción KV (rate-limit con INCR, locks distribuidos con SET NX PX, métricas con HINCRBY).
+ * Devuelve null en modo memoria (dev/test): cada consumidor debe traer su propio fallback en proceso.
+ */
+export function getRedisClient(): Redis | null {
+  return redisClient;
 }
 
 export async function kvGet(key: string): Promise<string | null> {

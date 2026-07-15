@@ -10,7 +10,7 @@
     "smoke:anthropic": "tsx scripts/smoke-anthropic.ts",
     "smoke:bitrix": "tsx scripts/smoke-bitrix.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test \"test/*.test.ts\""
+    "test": "node --experimental-test-module-mocks --import tsx --test \"test/*.test.ts\""
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.40.0",

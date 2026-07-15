@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      # Chequeo de tipos: falla el PR ante cualquier error de TypeScript.
+      - run: npm run typecheck
+      # Tests unitarios + de infraestructura. Corren en modo memoria (sin REDIS_URL/DATABASE_URL),
+      # así el CI no necesita servicios externos.
+      - run: npm test
+        env:
+          NODE_ENV: test
