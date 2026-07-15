@@ -5,6 +5,12 @@ import { DETALLES } from '../src/ai/detalles.ts';
 // Genera la base de conocimiento (Markdown) para el asistente de voz de Vapi (RAG).
 // Una sección por programa; el arancel repite el nombre del programa para minimizar
 // que el RAG mezcle precios entre programas de nombre parecido.
+//
+// LEGACY (solo modo VOZ NATIVO): esta KB estática servía cuando Claude corría DENTRO de Vapi.
+// Con Vapi en modo Custom LLM (M2) la voz usa nuestro motor y el servicio de recuperación único
+// (src/core/retrieval.ts, M5) — la MISMA fuente que el chat, sin resubir un Markdown a mano.
+// Mantener solo mientras siga en uso el asistente de voz nativo; al migrar del todo a Custom LLM,
+// este script y voice/base-conocimiento-programas.md pueden eliminarse.
 
 const slugOf = (u: string) => u.replace(/\/+$/, '').split('/').pop() ?? u;
 const tipoLabel: Record<string, string> = { magister: 'Magíster', diplomado: 'Diplomado', especialidad: 'Especialidad' };
