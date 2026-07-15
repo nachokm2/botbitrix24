@@ -5,6 +5,7 @@ import { log } from '../log';
 import { once } from '../store/kv';
 import { metaTurn, type MetaChannel } from '../channels/meta';
 import { getState, EMPTY_AUTH } from '../store';
+import { safeEqual } from '../util/crypto';
 
 // M4 — Rutas de los canales INSTAGRAM y MESSENGER (Meta Graph API / "Messenger Platform").
 // Ambos comparten el mismo formato de webhook ("entry[].messaging[]") y la misma Send API; se
@@ -13,12 +14,6 @@ import { getState, EMPTY_AUTH } from '../store';
 // Requiere, en la app de Meta (developers.facebook.com): suscribir el webhook a esta URL con el
 // campo "messages" (Messenger) y/o "messages" de Instagram; Page Access Token con los scopes
 // pages_messaging + instagram_basic + instagram_manage_messages. Ver META_* en .env.example.
-
-function safeEqual(a: string, b: string): boolean {
-  const ba = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
-}
 
 /** GET /webhooks/meta — handshake de verificación que Meta llama una vez, al suscribir el webhook. */
 export function metaVerify(req: Request, res: Response) {

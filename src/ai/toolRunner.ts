@@ -1,27 +1,15 @@
 import { consultarProgramas, detallePrograma } from '../core/catalogTool';
-import { WHATSAPP_PROFILE, type ChannelProfile } from '../core/channel';
-import { actualizarDatosCliente, getDealAsesores, type CrmEntity, type CrmEntities } from '../crm/openlinesCrm';
+import type { AgentContext } from '../core/channel';
+import { actualizarDatosCliente, getDealAsesores } from '../crm/openlinesCrm';
 import { generarBriefing } from './briefing';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { markHumanTakeover, getSession, saveSession } from '../session';
 import { callBitrix } from '../bitrix/client';
 import { once } from '../store/kv';
 import { log } from '../log';
-import type { Auth } from '../store';
 
-export type AgentCtx = {
-  auth: Auth;
-  dialogId: string;
-  chatId?: string | number;
-  botId: number;
-  crmEntity?: CrmEntity | null;
-  crmEntities?: CrmEntities;
-  /** Perfil del canal (tono/longitud/capacidades/presentación). Default: WhatsApp. */
-  profile?: ChannelProfile;
-};
-
-export async function executeTool(name: string, input: any, ctx: AgentCtx): Promise<any> {
-  const catalog = (ctx.profile ?? WHATSAPP_PROFILE).catalog;
+export async function executeTool(name: string, input: any, ctx: AgentContext): Promise<any> {
+  const catalog = ctx.profile.catalog;
   try {
     switch (name) {
       case 'consultar_programas':
@@ -31,7 +19,7 @@ export async function executeTool(name: string, input: any, ctx: AgentCtx): Prom
         return detallePrograma(input, catalog.detalle);
 
       case 'registrar_interes_crm': {
-        const r = await actualizarDatosCliente(ctx.crmEntities ?? {}, ctx.chatId, input ?? {}, ctx.auth);
+        const r = await actualizarDatosCliente(ctx.crmEntities, ctx.chatId, input ?? {}, ctx.auth);
         if (!r.ok) return { ok: false, error: r.error };
         log.info('tool registrar_interes_crm', { actualizado: r.actualizado });
         return { ok: true, actualizado: r.actualizado };
@@ -49,7 +37,7 @@ export async function executeTool(name: string, input: any, ctx: AgentCtx): Prom
           };
         }
         // Rate-limit: máximo una llamada solicitada por diálogo/hora (evita abuso y coste).
-        if (!(await once(`call:${ctx.dialogId}`, 3600))) {
+        if (!(await once(`call:${ctx.conversationId}`, 3600))) {
           return {
             ok: false,
             error: 'LIMITE_LLAMADAS',
@@ -57,7 +45,7 @@ export async function executeTool(name: string, input: any, ctx: AgentCtx): Prom
           };
         }
         // Guarda/actualiza el teléfono en el CRM antes de llamar (best-effort, no bloquea).
-        void actualizarDatosCliente(ctx.crmEntities ?? {}, ctx.chatId, { telefono }, ctx.auth).catch(() => {});
+        void actualizarDatosCliente(ctx.crmEntities, ctx.chatId, { telefono }, ctx.auth).catch(() => {});
         const r = await iniciarLlamadaSaliente(telefono);
         if (!r.ok) {
           log.warn('tool solicitar_llamada falló', { err: r.error });
@@ -79,16 +67,16 @@ export async function executeTool(name: string, input: any, ctx: AgentCtx): Prom
         if (ctx.chatId) {
           await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: ctx.chatId }, ctx.auth);
         }
-        await markHumanTakeover(ctx.dialogId); // tras escalar, el bot deja de responder en esa sesión
+        await markHumanTakeover(ctx.conversationId); // tras escalar, el bot deja de responder en esa sesión
 
         // Genera (una vez) un resumen del lead para el asesor y lo deja en el CRM.
         const entityBrief = ctx.crmEntity ?? null;
         if (entityBrief) {
-          const s = await getSession(ctx.dialogId);
+          const s = await getSession(ctx.conversationId);
           if (!s.briefingDone) {
             s.briefingDone = true;
-            await saveSession(ctx.dialogId, s);
-            void generarBriefing(ctx.dialogId, entityBrief, ctx.auth);
+            await saveSession(ctx.conversationId, s);
+            void generarBriefing(ctx.conversationId, entityBrief, ctx.auth);
           }
         }
 

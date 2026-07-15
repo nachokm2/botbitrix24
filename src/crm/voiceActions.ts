@@ -3,7 +3,7 @@ import { config } from '../config';
 import { log } from '../log';
 import type { Auth } from '../store';
 import type { CrmEntities } from './entities';
-import { addNota, moverEtapaDeal, type DatosCliente } from './crmWrite';
+import { crearLeadDesde, moverEtapaDeal, type DatosCliente } from './crmWrite';
 import { getDealInfo } from './directory';
 import type { BitrixDuplicateResult, BitrixDealListItem, BitrixTaskAddResult } from '../bitrix/types';
 
@@ -51,38 +51,23 @@ export async function buscarCrmPorTelefono(phone: string, auth: Auth): Promise<C
 
 /**
  * Crea un LEAD nuevo con los datos capturados en la llamada (cuando el teléfono no existía en el CRM).
- * Usa el teléfono de la llamada si el cliente no dictó otro. Deja también una nota con lo capturado.
+ * Usa el teléfono de la llamada si el cliente no dictó otro (implementación compartida con
+ * crearLeadWeb/crearLeadSocial — ver ALT-Media-6 de la auditoría). Nota: el UF de "programa de
+ * interés" (BITRIX_UF_PROGRAMA) vive en la Negociación (Deal), no en el Lead; en un lead el
+ * programa queda en el TITLE. Se escribe en el Deal vía accionInteresVoz cuando existe.
  */
 export async function crearLeadDesdeVoz(
   phone: string | undefined,
   data: DatosCliente,
   auth: Auth,
 ): Promise<CrmEntities | null> {
-  const fields: any = {
-    TITLE: data.programa_interes
-      ? `Interés: ${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`
-      : `Llamada IA${data.nombre ? ' – ' + data.nombre : ''}`,
-    SOURCE_ID: 'CALL',
-    OPENED: 'Y',
-  };
-  if (data.nombre) fields.NAME = data.nombre;
-  if (data.apellido) fields.LAST_NAME = data.apellido;
-  if (data.email) fields.EMAIL = [{ VALUE: String(data.email), VALUE_TYPE: 'WORK' }];
-  const tel = data.telefono || phone;
-  if (tel) fields.PHONE = [{ VALUE: String(tel), VALUE_TYPE: 'MOBILE' }];
-  // Nota: el UF de "programa de interés" (BITRIX_UF_PROGRAMA) vive en la Negociación (Deal), no en el Lead;
-  // en un lead el programa queda en el TITLE. Se escribe en el Deal vía accionInteresVoz cuando existe.
-  try {
-    const id = await callCrm<string | number>('crm.lead.add', { fields, params: { REGISTER_SONET_EVENT: 'Y' } }, auth);
-    const leadId = Number(id);
-    if (!leadId) return null;
-    await addNota('lead', leadId, data, auth).catch((e) => log.warn('crearLeadDesdeVoz: nota falló', { err: String(e) }));
-    log.info('crearLeadDesdeVoz: lead creado', { leadId });
-    return { lead: leadId };
-  } catch (e) {
-    log.warn('crearLeadDesdeVoz falló', { err: String(e) });
-    return null;
-  }
+  const leadId = await crearLeadDesde(
+    data,
+    auth,
+    { sourceId: 'CALL', tituloPrefijo: 'Interés', tituloGenerico: 'Llamada IA', label: 'voz' },
+    phone,
+  );
+  return leadId ? { lead: leadId } : null;
 }
 
 /** Etapa destino para "interesado" según el embudo: VOICE_STAGE_MAP → VOICE_STAGE_INTERESADO → stageMap[cat].alto. */

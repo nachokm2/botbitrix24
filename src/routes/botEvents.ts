@@ -113,7 +113,7 @@ async function handle(req: Request) {
 
   // Agente real: motor conversacional único, con el perfil del canal WhatsApp (Open Lines).
   const reply = await runAgentTurn(
-    { auth, dialogId, chatId, botId, crmEntity, crmEntities, profile: WHATSAPP_PROFILE },
+    { auth, conversationId: dialogId, chatId, botId, crmEntity, crmEntities, profile: WHATSAPP_PROFILE },
     message,
     priorContext,
   );

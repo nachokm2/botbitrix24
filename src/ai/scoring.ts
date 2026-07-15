@@ -76,6 +76,65 @@ export async function evaluarLead(messages: any[]): Promise<LeadEval | null> {
 }
 
 /**
+ * Decide a qué etapa mover el deal según el score (o '' si no corresponde mover ninguna).
+ * Pura — sin I/O — para poder testear la lógica de negocio sin mockear el CRM (ver ALT-Media-4).
+ */
+export function moverEtapaPorScore(opts: {
+  score: number;
+  dealCategory: number;
+  lastStage?: string;
+  stageMap: Record<string, { alto?: string; medio?: string }>;
+  stageScoreAlto: string;
+  stageScoreMedio: string;
+}): string {
+  let m: { alto?: string; medio?: string } | undefined;
+  if (Object.keys(opts.stageMap).length) {
+    m = opts.stageMap[String(opts.dealCategory)];
+  } else if (opts.stageScoreAlto || opts.stageScoreMedio) {
+    m = { alto: opts.stageScoreAlto, medio: opts.stageScoreMedio }; // legacy de un solo embudo
+  }
+  let target = '';
+  if (m) {
+    if (opts.score >= 70 && m.alto) target = m.alto;
+    else if (opts.score >= 40 && m.medio) target = m.medio;
+  }
+  return target && target !== opts.lastStage ? target : '';
+}
+
+/**
+ * Decide si corresponde disparar la auto-llamada por voz (Vapi) para este score.
+ * Pura — sin I/O — (ver ALT-Media-4).
+ */
+export function autoLlamarPorScore(opts: {
+  score: number;
+  scoreLlamar: number;
+  autoCalled?: boolean;
+  humanTookOver?: boolean;
+}): boolean {
+  return opts.scoreLlamar > 0 && opts.score >= opts.scoreLlamar && !opts.autoCalled && !opts.humanTookOver;
+}
+
+/**
+ * Decide si corresponde auto-escalar la conversación a un asesor humano por score alto.
+ * Pura — sin I/O — (ver ALT-Media-4).
+ */
+export function autoEscalarPorScore(opts: {
+  score: number;
+  scoreEscalar: number;
+  escalatedByScore?: boolean;
+  humanTookOver?: boolean;
+  chatId?: string | number;
+}): boolean {
+  return (
+    opts.scoreEscalar > 0 &&
+    opts.score >= opts.scoreEscalar &&
+    !opts.escalatedByScore &&
+    !opts.humanTookOver &&
+    !!opts.chatId
+  );
+}
+
+/**
  * Evalúa la conversación, guarda el scoring en el CRM, mueve la etapa del deal
  * según el puntaje y auto-escala a un asesor si el score es alto.
  */
@@ -103,19 +162,15 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
       if (sess.responsableId === undefined) sess.responsableId = info.responsableId ?? -1;
     }
 
-    let m: { alto?: string; medio?: string } | undefined;
-    if (Object.keys(config.stageMap).length) {
-      m = config.stageMap[String(sess.dealCategory)];
-    } else if (config.stageScoreAlto || config.stageScoreMedio) {
-      m = { alto: config.stageScoreAlto, medio: config.stageScoreMedio }; // legacy de un solo embudo
-    }
-
-    let target = '';
-    if (m) {
-      if (evalData.score >= 70 && m.alto) target = m.alto;
-      else if (evalData.score >= 40 && m.medio) target = m.medio;
-    }
-    if (target && target !== sess.lastStage) {
+    const target = moverEtapaPorScore({
+      score: evalData.score,
+      dealCategory: sess.dealCategory ?? -1,
+      lastStage: sess.lastStage,
+      stageMap: config.stageMap,
+      stageScoreAlto: config.stageScoreAlto,
+      stageScoreMedio: config.stageScoreMedio,
+    });
+    if (target) {
       try {
         await moverEtapaDeal(crmEntities.deal, target, auth);
         sess.lastStage = target;
@@ -139,12 +194,7 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
   }
 
   // 2) Auto-LLAMAR por voz (Vapi) si el score alcanza el umbral (SCORE_LLAMAR), una sola vez por diálogo.
-  if (
-    config.scoreLlamar > 0 &&
-    evalData.score >= config.scoreLlamar &&
-    !sess.autoCalled &&
-    !sess.humanTookOver
-  ) {
+  if (autoLlamarPorScore({ score: evalData.score, scoreLlamar: config.scoreLlamar, autoCalled: sess.autoCalled, humanTookOver: sess.humanTookOver })) {
     const telefono = await getTelefonoCliente(crmEntities, auth);
     if (telefono) {
       sess.autoCalled = true; // marca antes de llamar para evitar duplicados en pases concurrentes
@@ -170,11 +220,13 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
 
   // 3) Auto-escalar a un asesor humano si el score alcanza el umbral.
   if (
-    config.scoreEscalar > 0 &&
-    evalData.score >= config.scoreEscalar &&
-    !sess.escalatedByScore &&
-    !sess.humanTookOver &&
-    chatId
+    autoEscalarPorScore({
+      score: evalData.score,
+      scoreEscalar: config.scoreEscalar,
+      escalatedByScore: sess.escalatedByScore,
+      humanTookOver: sess.humanTookOver,
+      chatId,
+    })
   ) {
     try {
       await callBitrix(

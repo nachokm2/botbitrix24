@@ -32,65 +32,71 @@ export async function ensureLeadForChat(chatId: any, auth: Auth): Promise<CrmEnt
   }
 }
 
+/** Fuente de un lead creado por el agente: cómo se etiqueta y titula (ver crearLeadDesde). */
+export type LeadFuente = {
+  /** Código de SOURCE_ID en Bitrix24. 'OTHER' cuando el canal no es un valor estándar del portal. */
+  sourceId: string;
+  /** Prefijo del título cuando SÍ hay programa de interés: "{prefijo}: {programa} – {nombre}". */
+  tituloPrefijo: string;
+  /** Título cuando NO hay programa de interés todavía. */
+  tituloGenerico: string;
+  /** Etiqueta para logs. */
+  label: string;
+};
+
 /**
- * Crea un LEAD para una conversación del CHAT WEB (no hay Open Lines que lo cree). Deja una nota con
- * lo capturado. Devuelve el id del lead o null. Las siguientes capturas usan actualizarDatosCliente.
+ * Crea un LEAD a partir de los datos capturados por el agente, para un canal que no tiene una
+ * entidad CRM previa que Bitrix24 haya vinculado por sí solo (a diferencia de Open Lines, que
+ * la crea vía CHAT_ENTITY_DATA_2). Implementación COMPARTIDA por Web Chat, Instagram, Messenger
+ * y Voz (ver ALT-Media-6 de la auditoría: antes era casi el mismo código copiado 3 veces).
+ * `telefonoFallback` es el teléfono del canal (p. ej. el número que llamó) cuando el cliente no
+ * dictó uno propio — solo lo usa Voz.
  */
-export async function crearLeadWeb(data: DatosCliente, auth: Auth): Promise<number | null> {
+export async function crearLeadDesde(
+  data: DatosCliente,
+  auth: Auth,
+  fuente: LeadFuente,
+  telefonoFallback?: string,
+): Promise<number | null> {
   const fields: any = {
     TITLE: data.programa_interes
-      ? `Web: ${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`
-      : `Consulta web${data.nombre ? ' – ' + data.nombre : ''}`,
-    SOURCE_ID: 'WEB',
+      ? `${fuente.tituloPrefijo}: ${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`
+      : `${fuente.tituloGenerico}${data.nombre ? ' – ' + data.nombre : ''}`,
+    SOURCE_ID: fuente.sourceId,
     OPENED: 'Y',
   };
   if (data.nombre) fields.NAME = data.nombre;
   if (data.apellido) fields.LAST_NAME = data.apellido;
   if (data.email) fields.EMAIL = [{ VALUE: String(data.email), VALUE_TYPE: 'WORK' }];
-  if (data.telefono) fields.PHONE = [{ VALUE: String(data.telefono), VALUE_TYPE: 'MOBILE' }];
+  const tel = data.telefono || telefonoFallback;
+  if (tel) fields.PHONE = [{ VALUE: String(tel), VALUE_TYPE: 'MOBILE' }];
   try {
     const id = await callCrm<string | number>('crm.lead.add', { fields, params: { REGISTER_SONET_EVENT: 'Y' } }, auth);
     const leadId = Number(id);
     if (!leadId) return null;
-    await addNota('lead', leadId, data, auth).catch((e) => log.warn('crearLeadWeb: nota falló', { err: String(e) }));
-    log.info('crearLeadWeb: lead creado', { leadId });
+    await addNota('lead', leadId, data, auth).catch((e) => log.warn(`crearLeadDesde(${fuente.label}): nota falló`, { err: String(e) }));
+    log.info(`crearLeadDesde(${fuente.label}): lead creado`, { leadId });
     return leadId;
   } catch (e) {
-    log.warn('crearLeadWeb falló', { err: String(e) });
+    log.warn(`crearLeadDesde(${fuente.label}) falló`, { err: String(e) });
     return null;
   }
 }
 
+/** Crea un LEAD para una conversación del CHAT WEB (no hay Open Lines que lo cree). */
+export function crearLeadWeb(data: DatosCliente, auth: Auth): Promise<number | null> {
+  return crearLeadDesde(data, auth, { sourceId: 'WEB', tituloPrefijo: 'Web', tituloGenerico: 'Consulta web', label: 'web' });
+}
+
 /**
- * Crea un LEAD para un mensaje directo de Instagram/Messenger (M4). Mismo patrón que crearLeadWeb:
- * SOURCE_ID='OTHER' porque "Instagram"/"Messenger" no son valores estándar del directorio de
- * fuentes de Bitrix24 en todos los portales (evita un error si el portal no los tiene definidos);
- * el canal queda igual identificable en el TÍTULO para el equipo comercial.
+ * Crea un LEAD para un mensaje directo de Instagram/Messenger (M4). SOURCE_ID='OTHER' porque
+ * "Instagram"/"Messenger" no son valores estándar del directorio de fuentes de Bitrix24 en todos
+ * los portales (evita un error si el portal no los tiene definidos); el canal queda igual
+ * identificable en el TÍTULO para el equipo comercial.
  */
-export async function crearLeadSocial(data: DatosCliente, auth: Auth, canal: 'instagram' | 'messenger'): Promise<number | null> {
+export function crearLeadSocial(data: DatosCliente, auth: Auth, canal: 'instagram' | 'messenger'): Promise<number | null> {
   const label = canal === 'instagram' ? 'Instagram' : 'Messenger';
-  const fields: any = {
-    TITLE: data.programa_interes
-      ? `${label}: ${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`
-      : `Consulta ${label}${data.nombre ? ' – ' + data.nombre : ''}`,
-    SOURCE_ID: 'OTHER',
-    OPENED: 'Y',
-  };
-  if (data.nombre) fields.NAME = data.nombre;
-  if (data.apellido) fields.LAST_NAME = data.apellido;
-  if (data.email) fields.EMAIL = [{ VALUE: String(data.email), VALUE_TYPE: 'WORK' }];
-  if (data.telefono) fields.PHONE = [{ VALUE: String(data.telefono), VALUE_TYPE: 'MOBILE' }];
-  try {
-    const id = await callCrm<string | number>('crm.lead.add', { fields, params: { REGISTER_SONET_EVENT: 'Y' } }, auth);
-    const leadId = Number(id);
-    if (!leadId) return null;
-    await addNota('lead', leadId, data, auth).catch((e) => log.warn('crearLeadSocial: nota falló', { err: String(e) }));
-    log.info('crearLeadSocial: lead creado', { leadId, canal });
-    return leadId;
-  } catch (e) {
-    log.warn('crearLeadSocial falló', { err: String(e), canal });
-    return null;
-  }
+  return crearLeadDesde(data, auth, { sourceId: 'OTHER', tituloPrefijo: label, tituloGenerico: `Consulta ${label}`, label: canal });
 }
 
 export async function addNota(type: CrmEntity['type'], id: number, data: DatosCliente, auth: Auth) {

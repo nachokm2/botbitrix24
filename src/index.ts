@@ -16,7 +16,7 @@ import { callsPage, callsData } from './routes/calls';
 import { initDb, dbRecentAudit, dbEnabled, startRetentionSweep } from './store/db';
 import { snapshot } from './obs/metrics';
 import { kvKind } from './store/kv';
-import { requireDashboardToken, requireAdminToken } from './routes/guard';
+import { requireDashboardToken, requireAdminToken, requireAllowedOrigin } from './routes/guard';
 import { verifyBitrixEvent } from './bitrix/verifyEvent';
 import { rateLimit } from './routes/rateLimit';
 
@@ -149,7 +149,7 @@ app.post('/vapi/llm', strictLimiter, verifyVapiSecret, vapiChatCompletions);
 
 // M3: canal Web Chat — widget embebible + su API. Público (chat de sitio) con rate-limit estricto por IP.
 app.get('/webchat', webchatPage);
-app.post('/webchat/message', strictLimiter, webchatMessage);
+app.post('/webchat/message', strictLimiter, requireAllowedOrigin, webchatMessage);
 
 // M4: canales Instagram/Messenger (Meta Graph API). GET = handshake de verificación (sin rate-limit,
 // Meta lo llama una sola vez al suscribir). POST = webhook de mensajes, con verificación de firma.

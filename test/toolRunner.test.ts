@@ -8,8 +8,16 @@ process.env.DATABASE_URL = '';
 process.env.NODE_ENV = 'test';
 
 const { executeTool } = await import('../src/ai/toolRunner');
+const { WHATSAPP_PROFILE } = await import('../src/core/channel');
 
-const ctx = { auth: { domain: '', access_token: '' }, dialogId: 't-1', botId: 1, crmEntities: {}, crmEntity: null } as any;
+const ctx = {
+  auth: { domain: '', access_token: '' },
+  conversationId: 't-1',
+  botId: 1,
+  crmEntities: {},
+  crmEntity: null,
+  profile: WHATSAPP_PROFILE,
+} as any;
 
 test('consultar_programas: devuelve catálogo real y limita a 20 con nota', async () => {
   const r = await executeTool('consultar_programas', { tipo: 'diplomado' }, ctx);

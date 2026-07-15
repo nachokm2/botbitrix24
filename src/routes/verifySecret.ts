@@ -1,14 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
-import crypto from 'crypto';
 import { config } from '../config';
 import { log } from '../log';
-
-/** Comparación de secretos en tiempo constante (evita timing attacks). */
-function safeEqual(a: string, b: string): boolean {
-  const ba = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
-}
+import { safeEqual } from '../util/crypto';
 
 /**
  * Middleware que exige un secreto compartido (config.vapiSecret) en un header dado,

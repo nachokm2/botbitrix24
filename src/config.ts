@@ -11,6 +11,15 @@ function parseStageMap(s?: string): Record<string, { alto?: string; medio?: stri
   }
 }
 
+// Extrae el origin (scheme+host+port) de una URL completa, para comparar contra el header Origin.
+function originOf(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return '';
+  }
+}
+
 // Mapa simple embudo→etapa (un solo STAGE_ID por embudo), ej: {"1":"C1:UC_ABC","3":"C3:UC_XYZ"}
 function parseSimpleStageMap(s?: string): Record<string, string> {
   if (!s) return {};
@@ -104,6 +113,18 @@ export const config = {
   voiceTaskMinutes: Number(process.env.VOICE_TASK_MINUTES ?? 15),
   // Asesor por defecto para la tarea si el Deal no tiene responsable (o es un lead nuevo). 0 = no crear.
   voiceTaskUserId: Number(process.env.VOICE_TASK_FALLBACK_USER ?? 0),
+
+  // Allowlist de orígenes permitidos para POST /webchat/message (defensa anti-abuso; ver ALT-Alta-2
+  // de la auditoría). Vacío = sin restricción (comportamiento previo). Incluye siempre el propio
+  // BASE_URL (el widget se sirve desde aquí mismo), más los que se agreguen en WEBCHAT_ALLOWED_ORIGINS.
+  webchatAllowedOrigins: Array.from(
+    new Set(
+      [
+        ...(process.env.BASE_URL ? [originOf(process.env.BASE_URL)] : []),
+        ...(process.env.WEBCHAT_ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()),
+      ].filter(Boolean),
+    ),
+  ),
 
   // ── M4: canales Instagram/Messenger (Meta Graph API) ──
   // Verificación del webhook (handshake GET, hub.verify_token) — cualquier string que definas al suscribir el webhook en Meta.

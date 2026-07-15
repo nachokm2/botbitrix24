@@ -1,14 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
-import crypto from 'crypto';
 import { config } from '../config';
 import { log } from '../log';
-
-/** Comparación de secretos en tiempo constante (evita timing attacks). */
-function safeEqual(a: string, b: string): boolean {
-  const ba = Buffer.from(a);
-  const bb = Buffer.from(b);
-  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
-}
+import { safeEqual } from '../util/crypto';
 
 /**
  * Fábrica de middleware que exige un token (en un header o query param), comparado en tiempo constante.
@@ -36,3 +29,31 @@ export const requireDashboardToken = tokenGuard(() => config.dashboardToken, 'x-
 
 /** Protege las utilidades administrativas (/setup/*). Token por header `x-admin-token` o `?token=`. */
 export const requireAdminToken = tokenGuard(() => config.adminToken, 'x-admin-token', 'token', 'ADMIN_TOKEN');
+
+/** Origin de un header Referer (p. ej. "https://x.com/pagina" → "https://x.com"), o '' si no es una URL válida. */
+function originOfReferer(referer: string): string {
+  try {
+    return new URL(referer).origin;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Restringe un endpoint público (p. ej. /webchat/message) a un allowlist de orígenes (config.webchatAllowedOrigins),
+ * como defensa adicional al rate-limit contra abuso desde sitios no autorizados (ver ALT-Alta-2 de la auditoría).
+ * Si el allowlist está vacío (sin BASE_URL ni WEBCHAT_ALLOWED_ORIGINS configurados), no restringe: comportamiento
+ * previo sin cambios. Esto NO es una barrera de seguridad fuerte (un cliente no-navegador puede falsear el header
+ * Origin), es defensa en profundidad contra el abuso casual desde otros sitios vía navegador.
+ */
+export function requireAllowedOrigin(req: Request, res: Response, next: NextFunction) {
+  const allowed = config.webchatAllowedOrigins;
+  if (!allowed.length) return next();
+  const referer = req.header('referer') ?? '';
+  const origin = req.header('origin') || (referer ? originOfReferer(referer) : '');
+  if (!origin || !allowed.includes(origin)) {
+    log.warn('requireAllowedOrigin: origen no permitido', { origin: origin || '(sin header)' });
+    return res.status(403).json({ ok: false, error: 'origen no permitido' });
+  }
+  next();
+}

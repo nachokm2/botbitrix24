@@ -21,15 +21,24 @@ mock.module('../src/ai/client.ts', {
 
 const { runAgentTurn } = await import('../src/ai/agentLoop');
 const { getHistory } = await import('../src/ai/memory');
+const { WHATSAPP_PROFILE } = await import('../src/core/channel');
 
-const ctx = () => ({ auth: { domain: '', access_token: '' }, dialogId: '', botId: 1, crmEntities: {}, crmEntity: null }) as any;
+const ctx = () =>
+  ({
+    auth: { domain: '', access_token: '' },
+    conversationId: '',
+    botId: 1,
+    crmEntities: {},
+    crmEntity: null,
+    profile: WHATSAPP_PROFILE,
+  }) as any;
 
 const textResp = (text: string) => ({ content: [{ type: 'text', text }], usage: { input_tokens: 5, output_tokens: 7 } });
 const toolResp = (id: string, name: string, input: any) => ({ content: [{ type: 'tool_use', id, name, input }], usage: {} });
 
 test('runAgentTurn: respuesta de solo texto se devuelve y se guarda en memoria', async () => {
   impl = async () => textResp('¡Hola! ¿En qué puedo ayudarte con nuestros postgrados?');
-  const c = { ...ctx(), dialogId: 'al-text' };
+  const c = { ...ctx(), conversationId: 'al-text' };
   const reply = await runAgentTurn(c, 'hola');
   assert.equal(reply, '¡Hola! ¿En qué puedo ayudarte con nuestros postgrados?');
   const hist = await getHistory('al-text');
@@ -45,7 +54,7 @@ test('runAgentTurn: ejecuta una tool real (consultar_programas) y continúa con 
     if (step === 1) return toolResp('tu1', 'consultar_programas', { tipo: 'magister', texto: 'MBA' });
     return textResp('Tenemos el MBA en modalidad online y presencial.');
   };
-  const reply = await runAgentTurn({ ...ctx(), dialogId: 'al-tool' }, 'quiero un MBA');
+  const reply = await runAgentTurn({ ...ctx(), conversationId: 'al-tool' }, 'quiero un MBA');
   assert.equal(reply, 'Tenemos el MBA en modalidad online y presencial.');
   assert.equal(step, 2, 'llama al modelo 2 veces: decide la tool y luego responde');
   // El segundo prompt al modelo debe incluir el tool_result de la ejecución real.
@@ -62,7 +71,7 @@ test('runAgentTurn: guardrail anti-bucle corta a los 5 pasos y deriva', async ()
     step++;
     return toolResp('tu' + step, 'consultar_programas', { tipo: 'diplomado' }); // nunca devuelve texto
   };
-  const reply = await runAgentTurn({ ...ctx(), dialogId: 'al-loop' }, 'dame info');
+  const reply = await runAgentTurn({ ...ctx(), conversationId: 'al-loop' }, 'dame info');
   assert.equal(step, 5, 'respeta el tope de MAX_STEPS');
   assert.match(reply, /asesor/i, 'cae al mensaje de derivación');
 });
@@ -71,6 +80,6 @@ test('runAgentTurn: error del modelo devuelve mensaje de fallback (no revienta)'
   impl = async () => {
     throw new Error('boom de la API');
   };
-  const reply = await runAgentTurn({ ...ctx(), dialogId: 'al-error' }, 'hola');
+  const reply = await runAgentTurn({ ...ctx(), conversationId: 'al-error' }, 'hola');
   assert.match(reply, /inconveniente técnico/i);
 });

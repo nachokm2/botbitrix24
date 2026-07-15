@@ -7,8 +7,9 @@ import { log } from '../log';
 
 // Rutas del canal Web Chat (M3): API de mensaje + widget embebible.
 // Endpoint público (es un chat de sitio): protegido con rate-limit por IP (en index.ts) + un tope de
-// mensajes por conversación para acotar costo/abuso. Endurecimiento adicional (allowlist de dominios /
-// CAPTCHA) queda como follow-up de producción.
+// mensajes por conversación para acotar costo/abuso, más un allowlist de Origin/Referer opcional
+// (requireAllowedOrigin en index.ts, ver ALT-Alta-2 de la auditoría — vacío si no hay BASE_URL/
+// WEBCHAT_ALLOWED_ORIGINS configurados, para no romper el comportamiento previo).
 
 // El id de conversación DEBE tener el prefijo "wc-": así namespacea la memoria del visitante y evita
 // que un cliente malicioso pase un dialogId de otro canal (p. ej. Open Lines) para leer su historial.
