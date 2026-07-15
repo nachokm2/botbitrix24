@@ -9,6 +9,7 @@ import { registerBotManual, unregisterBotManual, listDealStages, dealResponsable
 import { startCallSync } from './crm/callSync';
 import { vapiEvents, voiceOutbound, verifyVapiSecret } from './routes/vapi';
 import { vapiChatCompletions } from './routes/vapiLlm';
+import { webchatMessage, webchatPage } from './routes/webchat';
 import { dashboardPage, metricsSummary } from './routes/dashboard';
 import { callsPage, callsData } from './routes/calls';
 import { initDb, dbRecentAudit, dbEnabled, startRetentionSweep } from './store/db';
@@ -142,6 +143,10 @@ app.post('/voice/outbound', strictLimiter, verifyVapiSecret, voiceOutbound); // 
 // Vapi llama a {model.url}/chat/completions; aceptamos también /vapi/llm por conveniencia.
 app.post('/vapi/llm/chat/completions', strictLimiter, verifyVapiSecret, vapiChatCompletions);
 app.post('/vapi/llm', strictLimiter, verifyVapiSecret, vapiChatCompletions);
+
+// M3: canal Web Chat — widget embebible + su API. Público (chat de sitio) con rate-limit estricto por IP.
+app.get('/webchat', webchatPage);
+app.post('/webchat/message', strictLimiter, webchatMessage);
 
 // Inicializa Postgres (auditoría + espejo de llamadas) y arranca el scheduler de sync de llamadas.
 initDb()

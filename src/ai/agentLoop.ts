@@ -77,11 +77,19 @@ export async function runConversation(
 }
 
 /**
- * Adaptador de CHAT (WhatsApp/Open Lines): envuelve el motor con la memoria en Redis.
- * Comportamiento histórico intacto (perfil por defecto: WhatsApp).
+ * Adaptador de CHAT de texto (WhatsApp/Open Lines y Web Chat): envuelve el motor con la memoria en
+ * Redis (por ctx.dialogId). Comportamiento histórico intacto (perfil por defecto: WhatsApp).
+ * `execTool` permite a cada canal inyectar su ejecutor de herramientas sin duplicar el manejo de memoria;
+ * por defecto usa el ejecutor de chat (executeTool).
  */
-export async function runAgentTurn(ctx: AgentCtx, userText: string, priorContext = ''): Promise<string> {
+export async function runAgentTurn(
+  ctx: AgentCtx,
+  userText: string,
+  priorContext = '',
+  execTool?: ToolExecutor,
+): Promise<string> {
   const profile = ctx.profile ?? WHATSAPP_PROFILE;
+  const exec = execTool ?? ((name, input) => executeTool(name, input, ctx));
   try {
     const history = await getHistory(ctx.dialogId);
     const messages: any[] = [];
@@ -102,7 +110,7 @@ export async function runAgentTurn(ctx: AgentCtx, userText: string, priorContext
     const { text, messages: finalMsgs } = await runConversation(
       { profile, auditId: ctx.dialogId, crmEntity: ctx.crmEntity ?? null },
       messages,
-      (name, input) => executeTool(name, input, ctx),
+      exec,
     );
     await setHistory(ctx.dialogId, finalMsgs);
     return text;

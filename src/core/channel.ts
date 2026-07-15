@@ -54,6 +54,21 @@ export type AgentContext = {
 // migrar voz a Custom LLM (M2), el motor use esta MISMA fuente de verdad y deje de divergir.
 const VOICE_SYSTEM_PROMPT_M2 = `Asistente de voz de Postgrados, Universidad Autónoma de Chile. Español de Chile, cálido. Respuestas de 1–2 frases, una pregunta a la vez, sin URLs ni listas. Responde sobre programas, aranceles y requisitos SOLO con las herramientas; si un dato no aparece, dilo y ofrece derivar a un asesor; nunca inventes nombres, precios ni fechas. Pide en orden: nombre, luego correo, luego teléfono, y guárdalos con 'registrar_interes_crm' apenas los tengas. Si piden un asesor o hay interés alto, usa 'transferir_a_asesor' (nombra al asesor si la herramienta lo devuelve; nunca lo inventes). Al terminar, despídete corto.`;
 
+// Prompt del canal Web Chat: como el de WhatsApp pero PUEDE compartir URLs (es web) y NO ofrece
+// llamada telefónica (no habilita solicitar_llamada); en su lugar ofrece derivar a un asesor.
+const WEBCHAT_SYSTEM_PROMPT = `Eres «Asistente de Postgrados», el asesor comercial virtual de la Universidad Autónoma de Chile (unidad de Postgrados). Atiendes a interesados por el CHAT DEL SITIO WEB, en español de Chile, con un tono cercano, profesional y resolutivo.
+
+OBJETIVOS (en orden):
+1. Saluda y entiende qué busca la persona: área de interés, modalidad y su situación.
+2. Informa sobre programas usando SIEMPRE la herramienta "consultar_programas". Nunca inventes nombres, duraciones, modalidades, precios ni becas. Para el detalle de un programa (arancel, matrícula, requisitos, malla) usa "detalle_programa". Al ser chat web, PUEDES compartir la URL oficial del programa cuando ayude.
+3. Captura y guarda datos con "registrar_interes_crm" a medida que la persona entregue su nombre, correo, teléfono o programa de interés (llámala apenas tengas un dato nuevo; se crea/actualiza su ficha en el CRM). Pide los datos de forma natural, UNA cosa a la vez, explicando que es para que un asesor le envíe información y lo contacte. Si no quiere dar un dato, no insistas.
+4. Usa "escalar_a_humano" si la persona pide hablar con alguien, muestra intención alta de matricularse, o pregunta por precios/becas/fechas que no tienes. Confírmale que un asesor lo contactará.
+
+REGLAS:
+- Respuestas breves y claras (2 a 5 frases). Una sola pregunta a la vez.
+- No prometas cupos, descuentos ni resultados. No entregues información que no provenga de las herramientas.
+- Cuida los datos personales: pídelos solo cuando aporten al objetivo.`;
+
 const MORE_NOTE_CHAT = 'Hay más resultados; pide al usuario que afine por facultad o tema.';
 const MORE_NOTE_VOICE = 'Hay más resultados; pide afinar por facultad o tema.';
 const EMPTY_NOTE_VOICE = 'No hay coincidencias; sugiere afinar el tema o derivar a un asesor. No inventes programas.';
@@ -87,10 +102,25 @@ export const VOICE_PROFILE: ChannelProfile = {
   },
 };
 
+/** Web Chat (widget del sitio): canal de texto como WhatsApp, pero puede mostrar URLs y no ofrece
+ *  llamada telefónica. Mismo motor; solo cambia el perfil y el adaptador (src/channels/webchat.ts). */
+export const WEBCHAT_PROFILE: ChannelProfile = {
+  id: 'webchat',
+  label: 'Web Chat',
+  model: config.model, // Claude Sonnet
+  maxResponseTokens: 1024,
+  systemPrompt: WEBCHAT_SYSTEM_PROMPT,
+  toolNames: ['consultar_programas', 'detalle_programa', 'registrar_interes_crm', 'escalar_a_humano'],
+  catalog: {
+    consultar: { limit: 20, verbose: true, wrapOk: true, moreNote: MORE_NOTE_CHAT },
+    detalle: 'full',
+  },
+};
+
 const PROFILES: Record<ChannelId, ChannelProfile | undefined> = {
   whatsapp: WHATSAPP_PROFILE,
   voice: VOICE_PROFILE,
-  webchat: undefined, // M3
+  webchat: WEBCHAT_PROFILE, // M3
   instagram: undefined, // M4
   messenger: undefined, // M4
 };

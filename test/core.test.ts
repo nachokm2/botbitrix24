@@ -22,7 +22,8 @@ test('perfiles: WhatsApp y Voz declaran capacidades distintas sobre el mismo mot
   assert.ok(WHATSAPP_PROFILE.toolNames.includes('solicitar_llamada'));
   assert.ok(VOICE_PROFILE.toolNames.includes('transferir_a_asesor'));
   assert.equal(profileFor('voice').id, 'voice');
-  assert.throws(() => profileFor('webchat'), /perfil/i);
+  assert.equal(profileFor('webchat').id, 'webchat'); // M3
+  assert.throws(() => profileFor('instagram'), /perfil/i); // aún sin configurar (M4)
 });
 
 test('consultar_programas (perfil WhatsApp): envuelve ok, limita a 20, objetos completos', () => {

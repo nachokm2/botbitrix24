@@ -32,6 +32,35 @@ export async function ensureLeadForChat(chatId: any, auth: Auth): Promise<CrmEnt
   }
 }
 
+/**
+ * Crea un LEAD para una conversación del CHAT WEB (no hay Open Lines que lo cree). Deja una nota con
+ * lo capturado. Devuelve el id del lead o null. Las siguientes capturas usan actualizarDatosCliente.
+ */
+export async function crearLeadWeb(data: DatosCliente, auth: Auth): Promise<number | null> {
+  const fields: any = {
+    TITLE: data.programa_interes
+      ? `Web: ${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`
+      : `Consulta web${data.nombre ? ' – ' + data.nombre : ''}`,
+    SOURCE_ID: 'WEB',
+    OPENED: 'Y',
+  };
+  if (data.nombre) fields.NAME = data.nombre;
+  if (data.apellido) fields.LAST_NAME = data.apellido;
+  if (data.email) fields.EMAIL = [{ VALUE: String(data.email), VALUE_TYPE: 'WORK' }];
+  if (data.telefono) fields.PHONE = [{ VALUE: String(data.telefono), VALUE_TYPE: 'MOBILE' }];
+  try {
+    const id = await callCrm<string | number>('crm.lead.add', { fields, params: { REGISTER_SONET_EVENT: 'Y' } }, auth);
+    const leadId = Number(id);
+    if (!leadId) return null;
+    await addNota('lead', leadId, data, auth).catch((e) => log.warn('crearLeadWeb: nota falló', { err: String(e) }));
+    log.info('crearLeadWeb: lead creado', { leadId });
+    return leadId;
+  } catch (e) {
+    log.warn('crearLeadWeb falló', { err: String(e) });
+    return null;
+  }
+}
+
 export async function addNota(type: CrmEntity['type'], id: number, data: DatosCliente, auth: Auth) {
   const nota =
     '📌 Datos capturados por IA\n' +
