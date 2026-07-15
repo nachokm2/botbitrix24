@@ -25,7 +25,7 @@ Vapi/Twilio (voz) · Railway. Ejecutado con `tsx` (sin build). Tests con `node:t
 | **M1** | Núcleo conversacional único: `ChannelProfile` + `AgentContext` + orquestador channel-agnostic; catálogo unificado | ✅ desplegado |
 | **M2** | Voz al núcleo vía **Vapi Custom LLM** (mismo motor que WhatsApp); modo nativo queda como fallback | ✅ desplegado · ⚠️ falta validación EN VIVO con cuentas reales (ver [`../voice/README.md`](../voice/README.md)) |
 | **M3** | Canal **Web Chat**: widget embebible + adaptador; primer canal 100% nuevo, valida el patrón | ✅ desplegado |
-| **M4** | Instagram + Messenger (Meta Graph API) | ⏸️ pendiente (requiere aprobación de permisos de Meta) |
+| **M4** | Instagram + Messenger (Meta Graph API): webhook con verificación de firma + Send API | ✅ código, ⚠️ falta aprobación de permisos de Meta (`pages_messaging`, `instagram_manage_messages`) + validación EN VIVO |
 | **M5** | Servicio de **recuperación único** con mejor recall (sinónimos/áreas + ranking), determinístico, pgvector-ready | ✅ desplegado |
 
 ---
@@ -38,7 +38,7 @@ flowchart TB
     WA["WhatsApp / Open Lines\nroutes/botEvents.ts"]
     VZ["Voz / Vapi Custom LLM\nroutes/vapiLlm.ts + voice/vapiTools.ts"]
     WC["Web Chat\nchannels/webchat.ts + routes/webchat.ts"]
-    IG["Instagram / Messenger\n(M4, pendiente)"]
+    IG["Instagram / Messenger\nchannels/meta.ts + routes/meta.ts"]
   end
 
   subgraph CORE["Núcleo conversacional (src/core, src/ai)"]
@@ -57,7 +57,7 @@ flowchart TB
   WA --> PROF
   VZ --> PROF
   WC --> PROF
-  IG -.-> PROF
+  IG --> PROF
   PROF --> ENG
   ENG --> TOOLS
   ENG --> RET
@@ -70,7 +70,7 @@ flowchart TB
 
 - **`src/core/channel.ts`** — `ChannelProfile` (modelo, `maxResponseTokens`, `systemPrompt`, `toolNames`,
   presentación del catálogo) y `AgentContext` (contexto de turno independiente del canal). Perfiles:
-  `WHATSAPP_PROFILE`, `VOICE_PROFILE`, `WEBCHAT_PROFILE`; `profileFor(id)`.
+  `WHATSAPP_PROFILE`, `VOICE_PROFILE`, `WEBCHAT_PROFILE`, `INSTAGRAM_PROFILE`, `MESSENGER_PROFILE`; `profileFor(id)`.
 - **`src/ai/agentLoop.ts`** — el **motor**:
   - `runConversation(opts, messages, execTool)`: bucle de razonamiento Claude + tool-calling
     (guardrail de 5 pasos), con el comportamiento tomado del perfil y el **ejecutor de tools inyectable**.
@@ -88,6 +88,8 @@ flowchart TB
 | **Voz (Custom LLM)** | `POST /vapi/llm/chat/completions` (OpenAI) | `VOICE_PROFILE` | `runVapiTool` (`voice/vapiTools.ts`) | Nuestro motor (`runConversation`); Vapi hace STT/TTS |
 | **Voz (nativo, fallback)** | `POST /vapi/events` (tool-calls) | — (prompt en Vapi) | `runVapiTool` | Claude dentro de Vapi |
 | **Web Chat** | `POST /webchat/message` + widget `GET /webchat` | `WEBCHAT_PROFILE` | `webchatExecutor` (`channels/webchat.ts`) | Nuestro motor (`runAgentTurn`) |
+| **Instagram** | `POST /webhooks/meta` (`object:"instagram"`), firma `X-Hub-Signature-256` | `INSTAGRAM_PROFILE` | `metaExecutor` (`channels/meta.ts`) | Nuestro motor (`runAgentTurn`); respuesta por la Send API |
+| **Messenger** | `POST /webhooks/meta` (`object:"page"`), firma `X-Hub-Signature-256` | `MESSENGER_PROFILE` | `metaExecutor` (`channels/meta.ts`) | Nuestro motor (`runAgentTurn`); respuesta por la Send API |
 
 ### 3.3 Estado compartido (M0 — para escalar a >1 réplica)
 
@@ -126,7 +128,7 @@ Un canal nuevo = **perfil + adaptador + identidad**, reusando el motor. Web Chat
 ```bash
 npm install
 npm run typecheck        # tsc --noEmit
-npm test                 # 54 tests (node:test; corren en modo memoria, sin Redis/Postgres)
+npm test                 # 61 tests (node:test; corren en modo memoria, sin Redis/Postgres)
 npm run dev              # servidor local (requiere .env)
 npm run smoke:anthropic  # valida la API de Anthropic
 npm run smoke:bitrix     # valida el acceso al CRM
@@ -134,16 +136,21 @@ npm run smoke:bitrix     # valida el acceso al CRM
 
 - **Tests** (`test/*.test.ts`): puros (`pure`), infraestructura M0 (`infra`), núcleo (`core`), motor
   (`agentLoop`), tools de chat/voz (`toolRunner`, `vapiTools`), escritura CRM (`crmWrite`), voz Custom LLM
-  (`vapiLlm`), web chat (`webchat`) y recuperación/golden set (`retrieval`). El mocking de módulos ESM usa
-  `node --experimental-test-module-mocks --import tsx` (ya en el script `test`).
+  (`vapiLlm`), web chat (`webchat`), Instagram/Messenger (`meta`) y recuperación/golden set (`retrieval`).
+  El mocking de módulos ESM usa `node --experimental-test-module-mocks --import tsx` (ya en el script `test`).
 - **CI** (`.github/workflows/ci.yml`): typecheck + test en cada push/PR.
 
 ---
 
 ## 6. Pendientes
 
-1. **M4 — Instagram + Messenger.** Mismo patrón que Web Chat; identidad por `PSID`. Bloqueado por la
-   aprobación de permisos de la app de Meta (trámite externo).
+1. **M4 — Instagram + Messenger: código listo, falta la parte externa.** `src/channels/meta.ts` +
+   `src/routes/meta.ts` (webhook con verificación de firma `X-Hub-Signature-256` + Send API), perfiles
+   en `core/channel.ts`, `crearLeadSocial` en `crm/crmWrite.ts`, tests en `test/meta.test.ts`. Falta:
+   (a) crear la app de Meta y pedir revisión de los permisos `pages_messaging` / `instagram_basic` /
+   `instagram_manage_messages` (trámite externo, no técnico); (b) suscribir el webhook a
+   `https://<host>/webhooks/meta` con `META_VERIFY_TOKEN`; (c) definir `META_APP_SECRET` y
+   `META_PAGE_ACCESS_TOKEN` en Railway; (d) probar en vivo con una cuenta de prueba de Meta.
 2. **Validación EN VIVO de la voz (M2).** El endpoint Custom LLM está probado contra el modelo, pero una
    llamada real necesita Vapi + Twilio +56 conectados. Checklist en [`../voice/README.md`](../voice/README.md).
    Pendientes conocidos: transferencia física de la llamada (`transferCall` desde Custom LLM) y streaming

@@ -61,6 +61,38 @@ export async function crearLeadWeb(data: DatosCliente, auth: Auth): Promise<numb
   }
 }
 
+/**
+ * Crea un LEAD para un mensaje directo de Instagram/Messenger (M4). Mismo patrón que crearLeadWeb:
+ * SOURCE_ID='OTHER' porque "Instagram"/"Messenger" no son valores estándar del directorio de
+ * fuentes de Bitrix24 en todos los portales (evita un error si el portal no los tiene definidos);
+ * el canal queda igual identificable en el TÍTULO para el equipo comercial.
+ */
+export async function crearLeadSocial(data: DatosCliente, auth: Auth, canal: 'instagram' | 'messenger'): Promise<number | null> {
+  const label = canal === 'instagram' ? 'Instagram' : 'Messenger';
+  const fields: any = {
+    TITLE: data.programa_interes
+      ? `${label}: ${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`
+      : `Consulta ${label}${data.nombre ? ' – ' + data.nombre : ''}`,
+    SOURCE_ID: 'OTHER',
+    OPENED: 'Y',
+  };
+  if (data.nombre) fields.NAME = data.nombre;
+  if (data.apellido) fields.LAST_NAME = data.apellido;
+  if (data.email) fields.EMAIL = [{ VALUE: String(data.email), VALUE_TYPE: 'WORK' }];
+  if (data.telefono) fields.PHONE = [{ VALUE: String(data.telefono), VALUE_TYPE: 'MOBILE' }];
+  try {
+    const id = await callCrm<string | number>('crm.lead.add', { fields, params: { REGISTER_SONET_EVENT: 'Y' } }, auth);
+    const leadId = Number(id);
+    if (!leadId) return null;
+    await addNota('lead', leadId, data, auth).catch((e) => log.warn('crearLeadSocial: nota falló', { err: String(e) }));
+    log.info('crearLeadSocial: lead creado', { leadId, canal });
+    return leadId;
+  } catch (e) {
+    log.warn('crearLeadSocial falló', { err: String(e), canal });
+    return null;
+  }
+}
+
 export async function addNota(type: CrmEntity['type'], id: number, data: DatosCliente, auth: Auth) {
   const nota =
     '📌 Datos capturados por IA\n' +

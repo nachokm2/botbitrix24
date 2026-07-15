@@ -69,6 +69,23 @@ REGLAS:
 - No prometas cupos, descuentos ni resultados. No entregues información que no provenga de las herramientas.
 - Cuida los datos personales: pídelos solo cuando aporten al objetivo.`;
 
+// Prompt del canal Meta (Instagram/Messenger): como WhatsApp (mismos objetivos y flujo de datos),
+// pero DM de red social: tono más casual, emojis permitidos, y sin "solicitar_llamada" (no tenemos
+// el teléfono del usuario hasta que lo entregue por registrar_interes_crm).
+const META_SYSTEM_PROMPT = (red: 'Instagram' | 'Messenger') =>
+  `Eres «Asistente de Postgrados», el asesor comercial virtual de la Universidad Autónoma de Chile (unidad de Postgrados). Atiendes por ${red} (mensaje directo), en español de Chile, con un tono cercano y casual (emojis con moderación está bien), profesional y resolutivo.
+
+OBJETIVOS (en orden):
+1. Saluda y entiende qué busca la persona: área de interés, modalidad y su situación.
+2. Informa sobre programas usando SIEMPRE la herramienta "consultar_programas". Nunca inventes nombres, duraciones, modalidades, precios ni becas. Para el detalle de un programa (arancel, matrícula, requisitos, malla) usa "detalle_programa".
+3. Captura y guarda datos con "registrar_interes_crm" a medida que la persona entregue su nombre, correo, teléfono o programa de interés (llámala apenas tengas un dato nuevo; se crea/actualiza su ficha en el CRM). Pide los datos de forma natural, UNA cosa a la vez, explicando que es para que un asesor le envíe información y lo contacte. Si no quiere dar un dato, no insistas.
+4. Usa "escalar_a_humano" si la persona pide hablar con alguien, muestra intención alta de matricularse, o pregunta por precios/becas/fechas que no tienes. Confírmale que un asesor lo contactará.
+
+REGLAS:
+- Respuestas breves (2 a 4 frases). Una sola pregunta a la vez.
+- No prometas cupos, descuentos ni resultados. No entregues información que no provenga de las herramientas.
+- Cuida los datos personales: pídelos solo cuando aporten al objetivo.`;
+
 const MORE_NOTE_CHAT = 'Hay más resultados; pide al usuario que afine por facultad o tema.';
 const MORE_NOTE_VOICE = 'Hay más resultados; pide afinar por facultad o tema.';
 const EMPTY_NOTE_VOICE = 'No hay coincidencias; sugiere afinar el tema o derivar a un asesor. No inventes programas.';
@@ -117,12 +134,40 @@ export const WEBCHAT_PROFILE: ChannelProfile = {
   },
 };
 
+/** Instagram (mensaje directo vía Meta Graph API). Mismo motor y tools que Web Chat; identidad por PSID. */
+export const INSTAGRAM_PROFILE: ChannelProfile = {
+  id: 'instagram',
+  label: 'Instagram (DM)',
+  model: config.model, // Claude Sonnet
+  maxResponseTokens: 400,
+  systemPrompt: META_SYSTEM_PROMPT('Instagram'),
+  toolNames: ['consultar_programas', 'detalle_programa', 'registrar_interes_crm', 'escalar_a_humano'],
+  catalog: {
+    consultar: { limit: 10, verbose: false, wrapOk: true, moreNote: MORE_NOTE_CHAT },
+    detalle: 'voice', // reducido: más apto para un DM breve que el objeto completo
+  },
+};
+
+/** Messenger (mensaje directo vía Meta Graph API). Mismo motor y tools que Web Chat; identidad por PSID. */
+export const MESSENGER_PROFILE: ChannelProfile = {
+  id: 'messenger',
+  label: 'Messenger (DM)',
+  model: config.model, // Claude Sonnet
+  maxResponseTokens: 400,
+  systemPrompt: META_SYSTEM_PROMPT('Messenger'),
+  toolNames: ['consultar_programas', 'detalle_programa', 'registrar_interes_crm', 'escalar_a_humano'],
+  catalog: {
+    consultar: { limit: 10, verbose: false, wrapOk: true, moreNote: MORE_NOTE_CHAT },
+    detalle: 'voice',
+  },
+};
+
 const PROFILES: Record<ChannelId, ChannelProfile | undefined> = {
   whatsapp: WHATSAPP_PROFILE,
   voice: VOICE_PROFILE,
   webchat: WEBCHAT_PROFILE, // M3
-  instagram: undefined, // M4
-  messenger: undefined, // M4
+  instagram: INSTAGRAM_PROFILE, // M4
+  messenger: MESSENGER_PROFILE, // M4
 };
 
 export function profileFor(id: ChannelId): ChannelProfile {

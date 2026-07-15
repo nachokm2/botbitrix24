@@ -10,6 +10,7 @@ import { startCallSync } from './crm/callSync';
 import { vapiEvents, voiceOutbound, verifyVapiSecret } from './routes/vapi';
 import { vapiChatCompletions } from './routes/vapiLlm';
 import { webchatMessage, webchatPage } from './routes/webchat';
+import { metaVerify, verifyMetaSignature, metaWebhook } from './routes/meta';
 import { dashboardPage, metricsSummary } from './routes/dashboard';
 import { callsPage, callsData } from './routes/calls';
 import { initDb, dbRecentAudit, dbEnabled, startRetentionSweep } from './store/db';
@@ -23,7 +24,9 @@ const app = express();
 app.set('trust proxy', 1); // detrás del proxy de Railway → req.ip refleja X-Forwarded-For
 // Bitrix envía eventos como x-www-form-urlencoded con claves anidadas (data[PARAMS][...]).
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
-app.use(express.json({ limit: '2mb' }));
+// Captura el body crudo (verify) además de parsearlo: lo necesita verifyMetaSignature (M4) para
+// recalcular el HMAC exactamente sobre los bytes que Meta firmó.
+app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { (req as unknown as { rawBody?: Buffer }).rawBody = buf; } }));
 
 // Correlación: asigna un requestId por petición y lo propaga (AsyncLocalStorage) a todos los logs.
 app.use((req, res, next) => {
@@ -147,6 +150,11 @@ app.post('/vapi/llm', strictLimiter, verifyVapiSecret, vapiChatCompletions);
 // M3: canal Web Chat — widget embebible + su API. Público (chat de sitio) con rate-limit estricto por IP.
 app.get('/webchat', webchatPage);
 app.post('/webchat/message', strictLimiter, webchatMessage);
+
+// M4: canales Instagram/Messenger (Meta Graph API). GET = handshake de verificación (sin rate-limit,
+// Meta lo llama una sola vez al suscribir). POST = webhook de mensajes, con verificación de firma.
+app.get('/webhooks/meta', metaVerify);
+app.post('/webhooks/meta', strictLimiter, verifyMetaSignature, metaWebhook);
 
 // Inicializa Postgres (auditoría + espejo de llamadas) y arranca el scheduler de sync de llamadas.
 initDb()

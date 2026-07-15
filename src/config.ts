@@ -104,4 +104,13 @@ export const config = {
   voiceTaskMinutes: Number(process.env.VOICE_TASK_MINUTES ?? 15),
   // Asesor por defecto para la tarea si el Deal no tiene responsable (o es un lead nuevo). 0 = no crear.
   voiceTaskUserId: Number(process.env.VOICE_TASK_FALLBACK_USER ?? 0),
+
+  // ── M4: canales Instagram/Messenger (Meta Graph API) ──
+  // Verificación del webhook (handshake GET, hub.verify_token) — cualquier string que definas al suscribir el webhook en Meta.
+  metaVerifyToken: process.env.META_VERIFY_TOKEN ?? '',
+  // App Secret de la app de Meta: firma cada POST del webhook (X-Hub-Signature-256); verifica su origen.
+  metaAppSecret: process.env.META_APP_SECRET ?? '',
+  // Page Access Token (con scopes pages_messaging + instagram_basic + instagram_manage_messages):
+  // se usa para enviar la respuesta por la Send API, tanto a Messenger como a Instagram.
+  metaPageAccessToken: process.env.META_PAGE_ACCESS_TOKEN ?? '',
 };
