@@ -1,30 +1,36 @@
-# PoC F1 — Agente Comercial Bitrix24 (bot de Open Lines sobre ChatApp)
+# Agente Comercial Omnicanal — Postgrados UA (sobre Bitrix24)
 
-Prueba de concepto para validar la **Opción A**: un **chatbot de Open Lines** (`imbot` TYPE=O), registrado por una **app local de Bitrix24**, que recibe los mensajes de **WhatsApp que entran por ChatApp** y responde un **eco** (que debe llegar de vuelta a WhatsApp).
+Agente comercial conversacional para el área de Postgrados de la Universidad Autónoma de Chile. Un **único núcleo conversacional** (Claude + tool-calling) atiende **cinco canales** — WhatsApp (vía Open Lines/ChatApp), voz telefónica (Vapi), Web Chat, Instagram y Messenger — integrado a **Bitrix24** como CRM de registro (leads, deals, tareas, telefonía).
 
-Stack: **Node.js + TypeScript**, hosting en **Railway**, IA por **API de Anthropic** (smoke test). Sin Vibecode.
+Stack: **Node.js + TypeScript**, hosting en **Railway**, IA por **Anthropic Claude**, **Redis** + **PostgreSQL** para persistencia.
 
-> Objetivo: aprobar los **3 criterios de §7.4.6** (ver [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md)) → **Gate M1**.
+> 📘 **¿Vienes por primera vez al repo?** Antes de tocar código, lee **[`docs/ARQUITECTURA-TECNICA.md`](docs/ARQUITECTURA-TECNICA.md)** — documentación viva con diagramas Mermaid (flujos, dependencias entre módulos, modelo C4, endpoints, herramientas, persistencia) pensada para entender el sistema completo en menos de una hora. Complementa con [`docs/ARQUITECTURA-OMNICANAL.md`](docs/ARQUITECTURA-OMNICANAL.md) (estado del roadmap de canales) y [`docs/AUDITORIA-ARQUITECTURA-OMNICANAL.md`](docs/AUDITORIA-ARQUITECTURA-OMNICANAL.md) (auditoría + hoja de ruta).
+
+El proyecto partió como un PoC de un solo canal (ver más abajo, §6-8, e histórico en [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md)) y evolucionó hacia la arquitectura "núcleo + adaptadores" que describe la documentación de arquitectura.
 
 ---
 
-## 1. Qué hace
+## 1. Qué hace (canal WhatsApp, el original)
 
 ```
-WhatsApp → ChatApp → Open Lines (Bitrix24) → [bot] → POST /events/bot/message (este app)
+WhatsApp → ChatApp → Open Lines (Bitrix24) → POST /events/bot/message (este app)
                                                           │
-                                          imbot.message.add (eco) → ChatApp → WhatsApp
+                                    Agent Loop (Claude + tools) + CRM Bitrix24
+                                                          │
+                                          imbot.message.add (respuesta) → ChatApp → WhatsApp
 ```
 
-Endpoints:
+Endpoints principales de este canal:
 
 | Ruta | Uso |
 |---|---|
 | `GET /health` | Healthcheck (Railway) |
 | `ALL /install` | Instalación del app local: guarda auth + registra el bot |
-| `POST /events/bot/message` | Recibe `ONIMBOTMESSAGEADD` y responde el eco |
+| `POST /events/bot/message` | Recibe `ONIMBOTMESSAGEADD`, corre el agente y responde |
 | `POST /events/bot/welcome` · `/events/bot/delete` | Eventos de ciclo de vida del bot |
 | `GET /setup/register-bot` · `/setup/unregister-bot` | Registro/limpieza manual del bot |
+
+> El repo tiene **28 endpoints en total** (voz, Web Chat, Instagram/Messenger, dashboards, setup). Tabla completa con quién llama a cada uno y qué devuelve: [`docs/ARQUITECTURA-TECNICA.md` → sección "Endpoints (Eventos)"](docs/ARQUITECTURA-TECNICA.md).
 
 ---
 
@@ -144,39 +150,48 @@ solo cambia la capa de transporte.
 ## 9. Estructura
 
 ```
-poc-agente-bitrix24/
+bot bitrix24/
 ├── src/
-│   ├── index.ts              # servidor express + rutas
+│   ├── index.ts              # servidor express + 28 rutas
 │   ├── config.ts             # variables de entorno
-│   ├── log.ts                # logger JSON
-│   ├── store.ts              # auth + botId (persistencia mínima)
-│   ├── bitrix/
-│   │   ├── client.ts         # callBitrix (OAuth, throttle) + callWebhook
-│   │   └── auth.ts           # extractAuth (instalación + eventos)
-│   ├── bot/register.ts       # imbot.register / unregister
-│   └── routes/
-│       ├── install.ts        # /install
-│       ├── botEvents.ts      # /events/bot/* (eco)
-│       └── setup.ts          # registro/limpieza manual
-├── scripts/
-│   ├── smoke-anthropic.ts    # F1-T4
-│   └── smoke-bitrix.ts       # F1-T2
-├── docs/ACCEPTANCE.md        # criterios §7.4.6
+│   ├── ai/                   # EL CEREBRO: agentLoop (motor), tools, memoria, scoring, briefing
+│   ├── core/                 # compartido por TODOS los canales: perfiles, catálogo, recuperación
+│   ├── channels/             # adaptadores de canales de texto: webchat.ts, meta.ts (IG/Messenger)
+│   ├── crm/                  # integración de negocio con Bitrix24 (entidades, escrituras, telefonía)
+│   ├── bitrix/                # cliente REST/OAuth de bajo nivel
+│   ├── voice/                # llamadas salientes + tools de voz (Vapi)
+│   ├── bot/register.ts       # imbot.register / unregister (Open Lines)
+│   ├── store/                # Redis/memoria, Postgres, cifrado de tokens
+│   ├── obs/                  # métricas, auditoría, redacción PII, correlación de requests
+│   ├── util/                 # semáforo, lock por clave, lock distribuido
+│   └── routes/               # capa HTTP: un archivo por grupo de endpoints
+├── test/                     # 74 tests (node:test) + CI en .github/workflows/ci.yml
+├── scripts/                  # smoke tests + generador de base de conocimiento
+├── docs/
+│   ├── ARQUITECTURA-TECNICA.md          # ⭐ documentación viva de arquitectura (empezar aquí)
+│   ├── ARQUITECTURA-OMNICANAL.md        # estado del roadmap de canales (M0-M5)
+│   ├── AUDITORIA-ARQUITECTURA-OMNICANAL.md
+│   └── ACCEPTANCE.md                     # criterios §7.4.6 del PoC original
 ├── railway.json · .env.example · tsconfig.json · package.json
 ```
 
-## 11. Persistencia y Observabilidad
+Detalle de responsabilidades por carpeta, grafo de dependencias entre módulos y diagramas: [`docs/ARQUITECTURA-TECNICA.md`](docs/ARQUITECTURA-TECNICA.md).
 
-- **KV (Redis)**: memoria de conversación, estado de sesión, tokens e idempotencia de eventos. Si no hay `REDIS_URL`, usa memoria en proceso (se pierde al reiniciar).
-- **Postgres**: auditoría de acciones del agente (tabla `audit_log`). Si no hay `DATABASE_URL`, la auditoría queda solo en logs.
+## 10. Persistencia y Observabilidad
+
+- **KV (Redis)**: memoria de conversación, estado de sesión, tokens e idempotencia de eventos. Si no hay `REDIS_URL`, usa memoria en proceso (se pierde al reiniciar) — **en producción (`NODE_ENV=production`) `REDIS_URL` es obligatorio**, el proceso no arranca sin él.
+- **Postgres**: auditoría de acciones del agente (tabla `audit_log`) + espejo de llamadas (tabla `calls`). Si no hay `DATABASE_URL`, la auditoría queda solo en logs.
 - **En Railway**: añade los plugins **Redis** y **Postgres** (New → Database). Railway crea `REDIS_URL` y `DATABASE_URL` automáticamente; el app los toma en el próximo deploy.
 - **Endpoints de observabilidad**:
   - `GET /metrics` → JSON con contadores (inbound, reply, conversations, tool:*, escalations, errors) + latencia LLM (avg/p95) + backend KV/DB.
   - `GET /stats` → panel HTML con métricas + auditoría reciente.
+  - `GET /app`, `GET /calls` → paneles de negocio embebidos en Bitrix24 (protegidos con `DASHBOARD_TOKEN`).
 
-## 10. Notas
+Mapa completo de qué vive en Redis vs. Postgres vs. Bitrix24: [`docs/ARQUITECTURA-TECNICA.md` → sección "Persistencia"](docs/ARQUITECTURA-TECNICA.md).
+
+## 11. Notas
 
 - **No** subas `.env` (ya está en `.gitignore`).
 - Limpieza: `GET /setup/unregister-bot` desregistra el bot del portal.
 - Scopes mínimos por diseño (sin `imconnector`: el conector lo gestiona ChatApp).
-- Este PoC valida viabilidad; el agente real (agentLoop con tool-calling, memoria, guardrails) es la Fase 6.
+- Este PoC (canal WhatsApp) validó viabilidad; el agente real (núcleo omnicanal con tool-calling, memoria, guardrails, scoring) ya está implementado — ver [`docs/ARQUITECTURA-TECNICA.md`](docs/ARQUITECTURA-TECNICA.md).
