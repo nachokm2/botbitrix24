@@ -1,6 +1,7 @@
 import { consultarProgramas, detallePrograma } from '../core/catalogTool';
 import type { AgentContext } from '../core/channel';
-import { actualizarDatosCliente, getDealAsesores } from '../crm/openlinesCrm';
+import { actualizarDatosCliente } from '../crm/crmWrite';
+import { getDealAsesores } from '../crm/directory';
 import { generarBriefing } from './briefing';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { markHumanTakeover, getSession, saveSession } from '../session';

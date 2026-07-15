@@ -1,7 +1,7 @@
 import { runAgentTurn, type ToolExecutor } from '../ai/agentLoop';
 import { consultarProgramas, detallePrograma } from '../core/catalogTool';
 import type { ChannelProfile, AgentContext } from '../core/channel';
-import { actualizarDatosCliente, type DatosCliente } from '../crm/openlinesCrm';
+import { actualizarDatosCliente, type DatosCliente } from '../crm/crmWrite';
 import { generarBriefing } from '../ai/briefing';
 import { getJson, setJson } from '../store/kv';
 import { log } from '../log';

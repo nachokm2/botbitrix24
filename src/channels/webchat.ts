@@ -1,6 +1,6 @@
 import { socialTextTurn, getLeadSession, type SocialTextChannel } from './socialText';
 import { WEBCHAT_PROFILE } from '../core/channel';
-import { crearLeadWeb } from '../crm/openlinesCrm';
+import { crearLeadWeb } from '../crm/crmWrite';
 import type { Auth } from '../store';
 
 // M3 — Adaptador del canal WEB CHAT. Es la PRUEBA del patrón omnicanal: un canal nuevo = un PERFIL

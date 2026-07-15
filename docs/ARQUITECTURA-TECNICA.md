@@ -93,7 +93,7 @@ flowchart TB
 | `core/` | Capacidades **channel-agnostic** reutilizadas por todos los canales: `channel.ts` (perfiles), `catalogTool.ts` (shaping de resultados), `retrieval.ts` (búsqueda del catálogo) | `ai` (solo tipos/datos) | `ai`, `channels`, `voice`, `routes` |
 | `channels/` | Adaptadores de canales 100% texto que NO usan Open Lines ni Vapi: `webchat.ts`, `meta.ts` | `ai`, `core`, `crm`, `store` | `routes` |
 | `routes/` | Capa HTTP (Express): un archivo por grupo de endpoints; nunca es importada por lógica de negocio (confirmado por el grafo: 0 aristas entrantes desde otras carpetas) | prácticamente todas | — (es la capa más externa) |
-| `crm/` | Integración de negocio con Bitrix24: resolución de entidades (`entities.ts`), binding chat↔CRM (`chat.ts`), escrituras (`crmWrite.ts`), directorio de usuarios/deals (`directory.ts`), acciones de voz (`voiceActions.ts`), telefonía (`telephony.ts`), analítica de llamadas (`callStats.ts`, `callSync.ts`); `openlinesCrm.ts` es un **barrel** que re-exporta los 5 anteriores | `bitrix`, `store` | `ai`, `channels`, `voice`, `routes` |
+| `crm/` | Integración de negocio con Bitrix24: resolución de entidades (`entities.ts`), binding chat↔CRM (`chat.ts`), escrituras (`crmWrite.ts`), directorio de usuarios/deals (`directory.ts`), acciones de voz (`voiceActions.ts`), telefonía (`telephony.ts`), analítica de llamadas (`callStats.ts`, `callSync.ts`) | `bitrix`, `store` | `ai`, `channels`, `voice`, `routes` |
 | `bitrix/` | Cliente REST/OAuth de bajo nivel: `client.ts` (throttle + reintentos), `auth.ts` (extrae credenciales del request), `refresh.ts` (renueva el token, single-flight), `placement.ts` (embebe páginas en Bitrix24), `verifyEvent.ts` (firma de webhooks), `types.ts` (formas de respuesta) | `store` | `crm`, `bot`, `routes` |
 | `voice/` | `outbound.ts` (dispara llamada saliente vía Vapi), `vapiTools.ts` (ejecutor de tools del canal de voz, compartido entre modo nativo y Custom LLM) | `core`, `crm`, `store` | `ai`, `routes` |
 | `bot/` | `register.ts`: alta/baja del bot de Open Lines (`imbot.register`) | `bitrix` | `routes` |
@@ -469,7 +469,6 @@ Datos exactos del grafo de importaciones (250 aristas internas, 59 archivos):
 | `src/config.ts` | 25 | Config centralizada; leída ampliamente (síntoma normal, no problema). |
 | `src/store/kv.ts` | 18 | Base de la persistencia (sesión, memoria, idempotencia, locks, rate-limit). |
 | `src/bitrix/client.ts` | 15 | Único punto de entrada para hablar con la API REST de Bitrix24. |
-| `src/crm/openlinesCrm.ts` (barrel) | 11 | Reexporta `entities/chat/crmWrite/directory/voiceActions`; su fan-in real está repartido entre esos 5. |
 | `src/bitrix/types.ts` | 9 | Tipos de respuesta de Bitrix, usados por todo `crm/*`. |
 
 | Archivo | Depende de (fan-out) | Lectura |
@@ -489,17 +488,14 @@ Datos exactos del grafo de importaciones (250 aristas internas, 59 archivos):
 
 ## Qué podría eliminarse o simplificarse
 
-- **`src/crm/openlinesCrm.ts`** ya es solo un *barrel* (11 líneas, `export * from './entities' | './chat' | './crmWrite' | './directory' | './voiceActions'`). Es un remanente de la refactorización que decompuso el antiguo módulo-dios; los imports podrían apuntar directo a los 5 submódulos y eliminar el barrel, a costa de tocar ~15 archivos que hoy importan de `../crm/openlinesCrm`.
-- Los **tres archivos con `safeEqual()` duplicado** (`src/bitrix/verifyEvent.ts`, `src/routes/guard.ts`, `src/routes/verifySecret.ts`) — la misma función de comparación en tiempo constante está copiada 3 veces. Se podría extraer a `src/util/` sin cambiar comportamiento.
-- Los **4 ejecutores de tools** (`toolRunner.ts`, `webchat.ts`, `meta.ts`, `vapiTools.ts`) comparten la parte de catálogo pero no la de CRM: hay margen real de unificación (ver [Auditoría Técnica](#auditoría-técnica)).
+*(Las tres observaciones que estaban aquí — barrel `openlinesCrm.ts`, `safeEqual()` triplicado, y los 4 ejecutores de tools sin CRM compartido — ya se implementaron; ver "Recomendaciones" más abajo, ítems 1, 5 y 9.)*
 
 ## Módulos con alto acoplamiento
 
 Medido por fan-out (cuántos otros módulos toca), no por tamaño de archivo:
 
-1. **`src/ai/scoring.ts`** (12 dependencias) — evalúa el lead, escribe en el CRM, mueve etapas, dispara llamadas de voz, escala a un asesor y audita, todo en una sola función (`procesarScoring`, `src/ai/scoring.ts:82-240`, 159 líneas). Es el módulo con más razones para cambiar del proyecto.
+1. **`src/ai/scoring.ts`** — orquesta el CRM, la etapa del deal, la llamada de voz y el escalamiento desde `procesarScoring()`; la parte de *decisión* (a qué etapa mover, si auto-llamar, si auto-escalar) ya se extrajo a funciones puras testeables (`moverEtapaPorScore`, `autoLlamarPorScore`, `autoEscalarPorScore` — ver "Recomendaciones" ítem 4), pero la orquestación de I/O sigue en una sola función.
 2. **`src/routes/botEvents.ts`** (17 dependencias) — es el único handler que integra lock distribuido + semáforo + contexto de request + resolución CRM + motor + auditoría + scoring. Alto fan-out aquí es más justificable (es el orquestador del canal principal), pero concentra mucha lógica en `handle()` (~95 líneas).
-3. **`src/crm/openlinesCrm.ts`** como *barrel* no tiene lógica propia, pero cualquier cambio en la forma de sus 5 submódulos obliga a revisar sus 11 consumidores indirectos.
 
 ---
 
@@ -641,13 +637,15 @@ flowchart TB
 
 # Auditoría Técnica
 
-> Esta auditoría refleja el **estado actual** del código (`main`, commit `6fb97d2`), que ya incorpora una ronda de *hardening* y la refactorización M0–M5 hacia el núcleo omnicanal. No repite hallazgos de auditorías anteriores que ya fueron resueltos por esos cambios (verificación de firma de webhooks, cifrado de tokens, redacción de PII, descomposición del módulo-dios de CRM, tests, CI) — esos ya están implementados y se puede confirmar leyendo `src/bitrix/verifyEvent.ts`, `src/store/tokenCrypto.ts`, `src/obs/redact.ts`, `src/crm/{entities,chat,crmWrite,directory,voiceActions}.ts`, `test/*.test.ts` (74 tests) y `.github/workflows/ci.yml`.
+> Esta auditoría refleja el **estado actual** del código (`main`, commit `6fb97d2`), que ya incorpora una ronda de *hardening* y la refactorización M0–M5 hacia el núcleo omnicanal. No repite hallazgos de auditorías anteriores que ya fueron resueltos por esos cambios (verificación de firma de webhooks, cifrado de tokens, redacción de PII, descomposición del módulo-dios de CRM, tests, CI) — esos ya están implementados y se puede confirmar leyendo `src/bitrix/verifyEvent.ts`, `src/store/tokenCrypto.ts`, `src/obs/redact.ts`, `src/crm/{entities,chat,crmWrite,directory,voiceActions}.ts`, `test/*.test.ts` (81 tests) y `.github/workflows/ci.yml`.
 
 ## Código duplicado
 
-- **`safeEqual()` (comparación en tiempo constante)** está copiada literalmente en `src/bitrix/verifyEvent.ts:7-10`, `src/routes/guard.ts:7-10` y `src/routes/verifySecret.ts:7-10`. Bajo riesgo (la lógica es correcta en los 3), pero es la definición de código duplicado: un cambio (p. ej. usar `crypto.subtle` en vez de `timingSafeEqual`) requeriría tocar 3 archivos idénticos.
-- **Lógica de "crear lead + fusionar datos"** repetida con variaciones menores en `crm/crmWrite.ts` (`crearLeadWeb`, `crearLeadSocial`) y `crm/voiceActions.ts` (`crearLeadDesdeVoz`) — mismo patrón (`TITLE`, `SOURCE_ID`, campos, nota), 3 implementaciones casi idénticas que solo cambian el `SOURCE_ID` y el prefijo del título.
-- **4 ejecutores de tools** (`toolRunner.executeTool`, `webchat.webchatExecutor`, `meta.metaExecutor`, `vapiTools.runVapiTool`) repiten el mismo `switch` de 4-5 `case` con lógica de CRM ligeramente distinta por canal. La parte de catálogo ya está unificada (`core/catalogTool.ts`); la de CRM no.
+*(Los 3 hallazgos de esta sección ya se resolvieron — ver "Recomendaciones" ítems 1, 5 y 6. Se dejan como registro de lo detectado en la auditoría original.)*
+
+- ~~`safeEqual()` (comparación en tiempo constante) copiada en 3 archivos~~ → ✅ extraída a `src/util/crypto.ts`.
+- ~~Lógica de "crear lead + fusionar datos" repetida en `crearLeadWeb`/`crearLeadSocial`/`crearLeadDesdeVoz`~~ → ✅ unificada en `crearLeadDesde()` (`crm/crmWrite.ts`).
+- ~~4 ejecutores de tools con el mismo `switch` y lógica de CRM distinta por canal~~ → ✅ `channels/socialText.ts` compartido para Web Chat/Instagram/Messenger; WhatsApp y Voz quedan aparte por su resolución de identidad genuinamente distinta.
 
 ## Dependencias innecesarias
 
@@ -655,37 +653,38 @@ No se detectaron dependencias npm sin uso: las 6 dependencias de producción (`@
 
 ## Servicios/módulos demasiado grandes
 
-- **`src/ai/scoring.ts`** — `procesarScoring()` (159 líneas) hace 5 cosas distintas en una sola función: mover etapa del deal, auto-llamar por voz, auto-escalar a humano, persistir el score y emitir métricas/auditoría. Cumple con lo que documenta, pero viola *Single Responsibility* a nivel de función.
+- **`src/ai/scoring.ts`** — `procesarScoring()` orquesta mover etapa del deal, auto-llamar por voz, auto-escalar a humano, persistir el score y emitir métricas/auditoría. La *decisión* de cada paso (a qué etapa mover, si auto-llamar, si auto-escalar) ya se extrajo a 3 funciones puras (`moverEtapaPorScore`, `autoLlamarPorScore`, `autoEscalarPorScore`), testeadas sin mockear el CRM; la orquestación de I/O (llamadas al CRM/Vapi/Bitrix) sigue concentrada en `procesarScoring()`.
 - **`src/routes/botEvents.ts`** — `handle()` (~95 líneas) orquesta idempotencia, control de "quién habla" (cliente vs. operador), resolución CRM, memoria previa, el motor, el registro en CRM y el disparo de scoring. Es manejable por los comentarios y la estructura secuencial, pero es el archivo con más responsabilidades transversales del proyecto (17 dependencias).
-- **`src/routes/dashboard.ts`** y **`src/routes/calls.ts`** — cada uno embebe ~250 líneas de HTML+CSS+JS como un *template string* dentro del archivo de rutas. Funciona, pero no tiene tipos, tests, ni se puede lintear como frontend.
+- ~~`src/routes/dashboard.ts` y `src/routes/calls.ts` embebían ~250 líneas de HTML+CSS+JS como *template string*~~ → ✅ extraídos a `public/dashboard/` y `public/calls/` (HTML/CSS/JS reales, lintables).
 
 ## Alto acoplamiento / baja cohesión
 
 - `src/ai/scoring.ts` (12 dependencias) es el módulo con mayor acoplamiento de salida del proyecto — ver [Dependencias](#dependencias).
-- El **contexto de conversación** está representado por **2 tipos paralelos** (`AgentCtx` en `ai/toolRunner.ts` para chat, `AgentContext` en `core/channel.ts` para el resto) que se solapan pero no son el mismo tipo — el motor (`runConversation`) usa `AgentContext`/`ConversationOpts`, mientras que `runAgentTurn` (usado por WhatsApp, Web Chat y Meta) usa `AgentCtx`. Es funcional, pero es una señal de que la unificación de "contexto de turno" del núcleo (M1) no cerró el 100% del camino — coexisten dos formas del mismo concepto.
+- ~~El contexto de conversación tenía 2 tipos paralelos (`AgentCtx`/`AgentContext`)~~ — ya unificado bajo un solo `AgentContext` (`core/channel.ts`), usado tanto por el motor (`runConversation`) como por `runAgentTurn` (WhatsApp, Web Chat, Meta).
 
 ## Violaciones SOLID / Clean Architecture puntuales
 
 - **Inversión de dependencia parcial en las tools:** `ai/tools.ts` (la definición) no depende de nada, correcto. Pero los **ejecutores** no implementan una interfaz común explícita más allá del tipo `ToolExecutor = (name, input) => Promise<any>` (`ai/agentLoop.ts:14`) — es estructural (duck typing), no hay un contrato compartido que fuerce a los 4 ejecutores a manejar los mismos `case` de forma consistente. Ya ocurrió una divergencia real y documentada: `solicitar_llamada`/`transferir_a_asesor` solo existen en 1 canal cada una.
-- **`src/crm/openlinesCrm.ts`** como barrel puro es, en sí, una violación leve de *Interface Segregation*: cualquier archivo que solo necesita `entities.ts` importa (indirectamente) el barrel que reexporta los 5 submódulos — no hay costo en runtime (los imports de TS/ESM son *tree-shakeable*), pero sí acopla conceptualmente al lector.
 
 ## Problemas de escalabilidad
 
-- **Confirmado por el propio código:** en producción (`NODE_ENV=production`), si falta `REDIS_URL` el proceso **no arranca** (`src/store/kv.ts:85-89`) — es una protección explícita para evitar escalar a >1 réplica sin estado compartido. Esto significa que la escalabilidad horizontal **ya está resuelta a nivel de estado** (rate-limit, locks, métricas, sesión — todo en Redis), pero Railway hoy corre **1 réplica** (`src/index.ts:159`, un solo `app.listen`) — la escala horizontal está lista en el código pero no activada en infraestructura **[NO INFERIBLE DEL CÓDIGO si hay planes de activarla]**.
+- **Confirmado por el propio código:** en producción (`NODE_ENV=production`), si falta `REDIS_URL` el proceso **no arranca** (`src/store/kv.ts:85-89`) — es una protección explícita para evitar escalar a >1 réplica sin estado compartido. Esto significa que la escalabilidad horizontal **ya está resuelta a nivel de estado** (rate-limit, locks, métricas, sesión — todo en Redis), pero Railway hoy corre **1 réplica** — confirmado con `railway status`/`railway metrics` (no solo por inferencia del código): plan `hobby`, 1 réplica en `sfo`, uso real de CPU/memoria <2% en ventanas de 1h y 6h. La escala horizontal está lista en el código y el volumen actual no la justifica; queda documentada para activarla (`railway service scale sfo=N`) cuando el uso lo requiera.
 - El **semáforo de concurrencia** (`MAX_CONCURRENT_TURNS`, default 8) es deliberadamente **por instancia**, no distribuido (comentario explícito en `src/routes/botEvents.ts:20-23`) — significa que el backpressure real del sistema depende de cuántas réplicas corran, no de un límite global.
 - Los **paneles HTML embebidos** (`dashboard.ts`, `calls.ts`) recalculan agregaciones SQL en cada petición (`dbMetricsSummary`, ~19 queries en paralelo) sin caché — a bajo volumen es intrascendente; a volumen alto podría requerir una capa de caché de 30-60s (mencionado como mejora futura en `docs/Modulo-Analitica-de-Llamadas.md`, no implementado).
 
 ## Riesgos técnicos y deuda técnica
 
-| # | Riesgo | Evidencia | Severidad |
-|---|---|---|---|
-| 1 | Duplicación de la lógica de CRM entre los 4 ejecutores de tools (no solo catálogo) | `toolRunner.ts`, `webchat.ts`, `meta.ts`, `vapiTools.ts` | Media — ya redujo mucho respecto al estado pre-M1, pero no cerró del todo |
-| 2 | Dos tipos de contexto de turno paralelos (`AgentCtx` vs `AgentContext`) | `ai/toolRunner.ts` vs `core/channel.ts` | Baja-Media — funciona, pero es fricción para quien agregue un canal nuevo |
-| 3 | `procesarScoring()` concentra 5 responsabilidades en una función de 159 líneas | `ai/scoring.ts:82-240` | Media |
-| 4 | Paneles de dashboard como *template strings* HTML sin tests ni tipos | `routes/dashboard.ts`, `routes/calls.ts` | Baja — es UI interna, no crítica, pero no es mantenible a largo plazo |
-| 5 | Dependencia de un solo proveedor de LLM (Anthropic), sin capa de abstracción | `ai/client.ts` | Baja hoy; relevante solo si se evalúa multi-modelo |
-| 6 | El endpoint público de Web Chat no tiene *allowlist* de dominios ni CAPTCHA | `routes/webchat.ts` (documentado como pendiente en `docs/ARQUITECTURA-OMNICANAL.md §6`) | Media (abuso/costo, no seguridad de datos) |
-| 7 | Escala horizontal implementada en código pero no activada en Railway (1 réplica) | `src/index.ts:159` | Informativo — no es un bug, es una decisión de infraestructura pendiente de evaluar |
+*(Los ítems 1, 2, 3, 4, 5 y 6 de esta tabla ya se resolvieron — ver "Recomendaciones" más abajo. Se dejan aquí como registro histórico de lo detectado en la auditoría original.)*
+
+| # | Riesgo | Evidencia (al momento de la auditoría) | Severidad | Estado |
+|---|---|---|---|---|
+| 1 | Duplicación de la lógica de CRM entre los 4 ejecutores de tools (no solo catálogo) | `toolRunner.ts`, `webchat.ts`, `meta.ts`, `vapiTools.ts` | Media | ✅ Resuelto (`channels/socialText.ts` compartido; WhatsApp/Voz quedan aparte a propósito) |
+| 2 | Dos tipos de contexto de turno paralelos (`AgentCtx` vs `AgentContext`) | `ai/toolRunner.ts` vs `core/channel.ts` | Baja-Media | ✅ Resuelto (unificado bajo `AgentContext`) |
+| 3 | `procesarScoring()` concentra 5 responsabilidades en una función de 159 líneas | `ai/scoring.ts:82-240` | Media | ✅ Resuelto (decisión extraída a 3 funciones puras) |
+| 4 | Paneles de dashboard como *template strings* HTML sin tests ni tipos | `routes/dashboard.ts`, `routes/calls.ts` | Baja | ✅ Resuelto (`public/dashboard/`, `public/calls/`) |
+| 5 | Dependencia de un solo proveedor de LLM (Anthropic), sin capa de abstracción | `ai/client.ts` | Baja | ✅ Documentado (`ai/client.ts`, sin urgencia de cambiar código) |
+| 6 | El endpoint público de Web Chat no tiene *allowlist* de dominios ni CAPTCHA | `routes/webchat.ts` | Media | ✅ Resuelto (allowlist de Origin/Referer, `WEBCHAT_ALLOWED_ORIGINS`) |
+| 7 | Escala horizontal implementada en código pero no activada en Railway (1 réplica) | `src/index.ts` | Informativo | Sin acción — volumen real confirmado (`railway metrics`) muy por debajo del umbral para justificarla |
 
 ## Problemas de mantenibilidad (adicionales a lo ya mencionado)
 
@@ -695,30 +694,32 @@ No se detectaron dependencias npm sin uso: las 6 dependencias de producción (`@
 
 # Recomendaciones
 
+*(Estado: los ítems 1-9 ya se implementaron; el 10 se evaluó con datos reales de producción y no requiere acción. Detalle de cada uno abajo.)*
+
 ## Prioridad Alta
 
-| # | Problema | Impacto | Propuesta | Beneficio esperado | Complejidad |
-|---|---|---|---|---|---|
-| 1 | Duplicación de lógica de CRM en los 4 ejecutores de tools | Riesgo de que un canal quede desactualizado si se cambia una regla de negocio en `registrar_interes_crm`/`escalar_a_humano` solo en uno | Extraer un `CrmToolExecutor` compartido parametrizado por "estrategia de identidad" (namespace + resolver de lead), reusado por los 4 canales de texto; voz queda aparte por su resolución por teléfono | Un solo lugar para cambiar reglas de captura de datos/escalamiento | Media |
-| 2 | Endpoint público `/webchat/message` sin allowlist de dominio ni CAPTCHA | Abuso/costo (llamadas a Claude gratis para cualquiera que descubra la URL) | Agregar `Origin`/`Referer` allowlist + un captcha ligero (o token de sesión emitido por el propio sitio) | Reduce superficie de abuso de costo | Baja-Media |
+| # | Problema | Impacto | Propuesta | Beneficio esperado | Complejidad | Estado |
+|---|---|---|---|---|---|---|
+| 1 | Duplicación de lógica de CRM en los 4 ejecutores de tools | Riesgo de que un canal quede desactualizado si se cambia una regla de negocio en `registrar_interes_crm`/`escalar_a_humano` solo en uno | Extraer un `CrmToolExecutor` compartido parametrizado por "estrategia de identidad" (namespace + resolver de lead), reusado por los 4 canales de texto; voz queda aparte por su resolución por teléfono | Un solo lugar para cambiar reglas de captura de datos/escalamiento | Media | ✅ `channels/socialText.ts` (Web Chat, Instagram, Messenger) |
+| 2 | Endpoint público `/webchat/message` sin allowlist de dominio ni CAPTCHA | Abuso/costo (llamadas a Claude gratis para cualquiera que descubra la URL) | Agregar `Origin`/`Referer` allowlist + un captcha ligero (o token de sesión emitido por el propio sitio) | Reduce superficie de abuso de costo | Baja-Media | ✅ Allowlist (`requireAllowedOrigin`, `WEBCHAT_ALLOWED_ORIGINS`); sin captcha (no se justificó aún) |
 
 ## Prioridad Media
 
-| # | Problema | Impacto | Propuesta | Beneficio esperado | Complejidad |
-|---|---|---|---|---|---|
-| 3 | Dos tipos de contexto de turno (`AgentCtx` / `AgentContext`) | Fricción cognitiva al agregar un canal; riesgo de divergencia futura | Unificar bajo un solo tipo `AgentContext`, migrando `toolRunner.ts` | Un solo modelo mental del "contexto de turno" | Media (toca el canal más usado, WhatsApp) |
-| 4 | `procesarScoring()` con 5 responsabilidades en una función | Difícil de testear/modificar una regla sin afectar las otras | Dividir en funciones puras: `moverEtapaPorScore`, `autoLlamarPorScore`, `autoEscalarPorScore`, orquestadas por `procesarScoring` | Testeable unidad por unidad; ya hay precedente de tests puros en el proyecto (`test/*.test.ts`) | Baja-Media |
-| 5 | `safeEqual()` triplicado | Mantenimiento (3 lugares para el mismo cambio) | Extraer a `src/util/crypto.ts` | Menor superficie de mantenimiento | Baja |
-| 6 | Lógica de "crear lead" casi idéntica en 3 funciones (`crearLeadWeb`, `crearLeadSocial`, `crearLeadDesdeVoz`) | Mantenimiento | Parametrizar una función común por `{sourceId, tituloPrefix}` | Menos código, mismo comportamiento | Baja |
+| # | Problema | Impacto | Propuesta | Beneficio esperado | Complejidad | Estado |
+|---|---|---|---|---|---|---|
+| 3 | Dos tipos de contexto de turno (`AgentCtx` / `AgentContext`) | Fricción cognitiva al agregar un canal; riesgo de divergencia futura | Unificar bajo un solo tipo `AgentContext`, migrando `toolRunner.ts` | Un solo modelo mental del "contexto de turno" | Media (toca el canal más usado, WhatsApp) | ✅ Implementado |
+| 4 | `procesarScoring()` con 5 responsabilidades en una función | Difícil de testear/modificar una regla sin afectar las otras | Dividir en funciones puras: `moverEtapaPorScore`, `autoLlamarPorScore`, `autoEscalarPorScore`, orquestadas por `procesarScoring` | Testeable unidad por unidad; ya hay precedente de tests puros en el proyecto (`test/*.test.ts`) | Baja-Media | ✅ Implementado (`test/scoring.test.ts`) |
+| 5 | `safeEqual()` triplicado | Mantenimiento (3 lugares para el mismo cambio) | Extraer a `src/util/crypto.ts` | Menor superficie de mantenimiento | Baja | ✅ Implementado |
+| 6 | Lógica de "crear lead" casi idéntica en 3 funciones (`crearLeadWeb`, `crearLeadSocial`, `crearLeadDesdeVoz`) | Mantenimiento | Parametrizar una función común por `{sourceId, tituloPrefix}` | Menos código, mismo comportamiento | Baja | ✅ Implementado (`crearLeadDesde`) |
 
 ## Prioridad Baja
 
-| # | Problema | Impacto | Propuesta | Beneficio esperado | Complejidad |
-|---|---|---|---|---|---|
-| 7 | Paneles HTML como *template strings* sin tests/tipos | Mantenibilidad de la UI interna | Extraer a archivos `.html`/`.js` estáticos servidos por Express | Se puede lintear/testear el frontend | Baja-Media |
-| 8 | Dependencia de un solo proveedor LLM | Portabilidad futura | Documentar el punto de extensión (`ai/client.ts`) si algún día se evalúa multi-modelo; no urge cambiar código | Opcionalidad futura sin costo hoy | N/A (solo documentar) |
-| 9 | `crm/openlinesCrm.ts` como barrel puro | Claridad de imports | Migrar imports a los submódulos directos y eliminar el barrel | Menos indirección | Baja (mecánico, muchos archivos) |
-| 10 | Escala horizontal lista en código pero no activada | Ninguno hoy (volumen actual lo soporta 1 réplica) | Si el volumen crece, activar >1 réplica en Railway; el código ya no requiere cambios | Aprovechar trabajo ya hecho (M0) cuando haga falta | N/A (config de infraestructura) |
+| # | Problema | Impacto | Propuesta | Beneficio esperado | Complejidad | Estado |
+|---|---|---|---|---|---|---|
+| 7 | Paneles HTML como *template strings* sin tests/tipos | Mantenibilidad de la UI interna | Extraer a archivos `.html`/`.js` estáticos servidos por Express | Se puede lintear/testear el frontend | Baja-Media | ✅ Implementado (`public/dashboard/`, `public/calls/`) |
+| 8 | Dependencia de un solo proveedor LLM | Portabilidad futura | Documentar el punto de extensión (`ai/client.ts`) si algún día se evalúa multi-modelo; no urge cambiar código | Opcionalidad futura sin costo hoy | N/A (solo documentar) | ✅ Documentado en `ai/client.ts` |
+| 9 | `crm/openlinesCrm.ts` como barrel puro | Claridad de imports | Migrar imports a los submódulos directos y eliminar el barrel | Menos indirección | Baja (mecánico, muchos archivos) | ✅ Implementado (barrel eliminado, 12 archivos migrados) |
+| 10 | Escala horizontal lista en código pero no activada | Ninguno hoy (volumen actual lo soporta 1 réplica) | Si el volumen crece, activar >1 réplica en Railway; el código ya no requiere cambios | Aprovechar trabajo ya hecho (M0) cuando haga falta | N/A (config de infraestructura) | Confirmado con `railway metrics`: CPU/memoria <2%, sin necesidad de escalar hoy |
 
 ---
 

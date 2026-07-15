@@ -1,5 +1,5 @@
 import { callCrm, callCrmEnvelope } from '../bitrix/client';
-import { getUsuarios } from './openlinesCrm';
+import { getUsuarios } from './directory';
 import { dbCallAnalytics } from '../store/db';
 import { log } from '../log';
 import type { Auth } from '../store';

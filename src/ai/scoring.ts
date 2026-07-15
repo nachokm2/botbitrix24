@@ -1,15 +1,9 @@
 import { anthropic, CLASSIFIER } from './client';
 import { getHistory } from './memory';
 import { getSession, saveSession } from '../session';
-import {
-  guardarEvaluacionCrm,
-  moverEtapaDeal,
-  getDealInfo,
-  getTelefonoCliente,
-  primaryEntity,
-  type CrmEntities,
-  type LeadEval,
-} from '../crm/openlinesCrm';
+import { guardarEvaluacionCrm, moverEtapaDeal, getTelefonoCliente, type LeadEval } from '../crm/crmWrite';
+import { getDealInfo } from '../crm/directory';
+import { primaryEntity, type CrmEntities } from '../crm/entities';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { generarBriefing } from './briefing';
 import { callBitrix } from '../bitrix/client';

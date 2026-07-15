@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { runConversation } from '../ai/agentLoop';
 import { VOICE_PROFILE, type AgentContext } from '../core/channel';
 import { getVoiceCtx, runVapiTool } from '../voice/vapiTools';
-import { primaryEntity } from '../crm/openlinesCrm';
+import { primaryEntity } from '../crm/entities';
 import { getState, EMPTY_AUTH } from '../store';
 import { log } from '../log';
 

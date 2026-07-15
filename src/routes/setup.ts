@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { getState, setBotId, EMPTY_AUTH } from '../store';
 import { registerBot, unregisterBot } from '../bot/register';
 import { callBitrix, callWebhook } from '../bitrix/client';
-import { getDealAsesores } from '../crm/openlinesCrm';
+import { getDealAsesores } from '../crm/directory';
 import { bindDashboard, bindCalls } from '../bitrix/placement';
 import { syncCalls } from '../crm/callSync';
 import { dbEnabled } from '../store/db';

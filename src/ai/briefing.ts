@@ -5,7 +5,7 @@ import { recordTokens, inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
 import type { Auth } from '../store';
-import type { CrmEntity } from '../crm/openlinesCrm';
+import type { CrmEntity } from '../crm/entities';
 
 const BRIEFING_SYSTEM = `Preparas un RESUMEN BREVE para un asesor comercial de postgrados de la Universidad Autónoma de Chile que va a retomar la conversación con un lead. A partir de la conversación entrega, en español, viñetas cortas y accionables:
 - Programa/área de interés (si se mencionó).

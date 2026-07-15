@@ -11,7 +11,7 @@ process.env.TOKEN_ENC_KEY =
 
 const { encryptToken, decryptToken } = await import('../src/store/tokenCrypto');
 const { createSemaphore, createKeyedLock } = await import('../src/util/concurrency');
-const { parseAllEntities, parseEntityData2, primaryEntity } = await import('../src/crm/openlinesCrm');
+const { parseAllEntities, parseEntityData2, primaryEntity } = await import('../src/crm/entities');
 const { normalizeCall, tipoLabel, estadoLabel } = await import('../src/crm/callStats');
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

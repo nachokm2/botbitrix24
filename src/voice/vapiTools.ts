@@ -1,14 +1,9 @@
 import { consultarProgramas, detallePrograma } from '../core/catalogTool';
 import { VOICE_PROFILE } from '../core/channel';
-import {
-  accionInteresVoz,
-  actualizarDatosCliente,
-  buscarCrmPorTelefono,
-  crearLeadDesdeVoz,
-  getDealAsesores,
-  type CrmEntities,
-  type DatosCliente,
-} from '../crm/openlinesCrm';
+import { accionInteresVoz, buscarCrmPorTelefono, crearLeadDesdeVoz } from '../crm/voiceActions';
+import { actualizarDatosCliente, type DatosCliente } from '../crm/crmWrite';
+import { getDealAsesores } from '../crm/directory';
+import type { CrmEntities } from '../crm/entities';
 import { getJson, setJson } from '../store/kv';
 import { config } from '../config';
 import { log } from '../log';

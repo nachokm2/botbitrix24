@@ -5,7 +5,7 @@ import { snapshot } from '../obs/metrics';
 import { dbMetricsSummary, dbRecentAudit, dbEnabled } from '../store/db';
 import { kvKind } from '../store/kv';
 import { getState } from '../store';
-import { getUsuarios } from '../crm/openlinesCrm';
+import { getUsuarios } from '../crm/directory';
 import { config } from '../config';
 
 const RANGES = ['today', '7d', '30d', 'all'];

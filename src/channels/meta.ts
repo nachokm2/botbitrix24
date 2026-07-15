@@ -1,6 +1,6 @@
 import { socialTextTurn, type SocialTextChannel } from './socialText';
 import { INSTAGRAM_PROFILE, MESSENGER_PROFILE } from '../core/channel';
-import { crearLeadSocial } from '../crm/openlinesCrm';
+import { crearLeadSocial } from '../crm/crmWrite';
 import type { Auth } from '../store';
 
 // M4 — Adaptador de los canales INSTAGRAM y MESSENGER (Meta Graph API). Misma identidad que Web
