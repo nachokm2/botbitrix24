@@ -1,5 +1,5 @@
-import { buscarProgramas } from '../ai/catalog';
-import { getDetalle } from '../ai/detalles';
+import { consultarProgramas, detallePrograma } from '../core/catalogTool';
+import { VOICE_PROFILE } from '../core/channel';
 import {
   accionInteresVoz,
   actualizarDatosCliente,
@@ -86,31 +86,10 @@ async function guardarInteresVoz(ctx: VoiceCallCtx, data: DatosCliente, auth: Au
 export async function runVapiTool(name: string, args: any, ctx: VoiceCallCtx, auth: Auth): Promise<any> {
   try {
     switch (name) {
-      case 'consultar_programas': {
-        const all = buscarProgramas(args ?? {});
-        return {
-          total: all.length,
-          programas: all.slice(0, 8).map((p) => ({ nombre: p.nombre, tipo: p.tipo, facultad: p.facultad, modalidad: p.modalidad })),
-          nota:
-            all.length === 0
-              ? 'No hay coincidencias; sugiere afinar el tema o derivar a un asesor. No inventes programas.'
-              : all.length > 8
-                ? 'Hay más resultados; pide afinar por facultad o tema.'
-                : undefined,
-        };
-      }
-      case 'detalle_programa': {
-        const d = getDetalle({ url: args?.url, nombre: args?.nombre });
-        if (!d) return { encontrado: false, mensaje: 'Sin detalle cargado; ofrece derivar a un asesor.' };
-        return {
-          encontrado: true,
-          nombre: d.nombre,
-          arancel: d.arancel,
-          matricula: d.matricula,
-          requisitos: d.requisitos,
-          descripcion: d.descripcion,
-        };
-      }
+      case 'consultar_programas':
+        return consultarProgramas(args, VOICE_PROFILE.catalog.consultar);
+      case 'detalle_programa':
+        return detallePrograma(args, VOICE_PROFILE.catalog.detalle);
       case 'registrar_interes_crm': {
         // No bloqueamos la conversación esperando a Bitrix: buscamos/creamos/actualizamos en
         // segundo plano y respondemos al instante para que la voz siga fluida.

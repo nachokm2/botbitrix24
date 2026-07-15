@@ -14,6 +14,7 @@ import { audit } from '../obs/audit';
 import { resolveAllEntities, primaryEntity, loadPriorContext, logConversationTurn } from '../crm/openlinesCrm';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
+import { WHATSAPP_PROFILE } from '../core/channel';
 import { getRequestContext, runWithRequestContext } from '../obs/requestContext';
 
 // Backpressure: el semáforo acota los turnos concurrentes POR INSTANCIA (decisión deliberada: la
@@ -110,8 +111,12 @@ async function handle(req: Request) {
   // Indicador de "escribiendo..." mientras razona el agente (no crítico).
   await callBitrix('imbot.chat.sendTyping', { BOT_ID: botId, DIALOG_ID: dialogId }, auth).catch(() => {});
 
-  // Agente real: Claude Sonnet 4.6 + tool-calling + memoria + contexto CRM.
-  const reply = await runAgentTurn({ auth, dialogId, chatId, botId, crmEntity, crmEntities }, message, priorContext);
+  // Agente real: motor conversacional único, con el perfil del canal WhatsApp (Open Lines).
+  const reply = await runAgentTurn(
+    { auth, dialogId, chatId, botId, crmEntity, crmEntities, profile: WHATSAPP_PROFILE },
+    message,
+    priorContext,
+  );
 
   await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: dialogId, MESSAGE: reply }, auth);
   inc('reply');

@@ -1,18 +1,24 @@
-import { anthropic, REASONER } from './client';
+import { anthropic } from './client';
 import { tools } from './tools';
 import { executeTool, type AgentCtx } from './toolRunner';
 import { getHistory, setHistory } from './memory';
-import { SYSTEM_PROMPT } from './prompt';
+import { WHATSAPP_PROFILE } from '../core/channel';
 import { inc, recordLlmLatency, recordTokens } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
 
 const MAX_STEPS = 5; // guardrail anti-bucle
 
-/** Ejecuta un turno del agente: razona con Claude + tool-calling y devuelve el texto a enviar. */
+/**
+ * Motor conversacional channel-agnostic: razona con Claude + tool-calling y devuelve el texto a enviar.
+ * El comportamiento (prompt, modelo, longitud, herramientas) sale del PERFIL del canal (ctx.profile);
+ * si no se especifica, usa WhatsApp (adaptador de referencia) → comportamiento histórico idéntico.
+ */
 export async function runAgentTurn(ctx: AgentCtx, userText: string, priorContext = ''): Promise<string> {
+  const profile = ctx.profile ?? WHATSAPP_PROFILE;
   // El texto del cliente NUNCA va en el system prompt (evita prompt injection persistente vía notas del CRM).
-  const system = SYSTEM_PROMPT;
+  const system = profile.systemPrompt;
+  const allowedTools = tools.filter((t) => profile.toolNames.includes(t.name));
   const history = await getHistory(ctx.dialogId);
   const messages: any[] = [];
   if (priorContext && history.length === 0) {
@@ -32,12 +38,12 @@ export async function runAgentTurn(ctx: AgentCtx, userText: string, priorContext
     for (let step = 0; step < MAX_STEPS; step++) {
       const t0 = Date.now();
       const resp = await anthropic.messages.create({
-        model: REASONER,
-        max_tokens: 1024,
+        model: profile.model,
+        max_tokens: profile.maxResponseTokens,
         temperature: 0.4,
         system,
         messages,
-        tools: tools as any,
+        tools: allowedTools as any,
       });
       recordLlmLatency(Date.now() - t0);
       recordTokens((resp as any).usage);
