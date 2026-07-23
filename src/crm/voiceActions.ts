@@ -5,7 +5,7 @@ import type { Auth } from '../store';
 import type { CrmEntities } from './entities';
 import { crearLeadDesde, moverEtapaDeal, type DatosCliente } from './crmWrite';
 import { getDealInfo } from './directory';
-import { getDetalle } from '../ai/detalles';
+import { buscarBrochureDrive } from './driveBrochure';
 import type { BitrixDuplicateResult, BitrixDealListItem, BitrixTaskAddResult } from '../bitrix/types';
 
 // Acciones del agente de VOZ sobre el CRM: buscar cliente por teléfono, crear lead desde una
@@ -99,13 +99,13 @@ export async function accionInteresVoz(ref: CrmEntities, data: DatosCliente, aut
     if (info.responsableId) asesorId = info.responsableId;
     categoryId = info.categoryId;
 
-    // 1) Programa de interés (+ link al brochure, si el UF está configurado) en el Deal.
+    // 1) Programa de interés (+ brochure del Drive, si el UF está configurado) en el Deal.
     if (config.ufPrograma && data.programa_interes) {
       try {
         const fields: any = { [config.ufPrograma]: data.programa_interes };
-        if (config.ufBrochure) {
-          const brochureUrl = getDetalle({ nombre: data.programa_interes })?.brochureUrl;
-          if (brochureUrl) fields[config.ufBrochure] = brochureUrl;
+        if (config.ufBrochureFile) {
+          const brochure = await buscarBrochureDrive(data.programa_interes, auth);
+          if (brochure) fields[config.ufBrochureFile] = `n${brochure.fileId}`;
         }
         await callCrm('crm.deal.update', { id: dealId, fields }, auth);
       } catch (e) {

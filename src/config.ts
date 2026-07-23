@@ -72,9 +72,14 @@ export const config = {
   ufSentiment: process.env.BITRIX_UF_SENTIMENT ?? '',
   // Campo UF (en el Deal) para el "Programa de interés" que el bot actualiza según la conversación.
   ufPrograma: process.env.BITRIX_UF_PROGRAMA ?? '',
-  // Campo UF (en el Deal) con el link al brochure del programa de interés — para que la automatización
-  // de "Información enviada" (Bitrix24) lo incluya en el correo. Se actualiza junto con ufPrograma.
-  ufBrochure: process.env.BITRIX_UF_BROCHURE ?? '',
+  // Campo UF tipo "Archivo" (en el Deal) con el brochure (PDF del Drive) del programa de interés —
+  // para que la automatización de "Información enviada" (Bitrix24) lo adjunte al correo. Se
+  // actualiza junto con ufPrograma (ver crm/driveBrochure.ts).
+  ufBrochureFile: process.env.BITRIX_UF_BROCHURE_FILE ?? '',
+  // IDs de las carpetas del Drive ("Brochures Bot/<tipo>") donde viven los PDF de cada tipo de programa.
+  driveFolderMagister: process.env.BITRIX_DRIVE_FOLDER_MAGISTER ?? '',
+  driveFolderDiplomado: process.env.BITRIX_DRIVE_FOLDER_DIPLOMADO ?? '',
+  driveFolderEspecialidad: process.env.BITRIX_DRIVE_FOLDER_ESPECIALIDAD ?? '',
   // Mover la etapa del deal según el score. Mapa por embudo (recomendado, multi-flujo):
   stageMap: parseStageMap(process.env.BITRIX_STAGE_MAP),
   // Etiquetas legibles por CATEGORY_ID de embudo, para el panel (C1=Diplomados, C3=Magísteres).

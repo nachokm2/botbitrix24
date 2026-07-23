@@ -8,7 +8,9 @@ process.env.REDIS_URL = '';
 process.env.DATABASE_URL = '';
 process.env.NODE_ENV = 'test';
 process.env.BITRIX_UF_PROGRAMA = 'UF_CRM_PROGRAMA_TEST';
-process.env.BITRIX_UF_BROCHURE = 'UF_CRM_BROCHURE_TEST';
+process.env.BITRIX_UF_BROCHURE_FILE = 'UF_CRM_BROCHURE_TEST';
+process.env.BITRIX_DRIVE_FOLDER_MAGISTER = '111';
+process.env.BITRIX_DRIVE_FOLDER_DIPLOMADO = '222';
 
 type Call = { method: string; params: any };
 const calls: Call[] = [];
@@ -19,12 +21,17 @@ const record = async (method: string, params: any) => {
   return responder(method, params);
 };
 
+const recordEnvelope = async (method: string, params: any) => {
+  calls.push({ method, params });
+  return { result: responder(method, params) ?? [] };
+};
+
 mock.module('../src/bitrix/client.ts', {
   namedExports: {
     callBitrix: record,
     callCrm: record,
-    callBitrixEnvelope: async () => ({ result: {} }),
-    callCrmEnvelope: async () => ({ result: {} }),
+    callBitrixEnvelope: recordEnvelope,
+    callCrmEnvelope: recordEnvelope,
     callWebhook: async () => ({}),
   },
 });
@@ -82,16 +89,28 @@ test('actualizarDatosCliente: no duplica un email que ya está presente', async 
   assert.equal(update!.params.fields.EMAIL.length, 1, 'no duplica el email ya presente');
 });
 
-test('actualizarDatosCliente: guarda el link del brochure junto con el programa de interés (UF del Deal)', async () => {
+test('actualizarDatosCliente: busca el brochure en el Drive y lo guarda junto con el programa de interés', async () => {
   calls.length = 0;
-  responder = () => ({});
+  responder = (method) => {
+    if (method === 'disk.folder.getchildren') {
+      return [
+        { TYPE: 'file', NAME: 'Magíster - Dirección de Empresas - MBA.pdf', ID: 1 },
+        { TYPE: 'file', NAME: 'Magíster - Inteligencia Artificial.pdf', ID: 2 },
+      ];
+    }
+    return {};
+  };
 
   await actualizarDatosCliente({ deal: 42 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
+
+  const listado = calls.find((c) => c.method === 'disk.folder.getchildren');
+  assert.ok(listado, 'lista la carpeta del Drive');
+  assert.equal(listado!.params.id, 111, 'usa la carpeta de Magíster (BITRIX_DRIVE_FOLDER_MAGISTER)');
 
   const update = calls.find((c) => c.method === 'crm.deal.update');
   assert.ok(update, 'actualiza el deal');
   assert.equal(update!.params.fields.UF_CRM_PROGRAMA_TEST, 'Magíster en Inteligencia Artificial');
-  assert.match(update!.params.fields.UF_CRM_BROCHURE_TEST, /Magister-en-Inteligencia-Artificial\.pdf$/);
+  assert.equal(update!.params.fields.UF_CRM_BROCHURE_TEST, 'n2', 'referencia el archivo correcto (no el de MBA)');
 });
 
 test('actualizarDatosCliente: sin programa de interés no toca el UF del brochure', async () => {
