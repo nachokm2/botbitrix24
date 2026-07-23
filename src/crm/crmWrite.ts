@@ -132,6 +132,19 @@ function mergeMultifield(existing: BitrixMultifield[] | undefined, value: string
   return arr;
 }
 
+/** ¿El deal YA tiene guardado este mismo programa de interés? Evita re-descargar y volver a subir
+ *  el brochure (varios cientos de KB) en cada turno de la conversación cuando no cambió nada —
+ *  la IA reenvía `programa_interes` en cada llamada a registrar_interes_crm, no solo cuando cambia. */
+async function programaSinCambios(dealId: number, programaInteres: string, auth: Auth): Promise<boolean> {
+  if (!config.ufPrograma) return false;
+  try {
+    const cur: any = await callCrm('crm.deal.get', { id: dealId, select: [config.ufPrograma] }, auth);
+    return cur?.[config.ufPrograma] === programaInteres;
+  } catch {
+    return false; // ante duda, re-adjunta (mejor de más que dejar el brochure desactualizado)
+  }
+}
+
 /**
  * Toma los datos capturados y actualiza el CONTACTO y el DEAL vinculados al chat
  * (o el lead si esa es la entidad). Email y teléfono se FUSIONAN con los existentes
@@ -188,10 +201,12 @@ export async function actualizarDatosCliente(
       // Campo personalizado dedicado, para reportería/filtrado (se actualiza según la conversación).
       if (config.ufPrograma) fields[config.ufPrograma] = data.programa_interes;
       // Brochure (PDF del Drive) del programa: lo usa la automatización de Bitrix24
-      // ("Información enviada" → email con la plantilla que adjunta este campo).
-      if (config.ufBrochureFile) {
+      // ("Información enviada" → email con la plantilla que adjunta este campo). Se sube el
+      // CONTENIDO del archivo (Bitrix24 no soporta referenciar un archivo existente del Drive
+      // por ID) — evita repetir la descarga si el programa no cambió desde la última vez.
+      if (config.ufBrochureFile && !(await programaSinCambios(e.deal, data.programa_interes, auth))) {
         const brochure = await buscarBrochureDrive(data.programa_interes, auth);
-        if (brochure) fields[config.ufBrochureFile] = `n${brochure.fileId}`;
+        if (brochure) fields[config.ufBrochureFile] = { fileData: [brochure.fileName, brochure.contenidoBase64] };
       }
     }
     if (data.comentario) fields.COMMENTS = data.comentario;

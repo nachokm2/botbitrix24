@@ -36,6 +36,16 @@ mock.module('../src/bitrix/client.ts', {
   },
 });
 
+// buscarBrochureDrive descarga el contenido con fetch() directo (la URL ya trae el token de
+// Bitrix) — se mockea el global para simular esa descarga sin tocar la red.
+const realFetch = globalThis.fetch;
+(globalThis as any).fetch = async (url: string) => {
+  if (String(url).startsWith('http://descarga.test/')) {
+    return { ok: true, arrayBuffer: async () => new TextEncoder().encode('contenido-pdf-de-prueba').buffer } as any;
+  }
+  return realFetch(url as any);
+};
+
 const { actualizarDatosCliente } = await import('../src/crm/crmWrite');
 
 const auth = { domain: '', access_token: '' } as any;
@@ -89,7 +99,7 @@ test('actualizarDatosCliente: no duplica un email que ya está presente', async 
   assert.equal(update!.params.fields.EMAIL.length, 1, 'no duplica el email ya presente');
 });
 
-test('actualizarDatosCliente: busca el brochure en el Drive y lo guarda junto con el programa de interés', async () => {
+test('actualizarDatosCliente: busca el brochure en el Drive, lo descarga y lo guarda con el programa de interés', async () => {
   calls.length = 0;
   responder = (method) => {
     if (method === 'disk.folder.getchildren') {
@@ -98,6 +108,10 @@ test('actualizarDatosCliente: busca el brochure en el Drive y lo guarda junto co
         { TYPE: 'file', NAME: 'Magíster - Inteligencia Artificial.pdf', ID: 2 },
       ];
     }
+    if (method === 'disk.file.get') {
+      return { NAME: 'Magíster - Inteligencia Artificial.pdf', DOWNLOAD_URL: 'http://descarga.test/2' };
+    }
+    if (method === 'crm.deal.get') return {}; // sin programa previo → no es "sin cambios"
     return {};
   };
 
@@ -107,10 +121,28 @@ test('actualizarDatosCliente: busca el brochure en el Drive y lo guarda junto co
   assert.ok(listado, 'lista la carpeta del Drive');
   assert.equal(listado!.params.id, 111, 'usa la carpeta de Magíster (BITRIX_DRIVE_FOLDER_MAGISTER)');
 
+  assert.ok(calls.find((c) => c.method === 'disk.file.get' && c.params.id === 2), 'descarga el archivo correcto (no el de MBA)');
+
   const update = calls.find((c) => c.method === 'crm.deal.update');
   assert.ok(update, 'actualiza el deal');
   assert.equal(update!.params.fields.UF_CRM_PROGRAMA_TEST, 'Magíster en Inteligencia Artificial');
-  assert.equal(update!.params.fields.UF_CRM_BROCHURE_TEST, 'n2', 'referencia el archivo correcto (no el de MBA)');
+  const fileData = update!.params.fields.UF_CRM_BROCHURE_TEST?.fileData;
+  assert.equal(fileData?.[0], 'Magíster - Inteligencia Artificial.pdf');
+  assert.equal(Buffer.from(fileData?.[1], 'base64').toString(), 'contenido-pdf-de-prueba');
+});
+
+test('actualizarDatosCliente: no vuelve a descargar el brochure si el programa no cambió', async () => {
+  calls.length = 0;
+  responder = (method) => {
+    if (method === 'crm.deal.get') return { UF_CRM_PROGRAMA_TEST: 'Magíster en Inteligencia Artificial' };
+    return {};
+  };
+
+  await actualizarDatosCliente({ deal: 44 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
+
+  assert.ok(!calls.find((c) => c.method === 'disk.folder.getchildren'), 'no relista el Drive');
+  const update = calls.find((c) => c.method === 'crm.deal.update');
+  assert.equal(update!.params.fields.UF_CRM_BROCHURE_TEST, undefined, 'no reenvía el brochure');
 });
 
 test('actualizarDatosCliente: sin programa de interés no toca el UF del brochure', async () => {

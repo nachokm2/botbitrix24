@@ -105,7 +105,7 @@ export async function accionInteresVoz(ref: CrmEntities, data: DatosCliente, aut
         const fields: any = { [config.ufPrograma]: data.programa_interes };
         if (config.ufBrochureFile) {
           const brochure = await buscarBrochureDrive(data.programa_interes, auth);
-          if (brochure) fields[config.ufBrochureFile] = `n${brochure.fileId}`;
+          if (brochure) fields[config.ufBrochureFile] = { fileData: [brochure.fileName, brochure.contenidoBase64] };
         }
         await callCrm('crm.deal.update', { id: dealId, fields }, auth);
       } catch (e) {

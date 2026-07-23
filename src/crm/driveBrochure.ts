@@ -56,12 +56,30 @@ async function listarArchivos(folderId: number, auth: Auth): Promise<Archivo[]> 
   return out;
 }
 
-export type BrochureEncontrado = { fileId: number; nombre: string };
+function mejorMatch(archivos: Archivo[], target: string): Archivo | null {
+  let mejor: { archivo: Archivo; score: number } | null = null;
+  for (const a of archivos) {
+    const candidato = nombrePelado(a.NAME);
+    let score = 0;
+    if (candidato === target) score = 100;
+    else if (candidato.startsWith(target) || target.startsWith(candidato)) score = 80 - Math.abs(candidato.length - target.length);
+    else if (candidato.includes(target) || target.includes(candidato)) score = 50;
+    if (score > 0 && (!mejor || score > mejor.score)) mejor = { archivo: a, score };
+  }
+  return mejor && mejor.score >= 50 ? mejor.archivo : null;
+}
+
+/** Contenido de un archivo ya listo para setear un UF tipo "Archivo" vía crm.*.update
+ *  (`fields[uf] = { fileData: [fileName, contenidoBase64] }` — la ÚNICA forma que Bitrix24
+ *  realmente adjunta; referenciar el fileId existente con "n<id>" no funciona). */
+export type BrochureEncontrado = { fileName: string; contenidoBase64: string };
 
 /**
  * Busca, en la carpeta del Drive que corresponde al TIPO del programa (según BITRIX_DRIVE_FOLDER_*),
- * el PDF cuyo nombre calza mejor con `programaInteres`. Devuelve null si no se puede determinar el
- * tipo, falta configurar la carpeta correspondiente, o ningún archivo calza con confianza suficiente.
+ * el PDF cuyo nombre calza mejor con `programaInteres`, y descarga su contenido (Bitrix24 no
+ * soporta adjuntar un archivo ya existente por referencia; hay que volver a subir el contenido).
+ * Devuelve null si no se puede determinar el tipo, falta configurar la carpeta correspondiente,
+ * ningún archivo calza con confianza suficiente, o falla la descarga.
  */
 export async function buscarBrochureDrive(programaInteres: string, auth: Auth): Promise<BrochureEncontrado | null> {
   const tipo = detectarTipo(programaInteres);
@@ -74,20 +92,25 @@ export async function buscarBrochureDrive(programaInteres: string, auth: Auth): 
 
   try {
     const archivos = await listarArchivos(folderId, auth);
-    let mejor: { archivo: Archivo; score: number } | null = null;
-    for (const a of archivos) {
-      const candidato = nombrePelado(a.NAME);
-      let score = 0;
-      if (candidato === target) score = 100;
-      else if (candidato.startsWith(target) || target.startsWith(candidato)) score = 80 - Math.abs(candidato.length - target.length);
-      else if (candidato.includes(target) || target.includes(candidato)) score = 50;
-      if (score > 0 && (!mejor || score > mejor.score)) mejor = { archivo: a, score };
-    }
-    if (!mejor || mejor.score < 50) {
+    const archivo = mejorMatch(archivos, target);
+    if (!archivo) {
       log.warn('buscarBrochureDrive: sin match suficiente', { programaInteres, tipo, candidatos: archivos.length });
       return null;
     }
-    return { fileId: mejor.archivo.ID, nombre: mejor.archivo.NAME };
+
+    const info: BitrixEnvelope<any> = await callCrmEnvelope<any>('disk.file.get', { id: archivo.ID }, auth);
+    const downloadUrl = info.result?.DOWNLOAD_URL;
+    if (!downloadUrl) {
+      log.warn('buscarBrochureDrive: sin DOWNLOAD_URL', { programaInteres, fileId: archivo.ID });
+      return null;
+    }
+    const r = await fetch(downloadUrl);
+    if (!r.ok) {
+      log.warn('buscarBrochureDrive: descarga falló', { programaInteres, fileId: archivo.ID, status: r.status });
+      return null;
+    }
+    const buf = Buffer.from(await r.arrayBuffer());
+    return { fileName: archivo.NAME, contenidoBase64: buf.toString('base64') };
   } catch (e) {
     log.warn('buscarBrochureDrive falló', { err: String(e), programaInteres });
     return null;
