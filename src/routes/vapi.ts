@@ -2,13 +2,15 @@ import type { Request, Response } from 'express';
 import { verifyHeaderSecret } from './verifySecret';
 import { getState, EMPTY_AUTH } from '../store';
 import { once } from '../store/kv';
-import { callCrm } from '../bitrix/client';
+import { callBitrix, callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { log } from '../log';
 import { audit } from '../obs/audit';
 import { registerCall, finishCall, attachCallRecord, toCrmRef, type CallType } from '../crm/telephony';
 import { getVoiceCtx, runVapiTool } from '../voice/vapiTools';
-import { iniciarLlamadaSaliente } from '../voice/outbound';
+import { iniciarLlamadaSaliente, getOrigenLlamada } from '../voice/outbound';
+import { getSession } from '../session';
+import { getHistory, setHistory } from '../ai/memory';
 
 // Webhook único que recibe los "server messages" de Vapi (tool-calls, end-of-call-report, etc.).
 // Vapi corre la conversación (STT/TTS/Claude); aquí ejecutamos herramientas y registramos en Bitrix.
@@ -81,33 +83,70 @@ async function handleEndOfCall(message: any, auth: any) {
   const recordingUrl: string | undefined = message.recordingUrl ?? message.artifact?.recordingUrl ?? message.recording?.url;
   const transcript: string | undefined = message.transcript ?? message.artifact?.transcript;
 
-  if (!config.voiceUserId || !auth?.access_token) {
-    log.warn('vapi endOfCall: falta BITRIX_TELEPHONY_USER_ID o auth OAuth; no se registra en Bitrix');
+  if (!auth?.access_token) {
+    log.warn('vapi endOfCall: falta auth OAuth; no se registra en Bitrix ni se retoma el chat');
     return;
   }
 
-  const ctx = await getVoiceCtx(call.id ?? 'unknown', phone, auth);
-  const crmRef = toCrmRef(ctx.crm);
-  const reg = await registerCall({ phone, type, userId: config.voiceUserId, crm: crmRef, crmCreate: true }, auth);
-  if (reg.callId) {
-    await finishCall({ callId: reg.callId, userId: config.voiceUserId, duration, statusCode: duration > 0 ? '200' : '304' }, auth);
-    if (recordingUrl) await attachCallRecord({ callId: reg.callId, recordUrl: recordingUrl }, auth);
+  // Registro en el CRM (telefonía): requiere BITRIX_TELEPHONY_USER_ID. Si falta, se omite SOLO esto
+  // (el seguimiento por WhatsApp de más abajo no depende de la telefonía).
+  if (config.voiceUserId) {
+    const ctx = await getVoiceCtx(call.id ?? 'unknown', phone, auth);
+    const crmRef = toCrmRef(ctx.crm);
+    const reg = await registerCall({ phone, type, userId: config.voiceUserId, crm: crmRef, crmCreate: true }, auth);
+    if (reg.callId) {
+      await finishCall({ callId: reg.callId, userId: config.voiceUserId, duration, statusCode: duration > 0 ? '200' : '304' }, auth);
+      if (recordingUrl) await attachCallRecord({ callId: reg.callId, recordUrl: recordingUrl }, auth);
+    }
+
+    const entity = reg.crm ?? crmRef;
+    if (transcript && entity) {
+      await callCrm(
+        'crm.timeline.comment.add',
+        { fields: { ENTITY_ID: entity.id, ENTITY_TYPE: entity.type.toLowerCase(), COMMENT: `📞 Llamada IA (voz)\n${String(transcript).slice(0, 4000)}` } },
+        auth,
+      ).catch((e) => log.warn('vapi endOfCall: nota transcripción falló', { err: String(e) }));
+    }
+    log.info('vapi: llamada registrada en CRM', { callId: reg.callId, duration, crm: entity });
+    void audit({
+      type: 'voice_call',
+      crmEntity: entity ? `${entity.type}#${entity.id}` : undefined,
+      detail: { callId: reg.callId ?? call.id ?? null, duration, type },
+    });
+  } else {
+    log.warn('vapi endOfCall: falta BITRIX_TELEPHONY_USER_ID; no se registra la llamada en el CRM');
   }
 
-  const entity = reg.crm ?? crmRef;
-  if (transcript && entity) {
-    await callCrm(
-      'crm.timeline.comment.add',
-      { fields: { ENTITY_ID: entity.id, ENTITY_TYPE: entity.type.toLowerCase(), COMMENT: `📞 Llamada IA (voz)\n${String(transcript).slice(0, 4000)}` } },
-      auth,
-    ).catch((e) => log.warn('vapi endOfCall: nota transcripción falló', { err: String(e) }));
+  await retomarChatTrasLlamada(call.id, auth);
+}
+
+/**
+ * Si la llamada se disparó desde un chat de WhatsApp (Open Lines) — vía `solicitar_llamada` o la
+ * auto-llamada por score — retoma ESA MISMA conversación al colgar, preguntando si quedó algo
+ * pendiente. Continuidad de canal en el sentido inverso (voz → texto); no aplica a llamadas
+ * entrantes directas (sin diálogo de origen que retomar).
+ */
+async function retomarChatTrasLlamada(callId: string | undefined, auth: any) {
+  const origen = await getOrigenLlamada(String(callId ?? ''));
+  if (!origen) return;
+
+  const sess = await getSession(origen.dialogId);
+  if (sess.humanTookOver) {
+    log.info('vapi: seguimiento por WhatsApp omitido (sesión atendida por humano)', { dialogId: origen.dialogId });
+    return;
   }
-  log.info('vapi: llamada registrada en CRM', { callId: reg.callId, duration, crm: entity });
-  void audit({
-    type: 'voice_call',
-    crmEntity: entity ? `${entity.type}#${entity.id}` : undefined,
-    detail: { callId: reg.callId ?? call.id ?? null, duration, type },
-  });
+
+  const followup =
+    '¡Hola de nuevo! 😊 ¿Cómo te fue en la llamada? Si te quedó alguna duda pendiente sobre el programa, ' +
+    'o hay algo más en lo que te pueda ayudar, aquí estoy.';
+  try {
+    await callBitrix('imbot.message.add', { BOT_ID: origen.botId, DIALOG_ID: origen.dialogId, MESSAGE: followup }, auth);
+    const history = await getHistory(origen.dialogId);
+    await setHistory(origen.dialogId, [...history, { role: 'assistant', content: followup }]);
+    log.info('vapi: seguimiento por WhatsApp enviado tras la llamada', { dialogId: origen.dialogId, callId });
+  } catch (e) {
+    log.warn('vapi: seguimiento por WhatsApp falló', { dialogId: origen.dialogId, err: String(e) });
+  }
 }
 
 /** Dispara una llamada SALIENTE con Vapi (p. ej. al detectarse un lead caliente). */

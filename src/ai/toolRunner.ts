@@ -49,7 +49,9 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
         void actualizarDatosCliente(ctx.crmEntities, ctx.chatId, { telefono }, ctx.auth).catch(() => {});
         // Nombre + programa de interés ya capturados por chat: la llamada abre YA con ese contexto.
         const contexto = await obtenerContextoLlamada(ctx.crmEntities, ctx.auth).catch(() => ({}));
-        const r = await iniciarLlamadaSaliente(telefono, contexto);
+        // Diálogo de origen: al terminar la llamada, el bot retoma esta MISMA conversación por WhatsApp.
+        const origen = ctx.botId ? { dialogId: ctx.conversationId, botId: ctx.botId } : undefined;
+        const r = await iniciarLlamadaSaliente(telefono, contexto, origen);
         if (!r.ok) {
           log.warn('tool solicitar_llamada falló', { err: r.error });
           return {

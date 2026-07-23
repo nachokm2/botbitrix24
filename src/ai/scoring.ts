@@ -194,7 +194,7 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
       sess.autoCalled = true; // marca antes de llamar para evitar duplicados en pases concurrentes
       await saveSession(dialogId, sess);
       const contexto = await obtenerContextoLlamada(crmEntities, auth).catch(() => ({}));
-      const r = await iniciarLlamadaSaliente(telefono, contexto);
+      const r = await iniciarLlamadaSaliente(telefono, contexto, { dialogId, botId });
       if (r.ok) {
         inc('auto_call');
         await audit({

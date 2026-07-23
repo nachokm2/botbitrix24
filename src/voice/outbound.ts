@@ -1,6 +1,17 @@
 import { config } from '../config';
 import { log } from '../log';
+import { getJson, setJson } from '../store/kv';
 import type { ContextoLlamada } from '../crm/crmWrite';
+
+/** Diálogo de Open Lines (WhatsApp) desde el que se disparó la llamada — permite retomar la
+ *  conversación por chat cuando termine (ver `getOrigenLlamada` / handleEndOfCall en routes/vapi.ts). */
+export type OrigenLlamada = { dialogId: string; botId: number };
+const origenKey = (callId: string) => `vapi:origen:${callId}`;
+const ORIGEN_TTL = 6 * 3600; // igual que la sesión/memoria del diálogo
+
+export function getOrigenLlamada(callId: string): Promise<OrigenLlamada | null> {
+  return getJson<OrigenLlamada>(origenKey(callId));
+}
 
 /** Arma el saludo inicial y las variables de plantilla para que Vapi abra la llamada YA sabiendo
  *  quién es el cliente y qué le interesaba, en vez de volver a preguntarlo (ver ALT-Voz-Contexto). */
@@ -23,11 +34,14 @@ function assistantOverridesDe(contexto?: ContextoLlamada) {
  * Reutilizable desde el endpoint /voice/outbound y desde la herramienta de chat 'solicitar_llamada'.
  * `contexto` (nombre/programa ya guardados en el CRM) personaliza el saludo inicial vía
  * `assistantOverrides`, para que la llamada no vuelva a pedir datos que el cliente ya dio por chat.
+ * `origen` (dialogId + botId de WhatsApp, cuando la llamada se disparó desde un chat) se guarda para
+ * que, al terminar la llamada, el bot pueda retomar esa conversación (ver handleEndOfCall).
  * Devuelve { ok, callId? , error? }. Requiere VAPI_API_KEY + VAPI_ASSISTANT_ID + VAPI_PHONE_NUMBER_ID.
  */
 export async function iniciarLlamadaSaliente(
   phone: string,
   contexto?: ContextoLlamada,
+  origen?: OrigenLlamada,
 ): Promise<{ ok: boolean; callId?: string; error?: string }> {
   const num = String(phone ?? '').trim();
   if (!num) return { ok: false, error: 'Falta el teléfono (E.164, ej. +56912345678)' };
@@ -54,6 +68,7 @@ export async function iniciarLlamadaSaliente(
     }
     const callId = json.id ?? json.callId ?? undefined;
     log.info('iniciarLlamadaSaliente: llamada creada', { callId, phone: num });
+    if (callId && origen) await setJson(origenKey(callId), origen, ORIGEN_TTL);
     return { ok: true, callId };
   } catch (e) {
     log.error('iniciarLlamadaSaliente falló', { err: String(e) });
