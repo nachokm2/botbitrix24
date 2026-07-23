@@ -4,6 +4,7 @@ import { log } from '../log';
 import type { Auth } from '../store';
 import { parseEntityData2, type CrmEntity, type CrmEntities } from './entities';
 import type { BitrixContact, BitrixLead, BitrixDialog, BitrixMultifield } from '../bitrix/types';
+import { getDetalle } from '../ai/detalles';
 
 // Escrituras al CRM: creación/actualización de contacto/lead/deal, notas de timeline,
 // persistencia del scoring y lectura del teléfono del cliente.
@@ -186,6 +187,11 @@ export async function actualizarDatosCliente(
       fields.TITLE = `${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`;
       // Campo personalizado dedicado, para reportería/filtrado (se actualiza según la conversación).
       if (config.ufPrograma) fields[config.ufPrograma] = data.programa_interes;
+      // Link al brochure del programa: lo usa la automatización de Bitrix24 ("Información enviada" → email).
+      if (config.ufBrochure) {
+        const brochureUrl = getDetalle({ nombre: data.programa_interes })?.brochureUrl;
+        if (brochureUrl) fields[config.ufBrochure] = brochureUrl;
+      }
     }
     if (data.comentario) fields.COMMENTS = data.comentario;
     try {

@@ -7,6 +7,8 @@ import assert from 'node:assert/strict';
 process.env.REDIS_URL = '';
 process.env.DATABASE_URL = '';
 process.env.NODE_ENV = 'test';
+process.env.BITRIX_UF_PROGRAMA = 'UF_CRM_PROGRAMA_TEST';
+process.env.BITRIX_UF_BROCHURE = 'UF_CRM_BROCHURE_TEST';
 
 type Call = { method: string; params: any };
 const calls: Call[] = [];
@@ -78,6 +80,29 @@ test('actualizarDatosCliente: no duplica un email que ya está presente', async 
   const update = calls.find((c) => c.method === 'crm.contact.update');
   assert.ok(update, 'igual emite update');
   assert.equal(update!.params.fields.EMAIL.length, 1, 'no duplica el email ya presente');
+});
+
+test('actualizarDatosCliente: guarda el link del brochure junto con el programa de interés (UF del Deal)', async () => {
+  calls.length = 0;
+  responder = () => ({});
+
+  await actualizarDatosCliente({ deal: 42 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
+
+  const update = calls.find((c) => c.method === 'crm.deal.update');
+  assert.ok(update, 'actualiza el deal');
+  assert.equal(update!.params.fields.UF_CRM_PROGRAMA_TEST, 'Magíster en Inteligencia Artificial');
+  assert.match(update!.params.fields.UF_CRM_BROCHURE_TEST, /Magister-en-Inteligencia-Artificial\.pdf$/);
+});
+
+test('actualizarDatosCliente: sin programa de interés no toca el UF del brochure', async () => {
+  calls.length = 0;
+  responder = () => ({});
+
+  await actualizarDatosCliente({ deal: 43 }, undefined, { comentario: 'solo un comentario' }, auth);
+
+  const update = calls.find((c) => c.method === 'crm.deal.update');
+  assert.ok(update, 'igual actualiza el deal (por el comentario)');
+  assert.equal(update!.params.fields.UF_CRM_BROCHURE_TEST, undefined);
 });
 
 test('actualizarDatosCliente: sin entidad CRM y sin chat devuelve error claro', async () => {

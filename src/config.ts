@@ -72,6 +72,9 @@ export const config = {
   ufSentiment: process.env.BITRIX_UF_SENTIMENT ?? '',
   // Campo UF (en el Deal) para el "Programa de interés" que el bot actualiza según la conversación.
   ufPrograma: process.env.BITRIX_UF_PROGRAMA ?? '',
+  // Campo UF (en el Deal) con el link al brochure del programa de interés — para que la automatización
+  // de "Información enviada" (Bitrix24) lo incluya en el correo. Se actualiza junto con ufPrograma.
+  ufBrochure: process.env.BITRIX_UF_BROCHURE ?? '',
   // Mover la etapa del deal según el score. Mapa por embudo (recomendado, multi-flujo):
   stageMap: parseStageMap(process.env.BITRIX_STAGE_MAP),
   // Etiquetas legibles por CATEGORY_ID de embudo, para el panel (C1=Diplomados, C3=Magísteres).
