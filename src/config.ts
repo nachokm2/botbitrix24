@@ -80,6 +80,11 @@ export const config = {
   driveFolderMagister: process.env.BITRIX_DRIVE_FOLDER_MAGISTER ?? '',
   driveFolderDiplomado: process.env.BITRIX_DRIVE_FOLDER_DIPLOMADO ?? '',
   driveFolderEspecialidad: process.env.BITRIX_DRIVE_FOLDER_ESPECIALIDAD ?? '',
+  // Etapa dedicada (por embudo) a la que el bot mueve el Deal apenas adjunta el brochure — dispara
+  // ahí una Automation Rule nativa de Bitrix24 que manda el correo con la plantilla. Mapa JSON
+  // categoryId -> STAGE_ID, ej: {"3":"C3:UC_ABC123"}. El bot solo la mueve UNA vez por programa
+  // (no repite el envío si programa_interes no cambió).
+  stageBrochureEnviado: parseSimpleStageMap(process.env.BITRIX_STAGE_BROCHURE_ENVIADO),
   // Mover la etapa del deal según el score. Mapa por embudo (recomendado, multi-flujo):
   stageMap: parseStageMap(process.env.BITRIX_STAGE_MAP),
   // Etiquetas legibles por CATEGORY_ID de embudo, para el panel (C1=Diplomados, C3=Magísteres).

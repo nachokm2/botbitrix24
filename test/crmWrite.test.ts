@@ -11,6 +11,7 @@ process.env.BITRIX_UF_PROGRAMA = 'UF_CRM_PROGRAMA_TEST';
 process.env.BITRIX_UF_BROCHURE_FILE = 'UF_CRM_BROCHURE_TEST';
 process.env.BITRIX_DRIVE_FOLDER_MAGISTER = '111';
 process.env.BITRIX_DRIVE_FOLDER_DIPLOMADO = '222';
+process.env.BITRIX_STAGE_BROCHURE_ENVIADO = '{"3":"C3:UC_BROCHURE_TEST"}';
 
 type Call = { method: string; params: any };
 const calls: Call[] = [];
@@ -143,6 +144,38 @@ test('actualizarDatosCliente: no vuelve a descargar el brochure si el programa n
   assert.ok(!calls.find((c) => c.method === 'disk.folder.getchildren'), 'no relista el Drive');
   const update = calls.find((c) => c.method === 'crm.deal.update');
   assert.equal(update!.params.fields.UF_CRM_BROCHURE_TEST, undefined, 'no reenvía el brochure');
+});
+
+test('actualizarDatosCliente: mueve el deal a la etapa de brochure enviado (según el embudo)', async () => {
+  calls.length = 0;
+  responder = (method) => {
+    if (method === 'disk.folder.getchildren') {
+      return [{ TYPE: 'file', NAME: 'Magíster - Inteligencia Artificial.pdf', ID: 2 }];
+    }
+    if (method === 'disk.file.get') {
+      return { NAME: 'Magíster - Inteligencia Artificial.pdf', DOWNLOAD_URL: 'http://descarga.test/2' };
+    }
+    if (method === 'crm.deal.get') return { CATEGORY_ID: '3' }; // embudo de Magísteres
+    return {};
+  };
+
+  await actualizarDatosCliente({ deal: 45 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
+
+  const update = calls.find((c) => c.method === 'crm.deal.update');
+  assert.equal(update!.params.fields.STAGE_ID, 'C3:UC_BROCHURE_TEST', 'mueve a la etapa dedicada del embudo 3');
+});
+
+test('actualizarDatosCliente: no repite el movimiento de etapa si el programa no cambió', async () => {
+  calls.length = 0;
+  responder = (method) => {
+    if (method === 'crm.deal.get') return { UF_CRM_PROGRAMA_TEST: 'Magíster en Inteligencia Artificial', CATEGORY_ID: '3' };
+    return {};
+  };
+
+  await actualizarDatosCliente({ deal: 46 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
+
+  const update = calls.find((c) => c.method === 'crm.deal.update');
+  assert.equal(update!.params.fields.STAGE_ID, undefined, 'no vuelve a mover la etapa');
 });
 
 test('actualizarDatosCliente: sin programa de interés no toca el UF del brochure', async () => {

@@ -132,16 +132,22 @@ function mergeMultifield(existing: BitrixMultifield[] | undefined, value: string
   return arr;
 }
 
-/** ¿El deal YA tiene guardado este mismo programa de interés? Evita re-descargar y volver a subir
- *  el brochure (varios cientos de KB) en cada turno de la conversación cuando no cambió nada —
- *  la IA reenvía `programa_interes` en cada llamada a registrar_interes_crm, no solo cuando cambia. */
-async function programaSinCambios(dealId: number, programaInteres: string, auth: Auth): Promise<boolean> {
-  if (!config.ufPrograma) return false;
+/** Estado actual del deal necesario para decidir si el brochure/la etapa ya se procesaron: el
+ *  programa guardado (para no re-descargar/re-mover si `programa_interes` no cambió — la IA lo
+ *  reenvía en cada llamada a registrar_interes_crm, no solo cuando cambia) y el embudo (para
+ *  resolver la etapa de destino por categoría). Una sola lectura para ambos usos. */
+async function estadoBrochureDeal(dealId: number, auth: Auth): Promise<{ programaActual?: string; categoryId?: number }> {
+  const necesitaCategoria = Object.keys(config.stageBrochureEnviado).length > 0;
+  const select = [config.ufPrograma, necesitaCategoria ? 'CATEGORY_ID' : ''].filter(Boolean);
+  if (!select.length) return {};
   try {
-    const cur: any = await callCrm('crm.deal.get', { id: dealId, select: [config.ufPrograma] }, auth);
-    return cur?.[config.ufPrograma] === programaInteres;
+    const cur: any = await callCrm('crm.deal.get', { id: dealId, select }, auth);
+    return {
+      programaActual: config.ufPrograma ? cur?.[config.ufPrograma] : undefined,
+      categoryId: necesitaCategoria && cur?.CATEGORY_ID !== undefined ? Number(cur.CATEGORY_ID) : undefined,
+    };
   } catch {
-    return false; // ante duda, re-adjunta (mejor de más que dejar el brochure desactualizado)
+    return {}; // ante duda, re-adjunta/reintenta mover etapa (mejor de más que quedar desactualizado)
   }
 }
 
@@ -200,13 +206,21 @@ export async function actualizarDatosCliente(
       fields.TITLE = `${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`;
       // Campo personalizado dedicado, para reportería/filtrado (se actualiza según la conversación).
       if (config.ufPrograma) fields[config.ufPrograma] = data.programa_interes;
-      // Brochure (PDF del Drive) del programa: lo usa la automatización de Bitrix24
-      // ("Información enviada" → email con la plantilla que adjunta este campo). Se sube el
-      // CONTENIDO del archivo (Bitrix24 no soporta referenciar un archivo existente del Drive
-      // por ID) — evita repetir la descarga si el programa no cambió desde la última vez.
-      if (config.ufBrochureFile && !(await programaSinCambios(e.deal, data.programa_interes, auth))) {
-        const brochure = await buscarBrochureDrive(data.programa_interes, auth);
-        if (brochure) fields[config.ufBrochureFile] = { fileData: [brochure.fileName, brochure.contenidoBase64] };
+      // Brochure (PDF del Drive) del programa + mover a la etapa dedicada (dispara la
+      // Automation Rule nativa de Bitrix24 que manda el correo con la plantilla). Ambos, una
+      // sola vez por programa: se sube el CONTENIDO del archivo (Bitrix24 no soporta referenciar
+      // un archivo existente del Drive por ID), evitando repetir la descarga/el envío si el
+      // programa no cambió desde la última vez.
+      if (config.ufBrochureFile || Object.keys(config.stageBrochureEnviado).length) {
+        const estado = await estadoBrochureDeal(e.deal, auth);
+        if (estado.programaActual !== data.programa_interes) {
+          if (config.ufBrochureFile) {
+            const brochure = await buscarBrochureDrive(data.programa_interes, auth);
+            if (brochure) fields[config.ufBrochureFile] = { fileData: [brochure.fileName, brochure.contenidoBase64] };
+          }
+          const etapaDestino = config.stageBrochureEnviado[String(estado.categoryId ?? 0)];
+          if (etapaDestino) fields.STAGE_ID = etapaDestino;
+        }
       }
     }
     if (data.comentario) fields.COMMENTS = data.comentario;
