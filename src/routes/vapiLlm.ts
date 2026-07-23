@@ -1,9 +1,10 @@
 import type { Request, Response } from 'express';
 import crypto from 'crypto';
-import { runConversation } from '../ai/agentLoop';
+import { runConversation, priorContextMessage } from '../ai/agentLoop';
 import { VOICE_PROFILE, type AgentContext } from '../core/channel';
 import { getVoiceCtx, runVapiTool } from '../voice/vapiTools';
 import { primaryEntity } from '../crm/entities';
+import { loadPriorContext } from '../crm/chat';
 import { getState, EMPTY_AUTH } from '../store';
 import { log } from '../log';
 
@@ -100,6 +101,14 @@ export async function vapiChatCompletions(req: Request, res: Response) {
       // Sin turno de usuario todavía (p. ej. apertura): devuelve un saludo sin invocar al modelo.
       const saludo = '¡Hola! Le saluda el asistente de Postgrados de la Universidad Autónoma de Chile. ¿En qué le puedo ayudar?';
       return stream ? streamCompletion(res, saludo, VOICE_PROFILE.model) : res.json(completionBody(saludo, VOICE_PROFILE.model));
+    }
+
+    // Primer turno real de la llamada (aún sin respuesta nuestra): si hay entidad CRM, trae las
+    // notas de conversaciones previas (mismo mecanismo que WhatsApp) para no volver a pedir datos.
+    const esPrimerTurno = !messages.some((m) => m.role === 'assistant');
+    if (esPrimerTurno && ctx.crmEntity) {
+      const priorContext = await loadPriorContext(ctx.crmEntity, auth);
+      if (priorContext) messages.unshift(priorContextMessage(priorContext));
     }
 
     const { text } = await runConversation(

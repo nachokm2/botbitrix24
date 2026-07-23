@@ -1,6 +1,6 @@
 import { consultarProgramas, detallePrograma } from '../core/catalogTool';
 import type { AgentContext } from '../core/channel';
-import { actualizarDatosCliente } from '../crm/crmWrite';
+import { actualizarDatosCliente, obtenerContextoLlamada } from '../crm/crmWrite';
 import { getDealAsesores } from '../crm/directory';
 import { generarBriefing } from './briefing';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
@@ -47,7 +47,9 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
         }
         // Guarda/actualiza el teléfono en el CRM antes de llamar (best-effort, no bloquea).
         void actualizarDatosCliente(ctx.crmEntities, ctx.chatId, { telefono }, ctx.auth).catch(() => {});
-        const r = await iniciarLlamadaSaliente(telefono);
+        // Nombre + programa de interés ya capturados por chat: la llamada abre YA con ese contexto.
+        const contexto = await obtenerContextoLlamada(ctx.crmEntities, ctx.auth).catch(() => ({}));
+        const r = await iniciarLlamadaSaliente(telefono, contexto);
         if (!r.ok) {
           log.warn('tool solicitar_llamada falló', { err: r.error });
           return {

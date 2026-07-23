@@ -229,6 +229,29 @@ export async function actualizarDatosCliente(
   return { ok: actualizado.length > 0, actualizado };
 }
 
+export type ContextoLlamada = { nombre?: string; programa?: string };
+
+/** Datos ya conocidos del cliente (nombre + programa de interés) para que la llamada de voz
+ *  abra CON contexto en vez de volver a pedirlos (contacto.NAME + UF programa del deal). */
+export async function obtenerContextoLlamada(entities: CrmEntities, auth: Auth): Promise<ContextoLlamada> {
+  const ctx: ContextoLlamada = {};
+  try {
+    if (entities.contact) {
+      const c = await callCrm<BitrixContact>('crm.contact.get', { id: entities.contact }, auth);
+      const nombre = [c?.NAME, c?.LAST_NAME].filter(Boolean).join(' ').trim();
+      if (nombre) ctx.nombre = nombre;
+    }
+    if (entities.deal && config.ufPrograma) {
+      const d = await callCrm<any>('crm.deal.get', { id: entities.deal }, auth);
+      const programa = d?.[config.ufPrograma];
+      if (programa) ctx.programa = String(programa);
+    }
+  } catch (e) {
+    log.warn('obtenerContextoLlamada falló', { err: String(e) });
+  }
+  return ctx;
+}
+
 /** Devuelve el primer teléfono guardado del cliente (contacto → lead). Para llamarlo por voz. */
 export async function getTelefonoCliente(entities: CrmEntities, auth: Auth): Promise<string | null> {
   const readPhone = (r: BitrixContact | BitrixLead): string | null => {

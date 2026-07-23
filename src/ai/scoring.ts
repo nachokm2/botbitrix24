@@ -1,7 +1,7 @@
 import { anthropic, CLASSIFIER } from './client';
 import { getHistory } from './memory';
 import { getSession, saveSession } from '../session';
-import { guardarEvaluacionCrm, moverEtapaDeal, getTelefonoCliente, type LeadEval } from '../crm/crmWrite';
+import { guardarEvaluacionCrm, moverEtapaDeal, getTelefonoCliente, obtenerContextoLlamada, type LeadEval } from '../crm/crmWrite';
 import { getDealInfo } from '../crm/directory';
 import { primaryEntity, type CrmEntities } from '../crm/entities';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
@@ -193,7 +193,8 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
     if (telefono) {
       sess.autoCalled = true; // marca antes de llamar para evitar duplicados en pases concurrentes
       await saveSession(dialogId, sess);
-      const r = await iniciarLlamadaSaliente(telefono);
+      const contexto = await obtenerContextoLlamada(crmEntities, auth).catch(() => ({}));
+      const r = await iniciarLlamadaSaliente(telefono, contexto);
       if (r.ok) {
         inc('auto_call');
         await audit({
