@@ -9,6 +9,8 @@ import { audit } from '../obs/audit';
 import { registerCall, finishCall, attachCallRecord, toCrmRef, type CallType } from '../crm/telephony';
 import { getVoiceCtx, runVapiTool } from '../voice/vapiTools';
 import { iniciarLlamadaSaliente, getOrigenLlamada } from '../voice/outbound';
+import { obtenerContextoLlamada, type ContextoLlamada } from '../crm/crmWrite';
+import type { CrmEntities } from '../crm/entities';
 import { getSession } from '../session';
 import { getHistory, setHistory } from '../ai/memory';
 
@@ -88,10 +90,13 @@ async function handleEndOfCall(message: any, auth: any) {
     return;
   }
 
+  // Entidad CRM de la llamada (por teléfono, cacheada por callId): la usan tanto el registro de
+  // telefonía como el seguimiento por WhatsApp (para saludar por nombre y nombrar el programa).
+  const ctx = await getVoiceCtx(call.id ?? 'unknown', phone, auth);
+
   // Registro en el CRM (telefonía): requiere BITRIX_TELEPHONY_USER_ID. Si falta, se omite SOLO esto
   // (el seguimiento por WhatsApp de más abajo no depende de la telefonía).
   if (config.voiceUserId) {
-    const ctx = await getVoiceCtx(call.id ?? 'unknown', phone, auth);
     const crmRef = toCrmRef(ctx.crm);
     const reg = await registerCall({ phone, type, userId: config.voiceUserId, crm: crmRef, crmCreate: true }, auth);
     if (reg.callId) {
@@ -117,7 +122,18 @@ async function handleEndOfCall(message: any, auth: any) {
     log.warn('vapi endOfCall: falta BITRIX_TELEPHONY_USER_ID; no se registra la llamada en el CRM');
   }
 
-  await retomarChatTrasLlamada(call.id, auth);
+  await retomarChatTrasLlamada(call.id, ctx.crm, auth);
+}
+
+/** Arma el mensaje de seguimiento dejando explícito que es LA MISMA asistente que acaba de llamar
+ *  (no un tercero preguntando "¿cómo te fue?"), personalizado con nombre/programa si se conocen. */
+function mensajeSeguimiento(contexto: ContextoLlamada): string {
+  const nombre = contexto.nombre ? `, ${contexto.nombre}` : '';
+  const programa = contexto.programa ? ` del ${contexto.programa}` : '';
+  return (
+    `¡Hola de nuevo${nombre}! Soy el mismo asistente con el que acabas de hablar por teléfono 😊 ` +
+    `¿Te quedó alguna duda${programa} o hay algo más en lo que te pueda ayudar?`
+  );
 }
 
 /**
@@ -126,7 +142,7 @@ async function handleEndOfCall(message: any, auth: any) {
  * pendiente. Continuidad de canal en el sentido inverso (voz → texto); no aplica a llamadas
  * entrantes directas (sin diálogo de origen que retomar).
  */
-async function retomarChatTrasLlamada(callId: string | undefined, auth: any) {
+async function retomarChatTrasLlamada(callId: string | undefined, crm: CrmEntities | null | undefined, auth: any) {
   const origen = await getOrigenLlamada(String(callId ?? ''));
   if (!origen) return;
 
@@ -136,9 +152,8 @@ async function retomarChatTrasLlamada(callId: string | undefined, auth: any) {
     return;
   }
 
-  const followup =
-    '¡Hola de nuevo! 😊 ¿Cómo te fue en la llamada? Si te quedó alguna duda pendiente sobre el programa, ' +
-    'o hay algo más en lo que te pueda ayudar, aquí estoy.';
+  const contexto = await obtenerContextoLlamada(crm ?? {}, auth).catch(() => ({}) as ContextoLlamada);
+  const followup = mensajeSeguimiento(contexto);
   try {
     await callBitrix('imbot.message.add', { BOT_ID: origen.botId, DIALOG_ID: origen.dialogId, MESSAGE: followup }, auth);
     const history = await getHistory(origen.dialogId);
