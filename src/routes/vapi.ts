@@ -125,15 +125,11 @@ async function handleEndOfCall(message: any, auth: any) {
   await retomarChatTrasLlamada(call.id, ctx.crm, auth);
 }
 
-/** Arma el mensaje de seguimiento dejando explícito que es LA MISMA asistente que acaba de llamar
- *  (no un tercero preguntando "¿cómo te fue?"), personalizado con nombre/programa si se conocen. */
+/** Arma el mensaje de seguimiento: continúa la conversación con naturalidad, dando por hecho que es
+ *  el mismo hilo (sin re-presentarse), referenciando la llamada y el programa si se conoce. */
 function mensajeSeguimiento(contexto: ContextoLlamada): string {
-  const nombre = contexto.nombre ? `, ${contexto.nombre}` : '';
-  const programa = contexto.programa ? ` del ${contexto.programa}` : '';
-  return (
-    `¡Hola de nuevo${nombre}! Soy el mismo asistente con el que acabas de hablar por teléfono 😊 ` +
-    `¿Te quedó alguna duda${programa} o hay algo más en lo que te pueda ayudar?`
-  );
+  const programa = contexto.programa ? ` sobre el ${contexto.programa}` : '';
+  return `Según lo que conversamos por teléfono${programa}, quería saber si tienes alguna duda con la que te pueda ayudar 😊`;
 }
 
 /**
