@@ -11,7 +11,7 @@ process.env.BITRIX_UF_PROGRAMA = 'UF_CRM_PROGRAMA_TEST';
 process.env.BITRIX_UF_BROCHURE_FILE = 'UF_CRM_BROCHURE_TEST';
 process.env.BITRIX_DRIVE_FOLDER_MAGISTER = '111';
 process.env.BITRIX_DRIVE_FOLDER_DIPLOMADO = '222';
-process.env.BITRIX_STAGE_BROCHURE_ENVIADO = '{"3":"C3:UC_BROCHURE_TEST"}';
+process.env.BITRIX_BIZPROC_TEMPLATE_BROCHURE = '77';
 
 type Call = { method: string; params: any };
 const calls: Call[] = [];
@@ -146,7 +146,7 @@ test('actualizarDatosCliente: no vuelve a descargar el brochure si el programa n
   assert.equal(update!.params.fields.UF_CRM_BROCHURE_TEST, undefined, 'no reenvía el brochure');
 });
 
-test('actualizarDatosCliente: mueve el deal a la etapa de brochure enviado (según el embudo)', async () => {
+test('actualizarDatosCliente: dispara el bizproc de envío del brochure tras adjuntarlo', async () => {
   calls.length = 0;
   responder = (method) => {
     if (method === 'disk.folder.getchildren') {
@@ -155,27 +155,33 @@ test('actualizarDatosCliente: mueve el deal a la etapa de brochure enviado (seg�
     if (method === 'disk.file.get') {
       return { NAME: 'Magíster - Inteligencia Artificial.pdf', DOWNLOAD_URL: 'http://descarga.test/2' };
     }
-    if (method === 'crm.deal.get') return { CATEGORY_ID: '3' }; // embudo de Magísteres
+    if (method === 'crm.deal.get') return {}; // sin programa previo
     return {};
   };
 
   await actualizarDatosCliente({ deal: 45 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
 
   const update = calls.find((c) => c.method === 'crm.deal.update');
-  assert.equal(update!.params.fields.STAGE_ID, 'C3:UC_BROCHURE_TEST', 'mueve a la etapa dedicada del embudo 3');
+  const start = calls.find((c) => c.method === 'bizproc.workflow.start');
+  assert.ok(start, 'dispara el workflow');
+  assert.equal(start!.params.TEMPLATE_ID, '77');
+  assert.deepEqual(start!.params.DOCUMENT_ID, ['crm', 'CCrmDocumentDeal', 'DEAL_45']);
+  assert.ok(
+    calls.indexOf(update!) < calls.indexOf(start!),
+    'el workflow se dispara DESPUÉS de guardar el brochure en el deal (para que lo lea actualizado)',
+  );
 });
 
-test('actualizarDatosCliente: no repite el movimiento de etapa si el programa no cambió', async () => {
+test('actualizarDatosCliente: no vuelve a disparar el bizproc si el programa no cambió', async () => {
   calls.length = 0;
   responder = (method) => {
-    if (method === 'crm.deal.get') return { UF_CRM_PROGRAMA_TEST: 'Magíster en Inteligencia Artificial', CATEGORY_ID: '3' };
+    if (method === 'crm.deal.get') return { UF_CRM_PROGRAMA_TEST: 'Magíster en Inteligencia Artificial' };
     return {};
   };
 
   await actualizarDatosCliente({ deal: 46 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
 
-  const update = calls.find((c) => c.method === 'crm.deal.update');
-  assert.equal(update!.params.fields.STAGE_ID, undefined, 'no vuelve a mover la etapa');
+  assert.ok(!calls.find((c) => c.method === 'bizproc.workflow.start'), 'no vuelve a disparar el envío');
 });
 
 test('actualizarDatosCliente: sin programa de interés no toca el UF del brochure', async () => {

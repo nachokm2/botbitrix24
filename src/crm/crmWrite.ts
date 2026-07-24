@@ -132,22 +132,31 @@ function mergeMultifield(existing: BitrixMultifield[] | undefined, value: string
   return arr;
 }
 
-/** Estado actual del deal necesario para decidir si el brochure/la etapa ya se procesaron: el
- *  programa guardado (para no re-descargar/re-mover si `programa_interes` no cambió — la IA lo
- *  reenvía en cada llamada a registrar_interes_crm, no solo cuando cambia) y el embudo (para
- *  resolver la etapa de destino por categoría). Una sola lectura para ambos usos. */
-async function estadoBrochureDeal(dealId: number, auth: Auth): Promise<{ programaActual?: string; categoryId?: number }> {
-  const necesitaCategoria = Object.keys(config.stageBrochureEnviado).length > 0;
-  const select = [config.ufPrograma, necesitaCategoria ? 'CATEGORY_ID' : ''].filter(Boolean);
-  if (!select.length) return {};
+/** ¿El deal YA tiene guardado este mismo programa de interés? Evita re-descargar el brochure y
+ *  volver a disparar el envío en cada turno de la conversación cuando no cambió nada — la IA
+ *  reenvía `programa_interes` en cada llamada a registrar_interes_crm, no solo cuando cambia. */
+async function programaSinCambios(dealId: number, programaInteres: string, auth: Auth): Promise<boolean> {
+  if (!config.ufPrograma) return false;
   try {
-    const cur: any = await callCrm('crm.deal.get', { id: dealId, select }, auth);
-    return {
-      programaActual: config.ufPrograma ? cur?.[config.ufPrograma] : undefined,
-      categoryId: necesitaCategoria && cur?.CATEGORY_ID !== undefined ? Number(cur.CATEGORY_ID) : undefined,
-    };
+    const cur: any = await callCrm('crm.deal.get', { id: dealId, select: [config.ufPrograma] }, auth);
+    return cur?.[config.ufPrograma] === programaInteres;
   } catch {
-    return {}; // ante duda, re-adjunta/reintenta mover etapa (mejor de más que quedar desactualizado)
+    return false; // ante duda, re-dispara (mejor de más que quedar sin enviar)
+  }
+}
+
+/** Dispara el Proceso de Negocio (bizproc) que manda el correo con el brochure adjunto — lee el
+ *  programa/brochure directo de los campos del Deal (ya actualizados por el caller). */
+async function dispararEnvioBrochure(dealId: number, auth: Auth): Promise<void> {
+  if (!config.bizprocTemplateBrochure) return;
+  try {
+    await callCrm(
+      'bizproc.workflow.start',
+      { TEMPLATE_ID: config.bizprocTemplateBrochure, DOCUMENT_ID: ['crm', 'CCrmDocumentDeal', `DEAL_${dealId}`] },
+      auth,
+    );
+  } catch (e) {
+    log.warn('dispararEnvioBrochure falló', { err: String(e), dealId });
   }
 }
 
@@ -202,24 +211,18 @@ export async function actualizarDatosCliente(
   // DEAL: título + campo UF "Programa de interés" + nota.
   if (e.deal) {
     const fields: any = {};
+    let brochureNuevo = false;
     if (data.programa_interes) {
       fields.TITLE = `${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`;
       // Campo personalizado dedicado, para reportería/filtrado (se actualiza según la conversación).
       if (config.ufPrograma) fields[config.ufPrograma] = data.programa_interes;
-      // Brochure (PDF del Drive) del programa + mover a la etapa dedicada (dispara la
-      // Automation Rule nativa de Bitrix24 que manda el correo con la plantilla). Ambos, una
-      // sola vez por programa: se sube el CONTENIDO del archivo (Bitrix24 no soporta referenciar
-      // un archivo existente del Drive por ID), evitando repetir la descarga/el envío si el
-      // programa no cambió desde la última vez.
-      if (config.ufBrochureFile || Object.keys(config.stageBrochureEnviado).length) {
-        const estado = await estadoBrochureDeal(e.deal, auth);
-        if (estado.programaActual !== data.programa_interes) {
-          if (config.ufBrochureFile) {
-            const brochure = await buscarBrochureDrive(data.programa_interes, auth);
-            if (brochure) fields[config.ufBrochureFile] = { fileData: [brochure.fileName, brochure.contenidoBase64] };
-          }
-          const etapaDestino = config.stageBrochureEnviado[String(estado.categoryId ?? 0)];
-          if (etapaDestino) fields.STAGE_ID = etapaDestino;
+      // Brochure (PDF del Drive) del programa de interés — una sola vez por programa: se sube el
+      // CONTENIDO del archivo (Bitrix24 no soporta referenciar uno existente del Drive por ID).
+      if (config.ufBrochureFile && !(await programaSinCambios(e.deal, data.programa_interes, auth))) {
+        const brochure = await buscarBrochureDrive(data.programa_interes, auth);
+        if (brochure) {
+          fields[config.ufBrochureFile] = { fileData: [brochure.fileName, brochure.contenidoBase64] };
+          brochureNuevo = true;
         }
       }
     }
@@ -228,6 +231,9 @@ export async function actualizarDatosCliente(
       if (Object.keys(fields).length) {
         await callCrm('crm.deal.update', { id: e.deal, fields }, auth);
       }
+      // Dispara el envío del correo (bizproc) DESPUÉS del update, para que el flujo lea el
+      // programa/brochure ya actualizados en el Deal.
+      if (brochureNuevo) await dispararEnvioBrochure(e.deal, auth);
       await addNota('deal', e.deal, data, auth);
       actualizado.push(`deal#${e.deal}`);
     } catch (err) {
