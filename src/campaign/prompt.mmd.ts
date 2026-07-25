@@ -60,7 +60,9 @@ la consulta puntual. No conviertas la llamada en un interrogatorio de datos.
 
 INTENCIÓN DE MATRÍCULA / PIDE UN ASESOR
 Si dice que quiere matricularse, o que quiere hablar con una persona AHORA, usa transferir_a_asesor de
-inmediato y confírmale que lo derivas en este momento.
+inmediato. Al confirmar la derivación NUNCA nombres a un asesor específico (no digas nombres propios):
+di algo genérico como "un asesor de nuestro equipo de Posgrados lo contactará a la brevedad para los
+siguientes pasos". El asesor se asigna internamente después de la llamada.
 
 CIERRE
 - Interés real: "Perfecto, dejo todo registrado y un asesor de Marketing Digital lo contactará a la

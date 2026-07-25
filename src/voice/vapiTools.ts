@@ -120,6 +120,12 @@ export async function runVapiTool(
         return { ok: true, guardado: true };
       }
       case 'transferir_a_asesor': {
+        // En campaña saliente el asesor se asigna DESPUÉS de la llamada por round-robin (finDeLlamada),
+        // así que NO anunciamos un nombre específico (evita prometer a alguien que quizá no sea el
+        // asignado). En inbound sí se nombra al responsable actual del deal.
+        if (ctx.programCode) {
+          return { transferir: true, asesor: null, destino: config.voiceTransferFallback || null };
+        }
         let asesor: string | null = null;
         if (ctx.crm?.deal) {
           try {

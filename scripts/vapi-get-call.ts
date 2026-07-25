@@ -24,6 +24,7 @@ async function main() {
   console.log('customer      :', JSON.stringify(json.customer));
   console.log('cost          :', json.cost ?? '—');
   console.log('metadata      :', JSON.stringify(json.metadata ?? {}));
+  console.log('overrides     :', JSON.stringify(json.assistantOverrides ?? {}));
   if (json.phoneCallProviderDetails) console.log('providerDetails:', JSON.stringify(json.phoneCallProviderDetails));
   if (json.phoneCallProviderId) console.log('providerCallId:', json.phoneCallProviderId);
   console.log('');
