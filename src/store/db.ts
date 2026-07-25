@@ -4,6 +4,7 @@ import { log } from '../log';
 import { once } from './kv';
 import { inc } from '../obs/metrics';
 import type { NormCall, CallFilters, CallKpis } from '../crm/callStats';
+import type { CampaignTarget, CallAttempt } from '../campaign/types';
 
 // Auditoría persistente en Postgres (si hay DATABASE_URL). Si no, no-op (solo logs).
 let pool: pg.Pool | null = null;
@@ -66,7 +67,64 @@ export async function initDb(): Promise<void> {
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS calls_ts_idx ON calls (ts DESC);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS calls_local_date_idx ON calls (local_date);`);
-    log.info('DB: Postgres conectado y tablas audit_log/calls listas');
+    // ── Campaña de voz saliente (Fase 0): estado por Deal + auditoría fina de intentos ──
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS campaign_target (
+        deal_id        BIGINT PRIMARY KEY,
+        program_code   TEXT NOT NULL,
+        contact_id     BIGINT,
+        phone_e164     TEXT,
+        status         TEXT NOT NULL DEFAULT 'PENDING',
+        day_index      SMALLINT NOT NULL DEFAULT 1,
+        attempts_total SMALLINT NOT NULL DEFAULT 0,
+        attempts_today SMALLINT NOT NULL DEFAULT 0,
+        today_date     DATE,
+        last_wave      TEXT,
+        last_attempt_at   TIMESTAMPTZ,
+        next_attempt_at   TIMESTAMPTZ,
+        answered_at    TIMESTAMPTZ,
+        last_outcome   TEXT,
+        classification TEXT,
+        lead_score     SMALLINT,
+        priority       TEXT,
+        asesor_id      BIGINT,
+        opted_out      BOOLEAN NOT NULL DEFAULT false,
+        whatsapp_sent  BOOLEAN NOT NULL DEFAULT false,
+        created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ct_due_idx ON campaign_target (program_code, status, next_attempt_at);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ct_status_idx ON campaign_target (status);`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS call_attempt (
+        id             BIGSERIAL PRIMARY KEY,
+        deal_id        BIGINT NOT NULL,
+        program_code   TEXT NOT NULL,
+        attempt_no     SMALLINT NOT NULL,
+        wave_slot      TEXT,
+        scheduled_at   TIMESTAMPTZ,
+        vapi_call_id   TEXT,
+        started_at     TIMESTAMPTZ,
+        ended_at       TIMESTAMPTZ,
+        ended_reason   TEXT,
+        duration_sec   INT,
+        answered       BOOLEAN,
+        outcome_code   TEXT,
+        classification TEXT,
+        lead_score     SMALLINT,
+        factores       JSONB,
+        objeciones     JSONB,
+        temas          JSONB,
+        resumen        TEXT,
+        recording_url  TEXT,
+        transcript_ref TEXT,
+        created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ca_deal_idx ON call_attempt (deal_id, attempt_no);`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS ca_vapi_idx ON call_attempt (vapi_call_id);`);
+    log.info('DB: Postgres conectado y tablas audit_log/calls/campaign_target/call_attempt listas');
   } catch (e) {
     log.error('DB: init falló, auditoría solo en logs', { err: String(e) });
     pool = null;
@@ -385,5 +443,178 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
   } catch (e) {
     log.warn('dbMetricsSummary falló', { err: String(e) });
     return null;
+  }
+}
+
+// ─────────────────────────── Campaña de voz saliente (plano de control) ───────────────────────────
+// Todas estas funciones son no-op cuando no hay Postgres (pool === null): la campaña se degrada a
+// "sin memoria de reintentos" sin tumbar el resto del bot. Las escrituras usan un whitelist de columnas
+// para el UPDATE parcial (evita inyección) y mapean camelCase ↔ snake_case.
+
+const CT_COLS: Record<string, string> = {
+  contactId: 'contact_id', phoneE164: 'phone_e164', status: 'status', dayIndex: 'day_index',
+  attemptsTotal: 'attempts_total', attemptsToday: 'attempts_today', todayDate: 'today_date',
+  lastWave: 'last_wave', lastAttemptAt: 'last_attempt_at', nextAttemptAt: 'next_attempt_at',
+  answeredAt: 'answered_at', lastOutcome: 'last_outcome', classification: 'classification',
+  leadScore: 'lead_score', priority: 'priority', asesorId: 'asesor_id', optedOut: 'opted_out',
+  whatsappSent: 'whatsapp_sent',
+};
+
+const CA_COLS: Record<string, string> = {
+  startedAt: 'started_at', endedAt: 'ended_at', endedReason: 'ended_reason', durationSec: 'duration_sec',
+  answered: 'answered', outcomeCode: 'outcome_code', classification: 'classification', leadScore: 'lead_score',
+  factores: 'factores', objeciones: 'objeciones', temas: 'temas', resumen: 'resumen',
+  recordingUrl: 'recording_url', transcriptRef: 'transcript_ref',
+};
+const CA_JSON = new Set(['factores', 'objeciones', 'temas']);
+
+function rowToTarget(r: any): CampaignTarget {
+  return {
+    dealId: Number(r.deal_id), programCode: r.program_code, contactId: r.contact_id, phoneE164: r.phone_e164,
+    status: r.status, dayIndex: r.day_index, attemptsTotal: r.attempts_total, attemptsToday: r.attempts_today,
+    todayDate: r.today_date, lastWave: r.last_wave, lastAttemptAt: r.last_attempt_at, nextAttemptAt: r.next_attempt_at,
+    answeredAt: r.answered_at, lastOutcome: r.last_outcome, classification: r.classification, leadScore: r.lead_score,
+    priority: r.priority, asesorId: r.asesor_id, optedOut: r.opted_out, whatsappSent: r.whatsapp_sent,
+  };
+}
+
+/** Alta (o refresco de datos) de un Deal en la campaña. En conflicto NO pisa el estado en curso: solo
+ *  actualiza teléfono/contacto/programa. Devuelve true si tocó Postgres. */
+export async function dbEnrollCampaignTarget(
+  t: { dealId: number; programCode: string; contactId?: number | null; phoneE164?: string | null },
+): Promise<boolean> {
+  if (!pool) return false;
+  try {
+    await pool.query(
+      `INSERT INTO campaign_target (deal_id, program_code, contact_id, phone_e164, status)
+       VALUES ($1,$2,$3,$4,'PENDING')
+       ON CONFLICT (deal_id) DO UPDATE SET
+         program_code = EXCLUDED.program_code,
+         contact_id   = COALESCE(EXCLUDED.contact_id, campaign_target.contact_id),
+         phone_e164   = COALESCE(EXCLUDED.phone_e164, campaign_target.phone_e164),
+         updated_at   = now()`,
+      [t.dealId, t.programCode, t.contactId ?? null, t.phoneE164 ?? null],
+    );
+    return true;
+  } catch (e) {
+    log.warn('dbEnrollCampaignTarget falló', { err: String(e) });
+    return false;
+  }
+}
+
+export async function dbGetCampaignTarget(dealId: number): Promise<CampaignTarget | null> {
+  if (!pool) return null;
+  try {
+    const r = await pool.query(`SELECT * FROM campaign_target WHERE deal_id = $1`, [dealId]);
+    return r.rows[0] ? rowToTarget(r.rows[0]) : null;
+  } catch (e) {
+    log.warn('dbGetCampaignTarget falló', { err: String(e) });
+    return null;
+  }
+}
+
+/**
+ * Cola del scheduler: targets elegibles de un programa cuya próxima llamada ya vence. Excluye los que
+ * ya contestaron, opt-out, con WhatsApp enviado, o que agotaron intentos/días. `nowIso` y los topes
+ * (maxTotal/maxDias) los aporta el llamador desde ProgramConfig.
+ */
+export async function dbDueCampaignTargets(
+  programCode: string,
+  nowIso: string,
+  opts: { maxTotal: number; maxDias: number; limit: number },
+): Promise<CampaignTarget[]> {
+  if (!pool) return [];
+  try {
+    const r = await pool.query(
+      `SELECT * FROM campaign_target
+       WHERE program_code = $1
+         AND status IN ('PENDING','SIN_RESPUESTA','CALLBACK','NO_TITULAR')
+         AND opted_out = false
+         AND answered_at IS NULL
+         AND whatsapp_sent = false
+         AND attempts_total < $2
+         AND day_index <= $3
+         AND (next_attempt_at IS NULL OR next_attempt_at <= $4::timestamptz)
+       ORDER BY next_attempt_at ASC NULLS FIRST, updated_at ASC
+       LIMIT $5`,
+      [programCode, opts.maxTotal, opts.maxDias, nowIso, opts.limit],
+    );
+    return r.rows.map(rowToTarget);
+  } catch (e) {
+    log.warn('dbDueCampaignTargets falló', { err: String(e) });
+    return [];
+  }
+}
+
+/** UPDATE parcial del estado de un target (whitelist de columnas). */
+export async function dbUpdateCampaignTarget(dealId: number, patch: Partial<CampaignTarget>): Promise<void> {
+  if (!pool) return;
+  const sets: string[] = [];
+  const vals: any[] = [];
+  for (const [k, v] of Object.entries(patch)) {
+    const col = CT_COLS[k];
+    if (!col) continue;
+    vals.push(v === undefined ? null : v);
+    sets.push(`${col} = $${vals.length}`);
+  }
+  if (!sets.length) return;
+  vals.push(dealId);
+  try {
+    await pool.query(`UPDATE campaign_target SET ${sets.join(', ')}, updated_at = now() WHERE deal_id = $${vals.length}`, vals);
+  } catch (e) {
+    log.warn('dbUpdateCampaignTarget falló', { err: String(e) });
+  }
+}
+
+/** Inserta el registro de un intento (al disparar la llamada). Devuelve el id, o null. */
+export async function dbInsertCallAttempt(
+  a: { dealId: number; programCode: string; attemptNo: number; waveSlot?: string | null; scheduledAt?: string | null; vapiCallId?: string | null },
+): Promise<number | null> {
+  if (!pool) return null;
+  try {
+    const r = await pool.query(
+      `INSERT INTO call_attempt (deal_id, program_code, attempt_no, wave_slot, scheduled_at, vapi_call_id)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+      [a.dealId, a.programCode, a.attemptNo, a.waveSlot ?? null, a.scheduledAt ?? null, a.vapiCallId ?? null],
+    );
+    return r.rows[0]?.id ?? null;
+  } catch (e) {
+    log.warn('dbInsertCallAttempt falló', { err: String(e) });
+    return null;
+  }
+}
+
+/** UPDATE parcial de un intento por su vapi_call_id (al terminar/clasificar la llamada). */
+export async function dbUpdateCallAttemptByVapiId(vapiCallId: string, patch: Partial<CallAttempt>): Promise<void> {
+  if (!pool) return;
+  const sets: string[] = [];
+  const vals: any[] = [];
+  for (const [k, v] of Object.entries(patch)) {
+    const col = CA_COLS[k];
+    if (!col) continue;
+    vals.push(v === undefined ? null : CA_JSON.has(k) ? JSON.stringify(v) : v);
+    sets.push(`${col} = $${vals.length}`);
+  }
+  if (!sets.length) return;
+  vals.push(vapiCallId);
+  try {
+    await pool.query(`UPDATE call_attempt SET ${sets.join(', ')} WHERE vapi_call_id = $${vals.length}`, vals);
+  } catch (e) {
+    log.warn('dbUpdateCallAttemptByVapiId falló', { err: String(e) });
+  }
+}
+
+/** Conteo de targets por estado (para el dashboard operativo). */
+export async function dbCampaignCounts(programCode: string): Promise<Record<string, number>> {
+  if (!pool) return {};
+  try {
+    const r = await pool.query(
+      `SELECT status, count(*)::int c FROM campaign_target WHERE program_code = $1 GROUP BY status`,
+      [programCode],
+    );
+    return Object.fromEntries(r.rows.map((x: any) => [x.status, x.c]));
+  } catch (e) {
+    log.warn('dbCampaignCounts falló', { err: String(e) });
+    return {};
   }
 }
