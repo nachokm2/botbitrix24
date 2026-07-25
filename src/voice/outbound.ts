@@ -56,8 +56,12 @@ export async function iniciarLlamadaSaliente(
     return { ok: false, error: 'Faltan VAPI_API_KEY / VAPI_ASSISTANT_ID / VAPI_PHONE_NUMBER_ID' };
   }
   try {
-    // Combina el saludo con contexto previo (inbound/chat) con el firstMessage de campaña (saliente).
+    // Ajustes de audio para llamadas salientes (móvil/ruido): denoising Krisp reduce el ruido de fondo
+    // que corrompe la transcripción, y stopSpeakingPlan exige ≥2 palabras para que el ruido no corte a la
+    // asistente. Combina con el saludo de contexto (inbound/chat) y el firstMessage de campaña (saliente).
     const assistantOverrides = {
+      backgroundDenoisingEnabled: true,
+      stopSpeakingPlan: { numWords: 2 },
       ...(assistantOverridesDe(contexto) ?? {}),
       ...(opts?.firstMessage ? { firstMessage: opts.firstMessage } : {}),
     };
