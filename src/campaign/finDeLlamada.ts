@@ -11,6 +11,7 @@ import type { CampaignStatus, CampaignTarget } from './types';
 import { getProgram, type ProgramConfig } from './programRegistry';
 import { siguienteEstado } from './stateMachine';
 import { elegirAsesor } from './assignment';
+import { recuperarTarget } from '../whatsapp/recuperacion';
 
 // ── Fase 3: ejecutor del CIERRE de una llamada de campaña ──
 // Aplica la máquina de estados + los efectos en Bitrix (mover etapa, asignar asesor, tarea, campos UF,
@@ -193,6 +194,11 @@ export async function procesarFinDeLlamada(input: FinLlamadaInput, auth: Auth): 
   if (cierre.outcomeCode === 'answered') patch.answeredAt = new Date().toISOString();
   if (out.asesorId) patch.asesorId = out.asesorId;
   await dbUpdateCampaignTarget(dealId, patch);
+
+  // Si el 9º intento se agotó sin contacto → recuperación por WhatsApp (Fase 5). Upgrade AGOTADO→RECUPERACION.
+  if (out.status === 'AGOTADO') {
+    await recuperarTarget(pc, dealId, target?.phoneE164 ?? null, auth).catch((e) => log.warn('finDeLlamada: recuperarTarget falló', { err: String(e) }));
+  }
 
   await audit({
     type: 'campaign.call.classified',

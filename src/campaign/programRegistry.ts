@@ -38,7 +38,7 @@ export type ProgramConfig = {
   };
   asesor: { estrategia: 'round-robin' | 'owner' | 'fixed'; pool: number[]; fallbackUserId: number };
   voz: { vapiAssistantId: string; callerNumberId: string };
-  whatsapp: { templateName: string; templateLang: string };
+  whatsapp: { templateName: string; templateLang: string; params: string[] };
   agenda: CampaignAgenda;
 };
 
@@ -80,6 +80,8 @@ const MMD: ProgramConfig = {
   whatsapp: {
     templateName: process.env.CAMPAIGN_MMD_WA_TEMPLATE ?? '',
     templateLang: process.env.CAMPAIGN_MMD_WA_LANG ?? 'es',
+    // Parámetros de la plantilla, en orden ({{1}}, {{2}}, …). Default: solo el nombre.
+    params: csv(process.env.CAMPAIGN_MMD_WA_PARAMS).length ? csv(process.env.CAMPAIGN_MMD_WA_PARAMS) : ['nombre'],
   },
   agenda: {
     tz: process.env.CAMPAIGN_TZ ?? 'America/Santiago',

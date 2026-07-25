@@ -9,6 +9,7 @@ import type { Auth } from '../store';
 import { filtroCola, type ProgramConfig } from './programRegistry';
 import { planificarIntento } from './retryPolicy';
 import { wallClock } from './calendar';
+import { recuperarTarget } from '../whatsapp/recuperacion';
 
 // ── Fase 4: orquestador ──
 // (1) enrolarPrograma: llena campaign_target desde los deals del embudo del programa (con su teléfono).
@@ -114,7 +115,10 @@ export async function correrOla(
         const plan = planificarIntento(t, pc.agenda, wc.ymd, nowIso);
         if (!plan.llamar) {
           if (plan.agotado) {
-            await dbUpdateCampaignTarget(t.dealId, { status: 'AGOTADO' });
+            // Agotó los 9 intentos → recuperación: marca AGOTADO y envía la plantilla de WhatsApp (Fase 5).
+            await recuperarTarget(pc, t.dealId, t.phoneE164 ?? null, auth).catch((e) =>
+              log.warn('correrOla: recuperarTarget falló', { dealId: t.dealId, err: String(e) }),
+            );
             agotados++;
           }
           return;
