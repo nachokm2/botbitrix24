@@ -10,6 +10,8 @@ import { registerCall, finishCall, attachCallRecord, toCrmRef, type CallType } f
 import { getVoiceCtx, runVapiTool } from '../voice/vapiTools';
 import { iniciarLlamadaSaliente, getOrigenLlamada } from '../voice/outbound';
 import { openerMMD } from '../campaign/prompt.mmd';
+import { clasificarCierre } from '../ai/clasificadorCierre';
+import { procesarFinDeLlamada } from '../campaign/finDeLlamada';
 import { obtenerContextoLlamada, type ContextoLlamada } from '../crm/crmWrite';
 import type { CrmEntities } from '../crm/entities';
 import { getSession } from '../session';
@@ -85,6 +87,26 @@ async function handleEndOfCall(message: any, auth: any) {
   const duration = Math.round(message.durationSeconds ?? (message.durationMs ? message.durationMs / 1000 : 0));
   const recordingUrl: string | undefined = message.recordingUrl ?? message.artifact?.recordingUrl ?? message.recording?.url;
   const transcript: string | undefined = message.transcript ?? message.artifact?.transcript;
+  const endedReason: string | undefined = message.endedReason ?? message.endedReasonDetails;
+
+  // ── Campaña de voz saliente: si la llamada trae metadata de programa, clasifica el cierre (Fase 2) y
+  // procesa la máquina de estados + Bitrix (Fase 3). Usa el webhook admin (callCrm), no el token OAuth,
+  // por eso corre antes del early-return de OAuth. Solo aplica a llamadas de campaña (metadata presente).
+  const metaCampaign = call.metadata ?? {};
+  const progCampaign: string | undefined = metaCampaign.programCode ? String(metaCampaign.programCode) : undefined;
+  const dealCampaign = Number(metaCampaign.dealId) || 0;
+  if (progCampaign && dealCampaign) {
+    try {
+      const cierre = await clasificarCierre({ endedReason, durationSec: duration, transcript });
+      const res = await procesarFinDeLlamada(
+        { programCode: progCampaign, dealId: dealCampaign, vapiCallId: call.id, cierre, recordingUrl, transcriptRef: recordingUrl },
+        auth ?? EMPTY_AUTH,
+      );
+      log.info('vapi: cierre de campaña procesado', { dealId: dealCampaign, programa: progCampaign, status: res.status, clasificacion: cierre.clasificacion });
+    } catch (e) {
+      log.warn('vapi: procesar cierre de campaña falló', { err: String(e), dealId: dealCampaign });
+    }
+  }
 
   if (!auth?.access_token) {
     log.warn('vapi endOfCall: falta auth OAuth; no se registra en Bitrix ni se retoma el chat');
