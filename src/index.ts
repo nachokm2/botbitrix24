@@ -19,7 +19,7 @@ import { snapshot } from './obs/metrics';
 import { kvKind } from './store/kv';
 import { requireDashboardToken, requireAdminToken, requireAllowedOrigin } from './routes/guard';
 import { startCampaignScheduler } from './campaign/scheduler';
-import { campaignEnroll, campaignStatus } from './routes/campaign';
+import { campaignEnroll, campaignStatus, campaignData, campaignDashboard } from './routes/campaign';
 import { verifyBitrixEvent } from './bitrix/verifyEvent';
 import { rateLimit } from './routes/rateLimit';
 
@@ -147,7 +147,10 @@ app.get('/setup/bind-dashboard', bindDashboardManual);
 app.get('/setup/bind-calls', bindCallsManual);
 app.get('/setup/sync-calls', syncCallsManual);
 
-// Campaña de voz saliente (admin): enrolar los deals del embudo + ver estado. Protegido por ADMIN_TOKEN.
+// Campaña de voz saliente. Panel y datos con DASHBOARD_TOKEN (embebible en Bitrix); acciones
+// administrativas (enrolar) con ADMIN_TOKEN. Las rutas del panel se registran ANTES del guard admin.
+app.all('/campaign/dashboard', requireDashboardToken, campaignDashboard);
+app.get('/campaign/data', requireDashboardToken, campaignData);
 app.use('/campaign', requireAdminToken);
 app.post('/campaign/enroll', campaignEnroll);
 app.get('/campaign/status', campaignStatus);

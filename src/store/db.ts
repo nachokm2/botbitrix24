@@ -618,3 +618,63 @@ export async function dbCampaignCounts(programCode: string): Promise<Record<stri
     return {};
   }
 }
+
+/** Agregaciones para el dashboard operativo de la campaña (KPIs + distribuciones + últimos intentos). */
+export async function dbCampaignDashboard(programCode: string): Promise<Record<string, any> | null> {
+  if (!pool) return null;
+  const p = pool;
+  const mapC = (rows: any[], k = 'k') => Object.fromEntries(rows.filter((r) => r[k] != null).map((r) => [r[k], r.c]));
+  try {
+    const [byStatus, targetAgg, clasif, porAsesor, attemptsAgg, byOutcome, recientes] = await Promise.all([
+      p.query(`SELECT status, count(*)::int c FROM campaign_target WHERE program_code=$1 GROUP BY status`, [programCode]),
+      p.query(
+        `SELECT count(*)::int total,
+                count(*) FILTER (WHERE opted_out)::int optedout,
+                count(*) FILTER (WHERE whatsapp_sent)::int wasent,
+                round(avg(lead_score) FILTER (WHERE answered_at IS NOT NULL))::int scoreprom
+         FROM campaign_target WHERE program_code=$1`,
+        [programCode],
+      ),
+      p.query(`SELECT classification k, count(*)::int c FROM campaign_target WHERE program_code=$1 AND classification IS NOT NULL GROUP BY 1 ORDER BY 2 DESC`, [programCode]),
+      p.query(`SELECT asesor_id id, count(*)::int c FROM campaign_target WHERE program_code=$1 AND status='ESCALADO' AND asesor_id IS NOT NULL GROUP BY 1 ORDER BY 2 DESC`, [programCode]),
+      p.query(
+        `SELECT count(*)::int total,
+                count(*) FILTER (WHERE answered)::int answered,
+                count(*) FILTER (WHERE created_at >= date_trunc('day', now()))::int hoy
+         FROM call_attempt WHERE program_code=$1`,
+        [programCode],
+      ),
+      p.query(`SELECT outcome_code k, count(*)::int c FROM call_attempt WHERE program_code=$1 AND outcome_code IS NOT NULL GROUP BY 1 ORDER BY 2 DESC`, [programCode]),
+      p.query(
+        `SELECT deal_id, attempt_no, outcome_code, classification, lead_score,
+                to_char(coalesce(ended_at, created_at), 'YYYY-MM-DD HH24:MI') ts
+         FROM call_attempt WHERE program_code=$1 ORDER BY coalesce(ended_at, created_at) DESC NULLS LAST LIMIT 25`,
+        [programCode],
+      ),
+    ]);
+    const st = mapC(byStatus.rows, 'status');
+    const ta = targetAgg.rows[0] || {};
+    const aa = attemptsAgg.rows[0] || {};
+    const answered = aa.answered ?? 0;
+    const total = aa.total ?? 0;
+    const escalados = st['ESCALADO'] ?? 0;
+    return {
+      targets: { total: ta.total ?? 0, byStatus: st, optedOut: ta.optedout ?? 0, whatsappSent: ta.wasent ?? 0, scoreProm: ta.scoreprom ?? null },
+      attempts: { total, answered, hoy: aa.hoy ?? 0, byOutcome: mapC(byOutcome.rows) },
+      clasificaciones: mapC(clasif.rows),
+      porAsesor: porAsesor.rows, // [{id, c}]
+      kpis: {
+        tasaContacto: total > 0 ? Math.round((answered / total) * 100) : 0,
+        tasaEscalamiento: answered > 0 ? Math.round((escalados / answered) * 100) : 0,
+        escalados,
+        noInteresados: st['NO_INTERESADO'] ?? 0,
+        agotados: st['AGOTADO'] ?? 0,
+        recuperacion: st['RECUPERACION'] ?? 0,
+      },
+      recientes: recientes.rows,
+    };
+  } catch (e) {
+    log.warn('dbCampaignDashboard falló', { err: String(e) });
+    return null;
+  }
+}
