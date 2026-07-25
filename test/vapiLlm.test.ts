@@ -112,6 +112,24 @@ test('custom-llm: sin turno de usuario devuelve saludo sin invocar al modelo', a
   assert.match(res.body.choices[0].message.content, /Postgrados/i);
 });
 
+test('custom-llm: metadata programCode=MMD usa el perfil de voz SALIENTE (no el inbound)', async () => {
+  createCalls.length = 0;
+  impl = async () => textResp('Con gusto, ¿qué duda tiene del Magíster en Marketing Digital?');
+  const { VOICE_OUTBOUND_MMD } = await import('../src/campaign/prompt.mmd');
+  const res = fakeRes();
+  await vapiChatCompletions(
+    fakeReq({
+      stream: false,
+      call: { id: 'c-mmd', metadata: { programCode: 'MMD' } },
+      messages: [{ role: 'user', content: 'sí, sigo interesado' }],
+    }),
+    res,
+  );
+  // El system que ve el modelo es el del perfil SALIENTE MMD, no el "Sofía" inbound.
+  assert.equal(createCalls[0].system, VOICE_OUTBOUND_MMD.systemPrompt, 'usa el prompt saliente MMD');
+  assert.notEqual(createCalls[0].system, VOICE_PROFILE.systemPrompt);
+});
+
 test('runConversation: usa el ejecutor de tools INYECTADO (no el de chat)', async () => {
   let step = 0;
   impl = async () => {

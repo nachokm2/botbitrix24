@@ -42,6 +42,13 @@ export async function iniciarLlamadaSaliente(
   phone: string,
   contexto?: ContextoLlamada,
   origen?: OrigenLlamada,
+  opts?: {
+    /** Metadata que Vapi echa de vuelta en call.metadata; la campaña la usa para el routing de programa
+     *  (ej. { programCode: 'MMD', dealId }). /vapi/llm la lee para elegir el perfil de voz. */
+    metadata?: Record<string, unknown>;
+    /** Saludo de apertura de la llamada (firstMessage). En saliente lo aporta la campaña (ej. openerMMD). */
+    firstMessage?: string;
+  },
 ): Promise<{ ok: boolean; callId?: string; error?: string }> {
   const num = String(phone ?? '').trim();
   if (!num) return { ok: false, error: 'Falta el teléfono (E.164, ej. +56912345678)' };
@@ -49,7 +56,12 @@ export async function iniciarLlamadaSaliente(
     return { ok: false, error: 'Faltan VAPI_API_KEY / VAPI_ASSISTANT_ID / VAPI_PHONE_NUMBER_ID' };
   }
   try {
-    const assistantOverrides = assistantOverridesDe(contexto);
+    // Combina el saludo con contexto previo (inbound/chat) con el firstMessage de campaña (saliente).
+    const assistantOverrides = {
+      ...(assistantOverridesDe(contexto) ?? {}),
+      ...(opts?.firstMessage ? { firstMessage: opts.firstMessage } : {}),
+    };
+    const hasOverrides = Object.keys(assistantOverrides).length > 0;
     const r = await fetch('https://api.vapi.ai/call', {
       method: 'POST',
       headers: { Authorization: `Bearer ${config.vapiApiKey}`, 'Content-Type': 'application/json' },
@@ -57,7 +69,8 @@ export async function iniciarLlamadaSaliente(
         assistantId: config.vapiAssistantId,
         phoneNumberId: config.vapiPhoneNumberId,
         customer: { number: num },
-        ...(assistantOverrides ? { assistantOverrides } : {}),
+        ...(hasOverrides ? { assistantOverrides } : {}),
+        ...(opts?.metadata ? { metadata: opts.metadata } : {}),
       }),
     });
     const json: any = await r.json();

@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import crypto from 'crypto';
 import { runConversation, priorContextMessage } from '../ai/agentLoop';
 import { VOICE_PROFILE, type AgentContext } from '../core/channel';
+import { VOICE_OUTBOUND_MMD } from '../campaign/prompt.mmd';
 import { getVoiceCtx, runVapiTool } from '../voice/vapiTools';
 import { primaryEntity } from '../crm/entities';
 import { loadPriorContext } from '../crm/chat';
@@ -81,14 +82,21 @@ export async function vapiChatCompletions(req: Request, res: Response) {
   const phone: string | undefined =
     call.customer?.number ?? body.customer?.number ?? body.phoneNumber?.number ?? undefined;
 
+  // Metadata de campaña (viaja en la creación de la llamada Vapi → call.metadata). Selecciona el perfil:
+  // saliente MMD si programCode === 'MMD'; si no, el inbound por defecto ("Sofía" que atiende).
+  const meta = (call.metadata ?? body.metadata ?? {}) as { programCode?: string; dealId?: number | string };
+  const programCode = meta.programCode ? String(meta.programCode) : undefined;
+  const dealId = Number(meta.dealId) || undefined;
+  const profile = programCode === 'MMD' ? VOICE_OUTBOUND_MMD : VOICE_PROFILE;
+
   const st = await getState();
   const auth = st.auth ?? EMPTY_AUTH;
 
   try {
-    // Resuelve (y cachea) el contexto CRM de la llamada por teléfono, igual que el modo nativo.
-    const voiceCtx = await getVoiceCtx(callId, phone, auth);
+    // Resuelve (y cachea) el contexto CRM de la llamada. En saliente prioriza el dealId de la metadata.
+    const voiceCtx = await getVoiceCtx(callId, phone, auth, { programCode, dealId });
     const ctx: AgentContext = {
-      profile: VOICE_PROFILE,
+      profile,
       auth,
       conversationId: callId,
       crmEntities: voiceCtx.crm ?? {},
@@ -100,7 +108,7 @@ export async function vapiChatCompletions(req: Request, res: Response) {
     if (messages.length === 0) {
       // Sin turno de usuario todavía (p. ej. apertura): devuelve un saludo sin invocar al modelo.
       const saludo = '¡Hola! Le saluda el asistente de Postgrados de la Universidad Autónoma de Chile. ¿En qué le puedo ayudar?';
-      return stream ? streamCompletion(res, saludo, VOICE_PROFILE.model) : res.json(completionBody(saludo, VOICE_PROFILE.model));
+      return stream ? streamCompletion(res, saludo, profile.model) : res.json(completionBody(saludo, profile.model));
     }
 
     // Primer turno real de la llamada (aún sin respuesta nuestra): si hay entidad CRM, trae las
@@ -112,16 +120,16 @@ export async function vapiChatCompletions(req: Request, res: Response) {
     }
 
     const { text } = await runConversation(
-      { profile: VOICE_PROFILE, auditId: callId, crmEntity: ctx.crmEntity },
+      { profile, auditId: callId, crmEntity: ctx.crmEntity },
       messages,
-      (name, input) => runVapiTool(name, input, voiceCtx, auth),
+      (name, input) => runVapiTool(name, input, voiceCtx, auth, profile),
     );
 
-    log.info('vapi custom-llm turno', { callId, stream, tExtractoLen: text.length });
-    return stream ? streamCompletion(res, text, VOICE_PROFILE.model) : res.json(completionBody(text, VOICE_PROFILE.model));
+    log.info('vapi custom-llm turno', { callId, stream, programCode: programCode ?? null, tExtractoLen: text.length });
+    return stream ? streamCompletion(res, text, profile.model) : res.json(completionBody(text, profile.model));
   } catch (e) {
     log.error('vapiChatCompletions error', { callId, err: String(e) });
     const fallback = 'Disculpe, tuve un inconveniente. ¿Podría repetir, por favor?';
-    return stream ? streamCompletion(res, fallback, VOICE_PROFILE.model) : res.json(completionBody(fallback, VOICE_PROFILE.model));
+    return stream ? streamCompletion(res, fallback, profile.model) : res.json(completionBody(fallback, profile.model));
   }
 }

@@ -9,6 +9,7 @@ import { audit } from '../obs/audit';
 import { registerCall, finishCall, attachCallRecord, toCrmRef, type CallType } from '../crm/telephony';
 import { getVoiceCtx, runVapiTool } from '../voice/vapiTools';
 import { iniciarLlamadaSaliente, getOrigenLlamada } from '../voice/outbound';
+import { openerMMD } from '../campaign/prompt.mmd';
 import { obtenerContextoLlamada, type ContextoLlamada } from '../crm/crmWrite';
 import type { CrmEntities } from '../crm/entities';
 import { getSession } from '../session';
@@ -160,13 +161,29 @@ async function retomarChatTrasLlamada(callId: string | undefined, crm: CrmEntiti
   }
 }
 
-/** Dispara una llamada SALIENTE con Vapi (p. ej. al detectarse un lead caliente). */
+/**
+ * Dispara una llamada SALIENTE con Vapi (p. ej. al detectarse un lead caliente, o para probar la
+ * campaña de voz MMD). Body: { phone } y, opcional para campaña, { programCode:'MMD', dealId, nombre }.
+ * Con programCode='MMD' abre con el saludo saliente (openerMMD) y marca la metadata para que /vapi/llm
+ * corra el perfil VOICE_OUTBOUND_MMD.
+ */
 export async function voiceOutbound(req: Request, res: Response) {
-  const phone = String((req.body as any)?.phone ?? '').trim();
+  const b = (req.body ?? {}) as any;
+  const phone = String(b.phone ?? '').trim();
   if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
     return res.status(400).json({ ok: false, error: 'phone inválido: usa formato E.164 (ej. +56912345678)' });
   }
-  const r = await iniciarLlamadaSaliente(phone);
+  const programCode = b.programCode ? String(b.programCode) : undefined;
+  const dealId = Number(b.dealId) || undefined;
+  const nombre = b.nombre ? String(b.nombre) : undefined;
+  const metadata = programCode ? { programCode, ...(dealId ? { dealId } : {}) } : undefined;
+  const opts =
+    programCode === 'MMD'
+      ? { metadata, firstMessage: openerMMD(nombre) }
+      : metadata
+        ? { metadata }
+        : undefined;
+  const r = await iniciarLlamadaSaliente(phone, undefined, undefined, opts);
   if (!r.ok) return res.status(502).json({ ok: false, error: r.error });
-  return res.json({ ok: true, callId: r.callId ?? null });
+  return res.json({ ok: true, callId: r.callId ?? null, programCode: programCode ?? null });
 }

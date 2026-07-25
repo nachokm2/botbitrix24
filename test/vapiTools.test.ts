@@ -52,3 +52,28 @@ test('tool de voz desconocida devuelve error', async () => {
   const r = await runVapiTool('inexistente', {}, ctx, auth);
   assert.equal(r.error, 'UNKNOWN_TOOL');
 });
+
+// ── Tools de campaña de VOZ SALIENTE (Fase 1) ──
+
+test('marcar_no_interesado (saliente): registra y detecta opt-out', async () => {
+  const r1 = await runVapiTool('marcar_no_interesado', { motivo: 'no le interesa' }, ctx, auth);
+  assert.equal(r1.ok, true);
+  assert.equal(r1.registrado, true);
+  assert.equal(r1.optOut, false);
+
+  const r2 = await runVapiTool('marcar_no_interesado', { motivo: 'opt-out: no volver a contactar' }, ctx, auth);
+  assert.equal(r2.optOut, true, 'detecta la solicitud de no ser contactado');
+});
+
+test('registrar_objecion (saliente): registra y NO corta la llamada', async () => {
+  const r = await runVapiTool('registrar_objecion', { objecion: 'precio', detalle: 'lo ve caro' }, ctx, auth);
+  assert.equal(r.ok, true);
+  assert.equal(r.registrado, true);
+  assert.match(r.mensaje, /no cierres|naturalidad/i);
+});
+
+test('agendar_callback (saliente): confirma reprogramación', async () => {
+  const r = await runVapiTool('agendar_callback', { cuando: 'mañana en la tarde' }, ctx, auth);
+  assert.equal(r.ok, true);
+  assert.equal(r.agendado, true);
+});
