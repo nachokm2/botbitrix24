@@ -13,7 +13,31 @@ const createCalls: any[] = [];
 
 mock.module('../src/ai/client.ts', {
   namedExports: {
-    anthropic: { messages: { create: (args: any) => (createCalls.push(args), impl(args)) } },
+    anthropic: {
+      messages: {
+        create: (args: any) => (createCalls.push(args), impl(args)),
+        // Simula el MessageStream de la SDK: emite el texto por el handler 'text' y resuelve finalMessage().
+        stream: (args: any) => {
+          createCalls.push(args);
+          const handlers: Record<string, (d: string) => void> = {};
+          return {
+            on(event: string, cb: (d: string) => void) {
+              handlers[event] = cb;
+              return this;
+            },
+            async finalMessage() {
+              const resp: any = await impl(args);
+              const text = ((resp.content as any[]) || [])
+                .filter((b: any) => b.type === 'text')
+                .map((b: any) => b.text)
+                .join('');
+              if (text && handlers.text) handlers.text(text);
+              return resp;
+            },
+          };
+        },
+      },
+    },
     REASONER: 'claude-test-sonnet',
     CLASSIFIER: 'claude-test-haiku',
   },

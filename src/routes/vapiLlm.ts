@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import crypto from 'crypto';
-import { runConversation, priorContextMessage } from '../ai/agentLoop';
+import { runConversation, runConversationStream, priorContextMessage, type ConversationOpts, type ToolExecutor } from '../ai/agentLoop';
 import { VOICE_PROFILE, type AgentContext } from '../core/channel';
 import { VOICE_OUTBOUND_MMD } from '../campaign/prompt.mmd';
 import { getVoiceCtx, runVapiTool } from '../voice/vapiTools';
@@ -72,6 +72,38 @@ function streamCompletion(res: Response, text: string, model: string) {
 }
 
 /**
+ * Corre el motor en STREAMING y va enviando cada delta del modelo como chunk SSE, para que Vapi empiece
+ * a hablar (TTS) con las primeras palabras en vez de esperar la respuesta completa (menor latencia).
+ */
+async function streamConversationToVapi(
+  res: Response,
+  opts: ConversationOpts,
+  messages: any[],
+  execTool: ToolExecutor,
+  model: string,
+): Promise<void> {
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  const id = chunkId();
+  const created = Math.floor(Date.now() / 1000);
+  const frame = (delta: any, finish: string | null) =>
+    `data: ${JSON.stringify({ id, object: 'chat.completion.chunk', created, model, choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`;
+  res.write(frame({ role: 'assistant' }, null));
+  try {
+    await runConversationStream(opts, messages, execTool, (delta) => {
+      if (delta) res.write(frame({ content: delta }, null));
+    });
+  } catch (e) {
+    log.error('vapi streaming error', { err: String(e) });
+    res.write(frame({ content: 'Disculpe, tuve un inconveniente. ¿Podría repetir, por favor?' }, null));
+  }
+  res.write(frame({}, 'stop'));
+  res.write('data: [DONE]\n\n');
+  res.end();
+}
+
+/**
  * Endpoint Custom LLM de Vapi (OpenAI-compatible). Corre el motor con el perfil de voz.
  */
 export async function vapiChatCompletions(req: Request, res: Response) {
@@ -119,14 +151,19 @@ export async function vapiChatCompletions(req: Request, res: Response) {
       if (priorContext) messages.unshift(priorContextMessage(priorContext));
     }
 
-    const { text } = await runConversation(
-      { profile, auditId: callId, crmEntity: ctx.crmEntity },
-      messages,
-      (name, input) => runVapiTool(name, input, voiceCtx, auth, profile),
-    );
+    const exec: ToolExecutor = (name, input) => runVapiTool(name, input, voiceCtx, auth, profile);
+    const convOpts: ConversationOpts = { profile, auditId: callId, crmEntity: ctx.crmEntity };
 
-    log.info('vapi custom-llm turno', { callId, stream, programCode: programCode ?? null, tExtractoLen: text.length });
-    return stream ? streamCompletion(res, text, profile.model) : res.json(completionBody(text, profile.model));
+    if (stream) {
+      // Camino streaming: la voz empieza a hablar con las primeras palabras (menor latencia percibida).
+      await streamConversationToVapi(res, convOpts, messages, exec, profile.model);
+      log.info('vapi custom-llm turno (stream)', { callId, programCode: programCode ?? null });
+      return;
+    }
+
+    const { text } = await runConversation(convOpts, messages, exec);
+    log.info('vapi custom-llm turno', { callId, stream: false, programCode: programCode ?? null, tExtractoLen: text.length });
+    return res.json(completionBody(text, profile.model));
   } catch (e) {
     log.error('vapiChatCompletions error', { callId, err: String(e) });
     const fallback = 'Disculpe, tuve un inconveniente. ¿Podría repetir, por favor?';

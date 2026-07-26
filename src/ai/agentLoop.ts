@@ -91,6 +91,68 @@ export async function runConversation(
 }
 
 /**
+ * Igual que runConversation pero en STREAMING: emite el texto del modelo por deltas vía `onText` a
+ * medida que se genera, para que la voz (Vapi/TTS) empiece a hablar con la primera frase en vez de
+ * esperar la respuesta completa (reduce mucho la latencia percibida). Mantiene el bucle de tools: en un
+ * turno con tool_use no hay texto que emitir hasta después de ejecutarla; el texto final sí se streamea.
+ */
+export async function runConversationStream(
+  opts: ConversationOpts,
+  messages: any[],
+  execTool: ToolExecutor,
+  onText: (delta: string) => void,
+): Promise<{ text: string; messages: any[] }> {
+  const { profile, auditId, crmEntity } = opts;
+  const system = profile.systemPrompt;
+  const allowedTools = tools.filter((t) => profile.toolNames.includes(t.name));
+  let fullText = '';
+
+  for (let step = 0; step < MAX_STEPS; step++) {
+    const t0 = Date.now();
+    const stream = anthropic.messages.stream({
+      model: profile.model,
+      max_tokens: profile.maxResponseTokens,
+      temperature: 0.4,
+      system,
+      messages,
+      tools: allowedTools as any,
+    });
+    stream.on('text', (delta: string) => {
+      if (delta) {
+        fullText += delta;
+        onText(delta);
+      }
+    });
+    const resp = await stream.finalMessage();
+    recordLlmLatency(Date.now() - t0);
+    recordTokens((resp as any).usage);
+    inc('llm_calls');
+
+    messages.push({ role: 'assistant', content: resp.content });
+
+    const toolUses = (resp.content as any[]).filter((b) => b.type === 'tool_use');
+    if (toolUses.length === 0) return { text: fullText || textOf(resp), messages };
+
+    const results = await Promise.all(
+      toolUses.map(async (tu) => {
+        inc(`tool:${tu.name}`);
+        const result = await execTool(tu.name, tu.input);
+        await audit({
+          type: 'tool_call',
+          dialogId: auditId,
+          crmEntity: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : undefined,
+          detail: { name: tu.name, input: tu.input, ok: result?.ok },
+        });
+        return { type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(result) };
+      }),
+    );
+    messages.push({ role: 'user', content: results });
+  }
+
+  return { text: fullText || 'Permíteme derivarte con un asesor para ayudarte mejor 🙌', messages };
+}
+
+/**
  * Adaptador de CHAT de texto (WhatsApp/Open Lines, Web Chat, Instagram, Messenger): envuelve el
  * motor con la memoria en Redis (por ctx.conversationId).
  * `execTool` permite a cada canal inyectar su ejecutor de herramientas sin duplicar el manejo de memoria;
