@@ -49,12 +49,13 @@ export const tools = [
   {
     name: 'consultar_condiciones_comerciales',
     description:
-      'Devuelve el PRECIO REAL de un programa (arancel con el descuento institucional YA aplicado, matrícula y ' +
-      'total a pagar) y las condiciones de pago Toku (cuotas). Úsala SIEMPRE que el prospecto pregunte por precio, ' +
-      'descuento, "cuánto sale en total", cuotas o financiamiento. NO cotices con el arancel de detalle_programa: ' +
-      'ese es el precio de LISTA sin descuento. Pásale el nombre del programa; si existe en varias sedes ' +
-      '(Santiago/Temuco) con el mismo nombre, agrega "sede". Si el programa no cotiza (nuevo/suspendido) o no se ' +
-      'encuentra, la herramienta te lo indica para que derives; nunca inventes montos.',
+      'Devuelve el precio de un programa: por DEFECTO el arancel de LISTA + matrícula + total de lista (lo que se ' +
+      'entrega primero), y por separado el bloque "descuento" (descuento institucional disponible) que se revela ' +
+      'SOLO si la persona pregunta explícitamente si hay descuentos/becas/promociones. Incluye las cuotas Toku. ' +
+      'Úsala SIEMPRE que pregunten por precio, "cuánto sale en total", descuentos, cuotas o financiamiento. NO ' +
+      'cotices con el arancel de detalle_programa. Pásale el nombre; si existe en varias sedes (Santiago/Temuco), ' +
+      'agrega "sede". Si no cotiza (nuevo/suspendido/beca no habilitada) o no se encuentra, la herramienta te lo ' +
+      'indica para que derives; nunca inventes montos.',
     input_schema: {
       type: 'object',
       properties: {

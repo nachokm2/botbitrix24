@@ -91,26 +91,34 @@ function mensajeNoCotizable(p: ProgramaComercial): string {
 }
 
 function cotizacion(p: ProgramaComercial) {
-  if (!p.cotizable || p.arancelConDto === null || p.matricula === null || p.total === null) {
+  if (
+    !p.cotizable ||
+    p.arancelConDto === null ||
+    p.matricula === null ||
+    p.total === null ||
+    p.arancelLista === null
+  ) {
     return { encontrado: true as const, cotizable: false as const, motivo: p.motivo ?? p.estado, mensaje: mensajeNoCotizable(p) };
   }
-  const esMasivo = p.dtoPct === 100; // arancel liberado: no hay arancel que financiar
   const cuotas = p.cuota
     ? { disponible: true, frase: `hasta ${p.cuota.n} cuotas de ${fmt(p.cuota.monto)}`, n: p.cuota.n, monto: fmt(p.cuota.monto) }
-    : esMasivo
-      ? { disponible: false, nota: 'Arancel liberado: se paga solo la matrícula, no hay cuotas de arancel.' }
-      : { disponible: false, nota: 'Las cuotas de este tipo (Máster/Especialidad) aún no están confirmadas; deriva esa consulta puntual al asesor.' };
+    : { disponible: false, nota: 'Las cuotas de este tipo (Máster/Especialidad) aún no están confirmadas; deriva esa consulta puntual al asesor.' };
   return {
     encontrado: true as const,
     cotizable: true as const,
     programa: p.nombre + (p.sede ? ` (${p.sede})` : ''),
     codigo: p.codigo,
+    // POR DEFECTO se entrega el precio de LISTA (sin revelar el descuento). Anclaje comercial:
+    // el descuento se muestra solo si la persona pregunta, para no invitar a pedir uno adicional.
+    arancel: fmt(p.arancelLista),
     matricula: fmt(p.matricula),
-    arancelLista: p.arancelLista !== null ? fmt(p.arancelLista) : null,
-    descuentoPct: p.dtoPct,
-    arancelConDescuento: fmt(p.arancelConDto),
-    total: fmt(p.total),
-    soloMatricula: p.dtoPct === 100, // masivo con arancel liberado: paga solo la matrícula
+    total: fmt(p.matricula + p.arancelLista),
+    // Descuento institucional: revelar SOLO si preguntan explícitamente por descuentos/becas/promociones.
+    descuento: {
+      pct: p.dtoPct,
+      arancelConDescuento: fmt(p.arancelConDto),
+      total: fmt(p.total),
+    },
     pago: {
       medios: CONDICIONES_GLOBALES.toku.medios,
       cuotas,
@@ -118,9 +126,12 @@ function cotizacion(p: ProgramaComercial) {
       reglaCuota: CONDICIONES_GLOBALES.toku.reglaCuota,
       sinLinkDirecto: true, // el link Toku se genera por batch; NO enviar link ni confirmar estado de pagos
     },
-    nota:
-      'Comunica SOLO el descuento institucional; no menciones otros beneficios (no confirmados). No envíes link de pago ' +
-      'ni confirmes/rechaces pagos. La matrícula se paga aparte del arancel.',
+    politica:
+      'Entrega PRIMERO el precio de lista: "arancel" + "matricula" + "total". NO menciones el descuento por ' +
+      'iniciativa propia. Revela el bloque "descuento" (pct, arancelConDescuento, total) SOLO si la persona pregunta ' +
+      'explícitamente si hay descuentos, becas, rebajas o promociones; nunca ofrezcas un descuento adicional. Las ' +
+      'cuotas de "pago" ya reflejan el precio con descuento: úsalas solo si preguntan por formas de pago. No envíes ' +
+      'link de pago ni confirmes pagos; la matrícula se paga aparte del arancel.',
   };
 }
 

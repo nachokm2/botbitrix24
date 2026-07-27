@@ -6,12 +6,14 @@ import { consultarProgramas } from '../src/core/catalogTool';
 // La capa de datos comercial: cotiza con el DESCUENTO real (no el arancel de lista), desambigua por sede,
 // filtra por estado y expone las reglas globales (Toku, formulario de soporte). Datos: condicionesComerciales.data.json.
 
-test('cotiza con el descuento institucional aplicado (no el arancel de lista)', () => {
+test('entrega el precio de LISTA por defecto; el descuento va en un bloque aparte', () => {
   const r: any = buscarCondiciones('Magíster en Marketing Digital');
   assert.equal(r.cotizable, true);
-  assert.equal(r.descuentoPct, 30);
-  assert.equal(r.arancelConDescuento, '$3.493.000');
-  assert.equal(r.total, '$3.743.000');
+  assert.equal(r.arancel, '$4.990.000', 'arancel de lista por defecto (no el con descuento)');
+  assert.equal(r.total, '$5.240.000', 'total de lista = arancel lista + matrícula');
+  assert.equal(r.descuento.pct, 30);
+  assert.equal(r.descuento.arancelConDescuento, '$3.493.000');
+  assert.equal(r.descuento.total, '$3.743.000');
   assert.equal(r.pago.cuotas.n, 24, 'Magíster: hasta 24 cuotas');
   assert.equal(r.pago.sinLinkDirecto, true, 'no envía link de pago (Toku es batch)');
 });
@@ -32,8 +34,9 @@ test('programa masivo/beca (arancel liberado 100%) → NO cotizable (no habilita
 test('excepción DI-DAT-024 (masivo con 30%, no beca) sí cotiza como venta normal', () => {
   const r: any = buscarCondiciones('Data Science para Organizaciones de Salud');
   assert.equal(r.cotizable, true);
-  assert.equal(r.descuentoPct, 30);
-  assert.equal(r.total, '$1.053.000');
+  assert.equal(r.arancel, '$1.290.000', 'lista por defecto');
+  assert.equal(r.descuento.pct, 30);
+  assert.equal(r.descuento.total, '$1.053.000');
 });
 
 test('esProgramaNoOfertable: true para beca/masivo, false para programa normal', () => {
