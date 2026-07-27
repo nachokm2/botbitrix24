@@ -1,4 +1,5 @@
 import { consultarProgramas, detallePrograma } from '../core/catalogTool';
+import { buscarCondiciones } from '../core/condicionesComerciales';
 import { VOICE_PROFILE, type ChannelProfile } from '../core/channel';
 import { accionInteresVoz, buscarCrmPorTelefono, crearLeadDesdeVoz } from '../crm/voiceActions';
 import { actualizarDatosCliente, comentarTimeline, type DatosCliente } from '../crm/crmWrite';
@@ -111,6 +112,8 @@ export async function runVapiTool(
         return consultarProgramas(args, profile.catalog.consultar);
       case 'detalle_programa':
         return detallePrograma(args, profile.catalog.detalle);
+      case 'consultar_condiciones_comerciales':
+        return buscarCondiciones(args?.programa, args?.sede);
       case 'registrar_interes_crm': {
         // No bloqueamos la conversación esperando a Bitrix: buscamos/creamos/actualizamos en
         // segundo plano y respondemos al instante para que la voz siga fluida.

@@ -1,4 +1,5 @@
 import { retrieve } from './retrieval';
+import { esProgramaNoOfertable } from './condicionesComerciales';
 import { getDetalle } from '../ai/detalles';
 
 // Núcleo compartido de las herramientas de catálogo (M1 + M5). La BÚSQUEDA (retrieve, ver retrieval.ts)
@@ -26,7 +27,8 @@ export type DetalleShape = 'full' | 'voice';
 
 /** consultar_programas unificado: busca en el catálogo y da forma al resultado según el canal. */
 export function consultarProgramas(input: any, p: ConsultarPresentation) {
-  const all = retrieve(input ?? {});
+  // Excluye programas no ofertables (masivos/becas aún no habilitados): no se proponen proactivamente.
+  const all = retrieve(input ?? {}).filter((x) => !esProgramaNoOfertable(x.nombre));
   const shown = all.slice(0, p.limit);
   const programas = p.verbose
     ? shown
@@ -39,7 +41,14 @@ export function consultarProgramas(input: any, p: ConsultarPresentation) {
   return { total: all.length, programas, nota };
 }
 
-/** detalle_programa unificado: busca el detalle y lo presenta completo (chat) o reducido para voz. */
+// El PRECIO ya NO sale de detalle_programa: traía el arancel de LISTA (sin descuento), lo que hacía que el
+// bot cotizara de más. El precio real (arancel con descuento institucional, matrícula, total y cuotas Toku)
+// vive en consultar_condiciones_comerciales. Aquí quedan requisitos/malla/descripción/objetivos.
+const NOTA_PRECIO =
+  'Para arancel, matrícula, descuento, total o cuotas usa consultar_condiciones_comerciales (trae el precio ' +
+  'con descuento real). No cotices con estos datos: el arancel de lista quedó fuera a propósito.';
+
+/** detalle_programa unificado: busca el detalle y lo presenta completo (chat) o reducido para voz. Sin precio. */
 export function detallePrograma(input: any, shape: DetalleShape) {
   const d = getDetalle({ url: input?.url, nombre: input?.nombre });
 
@@ -52,17 +61,19 @@ export function detallePrograma(input: any, shape: DetalleShape) {
           'Aún no tengo el detalle cargado de ese programa. Comparte la URL oficial y ofrece derivar a un asesor.',
       };
     }
-    return { ok: true, detalle: d };
+    const detalleSinPrecio: Record<string, unknown> = { ...d };
+    delete detalleSinPrecio.arancel; // el precio va por consultar_condiciones_comerciales
+    delete detalleSinPrecio.matricula;
+    return { ok: true, detalle: detalleSinPrecio, nota_precio: NOTA_PRECIO };
   }
 
-  // Voz: solo los campos que la asistente necesita para hablar (sin malla/objetivos/brochure).
+  // Voz: solo los campos que la asistente necesita para hablar (sin malla/objetivos/brochure ni precio).
   if (!d) return { encontrado: false, mensaje: 'Sin detalle cargado; ofrece derivar a un asesor.' };
   return {
     encontrado: true,
     nombre: d.nombre,
-    arancel: d.arancel,
-    matricula: d.matricula,
     requisitos: d.requisitos,
     descripcion: d.descripcion,
+    nota_precio: NOTA_PRECIO,
   };
 }

@@ -35,7 +35,7 @@ test('consultar_programas: filtra por texto', async () => {
   assert.ok(r.programas.every((p: any) => typeof p.url === 'string' && p.url.startsWith('http')));
 });
 
-test('detalle_programa: programa conocido devuelve detalle con arancel', async () => {
+test('detalle_programa: programa conocido devuelve detalle sin precio (el precio va en condiciones_comerciales)', async () => {
   const r = await executeTool(
     'detalle_programa',
     { nombre: 'Magíster en Gestión de la Inclusión y Convivencia Educativa' },
@@ -43,7 +43,7 @@ test('detalle_programa: programa conocido devuelve detalle con arancel', async (
   );
   assert.equal(r.ok, true);
   assert.ok(r.detalle);
-  assert.ok(r.detalle.arancel, 'trae el arancel cargado');
+  assert.equal(r.detalle.arancel, undefined, 'el arancel de lista ya no se expone aquí');
 });
 
 test('detalle_programa: programa inexistente devuelve SIN_DETALLE', async () => {

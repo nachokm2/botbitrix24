@@ -1,4 +1,5 @@
 import { consultarProgramas, detallePrograma } from '../core/catalogTool';
+import { buscarCondiciones } from '../core/condicionesComerciales';
 import type { AgentContext } from '../core/channel';
 import { actualizarDatosCliente, obtenerContextoLlamada } from '../crm/crmWrite';
 import { getDealAsesores } from '../crm/directory';
@@ -18,6 +19,9 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
 
       case 'detalle_programa':
         return detallePrograma(input, catalog.detalle);
+
+      case 'consultar_condiciones_comerciales':
+        return buscarCondiciones(input?.programa, input?.sede);
 
       case 'registrar_interes_crm': {
         const r = await actualizarDatosCliente(ctx.crmEntities, ctx.chatId, input ?? {}, ctx.auth);
