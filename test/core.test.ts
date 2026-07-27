@@ -52,11 +52,14 @@ test('consultar_programas (perfil Voz): sin ok, top 8, objetos reducidos, nota v
 test('detalle_programa: full (chat) devuelve objeto detalle; voice devuelve campos clave', () => {
   const full: any = detallePrograma({ nombre: NOMBRE_CONOCIDO }, WHATSAPP_PROFILE.catalog.detalle);
   assert.equal(full.ok, true);
-  assert.ok(full.detalle.arancel);
+  assert.ok(full.detalle);
+  assert.equal(full.detalle.arancel, undefined, 'el precio ya no va en detalle (usa consultar_condiciones_comerciales)');
+  assert.ok(full.nota_precio, 'redirige el precio a la tool comercial');
 
   const voice: any = detallePrograma({ nombre: NOMBRE_CONOCIDO }, VOICE_PROFILE.catalog.detalle);
   assert.equal(voice.encontrado, true);
-  assert.ok(voice.arancel);
+  assert.equal(voice.arancel, undefined, 'la voz tampoco cotiza desde detalle');
+  assert.ok(voice.nota_precio);
   assert.equal(voice.malla, undefined, 'la voz no recibe la malla');
 });
 

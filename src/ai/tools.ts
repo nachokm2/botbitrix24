@@ -47,6 +47,24 @@ export const tools = [
     },
   },
   {
+    name: 'consultar_condiciones_comerciales',
+    description:
+      'Devuelve el PRECIO REAL de un programa (arancel con el descuento institucional YA aplicado, matrícula y ' +
+      'total a pagar) y las condiciones de pago Toku (cuotas). Úsala SIEMPRE que el prospecto pregunte por precio, ' +
+      'descuento, "cuánto sale en total", cuotas o financiamiento. NO cotices con el arancel de detalle_programa: ' +
+      'ese es el precio de LISTA sin descuento. Pásale el nombre del programa; si existe en varias sedes ' +
+      '(Santiago/Temuco) con el mismo nombre, agrega "sede". Si el programa no cotiza (nuevo/suspendido) o no se ' +
+      'encuentra, la herramienta te lo indica para que derives; nunca inventes montos.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        programa: { type: 'string', description: 'Nombre del programa (ej. "Magíster en Marketing Digital").' },
+        sede: { type: 'string', enum: ['Santiago', 'Temuco'], description: 'Solo si el programa existe en varias sedes.' },
+      },
+      required: ['programa'],
+    },
+  },
+  {
     name: 'registrar_interes_crm',
     description:
       'Guarda/actualiza en el CRM los datos del cliente que vayas capturando: actualiza el CONTACTO ' +

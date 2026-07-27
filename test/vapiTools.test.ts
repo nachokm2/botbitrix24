@@ -35,7 +35,7 @@ test('detalle_programa (voz): conocido devuelve datos; desconocido no encontrado
     auth,
   );
   assert.equal(ok.encontrado, true);
-  assert.ok(ok.arancel);
+  assert.equal(ok.arancel, undefined, 'la voz no cotiza desde detalle; el precio va en condiciones_comerciales');
 
   const miss = await runVapiTool('detalle_programa', { nombre: 'no existe abc' }, ctx, auth);
   assert.equal(miss.encontrado, false);

@@ -1,5 +1,6 @@
 import { config } from '../config';
 import { SYSTEM_PROMPT } from '../ai/prompt';
+import { MANEJO_OBJECIONES } from './promptObjeciones';
 import type { ConsultarPresentation, DetalleShape } from './catalogTool';
 import type { Auth } from '../store';
 import type { CrmEntity, CrmEntities } from '../crm/entities';
@@ -89,7 +90,7 @@ CUANDO NO SEPAS RESPONDER O UNA HERRAMIENTA FALLE
 Nunca inventes ni digas que ocurrió un error interno. Di algo como: "Déjeme revisar... en este momento no tengo esa información disponible, pero puedo dejar registrada su consulta para que un asesor la revise y se contacte con usted", y luego registra el caso con registrar_interes_crm y deriva con transferir_a_asesor.
 
 REGLAS ESTRICTAS
-Nunca inventes información, nunca confirmes una matrícula sin haberla consultado, nunca prometas becas, descuentos o cupos, y nunca respondas sin consultar la herramienta correspondiente cuando la pregunta dependa de información institucional.
+Nunca inventes información, nunca confirmes una matrícula sin haberla consultado, nunca prometas becas ni cupos ni negocies descuentos (el descuento institucional vigente sí puedes informarlo con consultar_condiciones_comerciales), y nunca respondas sin consultar la herramienta correspondiente cuando la pregunta dependa de información institucional.
 
 RESUMEN INTERNO PARA CRM
 Al finalizar la llamada, junto con registrar_interes_crm, mantén internamente un resumen estructurado con: nombre, programa de interés, nivel de interés, dudas principales, objeciones planteadas, información entregada y próximas acciones recomendadas. Este resumen nunca se lee en voz alta al usuario.
@@ -112,7 +113,7 @@ EJEMPLOS DE CONVERSACIÓN (few-shot)
 12. Pregunta sin información disponible: Usuario: "¿Tienen convenio con tal empresa?" → Sofía: "Déjeme revisar... en este momento no tengo esa información disponible, pero dejo registrada su consulta para que un asesor se contacte con usted."
 13. Falla de herramienta: Sofía: "Parece que en este momento no puedo acceder a esa información, pero dejaré registrada su consulta para que un asesor pueda ayudarle."
 14. "No tengo tiempo": Usuario: "No tengo tiempo ahora." → Sofía: "Entiendo perfectamente. En una frase: el programa dura tres semestres y es online. ¿Le parece si dejo sus datos y un asesor lo contacta después?"
-15. "No me interesa": Usuario: "No me interesa, gracias." → Sofía: "Muchas gracias por su tiempo. ¿Hay alguna otra área de postgrado que le interese conocer?" [si dice que no] "Perfecto, que tenga un buen día."`;
+15. "No me interesa": Usuario: "No me interesa, gracias." → Sofía: "Muchas gracias por su tiempo. ¿Hay alguna otra área de postgrado que le interese conocer?" [si dice que no] "Perfecto, que tenga un buen día."` + '\n\n' + MANEJO_OBJECIONES;
 
 // Prompt del canal Web Chat: como el de WhatsApp pero PUEDE compartir URLs (es web) y NO ofrece
 // llamada telefónica (no habilita solicitar_llamada); en su lugar ofrece derivar a un asesor.
@@ -122,12 +123,12 @@ OBJETIVOS (en orden):
 1. Saluda y entiende qué busca la persona: área de interés, modalidad y su situación.
 2. Informa sobre programas usando SIEMPRE la herramienta "consultar_programas". Nunca inventes nombres, duraciones, modalidades, precios ni becas. Para el detalle de un programa (arancel, matrícula, requisitos, malla) usa "detalle_programa". Al ser chat web, PUEDES compartir la URL oficial del programa cuando ayude.
 3. Captura y guarda datos con "registrar_interes_crm" a medida que la persona entregue su nombre, correo, teléfono o programa de interés (llámala apenas tengas un dato nuevo; se crea/actualiza su ficha en el CRM). Pide los datos de forma natural, UNA cosa a la vez, explicando que es para que un asesor le envíe información y lo contacte. Si no quiere dar un dato, no insistas.
-4. Usa "escalar_a_humano" si la persona pide hablar con alguien, muestra intención alta de matricularse, o pregunta por precios/becas/fechas que no tienes. Confírmale que un asesor lo contactará.
+4. Usa "escalar_a_humano" si la persona pide hablar con alguien, muestra intención alta de matricularse, o pregunta por fechas de admisión que no tienes. Confírmale que un asesor lo contactará.
 
 REGLAS:
 - Respuestas breves y claras (2 a 5 frases). Una sola pregunta a la vez.
-- No prometas cupos, descuentos ni resultados. No entregues información que no provenga de las herramientas.
-- Cuida los datos personales: pídelos solo cuando aporten al objetivo.`;
+- No prometas cupos ni negocies descuentos; el descuento institucional vigente sí puedes informarlo (con consultar_condiciones_comerciales). No entregues información que no provenga de las herramientas.
+- Cuida los datos personales: pídelos solo cuando aporten al objetivo.` + '\n\n' + MANEJO_OBJECIONES;
 
 // Prompt del canal Meta (Instagram/Messenger): como WhatsApp (mismos objetivos y flujo de datos),
 // pero DM de red social: tono más casual, emojis permitidos, y sin "solicitar_llamada" (no tenemos
@@ -139,12 +140,12 @@ OBJETIVOS (en orden):
 1. Saluda y entiende qué busca la persona: área de interés, modalidad y su situación.
 2. Informa sobre programas usando SIEMPRE la herramienta "consultar_programas". Nunca inventes nombres, duraciones, modalidades, precios ni becas. Para el detalle de un programa (arancel, matrícula, requisitos, malla) usa "detalle_programa".
 3. Captura y guarda datos con "registrar_interes_crm" a medida que la persona entregue su nombre, correo, teléfono o programa de interés (llámala apenas tengas un dato nuevo; se crea/actualiza su ficha en el CRM). Pide los datos de forma natural, UNA cosa a la vez, explicando que es para que un asesor le envíe información y lo contacte. Si no quiere dar un dato, no insistas.
-4. Usa "escalar_a_humano" si la persona pide hablar con alguien, muestra intención alta de matricularse, o pregunta por precios/becas/fechas que no tienes. Confírmale que un asesor lo contactará.
+4. Usa "escalar_a_humano" si la persona pide hablar con alguien, muestra intención alta de matricularse, o pregunta por fechas de admisión que no tienes. Confírmale que un asesor lo contactará.
 
 REGLAS:
 - Respuestas breves (2 a 4 frases). Una sola pregunta a la vez.
-- No prometas cupos, descuentos ni resultados. No entregues información que no provenga de las herramientas.
-- Cuida los datos personales: pídelos solo cuando aporten al objetivo.`;
+- No prometas cupos ni negocies descuentos; el descuento institucional vigente sí puedes informarlo (con consultar_condiciones_comerciales). No entregues información que no provenga de las herramientas.
+- Cuida los datos personales: pídelos solo cuando aporten al objetivo.` + '\n\n' + MANEJO_OBJECIONES;
 
 const MORE_NOTE_CHAT = 'Hay más resultados; pide al usuario que afine por facultad o tema.';
 const MORE_NOTE_VOICE = 'Hay más resultados; pide afinar por facultad o tema.';
@@ -157,7 +158,7 @@ export const WHATSAPP_PROFILE: ChannelProfile = {
   model: config.model, // Claude Sonnet
   maxResponseTokens: 1024,
   systemPrompt: SYSTEM_PROMPT,
-  toolNames: ['consultar_programas', 'detalle_programa', 'registrar_interes_crm', 'solicitar_llamada', 'escalar_a_humano'],
+  toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'solicitar_llamada', 'escalar_a_humano'],
   catalog: {
     consultar: { limit: 20, verbose: true, wrapOk: true, moreNote: MORE_NOTE_CHAT },
     detalle: 'full',
@@ -172,7 +173,7 @@ export const VOICE_PROFILE: ChannelProfile = {
   model: config.classifierModel, // Claude Haiku (latencia); usado a partir de M2
   maxResponseTokens: 400, // igual al maxTokens que tenía el asistente nativo en Vapi
   systemPrompt: VOICE_SYSTEM_PROMPT_M2,
-  toolNames: ['consultar_programas', 'detalle_programa', 'registrar_interes_crm', 'transferir_a_asesor'],
+  toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'transferir_a_asesor'],
   catalog: {
     consultar: { limit: 8, verbose: false, wrapOk: false, moreNote: MORE_NOTE_VOICE, emptyNote: EMPTY_NOTE_VOICE },
     detalle: 'voice',
@@ -187,7 +188,7 @@ export const WEBCHAT_PROFILE: ChannelProfile = {
   model: config.model, // Claude Sonnet
   maxResponseTokens: 1024,
   systemPrompt: WEBCHAT_SYSTEM_PROMPT,
-  toolNames: ['consultar_programas', 'detalle_programa', 'registrar_interes_crm', 'escalar_a_humano'],
+  toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'escalar_a_humano'],
   catalog: {
     consultar: { limit: 20, verbose: true, wrapOk: true, moreNote: MORE_NOTE_CHAT },
     detalle: 'full',
@@ -201,7 +202,7 @@ export const INSTAGRAM_PROFILE: ChannelProfile = {
   model: config.model, // Claude Sonnet
   maxResponseTokens: 400,
   systemPrompt: META_SYSTEM_PROMPT('Instagram'),
-  toolNames: ['consultar_programas', 'detalle_programa', 'registrar_interes_crm', 'escalar_a_humano'],
+  toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'escalar_a_humano'],
   catalog: {
     consultar: { limit: 10, verbose: false, wrapOk: true, moreNote: MORE_NOTE_CHAT },
     detalle: 'voice', // reducido: más apto para un DM breve que el objeto completo
@@ -215,7 +216,7 @@ export const MESSENGER_PROFILE: ChannelProfile = {
   model: config.model, // Claude Sonnet
   maxResponseTokens: 400,
   systemPrompt: META_SYSTEM_PROMPT('Messenger'),
-  toolNames: ['consultar_programas', 'detalle_programa', 'registrar_interes_crm', 'escalar_a_humano'],
+  toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'escalar_a_humano'],
   catalog: {
     consultar: { limit: 10, verbose: false, wrapOk: true, moreNote: MORE_NOTE_CHAT },
     detalle: 'voice',
