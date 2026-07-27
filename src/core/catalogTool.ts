@@ -1,5 +1,5 @@
 import { retrieve } from './retrieval';
-import { esProgramaNoOfertable } from './condicionesComerciales';
+import { esProgramaCotizable } from './condicionesComerciales';
 import { getDetalle } from '../ai/detalles';
 
 // Núcleo compartido de las herramientas de catálogo (M1 + M5). La BÚSQUEDA (retrieve, ver retrieval.ts)
@@ -27,8 +27,9 @@ export type DetalleShape = 'full' | 'voice';
 
 /** consultar_programas unificado: busca en el catálogo y da forma al resultado según el canal. */
 export function consultarProgramas(input: any, p: ConsultarPresentation) {
-  // Excluye programas no ofertables (masivos/becas aún no habilitados): no se proponen proactivamente.
-  const all = retrieve(input ?? {}).filter((x) => !esProgramaNoOfertable(x.nombre));
+  // Solo recomienda lo que se puede COTIZAR/vender: excluye masivos/becas, pausa, suspendidos, matrícula
+  // cerrada, nuevos sin precio, bloqueados y lo que no está en la planilla comercial.
+  const all = retrieve(input ?? {}).filter((x) => esProgramaCotizable(x.nombre));
   const shown = all.slice(0, p.limit);
   const programas = p.verbose
     ? shown
