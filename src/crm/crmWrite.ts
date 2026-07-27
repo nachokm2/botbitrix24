@@ -369,3 +369,30 @@ export async function guardarEvaluacionCrm(
 export async function moverEtapaDeal(dealId: number, stageId: string, auth: Auth): Promise<void> {
   await callCrm('crm.deal.update', { id: dealId, fields: { STAGE_ID: stageId } }, auth);
 }
+
+/**
+ * Agrega un comentario de texto libre al timeline de la entidad principal (deal → contact → lead).
+ * Lo usan las acciones de la campaña de VOZ SALIENTE (no interesado, objeción, callback, no titular)
+ * para dejar registro visible al asesor sin duplicar la lógica de selección de entidad.
+ */
+export async function comentarTimeline(entities: CrmEntities, texto: string, auth: Auth): Promise<boolean> {
+  const primary: CrmEntity | null = entities.deal
+    ? { type: 'deal', id: entities.deal }
+    : entities.contact
+      ? { type: 'contact', id: entities.contact }
+      : entities.lead
+        ? { type: 'lead', id: entities.lead }
+        : null;
+  if (!primary) return false;
+  try {
+    await callCrm(
+      'crm.timeline.comment.add',
+      { fields: { ENTITY_ID: primary.id, ENTITY_TYPE: primary.type, COMMENT: texto } },
+      auth,
+    );
+    return true;
+  } catch (e) {
+    log.warn('comentarTimeline falló', { err: String(e) });
+    return false;
+  }
+}

@@ -9,11 +9,25 @@ async function main() {
   const r = await fetch(`https://api.vapi.ai/call/${callId}`, {
     headers: { Authorization: `Bearer ${config.vapiApiKey}` },
   });
-  const json = await r.json();
+  const json: any = await r.json();
   if (!r.ok) {
     console.error('❌ Vapi respondió', r.status, JSON.stringify(json));
     process.exit(1);
   }
+  console.log('=== DIAGNÓSTICO ===');
+  console.log('status        :', json.status);
+  console.log('endedReason   :', json.endedReason);
+  console.log('type          :', json.type);
+  console.log('startedAt     :', json.startedAt ?? '(no arrancó)');
+  console.log('endedAt       :', json.endedAt ?? '—');
+  console.log('phoneNumberId :', json.phoneNumberId);
+  console.log('customer      :', JSON.stringify(json.customer));
+  console.log('cost          :', json.cost ?? '—');
+  console.log('metadata      :', JSON.stringify(json.metadata ?? {}));
+  console.log('overrides     :', JSON.stringify(json.assistantOverrides ?? {}));
+  if (json.phoneCallProviderDetails) console.log('providerDetails:', JSON.stringify(json.phoneCallProviderDetails));
+  if (json.phoneCallProviderId) console.log('providerCallId:', json.phoneCallProviderId);
+  console.log('');
   console.log('--- messages (system messages omitidos) ---');
   for (const m of json.messages ?? []) {
     if (m.role === 'system') continue;

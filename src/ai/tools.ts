@@ -123,4 +123,73 @@ export const tools = [
       required: ['motivo'],
     },
   },
+  {
+    // Solo la habilita el perfil de VOZ SALIENTE (VOICE_OUTBOUND_MMD). Marca al prospecto como NO interesado.
+    name: 'marcar_no_interesado',
+    description:
+      'Registra que el prospecto NO tiene interés en el programa. Úsala cuando lo diga de forma clara, o cuando ' +
+      'pida expresamente que no lo vuelvan a contactar (en ese caso usa motivo "opt-out"). Deja registrado el ' +
+      'motivo para el asesor y detiene futuras llamadas de la campaña. Tras usarla, agradece y cierra cordialmente.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        motivo: {
+          type: 'string',
+          description: 'Motivo breve (ej. "no le interesa", "ya se matriculó en otra parte", "opt-out" si pide no ser contactado).',
+        },
+      },
+      required: ['motivo'],
+    },
+  },
+  {
+    // Solo VOZ SALIENTE. Quien contestó NO es el titular del prospecto que buscábamos.
+    name: 'marcar_no_titular',
+    description:
+      'Registra que quien contestó NO es la persona que buscábamos (otro familiar, número equivocado, etc.). ' +
+      'Úsala tras confirmar la identidad al inicio de la llamada. Si te indican un mejor horario o número, inclúyelo.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        detalle: { type: 'string', description: 'Detalle opcional: mejor horario para llamar, número correcto, o quién contestó.' },
+      },
+      required: [],
+    },
+  },
+  {
+    // Solo VOZ SALIENTE. Deja registrada una objeción para el asesor y la reportería; NO corta la llamada.
+    name: 'registrar_objecion',
+    description:
+      'Registra una objeción o duda relevante que plantee el prospecto (precio, tiempo, "lo tengo que pensar", ' +
+      'financiamiento, etc.) para que el asesor la conozca. Puedes llamarla varias veces. NO detiene la llamada: ' +
+      'sigue conversando y manejando la objeción con normalidad.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        objecion: {
+          type: 'string',
+          enum: ['precio', 'tiempo', 'lo_va_a_pensar', 'consultar_con_otro', 'financiamiento', 'modalidad', 'otra'],
+        },
+        detalle: { type: 'string', description: 'Lo que dijo el prospecto, en breve.' },
+      },
+      required: ['objecion'],
+    },
+  },
+  {
+    // Solo VOZ SALIENTE. El prospecto pide que lo llamen en otro momento.
+    name: 'agendar_callback',
+    description:
+      'Registra que el prospecto pide ser llamado en otro momento. Úsala cuando indique una hora/día preferido o ' +
+      'diga que ahora no puede hablar. Confirma con él la hora antes de usarla. La campaña reprogramará el intento.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        cuando: {
+          type: 'string',
+          description: 'Momento pedido, en palabras del prospecto (ej. "mañana en la tarde", "el viernes a las 5").',
+        },
+        telefono: { type: 'string', description: 'Número alternativo, si entrega uno distinto (opcional).' },
+      },
+      required: ['cuando'],
+    },
+  },
 ] as const;

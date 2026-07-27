@@ -13,7 +13,31 @@ const createCalls: any[] = [];
 
 mock.module('../src/ai/client.ts', {
   namedExports: {
-    anthropic: { messages: { create: (args: any) => (createCalls.push(args), impl(args)) } },
+    anthropic: {
+      messages: {
+        create: (args: any) => (createCalls.push(args), impl(args)),
+        // Simula el MessageStream de la SDK: emite el texto por el handler 'text' y resuelve finalMessage().
+        stream: (args: any) => {
+          createCalls.push(args);
+          const handlers: Record<string, (d: string) => void> = {};
+          return {
+            on(event: string, cb: (d: string) => void) {
+              handlers[event] = cb;
+              return this;
+            },
+            async finalMessage() {
+              const resp: any = await impl(args);
+              const text = ((resp.content as any[]) || [])
+                .filter((b: any) => b.type === 'text')
+                .map((b: any) => b.text)
+                .join('');
+              if (text && handlers.text) handlers.text(text);
+              return resp;
+            },
+          };
+        },
+      },
+    },
     REASONER: 'claude-test-sonnet',
     CLASSIFIER: 'claude-test-haiku',
   },
@@ -25,6 +49,12 @@ const { VOICE_PROFILE } = await import('../src/core/channel');
 
 const textResp = (text: string) => ({ content: [{ type: 'text', text }], usage: {} });
 const toolResp = (id: string, name: string, input: any) => ({ content: [{ type: 'tool_use', id, name, input }], usage: {} });
+
+// El motor manda el system como bloque cacheable ([{type:'text', text, cache_control}]) para activar
+// prompt caching; este helper extrae el texto tanto de la forma string (legacy) como de la de bloque.
+const sysText = (call: any) => (typeof call?.system === 'string' ? call.system : call?.system?.[0]?.text);
+// El primer bloque del system debe llevar cache_control ephemeral (prefijo estable cacheado).
+const sysCached = (call: any) => call?.system?.[0]?.cache_control?.type === 'ephemeral';
 
 function fakeReq(body: any): Request {
   return { body, header: () => undefined } as unknown as Request;
@@ -62,7 +92,9 @@ test('custom-llm: responde en formato OpenAI y usa el prompt de voz (no el syste
   assert.equal(res.body.choices[0].finish_reason, 'stop');
 
   // El system que ve el modelo es el del PERFIL de voz, no el que mandó Vapi.
-  assert.equal(createCalls[0].system, VOICE_PROFILE.systemPrompt);
+  assert.equal(sysText(createCalls[0]), VOICE_PROFILE.systemPrompt);
+  // Y va marcado como cacheable (prompt caching activado para ahorrar tokens de entrada).
+  assert.ok(sysCached(createCalls[0]), 'el system se envía como bloque con cache_control ephemeral');
   // La conversión dejó el primer mensaje como 'user' (descartó system y el saludo del asistente).
   assert.equal(createCalls[0].messages[0].role, 'user');
 });
@@ -110,6 +142,24 @@ test('custom-llm: sin turno de usuario devuelve saludo sin invocar al modelo', a
   await vapiChatCompletions(fakeReq({ stream: false, call: { id: 'c-empty' }, messages: [] }), res);
   assert.equal(called, 0, 'no llama al modelo si no hay mensaje del usuario');
   assert.match(res.body.choices[0].message.content, /Postgrados/i);
+});
+
+test('custom-llm: metadata programCode=MMD usa el perfil de voz SALIENTE (no el inbound)', async () => {
+  createCalls.length = 0;
+  impl = async () => textResp('Con gusto, ¿qué duda tiene del Magíster en Marketing Digital?');
+  const { VOICE_OUTBOUND_MMD } = await import('../src/campaign/prompt.mmd');
+  const res = fakeRes();
+  await vapiChatCompletions(
+    fakeReq({
+      stream: false,
+      call: { id: 'c-mmd', metadata: { programCode: 'MMD' } },
+      messages: [{ role: 'user', content: 'sí, sigo interesado' }],
+    }),
+    res,
+  );
+  // El system que ve el modelo es el del perfil SALIENTE MMD, no el "Sofía" inbound.
+  assert.equal(sysText(createCalls[0]), VOICE_OUTBOUND_MMD.systemPrompt, 'usa el prompt saliente MMD');
+  assert.notEqual(sysText(createCalls[0]), VOICE_PROFILE.systemPrompt);
 });
 
 test('runConversation: usa el ejecutor de tools INYECTADO (no el de chat)', async () => {

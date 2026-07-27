@@ -18,6 +18,8 @@ import { initDb, dbRecentAudit, dbEnabled, startRetentionSweep } from './store/d
 import { snapshot } from './obs/metrics';
 import { kvKind } from './store/kv';
 import { requireDashboardToken, requireAdminToken, requireAllowedOrigin } from './routes/guard';
+import { startCampaignScheduler } from './campaign/scheduler';
+import { campaignEnroll, campaignStatus, campaignData, campaignDashboard } from './routes/campaign';
 import { verifyBitrixEvent } from './bitrix/verifyEvent';
 import { rateLimit } from './routes/rateLimit';
 
@@ -145,6 +147,14 @@ app.get('/setup/bind-dashboard', bindDashboardManual);
 app.get('/setup/bind-calls', bindCallsManual);
 app.get('/setup/sync-calls', syncCallsManual);
 
+// Campaña de voz saliente. Panel y datos con DASHBOARD_TOKEN (embebible en Bitrix); acciones
+// administrativas (enrolar) con ADMIN_TOKEN. Las rutas del panel se registran ANTES del guard admin.
+app.all('/campaign/dashboard', requireDashboardToken, campaignDashboard);
+app.get('/campaign/data', requireDashboardToken, campaignData);
+app.use('/campaign', requireAdminToken);
+app.post('/campaign/enroll', campaignEnroll);
+app.get('/campaign/status', campaignStatus);
+
 // Fase 2: agente de voz con Vapi
 app.post('/vapi/events', verifyVapiSecret, vapiEvents); // webhook de Vapi (tool-calls, end-of-call-report)
 app.post('/voice/outbound', strictLimiter, verifyVapiSecret, voiceOutbound); // dispara una llamada saliente con Vapi
@@ -167,6 +177,7 @@ initDb()
   .then(() => {
     startCallSync();
     startRetentionSweep();
+    startCampaignScheduler(); // no-op si no hay programas activos (CAMPAIGN_<code>_ACTIVO=true)
   })
   .catch((e) => log.error('initDb error', { err: String(e) }));
 
