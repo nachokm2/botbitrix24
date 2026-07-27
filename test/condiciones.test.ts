@@ -6,16 +6,21 @@ import { consultarProgramas } from '../src/core/catalogTool';
 // La capa de datos comercial: cotiza con el DESCUENTO real (no el arancel de lista), desambigua por sede,
 // filtra por estado y expone las reglas globales (Toku, formulario de soporte). Datos: condicionesComerciales.data.json.
 
-test('entrega el precio de LISTA por defecto; el descuento va en un bloque aparte', () => {
+test('precio de LISTA por defecto; descuento y su cuota en bloque aparte; cuota sobre el arancel (matrícula aparte)', () => {
   const r: any = buscarCondiciones('Magíster en Marketing Digital');
   assert.equal(r.cotizable, true);
-  assert.equal(r.arancel, '$4.990.000', 'arancel de lista por defecto (no el con descuento)');
+  assert.equal(r.arancel, '$4.990.000', 'arancel de lista por defecto');
+  assert.equal(r.matricula, '$250.000');
   assert.equal(r.total, '$5.240.000', 'total de lista = arancel lista + matrícula');
+  // Cuota por defecto = arancel de LISTA / 24 (la matrícula NO entra en la cuota):
+  assert.equal(r.cuotas.n, 24);
+  assert.equal(r.cuotas.valor, '$207.917');
+  // Descuento y su cuota (sobre el arancel con descuento) — solo si preguntan:
   assert.equal(r.descuento.pct, 30);
   assert.equal(r.descuento.arancelConDescuento, '$3.493.000');
   assert.equal(r.descuento.total, '$3.743.000');
-  assert.equal(r.pago.cuotas.n, 24, 'Magíster: hasta 24 cuotas');
-  assert.equal(r.pago.sinLinkDirecto, true, 'no envía link de pago (Toku es batch)');
+  assert.equal(r.descuento.cuotas.valor, '$145.542', 'cuota con descuento = arancel c/dto / 24');
+  assert.equal(r.pago.sinLinkDirecto, true);
 });
 
 test('el nombre del catálogo (prefijo "Magíster en") casa con la tabla ("Marketing Digital")', () => {

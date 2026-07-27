@@ -33,7 +33,7 @@ const { programas } = JSON.parse(readFileSync(DATA_PATH, 'utf8')) as { programas
 export const CONDICIONES_GLOBALES = {
   toku: {
     medios: 'tarjeta de débito o crédito',
-    reglaCuota: 'el precio del programa se divide en partes iguales por el número de cuotas',
+    reglaCuota: 'el arancel se divide en partes iguales por el número de cuotas; la matrícula se paga aparte',
     cuotasPorTipo: { Diplomado: 5, 'Magíster': 24 } as Record<string, number>,
   },
   // Único canal de derivación a soporte/postmatrícula (deuda, pago, matrícula, becas, reclamo, técnico).
@@ -100,9 +100,18 @@ function cotizacion(p: ProgramaComercial) {
   ) {
     return { encontrado: true as const, cotizable: false as const, motivo: p.motivo ?? p.estado, mensaje: mensajeNoCotizable(p) };
   }
-  const cuotas = p.cuota
-    ? { disponible: true, frase: `hasta ${p.cuota.n} cuotas de ${fmt(p.cuota.monto)}`, n: p.cuota.n, monto: fmt(p.cuota.monto) }
-    : { disponible: false, nota: 'Las cuotas de este tipo (Máster/Especialidad) aún no están confirmadas; deriva esa consulta puntual al asesor.' };
+  // Las cuotas SIEMPRE se calculan sobre el ARANCEL (la matrícula se paga aparte), dividido por el n.º de
+  // cuotas del tipo. Se calculan dos: sobre el arancel de LISTA (por defecto) y sobre el arancel CON DESCUENTO
+  // (solo si preguntaron por el descuento). n viene de la planilla (Diplomado 5 / Magíster 24; null en Máster/Esp.).
+  const n = p.cuota?.n ?? null;
+  const cuotasDefer = {
+    disponible: false as const,
+    nota: 'Las cuotas de este tipo (Máster/Especialidad) aún no están confirmadas; deriva esa consulta puntual al asesor.',
+  };
+  const cuotasSobre = (arancel: number) =>
+    n
+      ? { disponible: true as const, n, valor: fmt(Math.round(arancel / n)), frase: `hasta ${n} cuotas de ${fmt(Math.round(arancel / n))}` }
+      : cuotasDefer;
   return {
     encontrado: true as const,
     cotizable: true as const,
@@ -113,25 +122,27 @@ function cotizacion(p: ProgramaComercial) {
     arancel: fmt(p.arancelLista),
     matricula: fmt(p.matricula),
     total: fmt(p.matricula + p.arancelLista),
+    cuotas: cuotasSobre(p.arancelLista), // por defecto: arancel de LISTA ÷ n (matrícula aparte)
     // Descuento institucional: revelar SOLO si preguntan explícitamente por descuentos/becas/promociones.
     descuento: {
       pct: p.dtoPct,
       arancelConDescuento: fmt(p.arancelConDto),
       total: fmt(p.total),
+      cuotas: cuotasSobre(p.arancelConDto), // con descuento: arancel c/dto ÷ n (matrícula aparte)
     },
     pago: {
       medios: CONDICIONES_GLOBALES.toku.medios,
-      cuotas,
       matriculaAparte: true,
       reglaCuota: CONDICIONES_GLOBALES.toku.reglaCuota,
       sinLinkDirecto: true, // el link Toku se genera por batch; NO enviar link ni confirmar estado de pagos
     },
     politica:
-      'Entrega PRIMERO el precio de lista: "arancel" + "matricula" + "total". NO menciones el descuento por ' +
-      'iniciativa propia. Revela el bloque "descuento" (pct, arancelConDescuento, total) SOLO si la persona pregunta ' +
-      'explícitamente si hay descuentos, becas, rebajas o promociones; nunca ofrezcas un descuento adicional. Las ' +
-      'cuotas de "pago" ya reflejan el precio con descuento: úsalas solo si preguntan por formas de pago. No envíes ' +
-      'link de pago ni confirmes pagos; la matrícula se paga aparte del arancel.',
+      'Entrega PRIMERO el precio de lista: "arancel" + "matricula" + "total". Las cuotas se calculan sobre el ' +
+      'ARANCEL y la matrícula se paga aparte: por defecto usa "cuotas" (sobre el arancel de lista). NO menciones el ' +
+      'descuento por iniciativa propia. Revela el bloque "descuento" (pct, arancelConDescuento, total y ' +
+      'descuento.cuotas — cuota sobre el arancel con descuento) SOLO si la persona pregunta explícitamente si hay ' +
+      'descuentos, becas, rebajas o promociones; nunca ofrezcas un descuento adicional. No envíes link de pago ni ' +
+      'confirmes pagos.',
   };
 }
 
