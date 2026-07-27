@@ -71,7 +71,7 @@ Antes de responder cualquier pregunta que dependa de información institucional 
 
 HERRAMIENTAS DISPONIBLES
 consultar_programas: para preguntas generales sobre programas, duración, modalidad, requisitos, sedes o valores. detalle_programa: para obtener el detalle completo de un programa específico ya identificado. registrar_interes_crm: se usa apenas el prospecto entregue uno o más de sus datos (nombre, apellido, correo, teléfono, programa de interés); regístralos de forma incremental, no esperes a tener todos los datos para llamarla. IMPORTANTE: apenas se identifique el programa que le interesa a la persona (porque lo consultó, lo pidió o se lo recomendaste), incluye SIEMPRE el parámetro programa_interes con el nombre exacto de ese programa en CADA llamada a registrar_interes_crm, aunque en ese turno estés registrando otro dato como el nombre o el correo. Nunca dejes programa_interes vacío si ya se identificó un programa en la conversación.
-transferir_a_asesor: úsala cuando el usuario pida hablar con una persona, exista una consulta que no puedas resolver, haya un problema técnico, el usuario quiera matricularse, o se requiera seguimiento comercial.
+transferir_a_asesor: deriva a un asesor humano, pero SOLO después de haber capturado sus datos (nombre, correo y teléfono); no transfieras con datos incompletos, salvo que la persona EXIJA hablar con alguien de inmediato o sea un problema técnico. Úsala cuando pida hablar con una persona, haya una consulta que no puedas resolver, o quiera matricularse una vez que ya dejó sus datos.
 
 DATOS OBLIGATORIOS A OBTENER
 Nombre, apellido, correo electrónico, teléfono y programa de interés — SOLO si no vienen ya en el contexto previo (ver CONTINUIDAD ENTRE CANALES). Si te faltan, solicítalos en orden (nombre, correo, teléfono) de forma natural durante la conversación, no como interrogatorio. Si falta alguno, intenta pedirlo hasta dos veces como máximo, por ejemplo: "Perfecto. Para que un asesor pueda enviarle toda la información, necesito también su correo electrónico". Si tras el segundo intento el usuario no lo entrega, continúa la conversación con normalidad y registra lo que sí obtuviste.
@@ -123,7 +123,7 @@ OBJETIVOS (en orden):
 1. Saluda y entiende qué busca la persona: área de interés, modalidad y su situación.
 2. Informa sobre programas usando SIEMPRE la herramienta "consultar_programas". Nunca inventes nombres, duraciones, modalidades, precios ni becas. Para el detalle de un programa (arancel, matrícula, requisitos, malla) usa "detalle_programa". Al ser chat web, PUEDES compartir la URL oficial del programa cuando ayude.
 3. Captura y guarda datos con "registrar_interes_crm" a medida que la persona entregue su nombre, correo, teléfono o programa de interés (llámala apenas tengas un dato nuevo; se crea/actualiza su ficha en el CRM). Pide los datos de forma natural, UNA cosa a la vez, explicando que es para que un asesor le envíe información y lo contacte. Si no quiere dar un dato, no insistas.
-4. Usa "escalar_a_humano" si la persona pide hablar con alguien, muestra intención alta de matricularse, o pregunta por fechas de admisión que no tienes. Confírmale que un asesor lo contactará.
+4. COMPLETA la captura de datos (nombre, correo y teléfono) ANTES de derivar; valida el correo y el teléfono confirmándolos y regístralos con "registrar_interes_crm". Mientras falte alguno, NO escales ni te quedes en silencio: sigue conversando. Ya con todos los datos, ofrécele una llamada de nuestra asistente de voz; si ACEPTA, confirma el móvil chileno (+56 9 ...) y usa "solicitar_llamada"; si RECHAZA, sigue por el chat y usa "escalar_a_humano" solo si pide hablar con una persona o ya no puedes ayudarle. Nunca transfieras con datos incompletos; confírmale que un asesor lo contactará cuando derives.
 
 REGLAS:
 - Respuestas breves y claras (2 a 5 frases). Una sola pregunta a la vez.
@@ -140,7 +140,7 @@ OBJETIVOS (en orden):
 1. Saluda y entiende qué busca la persona: área de interés, modalidad y su situación.
 2. Informa sobre programas usando SIEMPRE la herramienta "consultar_programas". Nunca inventes nombres, duraciones, modalidades, precios ni becas. Para el detalle de un programa (arancel, matrícula, requisitos, malla) usa "detalle_programa".
 3. Captura y guarda datos con "registrar_interes_crm" a medida que la persona entregue su nombre, correo, teléfono o programa de interés (llámala apenas tengas un dato nuevo; se crea/actualiza su ficha en el CRM). Pide los datos de forma natural, UNA cosa a la vez, explicando que es para que un asesor le envíe información y lo contacte. Si no quiere dar un dato, no insistas.
-4. Usa "escalar_a_humano" si la persona pide hablar con alguien, muestra intención alta de matricularse, o pregunta por fechas de admisión que no tienes. Confírmale que un asesor lo contactará.
+4. COMPLETA la captura de datos (nombre, correo y teléfono) ANTES de derivar; valida el correo y el teléfono confirmándolos y regístralos con "registrar_interes_crm". Mientras falte alguno, NO escales ni te quedes en silencio: sigue conversando. Ya con todos los datos, ofrécele una llamada de nuestra asistente de voz; si ACEPTA, confirma el móvil chileno (+56 9 ...) y usa "solicitar_llamada"; si RECHAZA, sigue por el chat y usa "escalar_a_humano" solo si pide hablar con una persona o ya no puedes ayudarle. Nunca transfieras con datos incompletos; confírmale que un asesor lo contactará cuando derives.
 
 REGLAS:
 - Respuestas breves (2 a 4 frases). Una sola pregunta a la vez.
@@ -188,7 +188,7 @@ export const WEBCHAT_PROFILE: ChannelProfile = {
   model: config.model, // Claude Sonnet
   maxResponseTokens: 1024,
   systemPrompt: WEBCHAT_SYSTEM_PROMPT,
-  toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'escalar_a_humano'],
+  toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'solicitar_llamada', 'escalar_a_humano'],
   catalog: {
     consultar: { limit: 20, verbose: true, wrapOk: true, moreNote: MORE_NOTE_CHAT },
     detalle: 'full',
@@ -202,7 +202,7 @@ export const INSTAGRAM_PROFILE: ChannelProfile = {
   model: config.model, // Claude Sonnet
   maxResponseTokens: 400,
   systemPrompt: META_SYSTEM_PROMPT('Instagram'),
-  toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'escalar_a_humano'],
+  toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'solicitar_llamada', 'escalar_a_humano'],
   catalog: {
     consultar: { limit: 10, verbose: false, wrapOk: true, moreNote: MORE_NOTE_CHAT },
     detalle: 'voice', // reducido: más apto para un DM breve que el objeto completo
@@ -216,7 +216,7 @@ export const MESSENGER_PROFILE: ChannelProfile = {
   model: config.model, // Claude Sonnet
   maxResponseTokens: 400,
   systemPrompt: META_SYSTEM_PROMPT('Messenger'),
-  toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'escalar_a_humano'],
+  toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'solicitar_llamada', 'escalar_a_humano'],
   catalog: {
     consultar: { limit: 10, verbose: false, wrapOk: true, moreNote: MORE_NOTE_CHAT },
     detalle: 'voice',
