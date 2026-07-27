@@ -27,6 +27,19 @@ export function priorContextMessage(priorContext: string) {
 /** Ejecuta una herramienta por nombre y devuelve su resultado (channel-agnostic). */
 export type ToolExecutor = (name: string, input: any) => Promise<any>;
 
+/**
+ * Marca el prefijo ESTABLE del prompt (system + esquemas de tools) como cacheable con
+ * `cache_control: ephemeral`. El orden de render de Anthropic es tools → system → messages, así que
+ * un único breakpoint en el system cachea también las tools. En los turnos siguientes ese prefijo se
+ * lee a ~0.1× en vez de reprocesarse entero: es el mayor ahorro de tokens de ENTRADA del motor
+ * (el system+tools se repite en cada turno). Ahorro típico ~60–90% del input repetido.
+ * Nota: el prefijo debe superar el mínimo cacheable del modelo para que aplique (~2.048 tok en Sonnet,
+ * ~4.096 tok en Haiku). Si no lo alcanza, simplemente no cachea (no falla).
+ */
+function cachedSystem(text: string) {
+  return [{ type: 'text' as const, text, cache_control: { type: 'ephemeral' as const } }];
+}
+
 /** Lo mínimo que el motor necesita del turno, independiente del canal. */
 export type ConversationOpts = {
   profile: ChannelProfile;
@@ -57,7 +70,7 @@ export async function runConversation(
       model: profile.model,
       max_tokens: profile.maxResponseTokens,
       temperature: 0.4,
-      system,
+      system: cachedSystem(system),
       messages,
       tools: allowedTools as any,
     });
@@ -113,7 +126,7 @@ export async function runConversationStream(
       model: profile.model,
       max_tokens: profile.maxResponseTokens,
       temperature: 0.4,
-      system,
+      system: cachedSystem(system),
       messages,
       tools: allowedTools as any,
     });

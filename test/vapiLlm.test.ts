@@ -50,6 +50,12 @@ const { VOICE_PROFILE } = await import('../src/core/channel');
 const textResp = (text: string) => ({ content: [{ type: 'text', text }], usage: {} });
 const toolResp = (id: string, name: string, input: any) => ({ content: [{ type: 'tool_use', id, name, input }], usage: {} });
 
+// El motor manda el system como bloque cacheable ([{type:'text', text, cache_control}]) para activar
+// prompt caching; este helper extrae el texto tanto de la forma string (legacy) como de la de bloque.
+const sysText = (call: any) => (typeof call?.system === 'string' ? call.system : call?.system?.[0]?.text);
+// El primer bloque del system debe llevar cache_control ephemeral (prefijo estable cacheado).
+const sysCached = (call: any) => call?.system?.[0]?.cache_control?.type === 'ephemeral';
+
 function fakeReq(body: any): Request {
   return { body, header: () => undefined } as unknown as Request;
 }
@@ -86,7 +92,9 @@ test('custom-llm: responde en formato OpenAI y usa el prompt de voz (no el syste
   assert.equal(res.body.choices[0].finish_reason, 'stop');
 
   // El system que ve el modelo es el del PERFIL de voz, no el que mandó Vapi.
-  assert.equal(createCalls[0].system, VOICE_PROFILE.systemPrompt);
+  assert.equal(sysText(createCalls[0]), VOICE_PROFILE.systemPrompt);
+  // Y va marcado como cacheable (prompt caching activado para ahorrar tokens de entrada).
+  assert.ok(sysCached(createCalls[0]), 'el system se envía como bloque con cache_control ephemeral');
   // La conversión dejó el primer mensaje como 'user' (descartó system y el saludo del asistente).
   assert.equal(createCalls[0].messages[0].role, 'user');
 });
@@ -150,8 +158,8 @@ test('custom-llm: metadata programCode=MMD usa el perfil de voz SALIENTE (no el 
     res,
   );
   // El system que ve el modelo es el del perfil SALIENTE MMD, no el "Sofía" inbound.
-  assert.equal(createCalls[0].system, VOICE_OUTBOUND_MMD.systemPrompt, 'usa el prompt saliente MMD');
-  assert.notEqual(createCalls[0].system, VOICE_PROFILE.systemPrompt);
+  assert.equal(sysText(createCalls[0]), VOICE_OUTBOUND_MMD.systemPrompt, 'usa el prompt saliente MMD');
+  assert.notEqual(sysText(createCalls[0]), VOICE_PROFILE.systemPrompt);
 });
 
 test('runConversation: usa el ejecutor de tools INYECTADO (no el de chat)', async () => {
