@@ -156,7 +156,8 @@ function cotizacion(p: ProgramaComercial) {
 
 /**
  * Devuelve las condiciones comerciales (precio con descuento, total, cuotas Toku) de un programa por su
- * nombre. Si hay varios con el mismo nombre (mismas sedes Santiago/Temuco) y no se indica sede → pide precisar.
+ * nombre. Solo pide precisar la sede si el programa se imparte en 2+ sedes PRESENCIALES distintas; los
+ * programas online (sede null) se cotizan directo y NUNCA se pregunta la sede.
  * Si el programa no cotiza (PAUSA/SUSPENDIDO/nuevo/bloqueado) → devuelve el motivo y guion de derivación.
  * Sin `programa` → devuelve las reglas generales de financiamiento (Toku) para explicarlas.
  */
@@ -179,12 +180,31 @@ export function buscarCondiciones(programa?: string, sede?: string) {
     if (bySede.length) matches = bySede;
   }
   if (matches.length > 1) {
-    return {
-      encontrado: true as const,
-      ambiguo: true as const,
-      mensaje: 'Hay más de un programa con ese nombre (distintas sedes). Pide precisar la sede antes de cotizar.',
-      opciones: matches.map((p) => ({ nombre: p.nombre, sede: p.sede, codigo: p.codigo, estado: p.estado })),
-    };
+    // La ambigüedad SOLO es por sede cuando hay ≥2 sedes físicas distintas (programa presencial en
+    // Santiago y Temuco). Los programas ONLINE tienen sede null → NUNCA se pregunta la sede.
+    const sedes = [...new Set(matches.map((p) => p.sede).filter((s): s is string => !!s))];
+    if (sedes.length >= 2) {
+      return {
+        encontrado: true as const,
+        ambiguo: true as const,
+        motivo: 'sede' as const,
+        mensaje: `Ese programa se imparte en varias sedes presenciales (${sedes.join(', ')}). Pregúntale en cuál desea estudiar antes de cotizar. NUNCA preguntes la sede si el programa es online.`,
+        opciones: matches.map((p) => ({ nombre: p.nombre, sede: p.sede, codigo: p.codigo, estado: p.estado })),
+      };
+    }
+    // Coinciden varios nombres distintos (no es tema de sede): pide precisar el PROGRAMA, no la sede.
+    const nombres = [...new Set(matches.map((p) => norm(p.nombre)))];
+    if (nombres.length > 1) {
+      return {
+        encontrado: true as const,
+        ambiguo: true as const,
+        motivo: 'programa' as const,
+        mensaje: 'Hay más de un programa que coincide con ese nombre. Pídele que precise a cuál se refiere antes de cotizar (no preguntes por sede).',
+        opciones: matches.map((p) => ({ nombre: p.nombre, sede: p.sede, codigo: p.codigo, estado: p.estado })),
+      };
+    }
+    // Mismo programa (filas duplicadas / todas online): cotiza la mejor coincidencia cotizable, sin preguntar sede.
+    matches = [matches.find((p) => p.cotizable) ?? matches[0]];
   }
   return cotizacion(matches[0]);
 }
