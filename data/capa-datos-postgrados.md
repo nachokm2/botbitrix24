@@ -150,7 +150,7 @@ Columna `Cuota máx.` = arancel con descuento dividido por el n.º máximo de cu
 | `DI-ARQ-005` | Arquitectura de Software | Diplomado | Ingeniería | Online | $150.000 | $1.190.000 | 40% | $714.000 | **$864.000** | $142.800 x5 | ACTIVO |
 | `DI-DIS-033` | Diseño, Gestión e Innovación Curricular | Diplomado | Educación | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
 | `DI-INT-073` | Inteligencia Artificial | Diplomado | Ingeniería | Online | $150.000 | $1.190.000 | 40% | $714.000 | **$864.000** | $142.800 x5 | ACTIVO |
-| `DI-GES-059` | Gestión de Riesgos y Auditoría Clínica para Inst. de Salud | Diplomado | Ciencias de la Salud | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
+| `DI-GES-059` | Gestión de Riesgos y Auditoría Clínica para Instituciones de Salud | Diplomado | Ciencias de la Salud | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
 | `DI-CUI-022` | Cuidados Paliativos y Manejo del Dolor | Diplomado | Ciencias de la Salud | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
 | `DI-PSI-103` | Psicología Clínica: Diagnóstico y Psicoterapia | Diplomado | Ciencias de la Salud | Online | $150.000 | $1.390.000 | 40% | $834.000 | **$984.000** | $166.800 x5 | ACTIVO |
 | `DI-DER-029` | Derecho del Trabajo y Proceso Laboral | Diplomado | Derecho | Online | $150.000 | $1.290.000 | 40% | $774.000 | **$924.000** | $154.800 x5 | ACTIVO |
@@ -168,7 +168,7 @@ Columna `Cuota máx.` = arancel con descuento dividido por el n.º máximo de cu
 | `DI-CUI-023` | Cuidados Respiratorios para Kinesiólogos | Diplomado | Ciencias de la Salud | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
 | `DI-CUI-020` | Cuidados de Enfermería en Paciente Oncológico | Diplomado | Ciencias de la Salud | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
 | `DI-ADM-001` | Administración de Obras | Diplomado | Arq., Construcción y M. Ambiente | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
-| `DI-INC-068` | Inclusión Educativa de Personas en Condición del TEA | Diplomado | Educación | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
+| `DI-INC-068` | Inclusión Educativa de Personas en Condición del Espectro Autista | Diplomado | Educación | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
 | `DI-AST-007` | Astronomía General | Diplomado | Cs. Sociales y Humanidades | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
 | `DI-HEM-065` | Hemato-Oncología Traslacional | Diplomado | Ciencias de la Salud | Online | $150.000 | $1.290.000 | 40% | $774.000 | **$924.000** | $154.800 x5 | ACTIVO |
 | `DI-DER-026` | Derecho Ambiental y Gestión Sostenible | Diplomado | Derecho | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
@@ -182,7 +182,7 @@ Columna `Cuota máx.` = arancel con descuento dividido por el n.º máximo de cu
 | `DI-PRU-102` | Pruebas en el Proceso Penal Acusatorio y Litigación Estratégica | Diplomado | Derecho | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
 | `DI-ANT-004` | Antibióticos y Terapia Antimicrobiana | Diplomado | Ciencias de la Salud | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
 | `DI-BIE-009` | Bienestar Laboral y Riesgos Psicosociales | Diplomado | Ciencias de la Salud | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
-| `DI-INS-072` | Inspección en Técnicas de Obras | Diplomado | Arq., Construcción y M. Ambiente | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
+| `DI-INS-072` | Inspección Técnica de Obras | Diplomado | Arq., Construcción y M. Ambiente | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
 | `DI-CLI-014` | Clínica Psicoanalítica | Diplomado | Ciencias de la Salud | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
 | `DI-EOM-039` | Economía y Políticas Públicas | Diplomado | Cs. Sociales y Humanidades | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
 | `DI-HAB-064` | Habilidades Directivas | Diplomado | Administración y Negocios | Online | $150.000 | $1.090.000 | 40% | $654.000 | **$804.000** | $130.800 x5 | ACTIVO |
@@ -219,7 +219,7 @@ Columna `Cuota máx.` = arancel con descuento dividido por el n.º máximo de cu
 | `DI-ORT-098` | Ortodoncia Preventiva e Interceptiva y Ortopedia DMF | Diplomado Semipresencial | Odontología | Semipresencial Santiago | $250.000 | $3.990.000 | 10% | $3.591.000 | **$3.841.000** | $718.200 x5 | PAUSA |
 | `DI-TRA-118` | Trastornos Temporomandibulares y Dolor Orofacial | Diplomado Semipresencial | Odontología | Semipresencial Temuco | $250.000 | $2.750.000 | 10% | $2.475.000 | **$2.725.000** | $495.000 x5 | PAUSA |
 | `MAG-GOB-167` | Gobierno y Dirección Pública | Magíster | Cs. Sociales y Humanidades | Online | $250.000 | $5.990.000 | 30% | $4.193.000 | **$4.443.000** | $174.708 x24 | ACTIVO |
-| `MAG-EDU-154` | Educación en Cs. de la Salud y Simulación Clínica | Magíster | Ciencias de la Salud | Online | $250.000 | $5.990.000 | 30% | $4.193.000 | **$4.443.000** | $174.708 x24 | ACTIVO |
+| `MAG-EDU-154` | Educación en Ciencias de la Salud y Simulación Clínica | Magíster | Ciencias de la Salud | Online | $250.000 | $5.990.000 | 30% | $4.193.000 | **$4.443.000** | $174.708 x24 | ACTIVO |
 | `MAG-DER-141` | Derecho Público: Transparencia, Regulaciones y Control | Magíster | Derecho | Online | $250.000 | $5.490.000 | 30% | $3.843.000 | **$4.093.000** | $160.125 x24 | ACTIVO |
 | `MAG-DER-140` | Derecho Penal y Procesal Penal | Magíster | Derecho | Online | $250.000 | $5.490.000 | 30% | $3.843.000 | **$4.093.000** | $160.125 x24 | ACTIVO |
 | `MAG-DES-143` | Desarrollo Organizacional, Innovación y Bienestar Laboral | Magíster | Cs. Sociales y Humanidades | Online | $250.000 | $5.490.000 | 30% | $3.843.000 | **$4.093.000** | $160.125 x24 | ACTIVO |

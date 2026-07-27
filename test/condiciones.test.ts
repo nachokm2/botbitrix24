@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buscarCondiciones, CONDICIONES_GLOBALES, esProgramaNoOfertable } from '../src/core/condicionesComerciales';
+import { buscarCondiciones, CONDICIONES_GLOBALES, esProgramaCotizable } from '../src/core/condicionesComerciales';
 import { consultarProgramas } from '../src/core/catalogTool';
 
 // La capa de datos comercial: cotiza con el DESCUENTO real (no el arancel de lista), desambigua por sede,
@@ -44,12 +44,14 @@ test('excepción DI-DAT-024 (masivo con 30%, no beca) sí cotiza como venta norm
   assert.equal(r.descuento.total, '$1.053.000');
 });
 
-test('esProgramaNoOfertable: true para beca/masivo, false para programa normal', () => {
-  assert.equal(esProgramaNoOfertable('Diplomado en Big Data and Machine Learning'), true);
-  assert.equal(esProgramaNoOfertable('Magíster en Marketing Digital'), false);
+test('esProgramaCotizable: true para vendible; false para masivo/suspendido/no-en-planilla', () => {
+  assert.equal(esProgramaCotizable('Magíster en Marketing Digital'), true);
+  assert.equal(esProgramaCotizable('Diplomado en Big Data and Machine Learning'), false, 'beca/masivo');
+  assert.equal(esProgramaCotizable('Magíster en Justicia Constitucional y Derechos Humanos'), false, 'suspendido');
+  assert.equal(esProgramaCotizable('Programa que no existe en la planilla xyz'), false, 'no en planilla');
 });
 
-test('consultar_programas NO propone masivos/becas no habilitados', () => {
+test('consultar_programas SOLO recomienda cotizables (excluye masivos y no-vendibles)', () => {
   const pres = { limit: 30, verbose: false, wrapOk: false, moreNote: '' };
   const r: any = consultarProgramas({ texto: 'big data machine learning' }, pres);
   const nombres = (r.programas ?? []).map((x: any) => String(x.nombre).toLowerCase());

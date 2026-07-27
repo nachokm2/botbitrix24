@@ -544,7 +544,7 @@
     },
     {
       "codigo": "DI-GES-059",
-      "nombre": "Gestión de Riesgos y Auditoría Clínica para Inst. de Salud",
+      "nombre": "Gestión de Riesgos y Auditoría Clínica para Instituciones de Salud",
       "tipo": "Diplomado",
       "area": "Ciencias de la Salud",
       "modalidad": "Online",
@@ -904,7 +904,7 @@
     },
     {
       "codigo": "DI-INC-068",
-      "nombre": "Inclusión Educativa de Personas en Condición del TEA",
+      "nombre": "Inclusión Educativa de Personas en Condición del Espectro Autista",
       "tipo": "Diplomado",
       "area": "Educación",
       "modalidad": "Online",
@@ -1184,7 +1184,7 @@
     },
     {
       "codigo": "DI-INS-072",
-      "nombre": "Inspección en Técnicas de Obras",
+      "nombre": "Inspección Técnica de Obras",
       "tipo": "Diplomado",
       "area": "Arq., Construcción y M. Ambiente",
       "modalidad": "Online",
@@ -1930,7 +1930,7 @@
     },
     {
       "codigo": "MAG-EDU-154",
-      "nombre": "Educación en Cs. de la Salud y Simulación Clínica",
+      "nombre": "Educación en Ciencias de la Salud y Simulación Clínica",
       "tipo": "Magíster",
       "area": "Ciencias de la Salud",
       "modalidad": "Online",

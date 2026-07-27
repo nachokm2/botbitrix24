@@ -70,16 +70,24 @@ function norm(s: string): string {
     .trim();
 }
 
-// Programas que el bot NO debe proponer ni cotizar: masivos con arancel liberado (becas) aún no
-// habilitados para venta (tienen otra fecha de salida). Se excluyen de consultar_programas.
-const NOMBRES_NO_OFERTABLES = new Set(
-  programas.filter((p) => p.motivo === 'masivo_no_habilitado').map((p) => norm(p.nombre)),
-);
+/** Programas comerciales que matchean un nombre del catálogo: exacto normalizado y, si no hay, "contiene".
+ *  Emparejamiento tolerante (atrapa variantes de nombre entre el catálogo y la planilla). */
+function matchPrograma(nombre: string): ProgramaComercial[] {
+  const q = norm(nombre);
+  if (!q) return [];
+  const exactos = programas.filter((p) => norm(p.nombre) === q);
+  if (exactos.length) return exactos;
+  return programas.filter((p) => {
+    const n = norm(p.nombre);
+    return n.includes(q) || q.includes(n);
+  });
+}
 
-/** ¿El programa NO se debe ofertar proactivamente (beca/masivo no habilitado)? Recibe el nombre del
- *  catálogo (con o sin prefijo de tipo). Úsalo para filtrarlo de las recomendaciones. */
-export function esProgramaNoOfertable(nombre: string): boolean {
-  return NOMBRES_NO_OFERTABLES.has(norm(nombre));
+/** ¿El programa tiene AL MENOS una variante COTIZABLE en la planilla? Se usa para que consultar_programas
+ *  SOLO recomiende lo que se puede cotizar y vender: excluye masivos/becas, en pausa, suspendidos, matrícula
+ *  cerrada, nuevos sin precio, bloqueados y lo que no está en la planilla. Recibe el nombre del catálogo. */
+export function esProgramaCotizable(nombre: string): boolean {
+  return matchPrograma(nombre).some((p) => p.cotizable);
 }
 
 function mensajeNoCotizable(p: ProgramaComercial): string {
@@ -161,14 +169,7 @@ export function buscarCondiciones(programa?: string, sede?: string) {
       nota: 'Para dar el valor exacto necesito el programa. Puedes explicar las formas de pago en general con estos datos.',
     };
   }
-  const q = norm(programa);
-  let matches = programas.filter((p) => norm(p.nombre) === q);
-  if (matches.length === 0) {
-    matches = programas.filter((p) => {
-      const n = norm(p.nombre);
-      return n.includes(q) || q.includes(n);
-    });
-  }
+  let matches = matchPrograma(programa);
   if (matches.length === 0) {
     return { encontrado: false as const, mensaje: 'No encuentro ese programa en la planilla oficial. Ofrece derivar a un asesor comercial.' };
   }
