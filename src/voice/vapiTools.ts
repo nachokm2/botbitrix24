@@ -22,8 +22,9 @@ export type VoiceCallCtx = {
   dealId?: number;
 };
 
-/** Metadatos de campaña que viajan en la creación de la llamada (Vapi) y se leen en /vapi/llm. */
-export type VoiceCallMeta = { programCode?: string; dealId?: number };
+/** Metadatos que viajan en la creación de la llamada (Vapi) y se leen en /vapi/llm: código de programa
+ *  (campaña) y/o los IDs de la ficha CRM ya conocida (llamada disparada desde chat). */
+export type VoiceCallMeta = { programCode?: string; dealId?: number; contactId?: number; leadId?: number };
 
 const ctxKey = (callId: string) => `vapi:ctx:${callId}`;
 const CTX_TTL = 2 * 60 * 60; // 2 h
@@ -40,10 +41,17 @@ export async function getVoiceCtx(
 ): Promise<VoiceCallCtx> {
   const cached = await getJson<VoiceCallCtx>(ctxKey(callId));
   if (cached) return cached;
-  let crm: CrmEntities | null = meta?.dealId ? { deal: meta.dealId } : null;
+  // Entidad(es) ancladas en la metadata (dealId/contactId/leadId). En llamadas disparadas desde chat
+  // (solicitar_llamada) esto fija la MISMA ficha del CRM que usó WhatsApp, para que loadPriorContext lea
+  // la conversación previa y la voz NO vuelva a pedir los datos aunque el teléfono no calce en la búsqueda.
+  const fromMeta: CrmEntities = {};
+  if (meta?.dealId) fromMeta.deal = meta.dealId;
+  if (meta?.contactId) fromMeta.contact = meta.contactId;
+  if (meta?.leadId) fromMeta.lead = meta.leadId;
+  let crm: CrmEntities | null = Object.keys(fromMeta).length ? fromMeta : null;
   if (phone) {
     const found = await buscarCrmPorTelefono(phone, auth);
-    // Conserva el deal que vino en la metadata (fuente de verdad de la campaña) y suma contacto/lead.
+    // Conserva las entidades de la metadata (fuente de verdad) y suma lo que aporte el teléfono.
     if (found) crm = { ...found, ...(crm ?? {}) };
   }
   const ctx: VoiceCallCtx = { callId, phone, crm, programCode: meta?.programCode, dealId: meta?.dealId };
