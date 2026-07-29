@@ -10,6 +10,22 @@ import type { CrmEntity } from '../crm/entities';
 
 const MAX_STEPS = 5; // guardrail anti-bucle
 
+// Frases breves para cubrir, EN VOZ, el silencio mientras Sofía consulta una herramienta (evita la
+// pausa muda de ~varios segundos en turnos con tool-calling). Se eligen al AZAR (sin repetir la anterior)
+// para que no suene repetitivo. Registro "usted" para calzar con la persona.
+const TOOL_FILLERS = [
+  'Déjeme revisar.',
+  'Déjeme buscar eso.',
+  'Voy a revisar.',
+  'Permítame confirmar.',
+  'A ver, déjeme ver.',
+  'Un segundo y le confirmo.',
+  'Déjeme chequearlo.',
+  'Ya se lo busco.',
+  'Permítame un momento.',
+  'Déjeme mirar el detalle.',
+];
+
 /** Envuelve las notas previas del CRM en el mismo marcador "no confiable" que usa runAgentTurn,
  *  para que ningún canal (chat o voz) vuelva a pedir datos que el cliente ya dio en otra sesión. */
 export function priorContextMessage(priorContext: string) {
@@ -69,7 +85,7 @@ export async function runConversation(
     const resp = await anthropic.messages.create({
       model: profile.model,
       max_tokens: profile.maxResponseTokens,
-      temperature: 0.4,
+      temperature: profile.temperature ?? 0.4,
       system: cachedSystem(system),
       messages,
       tools: allowedTools as any,
@@ -119,13 +135,15 @@ export async function runConversationStream(
   const system = profile.systemPrompt;
   const allowedTools = tools.filter((t) => profile.toolNames.includes(t.name));
   let fullText = '';
+  let lastFiller = -1; // último relleno usado en esta llamada, para no repetirlo seguido
 
   for (let step = 0; step < MAX_STEPS; step++) {
     const t0 = Date.now();
+    let stepText = '';
     const stream = anthropic.messages.stream({
       model: profile.model,
       max_tokens: profile.maxResponseTokens,
-      temperature: 0.4,
+      temperature: profile.temperature ?? 0.4,
       system: cachedSystem(system),
       messages,
       tools: allowedTools as any,
@@ -133,6 +151,7 @@ export async function runConversationStream(
     stream.on('text', (delta: string) => {
       if (delta) {
         fullText += delta;
+        stepText += delta;
         onText(delta);
       }
     });
@@ -145,6 +164,16 @@ export async function runConversationStream(
 
     const toolUses = (resp.content as any[]).filter((b) => b.type === 'tool_use');
     if (toolUses.length === 0) return { text: fullText || textOf(resp), messages };
+
+    // VOZ: el turno con herramienta queda MUDO mientras se ejecuta la tool + la segunda inferencia.
+    // Si el modelo no dijo nada antes de llamarla, habla un relleno breve (al AZAR, sin repetir el
+    // anterior) para cubrir el silencio, como un asesor que consulta. Solo aplica al path de streaming (voz).
+    if (!stepText.trim()) {
+      let fi = Math.floor(Math.random() * TOOL_FILLERS.length);
+      if (fi === lastFiller) fi = (fi + 1) % TOOL_FILLERS.length;
+      lastFiller = fi;
+      onText(TOOL_FILLERS[fi] + ' ');
+    }
 
     const results = await Promise.all(
       toolUses.map(async (tu) => {
