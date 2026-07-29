@@ -76,6 +76,15 @@ export const config = {
   // para que la automatización de "Información enviada" (Bitrix24) lo adjunte al correo. Se
   // actualiza junto con ufPrograma (ver crm/driveBrochure.ts).
   ufBrochureFile: process.env.BITRIX_UF_BROCHURE_FILE ?? '',
+  // Slots adicionales para adjuntar los brochures como archivos SEPARADOS (no fusionados) cuando
+  // hay varios programas de interés — el 1º programa va al de arriba, el 2º acá, el 3º acá. Si se
+  // acumulan más programas que slots, los que sobran se fusionan en el ÚLTIMO slot disponible.
+  ufBrochureFile2: process.env.BITRIX_UF_BROCHURE_FILE_2 ?? '',
+  ufBrochureFile3: process.env.BITRIX_UF_BROCHURE_FILE_3 ?? '',
+  // Campo UF tipo "String" (en el Deal) con el cuerpo HTML del correo del brochure ya renderizado
+  // por el bot (con TODOS los programas acumulados durante la conversación) — la plantilla bizproc
+  // solo lo referencia vía {=Document:...}, sin necesitar loops nativos (ver crm/brochureEmail.ts).
+  ufCuerpoBrochureHtml: process.env.BITRIX_UF_CUERPO_BROCHURE_HTML ?? '',
   // IDs de las carpetas del Drive ("Brochures Bot/<tipo>") donde viven los PDF de cada tipo de programa.
   driveFolderMagister: process.env.BITRIX_DRIVE_FOLDER_MAGISTER ?? '',
   driveFolderDiplomado: process.env.BITRIX_DRIVE_FOLDER_DIPLOMADO ?? '',

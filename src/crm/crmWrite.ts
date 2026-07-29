@@ -4,7 +4,9 @@ import { log } from '../log';
 import type { Auth } from '../store';
 import { parseEntityData2, type CrmEntity, type CrmEntities } from './entities';
 import type { BitrixContact, BitrixLead, BitrixDialog, BitrixMultifield } from '../bitrix/types';
-import { buscarBrochureDrive } from './driveBrochure';
+import { buscarBrochureDrive, type BrochureEncontrado } from './driveBrochure';
+import { agregarProgramaAcumulado, fusionarBrochures, renderCuerpoBrochureEmail } from './brochureEmail';
+import { getDealInfo, getUsuarios } from './directory';
 
 // Escrituras al CRM: creación/actualización de contacto/lead/deal, notas de timeline,
 // persistencia del scoring y lectura del teléfono del cliente.
@@ -132,21 +134,33 @@ function mergeMultifield(existing: BitrixMultifield[] | undefined, value: string
   return arr;
 }
 
-/** ¿El deal YA tiene guardado este mismo programa de interés? Evita re-descargar el brochure y
- *  volver a disparar el envío en cada turno de la conversación cuando no cambió nada — la IA
- *  reenvía `programa_interes` en cada llamada a registrar_interes_crm, no solo cuando cambia. */
-async function programaSinCambios(dealId: number, programaInteres: string, auth: Auth): Promise<boolean> {
-  if (!config.ufPrograma) return false;
+/** Nombre del contacto para el saludo del correo — usa el recién capturado en este turno si vino,
+ *  si no lee el ya guardado en el contacto (puede venir de un turno anterior). */
+async function obtenerNombreContacto(contactId: number | undefined, nombreDelTurno: string | undefined, auth: Auth): Promise<string> {
+  if (nombreDelTurno) return nombreDelTurno;
+  if (!contactId) return 'Estimado/a';
   try {
-    const cur: any = await callCrm('crm.deal.get', { id: dealId, select: [config.ufPrograma] }, auth);
-    return cur?.[config.ufPrograma] === programaInteres;
+    const c: any = await callCrm('crm.contact.get', { id: contactId, select: ['NAME'] }, auth);
+    return c?.NAME || 'Estimado/a';
   } catch {
-    return false; // ante duda, re-dispara (mejor de más que quedar sin enviar)
+    return 'Estimado/a';
+  }
+}
+
+/** Celular del asesor responsable (ASSIGNED_BY) del deal, para los botones de llamar/WhatsApp. */
+async function obtenerTelefonoAsesor(dealId: number, auth: Auth): Promise<string | undefined> {
+  try {
+    const info = await getDealInfo(dealId, auth);
+    if (!info.responsableId) return undefined;
+    const [asesor] = await getUsuarios([info.responsableId], auth);
+    return asesor?.telefono;
+  } catch {
+    return undefined;
   }
 }
 
 /** Dispara el Proceso de Negocio (bizproc) que manda el correo con el brochure adjunto — lee el
- *  programa/brochure directo de los campos del Deal (ya actualizados por el caller). */
+ *  cuerpo/brochure directo de los campos del Deal (ya actualizados por el caller). */
 async function dispararEnvioBrochure(dealId: number, auth: Auth): Promise<void> {
   if (!config.bizprocTemplateBrochure) return;
   try {
@@ -214,15 +228,46 @@ export async function actualizarDatosCliente(
     let brochureNuevo = false;
     if (data.programa_interes) {
       fields.TITLE = `${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`;
-      // Campo personalizado dedicado, para reportería/filtrado (se actualiza según la conversación).
+      // Campo personalizado dedicado, para reportería/filtrado: guarda solo el ÚLTIMO programa
+      // mencionado (sin cambios respecto al comportamiento anterior).
       if (config.ufPrograma) fields[config.ufPrograma] = data.programa_interes;
-      // Brochure (PDF del Drive) del programa de interés — una sola vez por programa: se sube el
-      // CONTENIDO del archivo (Bitrix24 no soporta referenciar uno existente del Drive por ID).
-      if (config.ufBrochureFile && !(await programaSinCambios(e.deal, data.programa_interes, auth))) {
-        const brochure = await buscarBrochureDrive(data.programa_interes, auth);
-        if (brochure) {
-          fields[config.ufBrochureFile] = { fileData: [brochure.fileName, brochure.contenidoBase64] };
-          brochureNuevo = true;
+      // Brochure(s) del/los programa(s) de interés — se ACUMULAN durante toda la conversación: si
+      // la persona menciona un programa nuevo, se manda UN correo con TODOS los brochures juntos,
+      // cada uno en su propio archivo (slots UF dedicados; si sobran programas respecto a slots,
+      // los que sobran se fusionan en el último slot).
+      if (config.ufBrochureFile) {
+        const { programas, esNuevo } = await agregarProgramaAcumulado(e.deal, data.programa_interes);
+        if (esNuevo) {
+          const pares = await Promise.all(
+            programas.map(async (p) => ({ programa: p, brochure: await buscarBrochureDrive(p, auth) })),
+          );
+          const encontrados = pares.filter(
+            (x): x is { programa: string; brochure: BrochureEncontrado } => !!x.brochure,
+          );
+          if (encontrados.length) {
+            const slots = [config.ufBrochureFile, config.ufBrochureFile2, config.ufBrochureFile3].filter(Boolean);
+            for (let i = 0; i < slots.length && i < encontrados.length; i++) {
+              const esUltimoSlot = i === slots.length - 1;
+              const grupo = esUltimoSlot ? encontrados.slice(i) : [encontrados[i]];
+              const merged = await fusionarBrochures(grupo.map((x) => Buffer.from(x.brochure.contenidoBase64, 'base64')));
+              const nombreArchivo = grupo.length > 1 ? 'Brochures.pdf' : grupo[0].brochure.fileName;
+              fields[slots[i]] = { fileData: [nombreArchivo, merged.toString('base64')] };
+              if (esUltimoSlot) break;
+            }
+            brochureNuevo = true;
+
+            if (config.ufCuerpoBrochureHtml) {
+              const [nombre, telefonoAsesor] = await Promise.all([
+                obtenerNombreContacto(e.contact, data.nombre, auth),
+                obtenerTelefonoAsesor(e.deal, auth),
+              ]);
+              fields[config.ufCuerpoBrochureHtml] = renderCuerpoBrochureEmail({
+                nombre,
+                programas: encontrados.map((x) => x.programa),
+                telefonoAsesor,
+              });
+            }
+          }
         }
       }
     }

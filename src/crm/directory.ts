@@ -5,7 +5,7 @@ import type { BitrixDeal, BitrixUser } from '../bitrix/types';
 
 // Directorio CRM: lectura de negociaciones (deal) y resolución de usuarios/asesores de Bitrix.
 
-export type Responsable = { id: number; nombre: string; email?: string; activo?: boolean };
+export type Responsable = { id: number; nombre: string; email?: string; telefono?: string; activo?: boolean };
 
 export type DealInfo = {
   categoryId: number | null;
@@ -67,7 +67,7 @@ export async function getUsuarios(ids: number[], auth: Auth): Promise<Responsabl
       if (u && (u.NAME || u.LAST_NAME || u.EMAIL)) {
         const nombre = [u.NAME, u.LAST_NAME].filter(Boolean).join(' ').trim() || String(u.EMAIL) || `Usuario ${id}`;
         const email = Array.isArray(u.EMAIL) ? u.EMAIL?.[0]?.VALUE : u.EMAIL;
-        out.push({ id, nombre, email, activo: u.ACTIVE !== false });
+        out.push({ id, nombre, email, telefono: u.PERSONAL_MOBILE || undefined, activo: u.ACTIVE !== false });
       } else {
         out.push({ id, nombre: `Usuario ${id}` });
       }
