@@ -10,6 +10,10 @@ import type { CrmEntity } from '../crm/entities';
 
 const MAX_STEPS = 5; // guardrail anti-bucle
 
+// Frases breves para cubrir, EN VOZ, el silencio mientras Sofía consulta una herramienta (evita la
+// pausa muda de ~varios segundos en turnos con tool-calling). Se rotan por paso para no repetir.
+const TOOL_FILLERS = ['Déjeme revisar.', 'Un momento, por favor.', 'A ver, déjeme confirmar eso.', 'Permítame un segundo.'];
+
 /** Envuelve las notas previas del CRM en el mismo marcador "no confiable" que usa runAgentTurn,
  *  para que ningún canal (chat o voz) vuelva a pedir datos que el cliente ya dio en otra sesión. */
 export function priorContextMessage(priorContext: string) {
@@ -122,6 +126,7 @@ export async function runConversationStream(
 
   for (let step = 0; step < MAX_STEPS; step++) {
     const t0 = Date.now();
+    let stepText = '';
     const stream = anthropic.messages.stream({
       model: profile.model,
       max_tokens: profile.maxResponseTokens,
@@ -133,6 +138,7 @@ export async function runConversationStream(
     stream.on('text', (delta: string) => {
       if (delta) {
         fullText += delta;
+        stepText += delta;
         onText(delta);
       }
     });
@@ -145,6 +151,13 @@ export async function runConversationStream(
 
     const toolUses = (resp.content as any[]).filter((b) => b.type === 'tool_use');
     if (toolUses.length === 0) return { text: fullText || textOf(resp), messages };
+
+    // VOZ: el turno con herramienta queda MUDO mientras se ejecuta la tool + la segunda inferencia.
+    // Si el modelo no dijo nada antes de llamarla, habla un relleno breve para cubrir ese silencio
+    // (como un asesor que dice "déjeme revisar" mientras consulta). Solo aplica al path de streaming (voz).
+    if (!stepText.trim()) {
+      onText(TOOL_FILLERS[step % TOOL_FILLERS.length] + ' ');
+    }
 
     const results = await Promise.all(
       toolUses.map(async (tu) => {
