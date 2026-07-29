@@ -11,8 +11,20 @@ import type { CrmEntity } from '../crm/entities';
 const MAX_STEPS = 5; // guardrail anti-bucle
 
 // Frases breves para cubrir, EN VOZ, el silencio mientras Sofía consulta una herramienta (evita la
-// pausa muda de ~varios segundos en turnos con tool-calling). Se rotan por paso para no repetir.
-const TOOL_FILLERS = ['Déjeme revisar.', 'Un momento, por favor.', 'A ver, déjeme confirmar eso.', 'Permítame un segundo.'];
+// pausa muda de ~varios segundos en turnos con tool-calling). Se eligen al AZAR (sin repetir la anterior)
+// para que no suene repetitivo. Registro "usted" para calzar con la persona.
+const TOOL_FILLERS = [
+  'Déjeme revisar.',
+  'Déjeme buscar eso.',
+  'Voy a revisar.',
+  'Permítame confirmar.',
+  'A ver, déjeme ver.',
+  'Un segundo y le confirmo.',
+  'Déjeme chequearlo.',
+  'Ya se lo busco.',
+  'Permítame un momento.',
+  'Déjeme mirar el detalle.',
+];
 
 /** Envuelve las notas previas del CRM en el mismo marcador "no confiable" que usa runAgentTurn,
  *  para que ningún canal (chat o voz) vuelva a pedir datos que el cliente ya dio en otra sesión. */
@@ -123,6 +135,7 @@ export async function runConversationStream(
   const system = profile.systemPrompt;
   const allowedTools = tools.filter((t) => profile.toolNames.includes(t.name));
   let fullText = '';
+  let lastFiller = -1; // último relleno usado en esta llamada, para no repetirlo seguido
 
   for (let step = 0; step < MAX_STEPS; step++) {
     const t0 = Date.now();
@@ -153,10 +166,13 @@ export async function runConversationStream(
     if (toolUses.length === 0) return { text: fullText || textOf(resp), messages };
 
     // VOZ: el turno con herramienta queda MUDO mientras se ejecuta la tool + la segunda inferencia.
-    // Si el modelo no dijo nada antes de llamarla, habla un relleno breve para cubrir ese silencio
-    // (como un asesor que dice "déjeme revisar" mientras consulta). Solo aplica al path de streaming (voz).
+    // Si el modelo no dijo nada antes de llamarla, habla un relleno breve (al AZAR, sin repetir el
+    // anterior) para cubrir el silencio, como un asesor que consulta. Solo aplica al path de streaming (voz).
     if (!stepText.trim()) {
-      onText(TOOL_FILLERS[step % TOOL_FILLERS.length] + ' ');
+      let fi = Math.floor(Math.random() * TOOL_FILLERS.length);
+      if (fi === lastFiller) fi = (fi + 1) % TOOL_FILLERS.length;
+      lastFiller = fi;
+      onText(TOOL_FILLERS[fi] + ' ');
     }
 
     const results = await Promise.all(
