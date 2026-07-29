@@ -143,7 +143,7 @@ export async function vapiChatCompletions(req: Request, res: Response) {
     const messages = toAnthropicMessages(body.messages);
     if (messages.length === 0) {
       // Sin turno de usuario todavía (p. ej. apertura): devuelve un saludo sin invocar al modelo.
-      const saludo = '¡Hola! Le saluda el asistente de Postgrados de la Universidad Autónoma de Chile. ¿En qué le puedo ayudar?';
+      const saludo = '¡Hola! Le saluda Sofía, asistente de Postgrados de la Universidad Autónoma de Chile. ¿En qué le puedo ayudar?';
       return stream ? streamCompletion(res, saludo, profile.model) : res.json(completionBody(saludo, profile.model));
     }
 

@@ -23,7 +23,7 @@ function assistantOverridesDe(contexto?: ContextoLlamada) {
     : '';
   return {
     firstMessage:
-      `${saludoNombre}, le saluda el asistente de Postgrados de la Universidad Autónoma de Chile.` +
+      `${saludoNombre}, le saluda Sofía, asistente de Postgrados de la Universidad Autónoma de Chile.` +
       `${saludoPrograma} ¿Seguimos con eso o tiene otra consulta?`,
     variableValues: { nombre: contexto.nombre ?? '', programa: contexto.programa ?? '' },
   };

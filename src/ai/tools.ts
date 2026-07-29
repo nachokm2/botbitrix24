@@ -99,7 +99,7 @@ export const tools = [
   {
     name: 'solicitar_llamada',
     description:
-      'Dispara una llamada telefónica INMEDIATA de nuestra asistente de voz al cliente. Úsala SOLO cuando el cliente ' +
+      'Dispara una llamada telefónica INMEDIATA de Sofía (nuestra asistente de voz) al cliente. Úsala SOLO cuando el cliente ' +
       'ACEPTA explícitamente que lo llamemos por teléfono. Antes de llamarla, confirma con el cliente el número al que ' +
       'llamar (formato chileno, ej. +56 9 1234 5678) y pásalo en "telefono". Tras usarla, dile que recibirá la llamada ' +
       'en unos momentos. No la uses si el cliente no ha aceptado la llamada.',
