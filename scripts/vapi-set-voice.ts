@@ -18,9 +18,9 @@ async function main() {
       provider: '11labs',
       voiceId,
       model,
-      stability: 0.4, // más bajo = más expresiva/emotiva (menos monótona)
-      similarityBoost: 0.8,
-      style: 0.35,
+      stability: 0.5, // equilibrio: expresiva pero consistente (evita que suene "rara"/errática)
+      similarityBoost: 0.85,
+      style: 0.2,
       useSpeakerBoost: true,
     },
   };
