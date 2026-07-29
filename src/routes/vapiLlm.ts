@@ -116,9 +116,13 @@ export async function vapiChatCompletions(req: Request, res: Response) {
 
   // Metadata de campaña (viaja en la creación de la llamada Vapi → call.metadata). Selecciona el perfil:
   // saliente MMD si programCode === 'MMD'; si no, el inbound por defecto ("Sofía" que atiende).
-  const meta = (call.metadata ?? body.metadata ?? {}) as { programCode?: string; dealId?: number | string };
+  const meta = (call.metadata ?? body.metadata ?? {}) as {
+    programCode?: string; dealId?: number | string; contactId?: number | string; leadId?: number | string;
+  };
   const programCode = meta.programCode ? String(meta.programCode) : undefined;
   const dealId = Number(meta.dealId) || undefined;
+  const contactId = Number(meta.contactId) || undefined;
+  const leadId = Number(meta.leadId) || undefined;
   const profile = programCode === 'MMD' ? VOICE_OUTBOUND_MMD : VOICE_PROFILE;
 
   const st = await getState();
@@ -126,7 +130,7 @@ export async function vapiChatCompletions(req: Request, res: Response) {
 
   try {
     // Resuelve (y cachea) el contexto CRM de la llamada. En saliente prioriza el dealId de la metadata.
-    const voiceCtx = await getVoiceCtx(callId, phone, auth, { programCode, dealId });
+    const voiceCtx = await getVoiceCtx(callId, phone, auth, { programCode, dealId, contactId, leadId });
     const ctx: AgentContext = {
       profile,
       auth,

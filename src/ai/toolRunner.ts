@@ -55,7 +55,18 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
         const contexto = await obtenerContextoLlamada(ctx.crmEntities, ctx.auth).catch(() => ({}));
         // Diálogo de origen: al terminar la llamada, el bot retoma esta MISMA conversación por WhatsApp.
         const origen = ctx.botId ? { dialogId: ctx.conversationId, botId: ctx.botId } : undefined;
-        const r = await iniciarLlamadaSaliente(telefono, contexto, origen);
+        // Ancla la MISMA ficha del CRM (deal/contacto/lead) en la llamada, para que el agente de voz
+        // resuelva la misma entidad y lea la conversación previa → continuidad: NO re-pide los datos.
+        const idMeta: Record<string, number> = {};
+        if (ctx.crmEntities?.deal) idMeta.dealId = ctx.crmEntities.deal;
+        if (ctx.crmEntities?.contact) idMeta.contactId = ctx.crmEntities.contact;
+        if (ctx.crmEntities?.lead) idMeta.leadId = ctx.crmEntities.lead;
+        const r = await iniciarLlamadaSaliente(
+          telefono,
+          contexto,
+          origen,
+          Object.keys(idMeta).length ? { metadata: idMeta } : undefined,
+        );
         if (!r.ok) {
           log.warn('tool solicitar_llamada falló', { err: r.error });
           return {
