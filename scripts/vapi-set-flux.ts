@@ -2,26 +2,27 @@ import { config } from '../src/config';
 
 // Activa/revierte Deepgram Flux (STT con detección de turno NATIVA → recorta la pausa entre turnos).
 // Flux exige cambiar el transcriber a su modelo (flux-general-multi, multilingüe) + smartEndpointingPlan=deepgram-flux.
-//   flux   (def.): transcriber Deepgram Flux + endpointing deepgram-flux
-//   revert       : vuelve a Deepgram nova-2 (es) + endpointing livekit
-// Uso: railway run -- npx tsx scripts/vapi-set-flux.ts [flux|revert]
+//   flux   (def.): transcriber Deepgram Flux (flux-general-multi) — detección de turno nativa
+//   nova3        : transcriber Deepgram nova-3 (es) + endpointing livekit (texto)
+//   nova2/revert : transcriber Deepgram nova-2 (es) + endpointing livekit (texto)
+// Uso: railway run -- npx tsx scripts/vapi-set-flux.ts [flux|nova3|nova2|revert]
 async function main() {
   if (!config.vapiApiKey || !config.vapiAssistantId) {
     throw new Error('Faltan VAPI_API_KEY / VAPI_ASSISTANT_ID en el entorno.');
   }
   const mode = process.argv[2] || 'flux';
-  const body =
-    mode === 'revert'
-      ? {
-          transcriber: { provider: 'deepgram', model: 'nova-2', language: 'es' },
-          startSpeakingPlan: { waitSeconds: 0.2, smartEndpointingPlan: { provider: 'livekit' } },
-        }
-      : {
-          // Flux se activa a nivel de TRANSCRIBER (trae detección de turno nativa). El smartEndpointingPlan
-          // solo acepta vapi|livekit|custom-endpointing-model, así que dejamos livekit como respaldo.
-          transcriber: { provider: 'deepgram', model: 'flux-general-multi' },
-          startSpeakingPlan: { waitSeconds: 0.2, smartEndpointingPlan: { provider: 'livekit' } },
-        };
+  // Flux trae detección de turno NATIVA a nivel de transcriber. nova-2/nova-3 usan endpointing por texto
+  // (smartEndpointingPlan solo acepta vapi|livekit|custom-endpointing-model). Todos con livekit de respaldo.
+  const transcriber =
+    mode === 'revert' || mode === 'nova2'
+      ? { provider: 'deepgram', model: 'nova-2', language: 'es' }
+      : mode === 'nova3'
+        ? { provider: 'deepgram', model: 'nova-3', language: 'es' }
+        : { provider: 'deepgram', model: 'flux-general-multi' };
+  const body = {
+    transcriber,
+    startSpeakingPlan: { waitSeconds: 0.2, smartEndpointingPlan: { provider: 'livekit' } },
+  };
 
   const r = await fetch(`https://api.vapi.ai/assistant/${config.vapiAssistantId}`, {
     method: 'PATCH',
