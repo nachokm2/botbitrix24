@@ -30,14 +30,35 @@ export async function registerBot(auth: Auth): Promise<number> {
       EVENT_WELCOME_MESSAGE: `${config.baseUrl}/events/bot/welcome`,
       EVENT_BOT_DELETE: `${config.baseUrl}/events/bot/delete`,
       PROPERTIES: {
-        NAME: 'PoC Asistente Postgrados',
+        NAME: 'Sofía',
         COLOR: 'AZURE',
-        WORK_POSITION: 'Asesor virtual (PoC)',
+        WORK_POSITION: 'Asesora de Admisión de Postgrados',
       },
     },
     auth,
   );
   return Number(res);
+}
+
+/**
+ * Renombra/actualiza las PROPERTIES de un bot YA registrado, sin re-registrarlo (imbot.update).
+ * Se usa para cambiar el nombre visible del bot en Open Lines a "Sofía".
+ */
+export async function updateBot(auth: Auth, botId: number) {
+  return callBitrix(
+    'imbot.update',
+    {
+      BOT_ID: botId,
+      FIELDS: {
+        PROPERTIES: {
+          NAME: 'Sofía',
+          COLOR: 'AZURE',
+          WORK_POSITION: 'Asesora de Admisión de Postgrados',
+        },
+      },
+    },
+    auth,
+  );
 }
 
 export async function unregisterBot(auth: Auth, botId: number) {

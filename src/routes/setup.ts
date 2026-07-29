@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { getState, setBotId, EMPTY_AUTH } from '../store';
-import { registerBot, unregisterBot } from '../bot/register';
+import { registerBot, unregisterBot, updateBot } from '../bot/register';
 import { callBitrix, callWebhook } from '../bitrix/client';
 import { getDealAsesores } from '../crm/directory';
 import { bindDashboard, bindCalls } from '../bitrix/placement';
@@ -116,6 +116,25 @@ export async function registerBotManual(_req: Request, res: Response) {
     await setBotId(botId);
     log.info('setup: bot registrado', { botId });
     return res.json({ ok: true, botId });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e) });
+  }
+}
+
+/** Renombra el bot de Open Lines ya registrado a "Sofía" (imbot.update). GET /setup/update-bot */
+export async function updateBotManual(_req: Request, res: Response) {
+  const st = await getState();
+  const botId = st.botId ?? config.botId;
+  if (!st.auth) {
+    return res.status(400).json({ ok: false, error: 'No hay auth. Instala el app (/install) primero.' });
+  }
+  if (!botId) {
+    return res.status(400).json({ ok: false, error: 'Falta botId (define BITRIX_BOT_ID o registra el bot con /setup/register-bot).' });
+  }
+  try {
+    const resultado = await updateBot(st.auth, botId);
+    log.info('setup: bot actualizado (nombre → Sofía)', { botId, resultado });
+    return res.json({ ok: true, botId, resultado });
   } catch (e) {
     return res.status(500).json({ ok: false, error: String(e) });
   }

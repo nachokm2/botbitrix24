@@ -39,7 +39,7 @@ Dashboard → **Assistants** → **Create Assistant** (parte de "Blank" / en bla
 - Voice: **es-CL** (Catalina o Lorenzo). *[Verifica en el buscador de voces que aparezca es-CL; si no, usa una voz es-MX/es-ES o prueba ElevenLabs.]*
 
 **d) First Message (saludo)**
-- `Hola, le saluda el asistente de Postgrados de la Universidad Autónoma de Chile. ¿En qué le puedo ayudar?`
+- `Hola, le saluda Sofía, asistente de Postgrados de la Universidad Autónoma de Chile. ¿En qué le puedo ayudar?`
 
 Guarda. Copia el **Assistant ID** → será `VAPI_ASSISTANT_ID`.
 

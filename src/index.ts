@@ -6,7 +6,7 @@ import { log } from './log';
 import { runWithRequestContext } from './obs/requestContext';
 import { installHandler } from './routes/install';
 import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes/botEvents';
-import { registerBotManual, unregisterBotManual, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, syncCallsManual } from './routes/setup';
+import { registerBotManual, unregisterBotManual, updateBotManual, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, syncCallsManual } from './routes/setup';
 import { startCallSync } from './crm/callSync';
 import { vapiEvents, voiceOutbound, verifyVapiSecret } from './routes/vapi';
 import { vapiChatCompletions } from './routes/vapiLlm';
@@ -140,6 +140,7 @@ app.post('/events/bot/delete', strictLimiter, verifyBitrixEvent, botDeleteHandle
 // Utilidades de setup manual (protegidas con ADMIN_TOKEN).
 app.use('/setup', requireAdminToken);
 app.get('/setup/register-bot', registerBotManual);
+app.get('/setup/update-bot', updateBotManual);
 app.get('/setup/unregister-bot', unregisterBotManual);
 app.get('/setup/deal-stages', listDealStages);
 app.get('/setup/deal-responsable', dealResponsable);

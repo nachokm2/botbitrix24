@@ -79,7 +79,7 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
         return {
           ok: true,
           llamando: true,
-          mensaje: 'Llamada iniciada. Dile al cliente que recibirá la llamada de nuestra asistente en unos momentos.',
+          mensaje: 'Llamada iniciada. Dile al cliente que recibirá la llamada en unos momentos.',
         };
       }
 

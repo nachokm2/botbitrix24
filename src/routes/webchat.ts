@@ -82,7 +82,7 @@ export function webchatPage(_req: Request, res: Response) {
 const WIDGET_HTML = `<!doctype html>
 <html lang="es"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Asistente de Postgrados — Universidad Autónoma de Chile</title>
+<title>Sofía · Postgrados Universidad Autónoma de Chile</title>
 <style>
   :root{--brand:#2f6fed;--bg:#f4f6f9;--card:#fff;--ink:#1a2734;--muted:#7a8794;--line:#e6ebf1;--bot:#eef3fe}
   *{box-sizing:border-box}
@@ -106,7 +106,7 @@ const WIDGET_HTML = `<!doctype html>
 </style></head>
 <body>
 <div class="chat">
-  <header><span class="dot"></span><div><h1>Asistente de Postgrados</h1><div class="s">Universidad Autónoma de Chile</div></div></header>
+  <header><span class="dot"></span><div><h1>Sofía</h1><div class="s">Postgrados · Universidad Autónoma de Chile</div></div></header>
   <div class="msgs" id="msgs"></div>
   <form id="f"><input id="t" autocomplete="off" placeholder="Escribe tu consulta…" autofocus><button id="b" type="submit">Enviar</button></form>
 </div>
@@ -118,7 +118,7 @@ const WIDGET_HTML = `<!doctype html>
   function linkify(s){return esc(s).replace(/(https?:\\/\\/[^\\s]+)/g,'<a href="$1" target="_blank" rel="noopener">$1</a>');}
   function add(text,who){var d=document.createElement('div');d.className='m '+who;d.innerHTML=linkify(text);msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return d;}
   function typing(on){var e=document.getElementById('ty');if(on&&!e){var d=document.createElement('div');d.id='ty';d.className='typing';d.textContent='escribiendo…';msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;}else if(!on&&e){e.remove();}}
-  add('¡Hola! Soy el asistente de Postgrados de la Universidad Autónoma de Chile. ¿En qué te puedo ayudar?','bot');
+  add('¡Hola! Soy Sofía, asistente de Postgrados de la Universidad Autónoma de Chile. ¿En qué te puedo ayudar?','bot');
   form.addEventListener('submit',function(ev){
     ev.preventDefault();
     var text=input.value.trim(); if(!text) return;
