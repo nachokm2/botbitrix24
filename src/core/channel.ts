@@ -23,6 +23,8 @@ export type ChannelProfile = {
   model: string;
   /** Tope de tokens de la respuesta (proxy de "longitud de respuesta" del canal). */
   maxResponseTokens: number;
+  /** Temperatura del modelo. La voz usa un valor algo mayor para sonar menos monótona/robótica. */
+  temperature?: number;
   /** Prompt de sistema con el tono y las reglas del canal. */
   systemPrompt: string;
   /** Herramientas habilitadas para el canal (subconjunto del registro). */
@@ -172,6 +174,7 @@ export const VOICE_PROFILE: ChannelProfile = {
   label: 'Voz (Vapi)',
   model: config.classifierModel, // Claude Haiku (latencia); usado a partir de M2
   maxResponseTokens: 400, // igual al maxTokens que tenía el asistente nativo en Vapi
+  temperature: 0.6, // voz: respuestas menos monótonas (suena más natural)
   systemPrompt: VOICE_SYSTEM_PROMPT_M2,
   toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'transferir_a_asesor'],
   catalog: {

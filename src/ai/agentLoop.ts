@@ -69,7 +69,7 @@ export async function runConversation(
     const resp = await anthropic.messages.create({
       model: profile.model,
       max_tokens: profile.maxResponseTokens,
-      temperature: 0.4,
+      temperature: profile.temperature ?? 0.4,
       system: cachedSystem(system),
       messages,
       tools: allowedTools as any,
@@ -125,7 +125,7 @@ export async function runConversationStream(
     const stream = anthropic.messages.stream({
       model: profile.model,
       max_tokens: profile.maxResponseTokens,
-      temperature: 0.4,
+      temperature: profile.temperature ?? 0.4,
       system: cachedSystem(system),
       messages,
       tools: allowedTools as any,
