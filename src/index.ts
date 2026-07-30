@@ -95,6 +95,8 @@ app.get('/debug/config', requireDashboardToken, (_req, res) =>
 // (el token protege las páginas y las APIs de datos, no estos assets estáticos — ver ALT-Baja-7).
 app.use('/assets/dashboard', express.static(fileURLToPath(new URL('../public/dashboard', import.meta.url))));
 app.use('/assets/calls', express.static(fileURLToPath(new URL('../public/calls', import.meta.url))));
+// Imágenes del correo institucional del brochure (campus, sello CNA), servidas para los <img> del email.
+app.use('/assets/email', express.static(fileURLToPath(new URL('../public/email', import.meta.url))));
 
 // Panel de métricas embebible en Bitrix24 (placement) + su API de datos.
 app.all('/app', requireDashboardToken, dashboardPage); // Bitrix abre la página del placement (GET/POST con auth)

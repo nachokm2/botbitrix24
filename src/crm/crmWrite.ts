@@ -5,6 +5,7 @@ import type { Auth } from '../store';
 import { parseEntityData2, type CrmEntity, type CrmEntities } from './entities';
 import type { BitrixContact, BitrixLead, BitrixDialog, BitrixMultifield } from '../bitrix/types';
 import { buscarBrochureDrive } from './driveBrochure';
+import { construirCorreoBrochureHtml } from './brochureEmail';
 
 // Escrituras al CRM: creación/actualización de contacto/lead/deal, notas de timeline,
 // persistencia del scoring y lectura del teléfono del cliente.
@@ -224,6 +225,11 @@ export async function actualizarDatosCliente(
           fields[config.ufBrochureFile] = { fileData: [brochure.fileName, brochure.contenidoBase64] };
           brochureNuevo = true;
         }
+      }
+      // Cuerpo HTML institucional del correo (opt-in por config.ufCuerpoBrochure): lo arma el bot, no Bitrix,
+      // para controlar el diseño desde código. Solo cuando hay brochure nuevo (mismo gatillo que el envío).
+      if (config.ufCuerpoBrochure && brochureNuevo) {
+        fields[config.ufCuerpoBrochure] = construirCorreoBrochureHtml({ nombre: data.nombre, programa: data.programa_interes });
       }
     }
     if (data.comentario) fields.COMMENTS = data.comentario;
