@@ -6,7 +6,7 @@ import { log } from './log';
 import { runWithRequestContext } from './obs/requestContext';
 import { installHandler } from './routes/install';
 import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes/botEvents';
-import { registerBotManual, unregisterBotManual, updateBotManual, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, syncCallsManual } from './routes/setup';
+import { registerBotManual, unregisterBotManual, updateBotManual, triggerBrochureManual, listDealFields, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, syncCallsManual } from './routes/setup';
 import { startCallSync } from './crm/callSync';
 import { vapiEvents, voiceOutbound, verifyVapiSecret } from './routes/vapi';
 import { vapiChatCompletions } from './routes/vapiLlm';
@@ -95,6 +95,8 @@ app.get('/debug/config', requireDashboardToken, (_req, res) =>
 // (el token protege las páginas y las APIs de datos, no estos assets estáticos — ver ALT-Baja-7).
 app.use('/assets/dashboard', express.static(fileURLToPath(new URL('../public/dashboard', import.meta.url))));
 app.use('/assets/calls', express.static(fileURLToPath(new URL('../public/calls', import.meta.url))));
+// Imágenes del correo institucional del brochure (campus, sello CNA), servidas para los <img> del email.
+app.use('/assets/email', express.static(fileURLToPath(new URL('../public/email', import.meta.url))));
 
 // Panel de métricas embebible en Bitrix24 (placement) + su API de datos.
 app.all('/app', requireDashboardToken, dashboardPage); // Bitrix abre la página del placement (GET/POST con auth)
@@ -141,8 +143,10 @@ app.post('/events/bot/delete', strictLimiter, verifyBitrixEvent, botDeleteHandle
 app.use('/setup', requireAdminToken);
 app.get('/setup/register-bot', registerBotManual);
 app.get('/setup/update-bot', updateBotManual);
+app.get('/setup/test-brochure', triggerBrochureManual);
 app.get('/setup/unregister-bot', unregisterBotManual);
 app.get('/setup/deal-stages', listDealStages);
+app.get('/setup/deal-fields', listDealFields);
 app.get('/setup/deal-responsable', dealResponsable);
 app.get('/setup/bind-dashboard', bindDashboardManual);
 app.get('/setup/bind-calls', bindCallsManual);

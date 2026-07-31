@@ -50,6 +50,10 @@ export const config = {
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
   model: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
   classifierModel: process.env.ANTHROPIC_CLASSIFIER ?? 'claude-haiku-4-5',
+  // STT (voz-a-texto) para transcribir los audios que el cliente manda por WhatsApp. Sin esta key, los
+  // audios no se transcriben (se responde pidiendo el mensaje por texto). Deepgram nova-2 (español).
+  deepgramApiKey: process.env.DEEPGRAM_API_KEY ?? '',
+  deepgramModel: process.env.DEEPGRAM_MODEL ?? 'nova-2',
   bitrixWebhookUrl: (process.env.BITRIX_WEBHOOK_URL ?? '').replace(/\/$/, ''),
   botCode: process.env.BOT_CODE ?? 'poc_agente_postgrados',
   // OAuth de la app local (para renovar el access_token cuando expira).
@@ -94,6 +98,13 @@ export const config = {
   // El bot la dispara por API (bizproc.workflow.start) apenas adjunta un brochure nuevo — no
   // depende de mover etapas ni de una Automation Rule nativa.
   bizprocTemplateBrochure: process.env.BITRIX_BIZPROC_TEMPLATE_BROCHURE ?? '',
+  // Campo UF (Deal) donde el bot escribe el CUERPO HTML institucional del correo del brochure. Si se
+  // define, el bot arma el HTML (con el diseño del dossier) en vez del armador viejo de Bitrix; el bizproc
+  // "sender" debe enviar ese campo como HTML. Opt-in: vacío = no toca el cuerpo (comportamiento actual).
+  ufCuerpoBrochure: process.env.BITRIX_UF_CUERPO_BROCHURE ?? '',
+  // Contacto de admisión que se muestra en el correo (opcionales): link/número de WhatsApp y teléfono.
+  admisionesWhatsapp: process.env.ADMISIONES_WHATSAPP ?? '',
+  admisionesTelefono: process.env.ADMISIONES_TELEFONO ?? '',
   // Mover la etapa del deal según el score. Mapa por embudo (recomendado, multi-flujo):
   stageMap: parseStageMap(process.env.BITRIX_STAGE_MAP),
   // Etiquetas legibles por CATEGORY_ID de embudo, para el panel (C1=Diplomados, C3=Magísteres).

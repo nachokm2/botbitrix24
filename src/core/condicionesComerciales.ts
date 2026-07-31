@@ -70,16 +70,32 @@ function norm(s: string): string {
     .trim();
 }
 
+/** Tipo de un nombre/etiqueta de programa: "Diplomado en X" → 'diplomado'; "Magíster/Máster …" → 'magister';
+ *  "Especialidad …" → 'especialidad'. null si no se puede determinar. Como norm() borra el prefijo de tipo,
+ *  un "Diplomado en Marketing Digital" y un "Magíster en Marketing Digital" quedarían idénticos; este tipo
+ *  evita confundirlos (dar el precio del Magíster cuando piden el Diplomado, o viceversa). */
+function tipoDe(s: string): 'diplomado' | 'magister' | 'especialidad' | null {
+  const t = (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (/\b(magister|master)\b/.test(t)) return 'magister';
+  if (/\bdiplomado\b/.test(t)) return 'diplomado';
+  if (/\bespecialidad\b/.test(t)) return 'especialidad';
+  return null;
+}
+
 /** Programas comerciales que matchean un nombre del catálogo: exacto normalizado y, si no hay, "contiene".
- *  Emparejamiento tolerante (atrapa variantes de nombre entre el catálogo y la planilla). */
+ *  Emparejamiento tolerante (atrapa variantes de nombre entre el catálogo y la planilla), PERO respetando el
+ *  TIPO cuando la consulta lo trae: si piden un "Diplomado en X", no devuelve el "Magíster en X" y viceversa. */
 function matchPrograma(nombre: string): ProgramaComercial[] {
   const q = norm(nombre);
   if (!q) return [];
-  const exactos = programas.filter((p) => norm(p.nombre) === q);
+  const tq = tipoDe(nombre); // tipo pedido en la consulta (si el nombre lo trae); null = no filtra por tipo
+  const mismoTipo = (p: ProgramaComercial) => !tq || tipoDe(p.tipo) === tq;
+
+  const exactos = programas.filter((p) => norm(p.nombre) === q && mismoTipo(p));
   if (exactos.length) return exactos;
   return programas.filter((p) => {
     const n = norm(p.nombre);
-    return n.includes(q) || q.includes(n);
+    return (n.includes(q) || q.includes(n)) && mismoTipo(p);
   });
 }
 
