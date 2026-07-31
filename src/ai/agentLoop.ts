@@ -202,7 +202,8 @@ export async function runConversationStream(
  */
 export async function runAgentTurn(
   ctx: AgentContext,
-  userText: string,
+  // string (texto normal) o bloques de contenido de Anthropic (p. ej. texto + imagen para visión).
+  userText: string | any[],
   priorContext = '',
   execTool?: ToolExecutor,
 ): Promise<string> {
@@ -222,13 +223,29 @@ export async function runAgentTurn(
       messages,
       exec,
     );
-    await setHistory(ctx.conversationId, finalMsgs);
+    // No persistimos imágenes (base64) en el historial: se reemplazan por un marcador de texto para
+    // no inflar Redis ni re-enviarlas en cada turno (el modelo ya las "vio" en este turno).
+    await setHistory(ctx.conversationId, sanitizeHistory(finalMsgs));
     return text;
   } catch (e) {
     inc('errors');
     log.error('agentLoop error', { err: String(e) });
     return 'Disculpa, tuve un inconveniente técnico. ¿Puedes repetir tu consulta?';
   }
+}
+
+/** Reemplaza los bloques de imagen (base64) de los mensajes del usuario por un marcador de texto,
+ *  para no persistir binarios pesados en el historial (Redis) ni re-enviarlos en turnos futuros. */
+function sanitizeHistory(messages: any[]): any[] {
+  return messages.map((m) => {
+    if (m?.role !== 'user' || !Array.isArray(m.content)) return m;
+    const hasImage = m.content.some((b: any) => b?.type === 'image');
+    if (!hasImage) return m;
+    const textos = m.content.filter((b: any) => b?.type === 'text').map((b: any) => b.text).join(' ').trim();
+    const nImg = m.content.filter((b: any) => b?.type === 'image').length;
+    const marca = `[imagen recibida${nImg > 1 ? ` x${nImg}` : ''}]`;
+    return { role: 'user', content: textos ? `${textos} ${marca}` : marca };
+  });
 }
 
 function textOf(resp: any): string {

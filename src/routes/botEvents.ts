@@ -16,6 +16,8 @@ import { primaryEntity } from '../crm/entities';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
 import { WHATSAPP_PROFILE } from '../core/channel';
+import { extractIncomingMedia } from '../media/incoming';
+import { transcribeAudio } from '../ai/transcribe';
 import { getRequestContext, runWithRequestContext } from '../obs/requestContext';
 
 // Backpressure: el semáforo acota los turnos concurrentes POR INSTANCIA (decisión deliberada: la
@@ -65,7 +67,6 @@ async function handle(req: Request) {
   if (!auth) return log.warn('botMessage: sin auth en el evento');
   void setAuth(auth).catch(() => {}); // mantiene el token fresco en KV para /setup y scripts
   if (!dialogId) return log.warn('botMessage: sin DIALOG_ID', { params });
-  if (!message) return log.info('botMessage: evento sin texto (ignorado)');
   if (!botId) return log.warn('botMessage: sin BOT_ID — define BITRIX_BOT_ID en Railway (701561)');
 
   // Idempotencia: descarta eventos duplicados (Bitrix puede reenviar).
@@ -99,6 +100,54 @@ async function handle(req: Request) {
 
   inc('inbound');
 
+  // ── Media entrante (audio/imagen) por WhatsApp ──────────────────────────────────────────────
+  // Antes se descartaba todo lo que no fuera texto. Ahora: los audios se transcriben (Deepgram) y
+  // se tratan como texto del cliente; las imágenes se pasan a la visión de Claude como bloques.
+  let turnText = (message ?? '').trim();
+  let turnContent: any[] | null = null;
+  if (!message) {
+    log.info('botMessage: evento sin texto — diagnóstico de media', {
+      paramsKeys: Object.keys(params),
+      files: params.FILES ?? params.files ?? null,
+    });
+  }
+  const media = await extractIncomingMedia(params, auth).catch((e) => {
+    log.warn('media: extractIncomingMedia falló', { err: String(e) });
+    return [] as Awaited<ReturnType<typeof extractIncomingMedia>>;
+  });
+  if (media.length) {
+    // Audios → transcripción (se agregan como texto del cliente).
+    for (const a of media.filter((m) => m.kind === 'audio')) {
+      const t = await transcribeAudio(a.base64, a.mediaType);
+      turnText = [turnText, t ?? '(el cliente envió un audio que no se pudo transcribir; pídele amablemente que escriba su consulta)']
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+    }
+    // Imágenes → bloques de visión (máx 3), con el texto/caption como primer bloque.
+    const imgs = media.filter((m) => m.kind === 'image').slice(0, 3);
+    if (imgs.length) {
+      const blocks: any[] = [
+        {
+          type: 'text',
+          text:
+            turnText ||
+            'El cliente envió una imagen sin texto. Interprétala y responde su consulta (puede ser un carnet, un comprobante de pago, una captura o un documento).',
+        },
+      ];
+      for (const img of imgs) blocks.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
+      turnContent = blocks;
+    }
+    // Archivo no visualizable (pdf/doc) y nada más que responder.
+    const otros = media.filter((m) => m.kind === 'file');
+    if (otros.length && !turnContent && !turnText) {
+      turnText = `(el cliente envió el archivo "${otros[0].name}" que no puedo abrir por este medio; pídele que te cuente por texto qué necesita)`;
+    }
+    log.info('media: turno enriquecido', { audios: media.filter((m) => m.kind === 'audio').length, imgs: imgs.length, otros: otros.length });
+  }
+  if (!turnText && !turnContent) return log.info('botMessage: evento sin texto ni media procesable (ignorado)', { dialogId });
+  const logText = turnText || '[imagen]';
+
   // Identifica las entidades CRM vinculadas al chat (del propio evento; sin llamada extra si viene).
   const crmEntities = await resolveAllEntities(params, chatId, auth);
   const crmEntity = primaryEntity(crmEntities);
@@ -113,9 +162,10 @@ async function handle(req: Request) {
   await callBitrix('imbot.chat.sendTyping', { BOT_ID: botId, DIALOG_ID: dialogId }, auth).catch(() => {});
 
   // Agente real: motor conversacional único, con el perfil del canal WhatsApp (Open Lines).
+  // turnContent (bloques con imagen) tiene prioridad; si no, el texto (incluye audios transcritos).
   const reply = await runAgentTurn(
     { auth, conversationId: dialogId, chatId, botId, crmEntity, crmEntities, profile: WHATSAPP_PROFILE },
-    message,
+    turnContent ?? turnText,
     priorContext,
   );
 
@@ -128,12 +178,12 @@ async function handle(req: Request) {
     type: 'turn',
     dialogId,
     crmEntity: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : undefined,
-    detail: { message, reply },
+    detail: { message: logText, reply },
   });
 
   // Registra automáticamente la conversación en el timeline del CRM (no bloquea la respuesta).
   if (crmEntity) {
-    logConversationTurn(crmEntity, message, reply, auth).catch((e) =>
+    logConversationTurn(crmEntity, logText, reply, auth).catch((e) =>
       log.warn('logConversationTurn falló', { err: String(e) }),
     );
   }
