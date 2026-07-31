@@ -156,6 +156,7 @@ async function dispararEnvioBrochure(dealId: number, auth: Auth): Promise<void> 
       { TEMPLATE_ID: config.bizprocTemplateBrochure, DOCUMENT_ID: ['crm', 'CCrmDocumentDeal', `DEAL_${dealId}`] },
       auth,
     );
+    log.info('dispararEnvioBrochure: bizproc iniciado', { dealId, template: config.bizprocTemplateBrochure });
   } catch (e) {
     log.warn('dispararEnvioBrochure falló', { err: String(e), dealId });
   }
@@ -228,8 +229,11 @@ export async function actualizarDatosCliente(
       }
       // Cuerpo HTML institucional del correo (opt-in por config.ufCuerpoBrochure): lo arma el bot, no Bitrix,
       // para controlar el diseño desde código. Solo cuando hay brochure nuevo (mismo gatillo que el envío).
+      log.info('brochure (deal): estado', { deal: e.deal, brochureNuevo, ufCuerpo: config.ufCuerpoBrochure || null, programa: data.programa_interes ?? null });
       if (config.ufCuerpoBrochure && brochureNuevo) {
-        fields[config.ufCuerpoBrochure] = construirCorreoBrochureHtml({ nombre: data.nombre, programa: data.programa_interes });
+        const htmlCuerpo = construirCorreoBrochureHtml({ nombre: data.nombre, programa: data.programa_interes });
+        fields[config.ufCuerpoBrochure] = htmlCuerpo;
+        log.info('brochure: cuerpo HTML institucional seteado', { deal: e.deal, len: htmlCuerpo.length });
       }
     }
     if (data.comentario) fields.COMMENTS = data.comentario;

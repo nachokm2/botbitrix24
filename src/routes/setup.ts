@@ -105,6 +105,31 @@ export async function listDealStages(_req: Request, res: Response) {
   res.json({ ok: true, via: debug.via, total: stages.length, stages, debug });
 }
 
+/** Lista los campos personalizados (UF) del Deal + su código y etiqueta. GET /setup/deal-fields[?q=nombre] */
+export async function listDealFields(req: Request, res: Response) {
+  const st = await getState();
+  if (!st.auth && !config.bitrixWebhookUrl) {
+    return res.status(400).json({ ok: false, error: 'No hay auth ni BITRIX_WEBHOOK_URL.' });
+  }
+  const useWebhook = Boolean(config.bitrixWebhookUrl);
+  const call = (method: string, params: any) =>
+    useWebhook ? callWebhook(method, params, config.bitrixWebhookUrl) : callBitrix(method, params, st.auth!);
+  const q = String(req.query.q ?? '').toLowerCase();
+  try {
+    const r = (await call('crm.deal.userfield.list', {})) as any;
+    const arr: any[] = Array.isArray(r) ? r : (r?.result ?? []);
+    const label = (f: any) => {
+      const l = f.EDIT_FORM_LABEL ?? f.LIST_COLUMN_LABEL ?? f.FIELD_NAME;
+      return typeof l === 'object' ? (l.es ?? l.en ?? Object.values(l)[0] ?? '') : l;
+    };
+    let fields = arr.map((f) => ({ code: f.FIELD_NAME, type: f.USER_TYPE_ID, label: label(f), id: f.ID }));
+    if (q) fields = fields.filter((f) => String(f.code).toLowerCase().includes(q) || String(f.label).toLowerCase().includes(q));
+    return res.json({ ok: true, via: useWebhook ? 'webhook' : 'app-token', total: fields.length, fields });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e) });
+  }
+}
+
 /** Registro manual del bot (si el auto-registro en /install no se ejecutó). */
 export async function registerBotManual(_req: Request, res: Response) {
   const st = await getState();
@@ -135,6 +160,28 @@ export async function updateBotManual(_req: Request, res: Response) {
     const resultado = await updateBot(st.auth, botId);
     log.info('setup: bot actualizado (nombre → Sofía)', { botId, resultado });
     return res.json({ ok: true, botId, resultado });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e) });
+  }
+}
+
+/** Dispara el bizproc "sender" del brochure para un deal (reenviar el correo institucional sin llamada).
+ *  Usa el webhook si está definido: el token del app NO tiene scope bizproc (insufficient_scope).
+ *  GET /setup/test-brochure?deal=NNN */
+export async function triggerBrochureManual(req: Request, res: Response) {
+  const dealId = Number(req.query.deal);
+  if (!dealId) return res.status(400).json({ ok: false, error: 'Falta ?deal=<dealId> (ej. /setup/test-brochure?deal=3355933)' });
+  const st = await getState();
+  if (!st.auth && !config.bitrixWebhookUrl) return res.status(400).json({ ok: false, error: 'No hay auth ni BITRIX_WEBHOOK_URL.' });
+  if (!config.bizprocTemplateBrochure) return res.status(400).json({ ok: false, error: 'Falta BITRIX_BIZPROC_TEMPLATE_BROCHURE.' });
+  const useWebhook = Boolean(config.bitrixWebhookUrl);
+  try {
+    const params = { TEMPLATE_ID: Number(config.bizprocTemplateBrochure), DOCUMENT_ID: ['crm', 'CCrmDocumentDeal', `DEAL_${dealId}`] };
+    const resultado = useWebhook
+      ? await callWebhook('bizproc.workflow.start', params, config.bitrixWebhookUrl)
+      : await callBitrix('bizproc.workflow.start', params, st.auth!);
+    log.info('setup: brochure disparado', { dealId, template: config.bizprocTemplateBrochure, via: useWebhook ? 'webhook' : 'app-token', resultado });
+    return res.json({ ok: true, dealId, template: config.bizprocTemplateBrochure, via: useWebhook ? 'webhook' : 'app-token', resultado });
   } catch (e) {
     return res.status(500).json({ ok: false, error: String(e) });
   }
