@@ -38,6 +38,8 @@ export interface BitrixUser {
   LAST_NAME?: string;
   EMAIL?: string | BitrixMultifield[];
   ACTIVE?: boolean;
+  /** Celular personal del usuario — se usa como teléfono/WhatsApp del asesor en correos automáticos. */
+  PERSONAL_MOBILE?: string;
 }
 
 /** imopenlines.dialog.get / payload de instalación: trae la vinculación CRM del chat. */
