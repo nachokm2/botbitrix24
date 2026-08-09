@@ -98,10 +98,6 @@ export const config = {
   // El bot la dispara por API (bizproc.workflow.start) apenas adjunta un brochure nuevo — no
   // depende de mover etapas ni de una Automation Rule nativa.
   bizprocTemplateBrochure: process.env.BITRIX_BIZPROC_TEMPLATE_BROCHURE ?? '',
-  // Campo UF (Deal) donde el bot escribe el CUERPO HTML institucional del correo del brochure. Si se
-  // define, el bot arma el HTML (con el diseño del dossier) en vez del armador viejo de Bitrix; el bizproc
-  // "sender" debe enviar ese campo como HTML. Opt-in: vacío = no toca el cuerpo (comportamiento actual).
-  ufCuerpoBrochure: process.env.BITRIX_UF_CUERPO_BROCHURE ?? '',
   // Contacto de admisión que se muestra en el correo (opcionales): link/número de WhatsApp y teléfono.
   admisionesWhatsapp: process.env.ADMISIONES_WHATSAPP ?? '',
   admisionesTelefono: process.env.ADMISIONES_TELEFONO ?? '',
