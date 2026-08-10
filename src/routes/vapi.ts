@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { verifyHeaderSecret } from './verifySecret';
 import { getState, EMPTY_AUTH } from '../store';
 import { once } from '../store/kv';
+import { safeEqual } from '../util/crypto';
 import { callBitrix, callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { log } from '../log';
@@ -208,4 +209,65 @@ export async function voiceOutbound(req: Request, res: Response) {
   const r = await iniciarLlamadaSaliente(phone, undefined, undefined, opts);
   if (!r.ok) return res.status(502).json({ ok: false, error: r.error });
   return res.json({ ok: true, callId: r.callId ?? null, programCode: programCode ?? null });
+}
+
+/** Saludo con el que Sofía abre el callback: reconoce que el usuario llamó recién por WhatsApp. */
+function openerCallbackWhatsapp(nombre?: string): string {
+  const saludo = nombre ? `Hola ${nombre}` : 'Hola';
+  return (
+    `${saludo}, le saluda Sofía, asistente de Postgrados de la Universidad Autónoma de Chile. ` +
+    `Vi que me llamó recién por WhatsApp y le devuelvo el contacto. ¿En qué le puedo ayudar?`
+  );
+}
+
+/**
+ * Patrón CALLBACK de WhatsApp Calling. La entrante directa (usuario → Sofía) no se puede atender por
+ * un límite de media de Vapi (corta el audio en ~1s; ver Arquitectura-WhatsApp-Calling). En su lugar, el
+ * SBC Asterisk detecta la entrante y golpea este endpoint con el número del que llama; aquí DEVOLVEMOS
+ * la llamada disparando una SALIENTE por Vapi (que sí funciona), y Sofía llama de vuelta en segundos.
+ *
+ * Autenticación: secreto dedicado ?secret= (config.whatsappCallbackSecret), timing-safe, fail-closed en
+ * producción. Acepta GET (el SBC hace un CURL/GET) o POST. Idempotente por número (dedup 90s) para no
+ * llamar dos veces si Meta reintenta el INVITE o el usuario insiste.
+ */
+export async function whatsappInboundCall(req: Request, res: Response) {
+  const q = { ...(req.query as any), ...(req.body as any) };
+  // Auth: fail-closed en producción si no hay secreto configurado.
+  const expected = config.whatsappCallbackSecret;
+  if (!expected) {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(503).json({ ok: false, error: 'WHATSAPP_CALLBACK_SECRET no configurado' });
+    }
+    log.warn('whatsapp/inbound-call: sin WHATSAPP_CALLBACK_SECRET (fail-open solo en desarrollo)');
+  } else if (!safeEqual(String(q.secret ?? ''), expected)) {
+    return res.status(401).json({ ok: false, error: 'unauthorized' });
+  }
+
+  // Normaliza el número del que llama a E.164 (Meta manda el CALLERID; a veces sin '+').
+  const raw = String(q.from ?? q.caller ?? '').trim();
+  const digits = raw.replace(/[^\d]/g, '');
+  const phone = digits ? `+${digits}` : '';
+  if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
+    log.warn('whatsapp/inbound-call: número inválido', { raw });
+    return res.status(400).json({ ok: false, error: 'from inválido (E.164)' });
+  }
+
+  // Dedup: un solo callback por número cada 90s.
+  const fresh = await once(`wa:cb:${phone}`, 90);
+  if (!fresh) {
+    log.info('whatsapp/inbound-call: callback ya disparado hace poco, se omite', { phone });
+    return res.json({ ok: true, skipped: 'dedup' });
+  }
+
+  log.info('whatsapp/inbound-call: gatillando callback (Sofía llama de vuelta)', { phone });
+  const r = await iniciarLlamadaSaliente(phone, undefined, undefined, {
+    phoneNumberIdOverride: config.vapiWhatsappPhoneNumberId,
+    firstMessage: openerCallbackWhatsapp(),
+    metadata: { channel: 'whatsapp_call', direction: 'callback' },
+  });
+  if (!r.ok) {
+    log.warn('whatsapp/inbound-call: Vapi rechazó el callback', { phone, error: r.error });
+    return res.status(502).json({ ok: false, error: r.error });
+  }
+  return res.json({ ok: true, callId: r.callId ?? null });
 }

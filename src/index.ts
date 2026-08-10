@@ -8,7 +8,7 @@ import { installHandler } from './routes/install';
 import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes/botEvents';
 import { registerBotManual, unregisterBotManual, updateBotManual, triggerBrochureManual, listDealFields, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, syncCallsManual } from './routes/setup';
 import { startCallSync } from './crm/callSync';
-import { vapiEvents, voiceOutbound, verifyVapiSecret } from './routes/vapi';
+import { vapiEvents, voiceOutbound, verifyVapiSecret, whatsappInboundCall } from './routes/vapi';
 import { vapiChatCompletions } from './routes/vapiLlm';
 import { webchatMessage, webchatPage } from './routes/webchat';
 import { metaVerify, verifyMetaSignature, metaWebhook } from './routes/meta';
@@ -163,6 +163,11 @@ app.get('/campaign/status', campaignStatus);
 // Fase 2: agente de voz con Vapi
 app.post('/vapi/events', verifyVapiSecret, vapiEvents); // webhook de Vapi (tool-calls, end-of-call-report)
 app.post('/voice/outbound', strictLimiter, verifyVapiSecret, voiceOutbound); // dispara una llamada saliente con Vapi
+// Callback de WhatsApp Calling: el SBC Asterisk detecta la entrante y golpea este endpoint (GET/POST con
+// ?secret=&from=) para que Sofía DEVUELVA la llamada por el trunk de WhatsApp (la entrante directa no se
+// puede atender por un límite de media de Vapi). Auth propia por secreto dedicado dentro del handler.
+app.get('/whatsapp/inbound-call', strictLimiter, whatsappInboundCall);
+app.post('/whatsapp/inbound-call', strictLimiter, whatsappInboundCall);
 // M2: modo Custom LLM (Vapi hace STT/TTS y delega el "cerebro" a nuestro motor, con el perfil de voz).
 // Vapi llama a {model.url}/chat/completions; aceptamos también /vapi/llm por conveniencia.
 app.post('/vapi/llm/chat/completions', strictLimiter, verifyVapiSecret, vapiChatCompletions);

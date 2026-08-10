@@ -48,11 +48,15 @@ export async function iniciarLlamadaSaliente(
     metadata?: Record<string, unknown>;
     /** Saludo de apertura de la llamada (firstMessage). En saliente lo aporta la campaña (ej. openerMMD). */
     firstMessage?: string;
+    /** Phone-number de Vapi a usar en vez de vapiPhoneNumberId (PSTN). El callback de WhatsApp lo usa
+     *  para devolver la llamada por el trunk de WhatsApp (vapiWhatsappPhoneNumberId). */
+    phoneNumberIdOverride?: string;
   },
 ): Promise<{ ok: boolean; callId?: string; error?: string }> {
   const num = String(phone ?? '').trim();
   if (!num) return { ok: false, error: 'Falta el teléfono (E.164, ej. +56912345678)' };
-  if (!config.vapiApiKey || !config.vapiAssistantId || !config.vapiPhoneNumberId) {
+  const phoneNumberId = opts?.phoneNumberIdOverride || config.vapiPhoneNumberId;
+  if (!config.vapiApiKey || !config.vapiAssistantId || !phoneNumberId) {
     return { ok: false, error: 'Faltan VAPI_API_KEY / VAPI_ASSISTANT_ID / VAPI_PHONE_NUMBER_ID' };
   }
   try {
@@ -71,7 +75,7 @@ export async function iniciarLlamadaSaliente(
       headers: { Authorization: `Bearer ${config.vapiApiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         assistantId: config.vapiAssistantId,
-        phoneNumberId: config.vapiPhoneNumberId,
+        phoneNumberId,
         customer: { number: num },
         ...(hasOverrides ? { assistantOverrides } : {}),
         ...(opts?.metadata ? { metadata: opts.metadata } : {}),
