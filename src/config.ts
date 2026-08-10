@@ -127,6 +127,15 @@ export const config = {
   vapiAssistantId: process.env.VAPI_ASSISTANT_ID ?? '',
   vapiPhoneNumberId: process.env.VAPI_PHONE_NUMBER_ID ?? '', // número (BYO Twilio) importado a Vapi
   vapiSecret: process.env.VAPI_SECRET ?? '', // server.secret: Vapi lo envía en header x-vapi-secret
+  // ── WhatsApp Calling (patrón callback) ──
+  // Phone-number de Vapi del trunk BYO de WhatsApp (0e5c23be → credential 68a49314 → SBC → wa.meta.vc).
+  // Se usa para DEVOLVER la llamada al usuario que llamó por WhatsApp (la entrante no se puede atender
+  // directo por un límite de media de Vapi; ver Arquitectura-WhatsApp-Calling). Vacío = usa vapiPhoneNumberId.
+  vapiWhatsappPhoneNumberId:
+    process.env.VAPI_WHATSAPP_PHONE_NUMBER_ID ?? '0e5c23be-a872-4556-bdbf-fc09309b00e7',
+  // Secreto dedicado que el SBC Asterisk envía (?secret=) al golpear /whatsapp/inbound-call para
+  // gatillar el callback. Menor privilegio: NO reutilizamos VAPI_SECRET en la VM. Fail-closed en prod.
+  whatsappCallbackSecret: process.env.WHATSAPP_CALLBACK_SECRET ?? '',
   // Registro de la llamada en el CRM de Bitrix (telephony.externalCall.*):
   voiceUserId: Number(process.env.BITRIX_TELEPHONY_USER_ID ?? 0), // usuario Bitrix "dueño" de las llamadas
   voiceLineNumber: process.env.BITRIX_TELEPHONY_LINE ?? '', // nº de línea externa (opcional)
