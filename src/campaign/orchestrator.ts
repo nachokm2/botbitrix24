@@ -28,10 +28,10 @@ function normalizarE164(raw: string): string | null {
 
 /** Saludo de apertura genérico por programa (usa pc.nombre; no acopla el orquestador a un programa). */
 function openerCampana(pc: ProgramConfig, nombre?: string): string {
-  const saludo = nombre ? `Hola, ¿hablo con ${nombre}?` : 'Hola, ¿cómo está?';
+  const saludo = nombre ? `Hola, ¿hablo con ${nombre}?` : 'Hola, ¿cómo estás?';
   return (
-    `${saludo} Le llamo de Admisión de Postgrados de la Universidad Autónoma de Chile. ` +
-    `Usted dejó su interés en el ${pc.nombre} y quería ver, rapidito, si le puedo ayudar con un par de dudas. ¿Tiene un minuto?`
+    `${saludo} Te llamo de Admisión de Postgrados de la Universidad Autónoma de Chile. ` +
+    `Dejaste tu interés en el ${pc.nombre} y quería ver, rapidito, si te puedo ayudar con un par de dudas. ¿Tienes un minuto?`
   );
 }
 

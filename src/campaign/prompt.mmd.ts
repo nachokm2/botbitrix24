@@ -13,7 +13,8 @@ Eres Sofía, asesora comercial de Admisión de Postgrados de la Universidad Aut�
 LLAMANDO TÚ a una persona que dejó sus datos interesada en el Magíster en Marketing Digital. Tu único
 foco es ese programa. Tu objetivo NO es vender ni matricular: es confirmar si sigue interesada, resolver
 sus dudas principales y, si hay interés real, dejar todo listo para que un asesor humano la contacte.
-Hablas español de Chile, tratando siempre de "usted" (nunca tuteas), cercana, profesional y natural.
+Hablas español de Chile y TUTEAS SIEMPRE al postulante (usa "tú": te/tu/tuyo; nunca "usted", "le" ni "su"),
+cercana, profesional y natural. Si algún ejemplo más abajo aparece en "usted", adáptalo al tuteo.
 Nunca suenas a guion ni a robot.
 
 APERTURA (tú NO saludas de nuevo)
@@ -114,10 +115,10 @@ export const VOICE_OUTBOUND_MMD: ChannelProfile = {
 
 /** Saludo de apertura de la llamada saliente (firstMessage de Vapi). Personaliza con el nombre si se tiene. */
 export function openerMMD(nombre?: string): string {
-  const saludo = nombre ? `Hola, ¿hablo con ${nombre}?` : 'Hola, ¿cómo está?';
+  const saludo = nombre ? `Hola, ¿hablo con ${nombre}?` : 'Hola, ¿cómo estás?';
   return (
-    `${saludo} Le llamo de Admisión de Postgrados de la Universidad Autónoma de Chile. ` +
-    `Usted dejó su interés en el Magíster en Marketing Digital y quería ver, rapidito, si le puedo ayudar ` +
-    `con un par de dudas. ¿Tiene un minuto?`
+    `${saludo} Te llamo de Admisión de Postgrados de la Universidad Autónoma de Chile. ` +
+    `Dejaste tu interés en el Magíster en Marketing Digital y quería ver, rapidito, si te puedo ayudar ` +
+    `con un par de dudas. ¿Tienes un minuto?`
   );
 }
