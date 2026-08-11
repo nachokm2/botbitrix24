@@ -328,6 +328,13 @@ export async function obtenerContextoLlamada(entities: CrmEntities, auth: Auth):
       const nombre = [c?.NAME, c?.LAST_NAME].filter(Boolean).join(' ').trim();
       if (nombre) ctx.nombre = nombre;
     }
+    // Fallback: si no hubo nombre por contacto (p. ej. la entrante resolvió un lead por teléfono),
+    // toma el nombre del lead. Permite personalizar el saludo de la voz entrante (CallerID → contacto).
+    if (!ctx.nombre && entities.lead) {
+      const l = await callCrm<BitrixLead>('crm.lead.get', { id: entities.lead }, auth);
+      const nombre = [l?.NAME, l?.LAST_NAME].filter(Boolean).join(' ').trim();
+      if (nombre) ctx.nombre = nombre;
+    }
     if (entities.deal && config.ufPrograma) {
       const d = await callCrm<any>('crm.deal.get', { id: entities.deal }, auth);
       const programa = d?.[config.ufPrograma];

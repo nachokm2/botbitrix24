@@ -6,6 +6,7 @@ import { VOICE_OUTBOUND_MMD } from '../campaign/prompt.mmd';
 import { getVoiceCtx, runVapiTool } from '../voice/vapiTools';
 import { primaryEntity } from '../crm/entities';
 import { loadPriorContext } from '../crm/chat';
+import { obtenerContextoLlamada } from '../crm/crmWrite';
 import { getState, EMPTY_AUTH } from '../store';
 import { log } from '../log';
 
@@ -143,16 +144,37 @@ export async function vapiChatCompletions(req: Request, res: Response) {
     const messages = toAnthropicMessages(body.messages);
     if (messages.length === 0) {
       // Sin turno de usuario todavía (p. ej. apertura): devuelve un saludo sin invocar al modelo.
-      const saludo = '¡Hola! Le saluda Sofía, asistente de Postgrados de la Universidad Autónoma de Chile. ¿En qué le puedo ayudar?';
+      const saludo = '¡Hola! Te saluda Sofía, asistente de Postgrados de la Universidad Autónoma de Chile. ¿En qué te puedo ayudar?';
       return stream ? streamCompletion(res, saludo, profile.model) : res.json(completionBody(saludo, profile.model));
     }
 
-    // Primer turno real de la llamada (aún sin respuesta nuestra): si hay entidad CRM, trae las
-    // notas de conversaciones previas (mismo mecanismo que WhatsApp) para no volver a pedir datos.
+    // Primer turno real de la llamada (aún sin respuesta nuestra): si hay entidad CRM, personaliza.
+    // ENTRANTE: el CallerID resolvió al contacto/lead por teléfono → inyectamos su nombre/programa para
+    // que Sofía salude por su nombre y no vuelva a pedir datos; + las notas de conversaciones previas
+    // (mismo mecanismo que WhatsApp). Ambas consultas en paralelo para no sumar latencia al primer turno.
     const esPrimerTurno = !messages.some((m) => m.role === 'assistant');
     if (esPrimerTurno && ctx.crmEntity) {
-      const priorContext = await loadPriorContext(ctx.crmEntity, auth);
-      if (priorContext) messages.unshift(priorContextMessage(priorContext));
+      const [contexto, priorContext] = await Promise.all([
+        obtenerContextoLlamada(voiceCtx.crm ?? {}, auth).catch(() => ({} as { nombre?: string; programa?: string })),
+        loadPriorContext(ctx.crmEntity, auth),
+      ]);
+      const notas: string[] = [];
+      if (contexto?.nombre || contexto?.programa) {
+        const partes = [
+          contexto.nombre ? `se llama ${contexto.nombre}` : null,
+          contexto.programa ? `mostró interés en ${contexto.programa}` : null,
+        ]
+          .filter(Boolean)
+          .join(' y ');
+        notas.push(
+          `El cliente que está llamando (identificado por su número de WhatsApp) ${partes}. ` +
+            `IMPORTANTE: el saludo inicial de la llamada YA se dio, así que NO vuelvas a saludar ni a ` +
+            `presentarte; ve directo a ayudar, tuteándolo (de "tú") y usando su nombre con naturalidad. ` +
+            `No vuelvas a pedir estos datos.`,
+        );
+      }
+      if (priorContext) notas.push(priorContext);
+      if (notas.length) messages.unshift(priorContextMessage(notas.join('\n---\n')));
     }
 
     const exec: ToolExecutor = (name, input) => runVapiTool(name, input, voiceCtx, auth, profile);

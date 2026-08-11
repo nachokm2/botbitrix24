@@ -23,8 +23,8 @@ function assistantOverridesDe(contexto?: ContextoLlamada) {
     : '';
   return {
     firstMessage:
-      `${saludoNombre}, le saluda Sofía, asistente de Postgrados de la Universidad Autónoma de Chile.` +
-      `${saludoPrograma} ¿Seguimos con eso o tiene otra consulta?`,
+      `${saludoNombre}, te saluda Sofía, asistente de Postgrados de la Universidad Autónoma de Chile.` +
+      `${saludoPrograma} ¿Seguimos con eso o tienes otra consulta?`,
     variableValues: { nombre: contexto.nombre ?? '', programa: contexto.programa ?? '' },
   };
 }
@@ -66,6 +66,10 @@ export async function iniciarLlamadaSaliente(
     // firstMessage de campaña (saliente).
     const assistantOverrides = {
       backgroundDenoisingEnabled: true,
+      // SALIENTE: Sofía SIEMPRE saluda primero (la campaña/callback la llaman al lead). Lo forzamos aquí
+      // porque el asistente por defecto quedó en 'assistant-waits-for-user' (para que la ENTRANTE no
+      // recorte el saludo: en entrante Sofía espera el "aló" del cliente y ahí saluda completo).
+      firstMessageMode: 'assistant-speaks-first',
       ...(assistantOverridesDe(contexto) ?? {}),
       ...(opts?.firstMessage ? { firstMessage: opts.firstMessage } : {}),
     };

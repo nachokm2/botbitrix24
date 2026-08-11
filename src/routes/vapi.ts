@@ -96,6 +96,11 @@ async function handleEndOfCall(message: any, auth: any) {
   const metaCampaign = call.metadata ?? {};
   const progCampaign: string | undefined = metaCampaign.programCode ? String(metaCampaign.programCode) : undefined;
   const dealCampaign = Number(metaCampaign.dealId) || 0;
+  // Canal de la llamada para etiquetar en el CRM (distingue WhatsApp de PSTN). Lo setea el disparador:
+  // el callback de WhatsApp manda metadata.channel='whatsapp_call'. Ver whatsappInboundCall.
+  const channel = String(metaCampaign.channel ?? '');
+  const esWhatsapp = channel === 'whatsapp_call';
+  const etiquetaCanal = esWhatsapp ? '📞 Llamada IA por WhatsApp (callback)' : '📞 Llamada IA (voz)';
   if (progCampaign && dealCampaign) {
     try {
       const cierre = await clasificarCierre({ endedReason, durationSec: duration, transcript });
@@ -132,7 +137,7 @@ async function handleEndOfCall(message: any, auth: any) {
     if (transcript && entity) {
       await callCrm(
         'crm.timeline.comment.add',
-        { fields: { ENTITY_ID: entity.id, ENTITY_TYPE: entity.type.toLowerCase(), COMMENT: `📞 Llamada IA (voz)\n${String(transcript).slice(0, 4000)}` } },
+        { fields: { ENTITY_ID: entity.id, ENTITY_TYPE: entity.type.toLowerCase(), COMMENT: `${etiquetaCanal}\n${String(transcript).slice(0, 4000)}` } },
         auth,
       ).catch((e) => log.warn('vapi endOfCall: nota transcripción falló', { err: String(e) }));
     }
@@ -140,7 +145,7 @@ async function handleEndOfCall(message: any, auth: any) {
     void audit({
       type: 'voice_call',
       crmEntity: entity ? `${entity.type}#${entity.id}` : undefined,
-      detail: { callId: reg.callId ?? call.id ?? null, duration, type },
+      detail: { callId: reg.callId ?? call.id ?? null, duration, type, channel: channel || 'voice' },
     });
   } else {
     log.warn('vapi endOfCall: falta BITRIX_TELEPHONY_USER_ID; no se registra la llamada en el CRM');
@@ -215,8 +220,8 @@ export async function voiceOutbound(req: Request, res: Response) {
 function openerCallbackWhatsapp(nombre?: string): string {
   const saludo = nombre ? `Hola ${nombre}` : 'Hola';
   return (
-    `${saludo}, le saluda Sofía, asistente de Postgrados de la Universidad Autónoma de Chile. ` +
-    `Vi que me llamó recién por WhatsApp y le devuelvo el contacto. ¿En qué le puedo ayudar?`
+    `${saludo}, te saluda Sofía, asistente de Postgrados de la Universidad Autónoma de Chile. ` +
+    `Vi que me llamaste recién por WhatsApp y te devuelvo el contacto. ¿En qué te puedo ayudar?`
   );
 }
 
