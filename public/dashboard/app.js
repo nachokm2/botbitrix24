@@ -8,6 +8,8 @@ var esc = function(s){ return String(s==null?'':s).replace(/[&<>]/g, function(c)
 var num = function(n){ return (n==null?0:n).toLocaleString('es-CL'); };
 
 function kpi(n,l){ return '<div class="card kpi"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
+function fmtSeg(s){ if(s==null) return '—'; s=Math.round(s); if(s<60) return s+' s'; var m=Math.floor(s/60), r=s%60; return m+' min '+r+' s'; }
+function fmtMs(ms){ if(ms==null) return '—'; if(ms<1000) return ms+' ms'; return (ms/1000).toFixed(1)+' s'; }
 function barRow(lab,v,max,color){ var w=max>0?Math.round(v/max*100):0; return '<div class="bar"><div class="lab">'+esc(lab)+'</div><div class="track"><div class="fill" style="width:'+w+'%'+(color?';background:'+color:'')+'"></div></div><div class="v">'+num(v)+'</div></div>'; }
 function dist(obj, colors){ obj=obj||{}; var keys=Object.keys(obj); if(!keys.length) return '<div class="muted">Sin datos aún.</div>'; var max=Math.max.apply(null,keys.map(function(k){return obj[k];})); return keys.map(function(k){return barRow(k, obj[k], max, colors&&colors[k]);}).join(''); }
 function progName(k){ var s=String(k||''); if(s.indexOf('http')===0){ s=s.replace(/\/+$/,''); s=s.substring(s.lastIndexOf('/')+1); } return s.replace(/-/g,' '); }
@@ -52,6 +54,12 @@ function render(d){
   document.getElementById('convkpis').innerHTML =
     kpi(captRate+'%','Tasa de captura de datos') + kpi(escRate+'%','Tasa de escalamiento') + kpi(tpc,'Mensajes por conversación');
   document.getElementById('scorebuckets').innerHTML = dist(agg?agg.scoreBuckets:{}, {alto:'#12b76a',medio:'#f79009',bajo:'#f04438'});
+
+  // Tiempos (respuesta/duración) por WhatsApp y por llamadas
+  document.getElementById('tiempos').innerHTML =
+    kpi(agg?fmtMs(agg.respuestaWhatsappMs):'—','Tiempo de respuesta · WhatsApp') +
+    kpi(agg?fmtSeg(agg.duracionConvWhatsappSeg):'—','Duración de conversación · WhatsApp') +
+    kpi(agg?fmtSeg(agg.duracionLlamadaSeg):'—','Duración de llamada · Voz');
 
   // Demanda de programas
   document.getElementById('topprog').innerHTML = barsRows(agg&&agg.topProgramas, function(r){return progName(r.k);});

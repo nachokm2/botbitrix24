@@ -380,6 +380,7 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
     const [
       byType, conv, tools, leadsOk, scoreAgg, intenc, sentim, perDay, embudo, asesores,
       topProg, topInteres, porTipo, porFacultad, gaps, capturaConvs, escalConvs, scoreBuckets, porHora,
+      respWhatsapp, convDurWhatsapp, callDur,
     ] = await Promise.all([
       q(`SELECT type, count(*)::int c FROM audit_log WHERE true ${W} GROUP BY type`),
       q(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE dialog_id IS NOT NULL ${W}`),
@@ -406,6 +407,16 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
          FROM (SELECT dialog_id, max((detail->>'score')::int) s FROM audit_log WHERE type='lead_score' AND detail->>'score' IS NOT NULL ${W} GROUP BY dialog_id) t GROUP BY 1`),
       // Horarios
       q(`SELECT extract(hour from ts)::int h, count(*)::int c FROM audit_log WHERE type='turn' ${W} GROUP BY 1 ORDER BY 1`),
+      // Tiempos: respuesta del bot por WhatsApp (ms, instrumentado por turno)
+      q(`SELECT round(avg((detail->>'responseMs')::numeric))::int avg, count(*)::int c
+         FROM audit_log WHERE type='turn' AND detail->>'responseMs' IS NOT NULL ${W}`),
+      // Tiempos: duración de conversación por WhatsApp (seg, primer→último turno por diálogo)
+      q(`SELECT round(avg(extract(epoch from (last_ts - first_ts))))::int avg, count(*)::int c
+         FROM (SELECT dialog_id, min(ts) first_ts, max(ts) last_ts FROM audit_log
+               WHERE type='turn' AND dialog_id IS NOT NULL ${W} GROUP BY dialog_id) t`),
+      // Tiempos: duración de llamadas (seg, del end-of-call-report de Vapi)
+      q(`SELECT round(avg((detail->>'duration')::numeric))::int avg, count(*)::int c
+         FROM audit_log WHERE type='voice_call' AND detail->>'duration' IS NOT NULL ${W}`),
     ]);
     const map = (rows: any[], k: string, v = 'c') =>
       Object.fromEntries(rows.filter((r) => r[k] != null).map((r) => [r[k], r[v]]));
@@ -439,6 +450,10 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
       porHora: porHora.rows, // [{h, c}]
       operadorMsgs: byTypeMap['operator_msg'] ?? 0,
       byType: byTypeMap,
+      // Tiempos de respuesta/conversación
+      respuestaWhatsappMs: respWhatsapp.rows[0]?.avg ?? null,
+      duracionConvWhatsappSeg: convDurWhatsapp.rows[0]?.avg ?? null,
+      duracionLlamadaSeg: callDur.rows[0]?.avg ?? null,
     };
   } catch (e) {
     log.warn('dbMetricsSummary falló', { err: String(e) });

@@ -50,6 +50,7 @@ export async function botMessageHandler(req: Request, res: Response) {
 }
 
 async function handle(req: Request) {
+  const t0 = Date.now(); // tiempo de respuesta del bot (recepción → reply enviado), para el panel
   const body: any = req.body ?? {};
   const params = body?.data?.PARAMS ?? {};
   const dialogId: string | undefined = params.DIALOG_ID;
@@ -178,7 +179,7 @@ async function handle(req: Request) {
     type: 'turn',
     dialogId,
     crmEntity: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : undefined,
-    detail: { message: logText, reply },
+    detail: { message: logText, reply, responseMs: Date.now() - t0 },
   });
 
   // Registra automáticamente la conversación en el timeline del CRM (no bloquea la respuesta).
