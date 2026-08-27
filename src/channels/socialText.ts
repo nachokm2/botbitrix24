@@ -1,9 +1,11 @@
 import { runAgentTurn, type ToolExecutor } from '../ai/agentLoop';
 import { consultarProgramas, detallePrograma } from '../core/catalogTool';
+import { buscarCondiciones } from '../core/condicionesComerciales';
 import type { ChannelProfile, AgentContext } from '../core/channel';
-import { actualizarDatosCliente, type DatosCliente } from '../crm/crmWrite';
+import { actualizarDatosCliente, obtenerContextoLlamada, type DatosCliente } from '../crm/crmWrite';
 import { generarBriefing } from '../ai/briefing';
-import { getJson, setJson } from '../store/kv';
+import { iniciarLlamadaSaliente } from '../voice/outbound';
+import { getJson, setJson, once } from '../store/kv';
 import { log } from '../log';
 import type { Auth } from '../store';
 
@@ -63,6 +65,9 @@ export function socialTextExecutor(
       case 'detalle_programa':
         return detallePrograma(input, profile.catalog.detalle);
 
+      case 'consultar_condiciones_comerciales':
+        return buscarCondiciones(input?.programa, input?.sede);
+
       case 'registrar_interes_crm': {
         const data = (input ?? {}) as DatosCliente;
         if (!session.leadId) {
@@ -71,6 +76,48 @@ export function socialTextExecutor(
         }
         const r = await actualizarDatosCliente({ lead: session.leadId }, undefined, data, auth);
         return r.ok ? { ok: true, actualizado: r.actualizado } : { ok: false, error: r.error };
+      }
+
+      case 'solicitar_llamada': {
+        const raw = String(input?.telefono ?? '').replace(/[\s()\-.]/g, '');
+        // Normaliza a E.164 chileno y valida (+569XXXXXXXX). Evita marcar a números arbitrarios/premium.
+        const telefono = raw.startsWith('+') ? raw : raw.startsWith('56') ? `+${raw}` : `+56${raw.replace(/^0+/, '')}`;
+        if (!/^\+569\d{8}$/.test(telefono)) {
+          return {
+            ok: false,
+            error: 'TELEFONO_INVALIDO',
+            mensaje: 'Número inválido; confirma un móvil chileno (+56 9 ...) u ofrece derivar a un asesor.',
+          };
+        }
+        // Rate-limit: máximo una llamada solicitada por conversación/hora (evita abuso y coste).
+        if (!(await once(`call:${conversationId}`, 3600))) {
+          return {
+            ok: false,
+            error: 'LIMITE_LLAMADAS',
+            mensaje: 'Ya se solicitó una llamada hace poco; ofrece que un asesor lo contacte.',
+          };
+        }
+        const leadId = await ensureLead({ telefono, ...(input?.nombre ? { nombre: input.nombre } : {}) });
+        if (!leadId) return { ok: false, error: 'NO_LEAD', mensaje: 'No se pudo registrar el contacto; ofrece derivar con escalar_a_humano.' };
+        // Guarda/actualiza el teléfono (best-effort) y arma el contexto (nombre/programa) para el
+        // saludo inicial de la llamada, igual que en WhatsApp (ver toolRunner.ts).
+        void actualizarDatosCliente({ lead: leadId }, undefined, { telefono }, auth).catch(() => {});
+        const contexto = await obtenerContextoLlamada({ lead: leadId }, auth).catch(() => ({}));
+        const r = await iniciarLlamadaSaliente(telefono, contexto, undefined, { metadata: { leadId } });
+        if (!r.ok) {
+          log.warn(`${channel.label} solicitar_llamada falló`, { err: r.error });
+          return {
+            ok: false,
+            error: r.error,
+            mensaje: 'No se pudo iniciar la llamada ahora. Ofrece que un asesor lo contacte en su lugar.',
+          };
+        }
+        log.info(`${channel.label} solicitar_llamada`, { telefono, callId: r.callId });
+        return {
+          ok: true,
+          llamando: true,
+          mensaje: 'Llamada iniciada. Dile al cliente que recibirá la llamada en unos momentos.',
+        };
       }
 
       case 'escalar_a_humano': {

@@ -31,6 +31,16 @@ mock.module('../src/bitrix/client.ts', {
   },
 });
 
+// iniciarLlamadaSaliente (solicitar_llamada) llama a la API de Vapi por fetch() directo — se mockea
+// para no depender de la red/credenciales reales en el test.
+const realFetch = globalThis.fetch;
+(globalThis as any).fetch = async (url: string, init?: any) => {
+  if (String(url).startsWith('https://api.vapi.ai/')) {
+    return { ok: true, json: async () => ({ id: 'call-test-1' }) } as any;
+  }
+  return realFetch(url as any, init);
+};
+
 const { webchatMessage } = await import('../src/routes/webchat');
 
 const textResp = (text: string) => ({ content: [{ type: 'text', text }], usage: {} });
@@ -79,6 +89,49 @@ test('webchat: captura de lead — registrar_interes_crm crea un lead en el CRM'
   assert.equal(res.body.ok, true);
   assert.match(res.body.reply, /Ana/);
   assert.ok(bitrixCalls.find((c) => c.method === 'crm.lead.add'), 'creó un lead web');
+});
+
+test('webchat: consultar_condiciones_comerciales devuelve el precio (antes caía en UNKNOWN_TOOL — ver socialText.ts)', async () => {
+  bitrixCalls.length = 0;
+  bitrixResponder = () => ({});
+  let step = 0;
+  let toolResult: any;
+  impl = async (args: any) => {
+    step++;
+    if (step === 1) return toolResp('t1', 'consultar_condiciones_comerciales', { programa: 'Magíster en Inteligencia Artificial' });
+    // Segundo turno: el resultado de la tool viaja como tool_result en el último mensaje 'user'.
+    const last = args.messages[args.messages.length - 1];
+    const block = Array.isArray(last?.content) ? last.content.find((b: any) => b.type === 'tool_result') : undefined;
+    toolResult = block ? JSON.parse(block.content) : undefined;
+    return textResp('El arancel es de $6.990.000.');
+  };
+  const res = fakeRes();
+  await webchatMessage(fakeReq({ conversationId: 'wc-precio1', message: '¿cuánto vale el magíster en inteligencia artificial?' }), res);
+  assert.equal(res.body.ok, true);
+  assert.equal(toolResult?.encontrado, true, 'la tool encuentra el programa (no UNKNOWN_TOOL)');
+  assert.equal(toolResult?.cotizable, true);
+  assert.equal(toolResult?.arancel, '$6.990.000');
+});
+
+test('webchat: solicitar_llamada ya está enganchada (antes caía en UNKNOWN_TOOL — ver socialText.ts)', async () => {
+  bitrixCalls.length = 0;
+  bitrixResponder = (method) => (method === 'crm.lead.add' ? 1001 : {});
+  let step = 0;
+  let toolResult: any;
+  impl = async (args: any) => {
+    step++;
+    if (step === 1) return toolResp('t1', 'solicitar_llamada', { telefono: '+56911112222' });
+    const last = args.messages[args.messages.length - 1];
+    const block = Array.isArray(last?.content) ? last.content.find((b: any) => b.type === 'tool_result') : undefined;
+    toolResult = block ? JSON.parse(block.content) : undefined;
+    return textResp('Intentando la llamada.');
+  };
+  const res = fakeRes();
+  await webchatMessage(fakeReq({ conversationId: 'wc-llamada1', message: 'llámenme al +56911112222' }), res);
+  assert.equal(res.body.ok, true);
+  assert.equal(toolResult?.ok, true, 'la tool corre (antes devolvía UNKNOWN_TOOL porque el case no existía)');
+  assert.equal(toolResult?.llamando, true);
+  assert.ok(bitrixCalls.find((c) => c.method === 'crm.lead.add'), 'crea el lead antes de disparar la llamada');
 });
 
 test('webchat: mensaje vacío devuelve 400', async () => {
