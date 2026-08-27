@@ -2,7 +2,18 @@ import { runAgentTurn, type ToolExecutor } from '../ai/agentLoop';
 import { consultarProgramas, detallePrograma } from '../core/catalogTool';
 import { buscarCondiciones } from '../core/condicionesComerciales';
 import type { ChannelProfile, AgentContext } from '../core/channel';
-import { actualizarDatosCliente, obtenerContextoLlamada, type DatosCliente } from '../crm/crmWrite';
+import {
+  actualizarDatosCliente,
+  crearLeadDesde,
+  crearNegociacionDesde,
+  obtenerContextoLlamada,
+  type DatosCliente,
+  type LeadFuente,
+} from '../crm/crmWrite';
+import { buscarCrmPorTelefono } from '../crm/voiceActions';
+import { guardarVinculoChat } from '../crm/chat';
+import type { CrmEntities } from '../crm/entities';
+import { primaryEntity } from '../crm/entities';
 import { generarBriefing } from '../ai/briefing';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { getJson, setJson, once } from '../store/kv';
@@ -10,13 +21,20 @@ import { log } from '../log';
 import type { Auth } from '../store';
 
 // Ejecutor COMPARTIDO para los canales de texto cuya identidad es "sesión de conversación +
-// lead creado perezosamente" — hoy Web Chat, Instagram y Messenger (ver ALT-Alta-1 de la
+// negociación creada perezosamente" — hoy Web Chat, Instagram y Messenger (ver ALT-Alta-1 de la
 // auditoría: antes de esto, webchatExecutor/metaExecutor eran casi una copia literal el uno
 // del otro). WhatsApp (Open Lines) y Voz quedan FUERA a propósito: resuelven la identidad de
 // forma distinta (chatId de Bitrix / búsqueda por teléfono) y ya tienen su propia lógica
 // (más rica: transferencia a operador, nombrar al asesor) en toolRunner.ts y voice/vapiTools.ts.
+//
+// Entidad CRM: mientras no se conoce el teléfono, se mantiene un LEAD temporal (para no perder lo
+// ya capturado). En cuanto llega el teléfono, se busca en el CRM (buscarCrmPorTelefono, igual que
+// voz) ANTES de seguir escribiendo en el lead: si la persona ya existe, se reutiliza y migra ahí lo
+// capturado (mismo mecanismo que WhatsApp — ver crmWrite.ts:migrarSiCambioDeEntidad, disparado por
+// actualizarDatosCliente al pasarle chatId=conversationId); si no existe, se crea la NEGOCIACIÓN
+// directo (Contacto + Deal) en el embudo de Asignación que corresponde — sin Lead intermedio.
 
-export type LeadSession = { leadId?: number };
+export type LeadSession = { entities?: CrmEntities; programaInteres?: string };
 
 /** Declara CÓMO se identifica y persiste un canal de este tipo, sin duplicar el ejecutor. */
 export type SocialTextChannel = {
@@ -24,8 +42,8 @@ export type SocialTextChannel = {
   namespace: string;
   /** TTL de la sesión (segundos). */
   sessionTtlSec: number;
-  /** Crea el lead en Bitrix24 cuando la sesión aún no tiene uno cacheado. */
-  crearLead: (data: DatosCliente, auth: Auth) => Promise<number | null>;
+  /** Cómo se etiqueta/titula el lead temporal o la negociación creados por este canal. */
+  fuente: LeadFuente;
   /** Etiqueta para logs (p. ej. "webchat", "instagram", "messenger"). */
   label: string;
 };
@@ -39,7 +57,7 @@ async function saveLeadSession(channel: SocialTextChannel, conversationId: strin
   await setJson(sessKey(channel, conversationId), s, channel.sessionTtlSec);
 }
 
-/** Ejecutor de herramientas: catálogo al núcleo; captura/escala crean o actualizan el lead de la sesión. */
+/** Ejecutor de herramientas: catálogo al núcleo; captura/escala crean, buscan o actualizan la entidad de la sesión. */
 export function socialTextExecutor(
   channel: SocialTextChannel,
   conversationId: string,
@@ -47,14 +65,40 @@ export function socialTextExecutor(
   session: LeadSession,
   profile: ChannelProfile,
 ): ToolExecutor {
-  const ensureLead = async (data: DatosCliente): Promise<number | null> => {
-    if (session.leadId) return session.leadId;
-    const id = await channel.crearLead(data, auth);
-    if (id) {
-      session.leadId = id;
-      await saveLeadSession(channel, conversationId, session);
+  /** Resuelve qué entidad CRM usar para `data`. Ya hay negociación real (contacto/deal) → la reutiliza.
+   *  Llega el teléfono por primera vez → busca en el CRM antes de crear nada; si existe, la usa
+   *  (el llamador dispara la migración de datos vía actualizarDatosCliente); si no, crea la
+   *  negociación directo. Sin teléfono aún → mantiene/crea el lead temporal. */
+  const resolverEntidad = async (data: DatosCliente): Promise<CrmEntities | null> => {
+    if (session.entities?.contact || session.entities?.deal) return session.entities;
+    if (data.programa_interes) session.programaInteres = data.programa_interes;
+
+    if (data.telefono) {
+      const encontrado = await buscarCrmPorTelefono(data.telefono, auth);
+      const destino =
+        encontrado ??
+        (await crearNegociacionDesde(
+          { ...data, programa_interes: data.programa_interes ?? session.programaInteres },
+          auth,
+          channel.fuente,
+        ));
+      if (destino) {
+        session.entities = destino;
+        await saveLeadSession(channel, conversationId, session);
+        return destino;
+      }
+      // si falla la búsqueda/creación, cae al lead temporal (existente o nuevo) como respaldo
     }
-    return id;
+
+    if (session.entities?.lead) return session.entities;
+    const leadId = await crearLeadDesde(data, auth, channel.fuente);
+    if (!leadId) return null;
+    session.entities = { lead: leadId };
+    await saveLeadSession(channel, conversationId, session);
+    await guardarVinculoChat(conversationId, { type: 'lead', id: leadId, programaInteres: session.programaInteres }).catch(
+      (e) => log.warn('guardarVinculoChat (social) falló', { err: String(e) }),
+    );
+    return session.entities;
   };
 
   return async (name, input) => {
@@ -70,11 +114,11 @@ export function socialTextExecutor(
 
       case 'registrar_interes_crm': {
         const data = (input ?? {}) as DatosCliente;
-        if (!session.leadId) {
-          const id = await ensureLead(data);
-          return id ? { ok: true, actualizado: [`lead#${id}`] } : { ok: false, error: 'NO_LEAD' };
-        }
-        const r = await actualizarDatosCliente({ lead: session.leadId }, undefined, data, auth);
+        const entities = await resolverEntidad(data);
+        if (!entities) return { ok: false, error: 'NO_LEAD' };
+        // chatId=conversationId: si `entities` cambió respecto al lead temporal previo (recién
+        // resuelto por teléfono), dispara la migración de datos + asignación de embudo.
+        const r = await actualizarDatosCliente(entities, conversationId, data, auth);
         return r.ok ? { ok: true, actualizado: r.actualizado } : { ok: false, error: r.error };
       }
 
@@ -97,13 +141,15 @@ export function socialTextExecutor(
             mensaje: 'Ya se solicitó una llamada hace poco; ofrece que un asesor lo contacte.',
           };
         }
-        const leadId = await ensureLead({ telefono, ...(input?.nombre ? { nombre: input.nombre } : {}) });
-        if (!leadId) return { ok: false, error: 'NO_LEAD', mensaje: 'No se pudo registrar el contacto; ofrece derivar con escalar_a_humano.' };
+        const entities = await resolverEntidad({ telefono, ...(input?.nombre ? { nombre: input.nombre } : {}) });
+        if (!entities) return { ok: false, error: 'NO_LEAD', mensaje: 'No se pudo registrar el contacto; ofrece derivar con escalar_a_humano.' };
         // Guarda/actualiza el teléfono (best-effort) y arma el contexto (nombre/programa) para el
         // saludo inicial de la llamada, igual que en WhatsApp (ver toolRunner.ts).
-        void actualizarDatosCliente({ lead: leadId }, undefined, { telefono }, auth).catch(() => {});
-        const contexto = await obtenerContextoLlamada({ lead: leadId }, auth).catch(() => ({}));
-        const r = await iniciarLlamadaSaliente(telefono, contexto, undefined, { metadata: { leadId } });
+        void actualizarDatosCliente(entities, conversationId, { telefono }, auth).catch(() => {});
+        const contexto = await obtenerContextoLlamada(entities, auth).catch(() => ({}));
+        const r = await iniciarLlamadaSaliente(telefono, contexto, undefined, {
+          metadata: { dealId: entities.deal, contactId: entities.contact, leadId: entities.lead },
+        });
         if (!r.ok) {
           log.warn(`${channel.label} solicitar_llamada falló`, { err: r.error });
           return {
@@ -121,10 +167,11 @@ export function socialTextExecutor(
       }
 
       case 'escalar_a_humano': {
-        const leadId = await ensureLead((input ?? {}) as DatosCliente);
-        // Deja el resumen del lead para el asesor (best-effort; no bloquea la respuesta).
-        if (leadId) void generarBriefing(conversationId, { type: 'lead', id: leadId }, auth);
-        log.info(`${channel.label} escalar_a_humano`, { conversationId, leadId, motivo: input?.motivo });
+        const entities = await resolverEntidad((input ?? {}) as DatosCliente);
+        const entity = entities ? primaryEntity(entities) : null;
+        // Deja el resumen para el asesor (best-effort; no bloquea la respuesta).
+        if (entity) void generarBriefing(conversationId, entity, auth);
+        log.info(`${channel.label} escalar_a_humano`, { conversationId, entity, motivo: input?.motivo });
         return {
           ok: true,
           escalado: true,
@@ -139,7 +186,7 @@ export function socialTextExecutor(
   };
 }
 
-/** Procesa un turno de un canal "sesión + lead perezoso": mismo motor que WhatsApp (runAgentTurn). */
+/** Procesa un turno de un canal "sesión + negociación perezosa": mismo motor que WhatsApp (runAgentTurn). */
 export async function socialTextTurn(
   channel: SocialTextChannel,
   conversationId: string,
@@ -148,12 +195,13 @@ export async function socialTextTurn(
   profile: ChannelProfile,
 ): Promise<string> {
   const session = await getLeadSession(channel, conversationId);
+  const entity = session.entities ? primaryEntity(session.entities) : null;
   const ctx: AgentContext = {
     auth,
     conversationId,
     botId: 0, // estos canales no usan el bot de Open Lines
-    crmEntities: session.leadId ? { lead: session.leadId } : {},
-    crmEntity: session.leadId ? { type: 'lead', id: session.leadId } : null,
+    crmEntities: session.entities ?? {},
+    crmEntity: entity,
     profile,
   };
   return runAgentTurn(ctx, message, '', socialTextExecutor(channel, conversationId, auth, session, profile));

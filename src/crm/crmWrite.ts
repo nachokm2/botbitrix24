@@ -100,20 +100,49 @@ export async function crearLeadDesde(
   }
 }
 
-/** Crea un LEAD para una conversación del CHAT WEB (no hay Open Lines que lo cree). */
-export function crearLeadWeb(data: DatosCliente, auth: Auth): Promise<number | null> {
-  return crearLeadDesde(data, auth, { sourceId: 'WEB', tituloPrefijo: 'Web', tituloGenerico: 'Consulta web', label: 'web' });
-}
-
 /**
- * Crea un LEAD para un mensaje directo de Instagram/Messenger (M4). SOURCE_ID='OTHER' porque
- * "Instagram"/"Messenger" no son valores estándar del directorio de fuentes de Bitrix24 en todos
- * los portales (evita un error si el portal no los tiene definidos); el canal queda igual
- * identificable en el TÍTULO para el equipo comercial.
+ * Crea la NEGOCIACIÓN (Contacto + Deal) directo — sin Lead intermedio — para un canal social (Web
+ * Chat/Instagram/Messenger) una vez que se conoce el teléfono y ya se confirmó (buscarCrmPorTelefono,
+ * en voiceActions.ts) que esa persona NO existe todavía en el CRM. Se crea directo en el embudo de
+ * "Asignación" que corresponde al tipo de programa (diplomado/magíster) — la misma regla que
+ * `camposAsignacionSiCorresponde` usa para WhatsApp/voz — para que la asignación de asesor por
+ * oferta corra de inmediato, en vez de que el prospecto quede parado como Lead sin asesor asignado.
  */
-export function crearLeadSocial(data: DatosCliente, auth: Auth, canal: 'instagram' | 'messenger'): Promise<number | null> {
-  const label = canal === 'instagram' ? 'Instagram' : 'Messenger';
-  return crearLeadDesde(data, auth, { sourceId: 'OTHER', tituloPrefijo: label, tituloGenerico: `Consulta ${label}`, label: canal });
+export async function crearNegociacionDesde(data: DatosCliente, auth: Auth, fuente: LeadFuente): Promise<CrmEntities | null> {
+  const contactFields: any = { SOURCE_ID: fuente.sourceId, OPENED: 'Y' };
+  if (data.nombre) contactFields.NAME = data.nombre;
+  if (data.apellido) contactFields.LAST_NAME = data.apellido;
+  if (data.email) contactFields.EMAIL = [{ VALUE: String(data.email), VALUE_TYPE: 'WORK' }];
+  if (data.telefono) contactFields.PHONE = [{ VALUE: String(data.telefono), VALUE_TYPE: 'MOBILE' }];
+  try {
+    const contactId = Number(await callCrm<string | number>('crm.contact.add', { fields: contactFields }, auth));
+    if (!contactId) return null;
+    await addNota('contact', contactId, data, auth).catch((e) => log.warn(`crearNegociacionDesde(${fuente.label}): nota contacto falló`, { err: String(e) }));
+
+    const tipo = detectarTipo(data.programa_interes ?? '');
+    const stage = tipo === 'magister' ? config.asignacionStageMagister : config.asignacionStageDiplomado;
+    const categoryId = stage ? categoriaDeStage(stage) : null;
+
+    const dealFields: any = {
+      TITLE: data.programa_interes
+        ? `${fuente.tituloPrefijo}: ${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`
+        : `${fuente.tituloGenerico}${data.nombre ? ' – ' + data.nombre : ''}`,
+      CONTACT_ID: contactId,
+      SOURCE_ID: fuente.sourceId,
+    };
+    if (categoryId !== null) dealFields.CATEGORY_ID = categoryId;
+    if (stage) dealFields.STAGE_ID = stage;
+    if (config.ufPrograma && data.programa_interes) dealFields[config.ufPrograma] = data.programa_interes;
+
+    const dealId = Number(await callCrm<string | number>('crm.deal.add', { fields: dealFields }, auth));
+    if (!dealId) return { contact: contactId };
+    await addNota('deal', dealId, data, auth).catch((e) => log.warn(`crearNegociacionDesde(${fuente.label}): nota deal falló`, { err: String(e) }));
+    log.info(`crearNegociacionDesde(${fuente.label}): negociación creada`, { contactId, dealId, categoryId, stage: stage || undefined });
+    return { contact: contactId, deal: dealId };
+  } catch (e) {
+    log.warn(`crearNegociacionDesde(${fuente.label}) falló`, { err: String(e) });
+    return null;
+  }
 }
 
 export async function addNota(type: CrmEntity['type'], id: number, data: DatosCliente, auth: Auth) {

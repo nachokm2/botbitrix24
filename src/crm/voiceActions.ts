@@ -52,8 +52,9 @@ export async function buscarCrmPorTelefono(phone: string, auth: Auth): Promise<C
 
 /**
  * Crea un LEAD nuevo con los datos capturados en la llamada (cuando el teléfono no existía en el CRM).
- * Usa el teléfono de la llamada si el cliente no dictó otro (implementación compartida con
- * crearLeadWeb/crearLeadSocial — ver ALT-Media-6 de la auditoría). Nota: el UF de "programa de
+ * Usa el teléfono de la llamada si el cliente no dictó otro (crearLeadDesde es la misma
+ * implementación compartida con Web Chat/Instagram/Messenger — ver ALT-Media-6 de la auditoría).
+ * Nota: el UF de "programa de
  * interés" (BITRIX_UF_PROGRAMA) vive en la Negociación (Deal), no en el Lead; en un lead el
  * programa queda en el TITLE. Se escribe en el Deal vía accionInteresVoz cuando existe.
  */

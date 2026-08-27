@@ -1,11 +1,11 @@
 import { socialTextTurn, type SocialTextChannel } from './socialText';
 import { INSTAGRAM_PROFILE, MESSENGER_PROFILE } from '../core/channel';
-import { crearLeadSocial } from '../crm/crmWrite';
 import type { Auth } from '../store';
 
 // M4 — Adaptador de los canales INSTAGRAM y MESSENGER (Meta Graph API). Misma identidad que Web
-// Chat (channels/socialText.ts, ver ALT-Alta-1 de la auditoría): sesión + lead perezoso. Este
-// archivo solo declara CÓMO se namespacea el PSID por canal y cómo crea el lead cada uno.
+// Chat (channels/socialText.ts, ver ALT-Alta-1 de la auditoría): sesión + lead/negociación
+// perezosos. Este archivo solo declara CÓMO se namespacea el PSID por canal y cómo se etiqueta
+// cada uno.
 //
 // Identidad: cada usuario tiene un PSID (Page-Scoped ID) que Meta asigna por página/cuenta IG. El
 // adaptador namespacea el conversationId con el prefijo del canal ("ig-"/"msgr-") — Instagram y
@@ -18,13 +18,13 @@ const CHANNELS: Record<MetaChannel, SocialTextChannel> = {
   instagram: {
     namespace: 'meta',
     sessionTtlSec: 30 * 24 * 3600, // el DM de una red social suele retomarse días después
-    crearLead: (data, auth) => crearLeadSocial(data, auth, 'instagram'),
+    fuente: { sourceId: 'OTHER', tituloPrefijo: 'Instagram', tituloGenerico: 'Consulta Instagram', label: 'instagram' },
     label: 'instagram',
   },
   messenger: {
     namespace: 'meta',
     sessionTtlSec: 30 * 24 * 3600,
-    crearLead: (data, auth) => crearLeadSocial(data, auth, 'messenger'),
+    fuente: { sourceId: 'OTHER', tituloPrefijo: 'Messenger', tituloGenerico: 'Consulta Messenger', label: 'messenger' },
     label: 'messenger',
   },
 };

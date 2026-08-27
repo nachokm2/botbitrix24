@@ -134,6 +134,68 @@ test('webchat: solicitar_llamada ya está enganchada (antes caía en UNKNOWN_TOO
   assert.ok(bitrixCalls.find((c) => c.method === 'crm.lead.add'), 'crea el lead antes de disparar la llamada');
 });
 
+test('webchat: teléfono ya existe en el CRM → reutiliza el contacto/negociación (no crea uno nuevo)', async () => {
+  bitrixCalls.length = 0;
+  bitrixResponder = (method: string, params: any) => {
+    if (method === 'crm.lead.add') return 2001; // lead temporal (antes de saber el teléfono)
+    if (method === 'crm.duplicate.findbycomm' && params?.entity_type === 'CONTACT') return { CONTACT: ['777'] };
+    if (method === 'crm.deal.list') return [{ ID: '888' }];
+    if (method === 'crm.lead.get') return { NAME: 'Ana', EMAIL: [{ VALUE: 'ana@correo.cl' }] };
+    if (method === 'crm.contact.get') return { NAME: '', EMAIL: [], PHONE: [] };
+    if (method === 'crm.deal.get') return { CATEGORY_ID: '1' };
+    return {};
+  };
+  let step = 0;
+  impl = async () => {
+    step++;
+    if (step === 1) return toolResp('t1', 'registrar_interes_crm', { nombre: 'Ana' });
+    if (step === 2) return toolResp('t2', 'registrar_interes_crm', { telefono: '+56900001111' });
+    return textResp('Listo.');
+  };
+  await webchatMessage(fakeReq({ conversationId: 'wc-tel-found', message: 'hola soy Ana' }), fakeRes());
+  await webchatMessage(fakeReq({ conversationId: 'wc-tel-found', message: '+56900001111' }), fakeRes());
+
+  assert.ok(bitrixCalls.find((c) => c.method === 'crm.lead.add'), 'crea el lead temporal en el primer turno (sin teléfono aún)');
+  assert.ok(!bitrixCalls.find((c) => c.method === 'crm.contact.add'), 'NO crea un contacto nuevo: ya existía por teléfono');
+  assert.ok(!bitrixCalls.find((c) => c.method === 'crm.deal.add'), 'NO crea una negociación nueva: ya existía por teléfono');
+  const migracion = bitrixCalls.find(
+    (c) => c.method === 'crm.contact.update' && c.params.id === 777 && c.params.fields.NAME,
+  );
+  assert.ok(migracion, 'migra el nombre del lead temporal al contacto encontrado por teléfono');
+  assert.equal(migracion!.params.fields.NAME, 'Ana');
+});
+
+test('webchat: teléfono nuevo (no existe en el CRM) → crea la negociación directo, sin lead', async () => {
+  bitrixCalls.length = 0;
+  bitrixResponder = (method: string) => {
+    if (method === 'crm.lead.add') return 2101;
+    if (method === 'crm.duplicate.findbycomm') return {}; // no existe ni como contacto ni como lead
+    if (method === 'crm.contact.add') return 3001;
+    if (method === 'crm.deal.add') return 3002;
+    if (method === 'crm.lead.get') return { NAME: 'Matías', EMAIL: [{ VALUE: 'matias@correo.cl' }] };
+    if (method === 'crm.contact.get') return { NAME: '', EMAIL: [], PHONE: [] };
+    return {};
+  };
+  let step = 0;
+  impl = async () => {
+    step++;
+    if (step === 1) return toolResp('t1', 'registrar_interes_crm', { nombre: 'Matías', programa_interes: 'Diplomado en Inteligencia Artificial' });
+    if (step === 2) return toolResp('t2', 'registrar_interes_crm', { telefono: '+56955556666' });
+    return textResp('Listo.');
+  };
+  await webchatMessage(fakeReq({ conversationId: 'wc-tel-new', message: 'hola soy Matías, me interesa IA' }), fakeRes());
+  await webchatMessage(fakeReq({ conversationId: 'wc-tel-new', message: '+56955556666' }), fakeRes());
+
+  assert.ok(bitrixCalls.find((c) => c.method === 'crm.contact.add'), 'crea el contacto directo (no existía)');
+  const dealAdd = bitrixCalls.find((c) => c.method === 'crm.deal.add');
+  assert.ok(dealAdd, 'crea la negociación directo, sin lead intermedio');
+  assert.equal(dealAdd!.params.fields.CATEGORY_ID, 1, 'embudo de Diplomados');
+  const migracion = bitrixCalls.find(
+    (c) => c.method === 'crm.contact.update' && c.params.id === 3001 && c.params.fields.NAME,
+  );
+  assert.ok(migracion, 'migra el nombre capturado en el lead temporal al contacto recién creado');
+});
+
 test('webchat: mensaje vacío devuelve 400', async () => {
   const res = fakeRes();
   await webchatMessage(fakeReq({ conversationId: 'wc-empty1', message: '   ' }), res);

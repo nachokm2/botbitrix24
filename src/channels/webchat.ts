@@ -1,16 +1,16 @@
 import { socialTextTurn, getLeadSession, type SocialTextChannel } from './socialText';
 import { WEBCHAT_PROFILE } from '../core/channel';
-import { crearLeadWeb } from '../crm/crmWrite';
 import type { Auth } from '../store';
 
 // M3 — Adaptador del canal WEB CHAT. Es la PRUEBA del patrón omnicanal: un canal nuevo = un PERFIL
 // (core/channel.ts) + una IDENTIDAD (channels/socialText.ts, compartida con Meta) + un ADAPTADOR
-// (este archivo, que solo declara CÓMO crea el lead este canal). No duplica el motor ni el ejecutor.
+// (este archivo, que solo declara CÓMO se etiqueta el lead/negociación de este canal). No duplica
+// el motor ni el ejecutor.
 
 const CHANNEL: SocialTextChannel = {
   namespace: 'webchat',
   sessionTtlSec: 24 * 3600, // el chat de un visitante web se retoma típicamente el mismo día
-  crearLead: crearLeadWeb,
+  fuente: { sourceId: 'WEB', tituloPrefijo: 'Web', tituloGenerico: 'Consulta web', label: 'web' },
   label: 'webchat',
 };
 

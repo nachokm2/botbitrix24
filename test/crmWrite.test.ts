@@ -57,7 +57,7 @@ const realFetch = globalThis.fetch;
   return realFetch(url as any);
 };
 
-const { actualizarDatosCliente, capturaDeDatosEnCurso, ensureLeadForChat } = await import('../src/crm/crmWrite');
+const { actualizarDatosCliente, capturaDeDatosEnCurso, ensureLeadForChat, crearNegociacionDesde } = await import('../src/crm/crmWrite');
 const { obtenerVinculoChat, guardarVinculoChat } = await import('../src/crm/chat');
 
 const auth = { domain: '', access_token: '' } as any;
@@ -417,4 +417,58 @@ test('capturaDeDatosEnCurso: los 3 datos ya guardados → no bloquea (false)', a
   };
   const enCurso = await capturaDeDatosEnCurso({ contact: 1 }, auth);
   assert.equal(enCurso, false);
+});
+
+test('crearNegociacionDesde: crea contacto + negociación directo (sin lead) en el embudo de Diplomados', async () => {
+  calls.length = 0;
+  responder = (method) => {
+    if (method === 'crm.contact.add') return 9001;
+    if (method === 'crm.deal.add') return 9002;
+    return {};
+  };
+
+  const fuente = { sourceId: 'WEB', tituloPrefijo: 'Web', tituloGenerico: 'Consulta web', label: 'web' };
+  const r = await crearNegociacionDesde(
+    {
+      nombre: 'Camila',
+      apellido: 'Rojas',
+      email: 'camila@correo.cl',
+      telefono: '+56933334444',
+      programa_interes: 'Diplomado en Intervención Terapéutica Familiar',
+    },
+    auth,
+    fuente,
+  );
+
+  assert.deepEqual(r, { contact: 9001, deal: 9002 });
+  const contactAdd = calls.find((c) => c.method === 'crm.contact.add');
+  assert.equal(contactAdd!.params.fields.NAME, 'Camila');
+  assert.equal(contactAdd!.params.fields.PHONE[0].VALUE, '+56933334444');
+  const dealAdd = calls.find((c) => c.method === 'crm.deal.add');
+  assert.ok(dealAdd, 'crea la negociación');
+  assert.equal(dealAdd!.params.fields.CONTACT_ID, 9001);
+  assert.equal(dealAdd!.params.fields.CATEGORY_ID, 1, 'embudo de Diplomados');
+  assert.equal(dealAdd!.params.fields.STAGE_ID, 'C1:NEW');
+  assert.equal(dealAdd!.params.fields.UF_CRM_PROGRAMA_TEST, 'Diplomado en Intervención Terapéutica Familiar');
+  assert.ok(!calls.find((c) => c.method === 'crm.lead.add'), 'no crea un lead intermedio');
+});
+
+test('crearNegociacionDesde: usa el embudo de Magíster cuando corresponde', async () => {
+  calls.length = 0;
+  responder = (method) => {
+    if (method === 'crm.contact.add') return 9101;
+    if (method === 'crm.deal.add') return 9102;
+    return {};
+  };
+
+  const fuente = { sourceId: 'WEB', tituloPrefijo: 'Web', tituloGenerico: 'Consulta web', label: 'web' };
+  await crearNegociacionDesde(
+    { nombre: 'Matías', telefono: '+56944445555', programa_interes: 'Magíster en Inteligencia Artificial' },
+    auth,
+    fuente,
+  );
+
+  const dealAdd = calls.find((c) => c.method === 'crm.deal.add');
+  assert.equal(dealAdd!.params.fields.CATEGORY_ID, 3, 'embudo de Maestrías');
+  assert.equal(dealAdd!.params.fields.STAGE_ID, 'C3:NEW');
 });
