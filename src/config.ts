@@ -65,8 +65,8 @@ function parseMarchaBlancaProgramas(s?: string): MarchaBlancaPrograma[] {
       key: 'terapia_familiar',
       nombre: 'Diplomado en Intervención Terapéutica Familiar',
       match: 'Terapéutica Familiar',
-      asesorNorte: 'Joaquín',
-      asesorSur: 'Eduardo',
+      asesorNorte: 'Joaquín Retamal',
+      asesorSur: 'Eduardo Arias',
       categoryId: 1, // Diplomados
     },
     {
@@ -74,8 +74,8 @@ function parseMarchaBlancaProgramas(s?: string): MarchaBlancaPrograma[] {
       nombre: 'Diplomado en Inteligencia Artificial',
       match: 'Inteligencia Artificial',
       exclude: 'Derecho', // no confundir con "Diplomado en Inteligencia Artificial y Derecho"
-      asesorNorte: 'Zaida',
-      asesorSur: 'Constanza',
+      asesorNorte: 'Zaida Verdugo',
+      asesorSur: 'Constanza Huitraiqueo Garabito',
       categoryId: 1, // Diplomados
     },
   ];
