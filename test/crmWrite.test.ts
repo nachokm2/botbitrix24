@@ -57,7 +57,8 @@ const realFetch = globalThis.fetch;
   return realFetch(url as any);
 };
 
-const { actualizarDatosCliente } = await import('../src/crm/crmWrite');
+const { actualizarDatosCliente, capturaDeDatosEnCurso, ensureLeadForChat } = await import('../src/crm/crmWrite');
+const { obtenerVinculoChat, guardarVinculoChat } = await import('../src/crm/chat');
 
 const auth = { domain: '', access_token: '' } as any;
 
@@ -301,4 +302,119 @@ test('actualizarDatosCliente: sin entidad CRM y sin chat devuelve error claro', 
   const r = await actualizarDatosCliente({}, undefined, { nombre: 'Sin Entidad' }, auth);
   assert.equal(r.ok, false);
   assert.match(String(r.error), /entidad CRM/i);
+});
+
+test('ensureLeadForChat: crea el lead con crm.lead.add (no imopenlines.crm.lead.create) y guarda el vínculo del chat', async () => {
+  calls.length = 0;
+  responder = (method) => {
+    if (method === 'crm.lead.add') return 4242;
+    return {};
+  };
+
+  const entidad = await ensureLeadForChat('chat999', auth, { nombre: 'Ana' });
+
+  assert.deepEqual(entidad, { type: 'lead', id: 4242 });
+  const add = calls.find((c) => c.method === 'crm.lead.add');
+  assert.ok(add, 'crea el lead con crm.lead.add');
+  assert.equal(add!.params.fields.NAME, 'Ana');
+  assert.ok(
+    !calls.find((c) => c.method === 'imopenlines.crm.lead.create'),
+    'ya no depende del método de Open Lines que falla con ERROR_USER_NOT_OPERATOR',
+  );
+
+  const vinculo = await obtenerVinculoChat('chat999');
+  assert.deepEqual(vinculo, { type: 'lead', id: 4242 }, 'guarda el vínculo a mano, sin depender de CHAT_ENTITY_DATA_2');
+});
+
+test('actualizarDatosCliente: migra los datos del lead propio (incluido el programa) cuando Bitrix vincula un contacto+deal distintos después', async () => {
+  calls.length = 0;
+  // Simula el estado dejado por ensureLeadForChat/el bloque LEAD en turnos anteriores: guardamos
+  // el vínculo propio a un lead que ya tiene nombre+email+programa capturados (el lead no tiene UF
+  // de programa, por eso se guarda acá).
+  await guardarVinculoChat('chatMig', { type: 'lead', id: 555, programaInteres: 'Magíster en Inteligencia Artificial' });
+  responder = (method, params) => {
+    if (method === 'crm.lead.get') return { NAME: 'Rodrigo', EMAIL: [{ VALUE: 'rodrigo@correo.cl' }] };
+    if (method === 'crm.contact.get') return { NAME: '', EMAIL: [], PHONE: [] }; // el contacto nuevo llega vacío
+    if (method === 'crm.deal.get') return {}; // el deal nuevo llega sin programa
+    return {};
+  };
+
+  // Ahora Bitrix ya vinculó su propio contacto+deal (3027577 / 3480399) a este chat.
+  await actualizarDatosCliente({ contact: 3027577, deal: 3480399 }, 'chatMig', { telefono: '+56911112222' }, auth);
+
+  const migracion = calls.find((c) => c.method === 'crm.contact.update' && c.params.id === 3027577 && c.params.fields.NAME);
+  assert.ok(migracion, 'migra nombre/email del lead viejo al contacto nuevo');
+  assert.equal(migracion!.params.fields.NAME, 'Rodrigo');
+  assert.equal(migracion!.params.fields.EMAIL?.[0]?.VALUE, 'rodrigo@correo.cl');
+
+  const migracionPrograma = calls.find(
+    (c) => c.method === 'crm.deal.update' && c.params.id === 3480399 && c.params.fields.UF_CRM_PROGRAMA_TEST,
+  );
+  assert.ok(migracionPrograma, 'migra el programa de interés al deal nuevo');
+  assert.equal(migracionPrograma!.params.fields.UF_CRM_PROGRAMA_TEST, 'Magíster en Inteligencia Artificial');
+
+  const vinculo = await obtenerVinculoChat('chatMig');
+  assert.equal(vinculo, null, 'borra el vínculo propio tras migrar (ya no hace falta)');
+});
+
+test('actualizarDatosCliente: mueve el deal al embudo/etapa de Asignación correctos si quedó en el embudo equivocado', async () => {
+  calls.length = 0;
+  responder = (method) => {
+    if (method === 'crm.deal.get') return { CATEGORY_ID: '1' }; // quedó en Diplomados (embudo equivocado)
+    return {};
+  };
+
+  await actualizarDatosCliente({ deal: 50 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
+
+  const mover = calls.find(
+    (c) => c.method === 'crm.deal.update' && c.params.id === 50 && c.params.fields.CATEGORY_ID !== undefined,
+  );
+  assert.ok(mover, 'mueve el deal al embudo correcto (Maestrías)');
+  assert.equal(mover!.params.fields.CATEGORY_ID, 3);
+  assert.equal(mover!.params.fields.STAGE_ID, 'C3:NEW');
+});
+
+test('actualizarDatosCliente: no toca la etapa si el deal ya está en el embudo correcto (no pisa el avance del asesor)', async () => {
+  calls.length = 0;
+  responder = (method) => {
+    if (method === 'crm.deal.get') return { CATEGORY_ID: '3' }; // ya está en Maestrías
+    return {};
+  };
+
+  await actualizarDatosCliente({ deal: 51 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
+
+  const mover = calls.find(
+    (c) => c.method === 'crm.deal.update' && c.params.id === 51 && c.params.fields.CATEGORY_ID !== undefined,
+  );
+  assert.ok(!mover, 'no mueve nada: el embudo ya es el correcto');
+});
+
+test('capturaDeDatosEnCurso: nombre+email guardados pero sin teléfono → captura a medias (true)', async () => {
+  calls.length = 0;
+  responder = (method) => {
+    if (method === 'crm.contact.get') return { NAME: 'Rodrigo', EMAIL: [{ VALUE: 'r@x.cl' }], PHONE: [] };
+    return {};
+  };
+  const enCurso = await capturaDeDatosEnCurso({ contact: 1 }, auth);
+  assert.equal(enCurso, true);
+});
+
+test('capturaDeDatosEnCurso: sin ningún dato capturado → no bloquea (false)', async () => {
+  calls.length = 0;
+  responder = (method) => {
+    if (method === 'crm.contact.get') return { NAME: '', EMAIL: [], PHONE: [] };
+    return {};
+  };
+  const enCurso = await capturaDeDatosEnCurso({ contact: 1 }, auth);
+  assert.equal(enCurso, false);
+});
+
+test('capturaDeDatosEnCurso: los 3 datos ya guardados → no bloquea (false)', async () => {
+  calls.length = 0;
+  responder = (method) => {
+    if (method === 'crm.contact.get') return { NAME: 'Rodrigo', EMAIL: [{ VALUE: 'r@x.cl' }], PHONE: [{ VALUE: '+56911112222' }] };
+    return {};
+  };
+  const enCurso = await capturaDeDatosEnCurso({ contact: 1 }, auth);
+  assert.equal(enCurso, false);
 });

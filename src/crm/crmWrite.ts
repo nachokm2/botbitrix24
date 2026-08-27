@@ -2,11 +2,12 @@ import { callBitrix, callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { log } from '../log';
 import type { Auth } from '../store';
-import { parseEntityData2, type CrmEntity, type CrmEntities } from './entities';
-import type { BitrixContact, BitrixLead, BitrixDialog, BitrixMultifield } from '../bitrix/types';
-import { buscarBrochureDrive, type BrochureEncontrado } from './driveBrochure';
+import type { CrmEntity, CrmEntities } from './entities';
+import type { BitrixContact, BitrixLead, BitrixMultifield } from '../bitrix/types';
+import { buscarBrochureDrive, detectarTipo, type BrochureEncontrado } from './driveBrochure';
 import { agregarProgramaAcumulado, fusionarBrochures, renderCuerpoBrochureEmail } from './brochureEmail';
 import { getDealInfo, getUsuarios } from './directory';
+import { guardarVinculoChat, obtenerVinculoChat, borrarVinculoChat } from './chat';
 
 // Escrituras al CRM: creación/actualización de contacto/lead/deal, notas de timeline,
 // persistencia del scoring y lectura del teléfono del cliente.
@@ -23,16 +24,29 @@ export type DatosCliente = {
   comentario?: string;
 };
 
-/** Crea un lead vinculado a la sesión actual (lo que verá el operador) y lo devuelve. */
-export async function ensureLeadForChat(chatId: any, auth: Auth): Promise<CrmEntity | null> {
-  try {
-    await callBitrix('imopenlines.crm.lead.create', { CHAT_ID: chatId }, auth);
-    const r = await callBitrix<BitrixDialog>('imopenlines.dialog.get', { CHAT_ID: chatId }, auth);
-    return parseEntityData2(r?.entity_data_2);
-  } catch (e) {
-    log.error('ensureLeadForChat falló', { err: String(e) });
-    return null;
-  }
+/**
+ * Crea un lead para un chat de Open Lines (WhatsApp) que Bitrix24 no vinculó por su cuenta.
+ * Antes usaba `imopenlines.crm.lead.create` (que debería crear Y vincular el lead solo), pero ese
+ * método exige que quien llama sea reconocido como "operador" de la cola en ese momento — falla
+ * con `ERROR_USER_NOT_OPERATOR` incluso con el webhook admin y con el usuario ya agregado a la
+ * cola; probablemente requiere una sesión real de usuario logueado, no disponible vía API/webhook.
+ * Por eso el lead se crea directo con `crm.lead.add` (crearLeadDesde, el mismo camino que Web
+ * Chat/Instagram/Messenger) y el vínculo chat↔lead se guarda a mano (guardarVinculoChat), en vez
+ * de depender de CHAT_ENTITY_DATA_2 (que se queda vacío para siempre en estos casos).
+ */
+export async function ensureLeadForChat(chatId: any, auth: Auth, data?: DatosCliente): Promise<CrmEntity | null> {
+  const leadId = await crearLeadDesde(data ?? {}, auth, {
+    sourceId: 'OTHER',
+    tituloPrefijo: 'WhatsApp',
+    tituloGenerico: 'Consulta WhatsApp',
+    label: 'whatsapp',
+  });
+  if (!leadId) return null;
+  const entity: CrmEntity = { type: 'lead', id: leadId };
+  await guardarVinculoChat(chatId, { ...entity, programaInteres: data?.programa_interes }).catch((e) =>
+    log.warn('guardarVinculoChat falló', { err: String(e) }),
+  );
+  return entity;
 }
 
 /** Fuente de un lead creado por el agente: cómo se etiqueta y titula (ver crearLeadDesde). */
@@ -174,6 +188,102 @@ async function dispararEnvioBrochure(dealId: number, auth: Auth): Promise<void> 
   }
 }
 
+/** Categoría (embudo) codificada en un STAGE_ID de Bitrix ("C3:NEW" → 3); null si no matchea. */
+function categoriaDeStage(stageId: string): number | null {
+  const m = /^C(\d+):/.exec(stageId);
+  return m ? Number(m[1]) : null;
+}
+
+/**
+ * Si el deal quedó en el embudo EQUIVOCADO para su programa de interés (pasa cuando Bitrix vincula
+ * su propio deal por su cuenta: siempre lo deja en un embudo/etapa fijos, sin importar el programa
+ * real) lo mueve al embudo y etapa de "Asignación" que corresponden — eso dispara la regla de
+ * asignación de asesor por oferta ya configurada en Bitrix24 (fuera de este código). Si el deal YA
+ * está en el embudo correcto, no toca la etapa (no pisa el avance que haya hecho un asesor).
+ */
+/** Solo LEE (no escribe) — devuelve los campos CATEGORY_ID/STAGE_ID a fusionar en el/los `fields`
+ *  que el caller ya va a escribir con un único crm.deal.update (evita una llamada de escritura
+ *  separada, y que quede "antes" del resto de campos en el registro de llamadas). Objeto vacío si
+ *  no aplica o si el deal ya está en el embudo correcto (no pisa el avance que haya hecho un asesor). */
+async function camposAsignacionSiCorresponde(dealId: number, programaInteres: string, auth: Auth): Promise<Record<string, unknown>> {
+  const tipo = detectarTipo(programaInteres);
+  const stageDestino =
+    tipo === 'diplomado' ? config.asignacionStageDiplomado : tipo === 'magister' ? config.asignacionStageMagister : '';
+  if (!stageDestino) return {};
+  const catDestino = categoriaDeStage(stageDestino);
+  if (catDestino === null) return {};
+  try {
+    const cur: any = await callCrm('crm.deal.get', { id: dealId, select: ['CATEGORY_ID'] }, auth);
+    if (Number(cur?.CATEGORY_ID) === catDestino) return {};
+    log.info('camposAsignacionSiCorresponde: moviendo deal al embudo/etapa de asignación', { dealId, tipo, stageDestino });
+    return { CATEGORY_ID: catDestino, STAGE_ID: stageDestino };
+  } catch (e) {
+    log.warn('camposAsignacionSiCorresponde falló', { err: String(e), dealId });
+    return {};
+  }
+}
+
+/**
+ * Si el chat pasó de nuestro vínculo propio (el lead que creó `ensureLeadForChat`) a una entidad
+ * DISTINTA que Bitrix terminó vinculando por su cuenta — pasa porque el auto-CRM nativo de Open
+ * Lines sí crea contacto+deal, pero de forma asíncrona/con retraso, después de que ya habíamos
+ * creado nuestro propio lead — migra a la nueva entidad los datos que ya se habían guardado en el
+ * lead viejo (nombre/email/teléfono), para no perderlos. Sin esto, esos datos quedan huérfanos en
+ * un lead que el cliente nunca vuelve a ver.
+ */
+async function migrarSiCambioDeEntidad(chatId: any, entities: CrmEntities, auth: Auth): Promise<void> {
+  if (!chatId) return;
+  const previa = await obtenerVinculoChat(chatId);
+  if (!previa) return;
+  // Destino: preferimos el contacto (tiene NAME/EMAIL/PHONE); si no hay, el lead.
+  const destino: CrmEntity | null = entities.contact
+    ? { type: 'contact', id: entities.contact }
+    : entities.lead
+      ? { type: 'lead', id: entities.lead }
+      : null;
+  const cambioDeEntidad = !!destino && !(destino.type === previa.type && destino.id === previa.id);
+
+  try {
+    if (cambioDeEntidad && destino) {
+      const origen: any = await callCrm(`crm.${previa.type}.get`, { id: previa.id }, auth);
+      const cur: any = await callCrm(`crm.${destino.type}.get`, { id: destino.id }, auth);
+      const fields: any = {};
+      if (origen?.NAME && !cur?.NAME) fields.NAME = origen.NAME;
+      if (origen?.LAST_NAME && !cur?.LAST_NAME) fields.LAST_NAME = origen.LAST_NAME;
+      if (origen?.EMAIL?.[0]?.VALUE) fields.EMAIL = mergeMultifield(cur?.EMAIL, origen.EMAIL[0].VALUE, 'WORK');
+      if (origen?.PHONE?.[0]?.VALUE) fields.PHONE = mergeMultifield(cur?.PHONE, origen.PHONE[0].VALUE, 'MOBILE');
+      if (Object.keys(fields).length) {
+        await callCrm(`crm.${destino.type}.update`, { id: destino.id, fields }, auth);
+        log.info('migrarSiCambioDeEntidad: datos migrados', { chatId, previa, destino, campos: Object.keys(fields) });
+      }
+    }
+
+    // El programa de interés solo puede vivir en un campo UF del DEAL (los leads no tienen ese UF,
+    // Bitrix no lo define a nivel de entidad Lead) — si ya lo teníamos guardado a mano y apareció
+    // un deal nuevo sin programa, lo migramos ahí.
+    if (config.ufPrograma && previa.programaInteres && entities.deal) {
+      const dealActual: any = await callCrm('crm.deal.get', { id: entities.deal, select: [config.ufPrograma] }, auth);
+      const fieldsDeal: Record<string, unknown> = {};
+      if (!dealActual?.[config.ufPrograma]) fieldsDeal[config.ufPrograma] = previa.programaInteres;
+      // El deal que Bitrix vinculó por su cuenta siempre cae en un embudo/etapa fijos — corrige al
+      // de "Asignación" que corresponde al programa, para que la regla de asignación por oferta corra.
+      Object.assign(fieldsDeal, await camposAsignacionSiCorresponde(entities.deal, previa.programaInteres, auth));
+      if (Object.keys(fieldsDeal).length) {
+        await callCrm('crm.deal.update', { id: entities.deal, fields: fieldsDeal }, auth);
+        log.info('migrarSiCambioDeEntidad: programa/embudo migrados al deal', {
+          chatId,
+          dealId: entities.deal,
+          campos: Object.keys(fieldsDeal),
+        });
+      }
+    }
+
+    if (cambioDeEntidad) await borrarVinculoChat(chatId);
+  } catch (e) {
+    log.warn('migrarSiCambioDeEntidad falló', { err: String(e), chatId, previa, destino });
+  }
+}
+
 /**
  * Toma los datos capturados y actualiza el CONTACTO y el DEAL vinculados al chat
  * (o el lead si esa es la entidad). Email y teléfono se FUSIONAN con los existentes
@@ -186,8 +296,9 @@ export async function actualizarDatosCliente(
   auth: Auth,
 ): Promise<{ ok: boolean; actualizado: string[]; error?: string }> {
   let e = entities;
+  await migrarSiCambioDeEntidad(chatId, e, auth);
   if (!e.lead && !e.contact && !e.deal) {
-    const creado = await ensureLeadForChat(chatId, auth);
+    const creado = await ensureLeadForChat(chatId, auth, data);
     if (creado) e = { [creado.type]: creado.id };
   }
   if (!e.lead && !e.contact && !e.deal) {
@@ -231,6 +342,9 @@ export async function actualizarDatosCliente(
       // Campo personalizado dedicado, para reportería/filtrado: guarda solo el ÚLTIMO programa
       // mencionado (sin cambios respecto al comportamiento anterior).
       if (config.ufPrograma) fields[config.ufPrograma] = data.programa_interes;
+      // Embudo/etapa de asignación por oferta (ver camposAsignacionSiCorresponde) — fusionado en
+      // el mismo `fields` para que sea UN solo crm.deal.update, no una llamada de escritura aparte.
+      Object.assign(fields, await camposAsignacionSiCorresponde(e.deal, data.programa_interes, auth));
       // Brochure(s) del/los programa(s) de interés — se ACUMULAN durante toda la conversación: si
       // la persona menciona un programa nuevo, se manda UN correo con TODOS los brochures juntos,
       // cada uno en su propio archivo (slots UF dedicados; si sobran programas respecto a slots,
@@ -301,7 +415,14 @@ export async function actualizarDatosCliente(
       if (data.email) fields.EMAIL = mergeMultifield(cur.EMAIL, String(data.email), 'WORK');
       if (data.telefono) fields.PHONE = mergeMultifield(cur.PHONE, String(data.telefono), 'MOBILE');
     }
-    if (data.programa_interes) fields.TITLE = `Interés: ${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`;
+    if (data.programa_interes) {
+      fields.TITLE = `Interés: ${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`;
+      // Un lead no tiene el UF de programa (solo existe en Deal) — se guarda en el vínculo propio
+      // para poder migrarlo si más tarde Bitrix vincula un deal (ver migrarSiCambioDeEntidad).
+      await guardarVinculoChat(chatId, { type: 'lead', id: e.lead, programaInteres: data.programa_interes }).catch(
+        (err) => log.warn('guardarVinculoChat (lead) falló', { err: String(err) }),
+      );
+    }
     try {
       if (Object.keys(fields).length) {
         await callCrm('crm.lead.update', { id: e.lead, fields }, auth);
@@ -364,6 +485,32 @@ export async function getTelefonoCliente(entities: CrmEntities, auth: Auth): Pro
     log.warn('getTelefonoCliente falló', { err: String(e) });
   }
   return null;
+}
+
+/** ¿Hay una captura de datos de contacto EN CURSO (nombre/email/teléfono con algunos ya guardados
+ *  pero no todos)? Se usa para no interrumpir con una auto-escalación justo cuando el bot está a
+ *  mitad de pedir los datos (score alto + secuencia de captura sin terminar → cortaba antes de
+ *  llegar al teléfono). Sin captura empezada (0 de 3) o ya completa (3 de 3), no bloquea nada. */
+export async function capturaDeDatosEnCurso(entities: CrmEntities, auth: Auth): Promise<boolean> {
+  const leerCompletitud = (r: BitrixContact | BitrixLead) => ({
+    nombre: !!r?.NAME,
+    email: Array.isArray(r?.EMAIL) && r.EMAIL.length > 0,
+    telefono: Array.isArray(r?.PHONE) && r.PHONE.length > 0,
+  });
+  try {
+    let datos: { nombre: boolean; email: boolean; telefono: boolean } | null = null;
+    if (entities.contact) {
+      datos = leerCompletitud(await callCrm<BitrixContact>('crm.contact.get', { id: entities.contact }, auth));
+    } else if (entities.lead) {
+      datos = leerCompletitud(await callCrm<BitrixLead>('crm.lead.get', { id: entities.lead }, auth));
+    }
+    if (!datos) return false;
+    const completados = [datos.nombre, datos.email, datos.telefono].filter(Boolean).length;
+    return completados > 0 && completados < 3;
+  } catch (e) {
+    log.warn('capturaDeDatosEnCurso falló', { err: String(e) });
+    return false; // ante duda, no bloquear la escalación
+  }
 }
 
 /** Guarda la evaluación del lead (score/intención/sentimiento) en el CRM: campos UF (si están

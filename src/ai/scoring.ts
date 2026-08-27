@@ -1,7 +1,14 @@
 import { anthropic, CLASSIFIER } from './client';
 import { getHistory } from './memory';
 import { getSession, saveSession } from '../session';
-import { guardarEvaluacionCrm, moverEtapaDeal, getTelefonoCliente, obtenerContextoLlamada, type LeadEval } from '../crm/crmWrite';
+import {
+  guardarEvaluacionCrm,
+  moverEtapaDeal,
+  getTelefonoCliente,
+  obtenerContextoLlamada,
+  capturaDeDatosEnCurso,
+  type LeadEval,
+} from '../crm/crmWrite';
 import { getDealInfo } from '../crm/directory';
 import { primaryEntity, type CrmEntities } from '../crm/entities';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
@@ -213,7 +220,9 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
     }
   }
 
-  // 3) Auto-escalar a un asesor humano si el score alcanza el umbral.
+  // 3) Auto-escalar a un asesor humano si el score alcanza el umbral — PERO no a mitad de una
+  // captura de datos en curso (nombre/email/teléfono a medias): se reintenta en el próximo turno,
+  // una vez que la secuencia termine o se abandone (ver ALT-Escalación-Prematura).
   if (
     autoEscalarPorScore({
       score: evalData.score,
@@ -221,7 +230,8 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
       escalatedByScore: sess.escalatedByScore,
       humanTookOver: sess.humanTookOver,
       chatId,
-    })
+    }) &&
+    !(await capturaDeDatosEnCurso(crmEntities, auth))
   ) {
     try {
       await callBitrix(

@@ -89,6 +89,13 @@ export const config = {
   // por el bot (con TODOS los programas acumulados durante la conversación) — la plantilla bizproc
   // solo lo referencia vía {=Document:...}, sin necesitar loops nativos (ver crm/brochureEmail.ts).
   ufCuerpoBrochureHtml: process.env.BITRIX_UF_CUERPO_BROCHURE_HTML ?? '',
+  // Etapa "Asignación" del embudo correcto según el TIPO de programa (magíster/diplomado) —
+  // mover el deal ahí dispara la regla de asignación de asesor por oferta que ya existe en
+  // Bitrix24 (configurada por el equipo, fuera de este código). Sin esto, cuando Bitrix vincula un
+  // deal por su cuenta lo deja en un embudo/etapa fijos que no coinciden con el programa real, y la
+  // regla de asignación nunca corre — el deal queda sin asesor asignado.
+  asignacionStageDiplomado: process.env.BITRIX_ASIGNACION_STAGE_DIPLOMADO ?? 'C1:NEW',
+  asignacionStageMagister: process.env.BITRIX_ASIGNACION_STAGE_MAGISTER ?? 'C3:NEW',
   // IDs de las carpetas del Drive ("Brochures Bot/<tipo>") donde viven los PDF de cada tipo de programa.
   driveFolderMagister: process.env.BITRIX_DRIVE_FOLDER_MAGISTER ?? '',
   driveFolderDiplomado: process.env.BITRIX_DRIVE_FOLDER_DIPLOMADO ?? '',

@@ -15,9 +15,9 @@ const strip = (s: string) =>
     .replace(/[̀-ͯ]/g, '')
     .trim();
 
-type Tipo = 'magister' | 'diplomado' | 'especialidad';
+export type Tipo = 'magister' | 'diplomado' | 'especialidad';
 
-function detectarTipo(programa: string): Tipo | null {
+export function detectarTipo(programa: string): Tipo | null {
   const s = strip(programa);
   if (/^(magister|master)\b/.test(s)) return 'magister';
   if (/^diplomado\b/.test(s)) return 'diplomado';
