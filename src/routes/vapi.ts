@@ -140,7 +140,7 @@ async function handleEndOfCall(message: any, auth: any) {
     void audit({
       type: 'voice_call',
       crmEntity: entity ? `${entity.type}#${entity.id}` : undefined,
-      detail: { callId: reg.callId ?? call.id ?? null, duration, type },
+      detail: { callId: reg.callId ?? call.id ?? null, duration, type, programaInteres: ctx.programaInteres ?? null },
     });
   } else {
     log.warn('vapi endOfCall: falta BITRIX_TELEPHONY_USER_ID; no se registra la llamada en el CRM');

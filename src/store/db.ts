@@ -461,6 +461,97 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
   }
 }
 
+// ─────────────────────────── Scorecard "marcha blanca" (métricas nativas del bot, por programa) ───────────────────────────
+
+export type MarchaBlancaBotStats = {
+  key: string;
+  mensajes: number;
+  escalamientos: number;
+  llamadasIA: number;
+  slaContactoSeg: number | null;
+  slaContactoN: number;
+  /** IDs de Deal escalados a un asesor (best-effort: solo cuando la entidad del CRM ya era un Deal en
+   *  el momento de escalar) — para cruzar después con los que llegaron a matrícula (WON) en Bitrix. */
+  escaladosDealIds: number[];
+};
+
+/** Métricas que vienen 100% de audit_log (Postgres), filtradas por programa (match/exclude en texto
+ *  libre capturado por el bot). El SLA de contacto es tiempo entre escalar_a_humano/auto_escalation y
+ *  el primer mensaje de un OPERADOR humano en ese mismo diálogo (operator_msg ya se registra cuando
+ *  alguien != el cliente escribe en el chat de WhatsApp — ver routes/botEvents.ts). */
+export async function dbMarchaBlancaBot(range = 'all'): Promise<MarchaBlancaBotStats[]> {
+  if (!pool) return [];
+  const p = pool;
+  const interval = range in RANGE_INTERVAL ? RANGE_INTERVAL[range] : null;
+  const W = interval ? `AND ts >= now() - interval '${interval}'` : ''; // interval viene de whitelist
+
+  const out: MarchaBlancaBotStats[] = [];
+  for (const prog of config.marchaBlancaProgramas) {
+    const matchPat = `%${prog.match}%`;
+    const excludePat = prog.exclude ? `%${prog.exclude}%` : null;
+    const progDialogsSql = `
+      SELECT DISTINCT dialog_id FROM audit_log
+      WHERE type='tool_call' AND detail->>'name'='registrar_interes_crm'
+        AND detail->'input'->>'programa_interes' ILIKE $1
+        AND ($2::text IS NULL OR detail->'input'->>'programa_interes' NOT ILIKE $2)
+        AND dialog_id IS NOT NULL`;
+    try {
+      const [msgR, escR, callR, slaR, escEntR] = await Promise.all([
+        p.query(`SELECT count(*)::int c FROM audit_log WHERE type='turn' ${W} AND dialog_id IN (${progDialogsSql})`, [matchPat, excludePat]),
+        p.query(
+          `SELECT count(*)::int c FROM audit_log
+           WHERE ((type='auto_escalation') OR (type='tool_call' AND detail->>'name'='escalar_a_humano')) ${W}
+             AND dialog_id IN (${progDialogsSql})`,
+          [matchPat, excludePat],
+        ),
+        p.query(
+          `SELECT count(*)::int c FROM audit_log
+           WHERE type='voice_call' ${W}
+             AND detail->>'programaInteres' ILIKE $1
+             AND ($2::text IS NULL OR detail->>'programaInteres' NOT ILIKE $2)`,
+          [matchPat, excludePat],
+        ),
+        p.query(
+          `WITH esc AS (
+             SELECT dialog_id, min(ts) esc_ts FROM audit_log
+             WHERE ((type='auto_escalation') OR (type='tool_call' AND detail->>'name'='escalar_a_humano')) ${W}
+               AND dialog_id IN (${progDialogsSql})
+             GROUP BY dialog_id
+           ),
+           contact AS (
+             SELECT e.dialog_id, min(o.ts) contact_ts
+             FROM esc e JOIN audit_log o ON o.dialog_id = e.dialog_id AND o.type='operator_msg' AND o.ts > e.esc_ts
+             GROUP BY e.dialog_id
+           )
+           SELECT round(avg(extract(epoch from (contact_ts - esc_ts))))::int avg, count(*)::int c
+           FROM esc JOIN contact USING (dialog_id)`,
+          [matchPat, excludePat],
+        ),
+        p.query(
+          `SELECT DISTINCT crm_entity FROM audit_log
+           WHERE ((type='auto_escalation') OR (type='tool_call' AND detail->>'name'='escalar_a_humano')) ${W}
+             AND crm_entity LIKE 'deal#%'
+             AND dialog_id IN (${progDialogsSql})`,
+          [matchPat, excludePat],
+        ),
+      ]);
+      out.push({
+        key: prog.key,
+        mensajes: msgR.rows[0]?.c ?? 0,
+        escalamientos: escR.rows[0]?.c ?? 0,
+        llamadasIA: callR.rows[0]?.c ?? 0,
+        slaContactoSeg: slaR.rows[0]?.avg ?? null,
+        slaContactoN: slaR.rows[0]?.c ?? 0,
+        escaladosDealIds: escEntR.rows.map((r: any) => Number(String(r.crm_entity).split('#')[1])).filter((n: number) => n > 0),
+      });
+    } catch (e) {
+      log.warn('dbMarchaBlancaBot falló', { err: String(e), programa: prog.key });
+      out.push({ key: prog.key, mensajes: 0, escalamientos: 0, llamadasIA: 0, slaContactoSeg: null, slaContactoN: 0, escaladosDealIds: [] });
+    }
+  }
+  return out;
+}
+
 // ─────────────────────────── Campaña de voz saliente (plano de control) ───────────────────────────
 // Todas estas funciones son no-op cuando no hay Postgres (pool === null): la campaña se degrada a
 // "sin memoria de reintentos" sin tumbar el resto del bot. Las escrituras usan un whitelist de columnas

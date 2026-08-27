@@ -61,6 +61,42 @@ function render(d){
     kpi(agg?fmtSeg(agg.duracionConvWhatsappSeg):'—','Duración de conversación · WhatsApp') +
     kpi(agg?fmtSeg(agg.duracionLlamadaSeg):'—','Duración de llamada · Voz');
 
+  // Marcha blanca por programa (tabla: 1 fila por programa piloto)
+  var mb = d.marchaBlanca || [];
+  var mbMoney = function(n){ return n==null ? '—' : '$'+num(n); };
+  var mbEl = document.getElementById('marchablanca');
+  if (mb.length) {
+    var cols = ['Programa','Estado','Asesor norte','Asesor sur','Leads a la fecha','Matriculados','% cierre',
+      'Ticket promedio','Leads antiguos','Leads nuevos','Mensajes','Escalamientos','SLA contacto asesor',
+      'Escalados → matriculados','Llamadas IA'];
+    var thead = '<thead><tr>'+cols.map(function(c){return '<th>'+esc(c)+'</th>';}).join('')+'</tr></thead>';
+    var tbody = '<tbody>'+mb.map(function(p){
+      var c = p.crm, b = p.bot;
+      var sla = b && b.slaContactoSeg!=null ? fmtSeg(b.slaContactoSeg)+' ('+num(b.slaContactoN)+')' : '—';
+      var escMatric = c ? num(c.escaladosMatriculados)+' / '+num(c.escaladosConDeal) : '—';
+      return '<tr>'+
+        '<td>'+esc(p.nombre)+'</td>'+
+        '<td>'+esc(c&&c.estado?c.estado:'—')+'</td>'+
+        '<td>'+esc(p.asesorNorte)+'</td>'+
+        '<td>'+esc(p.asesorSur)+'</td>'+
+        '<td>'+(c?num(c.dealsALaFecha):'—')+'</td>'+
+        '<td>'+(c?num(c.matriculados):'—')+'</td>'+
+        '<td>'+(c?c.pctCierre+'%':'—')+'</td>'+
+        '<td>'+(c?mbMoney(c.ticketPromedio):'—')+'</td>'+
+        '<td>'+(c?num(c.dealsAntiguos):'—')+'</td>'+
+        '<td>'+(c?num(c.dealsNuevos):'—')+'</td>'+
+        '<td>'+(b?num(b.mensajes):'—')+'</td>'+
+        '<td>'+(b?num(b.escalamientos):'—')+'</td>'+
+        '<td>'+sla+'</td>'+
+        '<td>'+escMatric+'</td>'+
+        '<td>'+(b?num(b.llamadasIA):'—')+'</td>'+
+      '</tr>';
+    }).join('')+'</tbody>';
+    mbEl.innerHTML = thead+tbody;
+  } else {
+    mbEl.innerHTML = '<tr><td class="muted">Sin programas configurados.</td></tr>';
+  }
+
   // Demanda de programas
   document.getElementById('topprog').innerHTML = barsRows(agg&&agg.topProgramas, function(r){return progName(r.k);});
   document.getElementById('topinteres').innerHTML = barsRows(agg&&agg.topInteres, function(r){return r.k;});

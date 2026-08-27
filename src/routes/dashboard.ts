@@ -2,22 +2,59 @@ import type { Request, Response } from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { snapshot } from '../obs/metrics';
-import { dbMetricsSummary, dbRecentAudit, dbEnabled } from '../store/db';
+import { dbMetricsSummary, dbRecentAudit, dbEnabled, dbMarchaBlancaBot } from '../store/db';
 import { kvKind } from '../store/kv';
 import { getState } from '../store';
 import { getUsuarios } from '../crm/directory';
+import { bitrixMarchaBlancaScorecard, type ProgramaScorecard } from '../crm/marchaBlanca';
 import { config } from '../config';
 
 const RANGES = ['today', '7d', '30d', 'all'];
 
+// El scorecard de marcha blanca mezcla conteos en vivo de Bitrix (leads/deals) — cachear unos minutos
+// evita golpear la API en cada refresco del panel (15s) mientras alguien lo tiene abierto.
+let marchaBlancaCache: { at: number; data: ProgramaScorecard[] } | null = null;
+const MARCHA_BLANCA_TTL_MS = 3 * 60 * 1000;
+
 /** JSON con métricas de negocio (persistentes) + técnicas (en memoria) + actividad reciente. */
 export async function metricsSummary(req: Request, res: Response) {
   const range = RANGES.includes(String(req.query.range)) ? String(req.query.range) : '7d';
-  const [live, agg, recent] = await Promise.all([snapshot(), dbMetricsSummary(range), dbRecentAudit(15)]);
+  const [live, agg, recent, marchaBlancaBot] = await Promise.all([
+    snapshot(),
+    dbMetricsSummary(range),
+    dbRecentAudit(15),
+    dbMarchaBlancaBot('all'), // el scorecard del piloto siempre es "desde siempre" (no sigue el selector Hoy/7d/30d)
+  ]);
+
+  // Scorecard de marcha blanca: combina lo nativo del bot (mensajes/escalamientos/llamadas IA/SLA,
+  // siempre disponible) con leads/deals reales de Bitrix (requiere auth; cacheado — ver MARCHA_BLANCA_TTL_MS).
+  const st = await getState();
+  let marchaBlancaCrm: ProgramaScorecard[] | null = null;
+  if (st.auth) {
+    if (marchaBlancaCache && Date.now() - marchaBlancaCache.at < MARCHA_BLANCA_TTL_MS) {
+      marchaBlancaCrm = marchaBlancaCache.data;
+    } else {
+      try {
+        const botByKey = new Map(marchaBlancaBot.map((b) => [b.key, { escaladosDealIds: b.escaladosDealIds }]));
+        marchaBlancaCrm = await bitrixMarchaBlancaScorecard(botByKey, st.auth);
+        marchaBlancaCache = { at: Date.now(), data: marchaBlancaCrm };
+      } catch {
+        marchaBlancaCrm = marchaBlancaCache?.data ?? null;
+      }
+    }
+  }
+  const crmByKey = new Map((marchaBlancaCrm ?? []).map((r) => [r.key, r]));
+  const marchaBlanca = config.marchaBlancaProgramas.map((prog) => ({
+    key: prog.key,
+    nombre: prog.nombre,
+    asesorNorte: prog.asesorNorte ?? null,
+    asesorSur: prog.asesorSur ?? null,
+    crm: crmByKey.get(prog.key) ?? null, // null = sin auth de Bitrix o falló la consulta (ver logs)
+    bot: marchaBlancaBot.find((b) => b.key === prog.key) ?? null,
+  }));
 
   // Resuelve el nombre de cada asesor responsable (por su ASSIGNED_BY_ID) para el desglose "Por asesor".
   if (agg?.porAsesor?.length) {
-    const st = await getState();
     if (st.auth) {
       try {
         const ids = agg.porAsesor.map((r: any) => Number(r.id)).filter((n: number) => n > 0);
@@ -48,6 +85,8 @@ export async function metricsSummary(req: Request, res: Response) {
     agg,
     recent,
     funnelLabels: config.funnelLabels,
+    marchaBlanca,
+    marchaBlancaStart: config.marchaBlancaStart,
   });
 }
 

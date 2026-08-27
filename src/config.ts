@@ -43,6 +43,51 @@ function parseFunnelLabels(s?: string): Record<string, string> {
   }
 }
 
+export type MarchaBlancaPrograma = {
+  key: string;
+  nombre: string;
+  /** Substring (ILIKE / Bitrix "%") para identificar el programa en texto libre capturado por el bot. */
+  match: string;
+  /** Substring a EXCLUIR (evita confundir con un programa homónimo, ej. "...y Derecho"). */
+  exclude?: string;
+  asesorNorte?: string;
+  asesorSur?: string;
+  /** CATEGORY_ID (embudo) del Deal en Bitrix — acota la búsqueda ANTES del filtro de texto en el UF
+   *  de programa (evita OPERATION_TIME_LIMIT: sin esto, crm.deal.list escanea TODO el portal). */
+  categoryId: number;
+};
+
+// Programas del piloto ("marcha blanca") a medir en el panel. Configurable por si cambian sin tocar
+// código; el default son los 2 programas confirmados para el piloto (ver conversación de lanzamiento).
+function parseMarchaBlancaProgramas(s?: string): MarchaBlancaPrograma[] {
+  const def: MarchaBlancaPrograma[] = [
+    {
+      key: 'terapia_familiar',
+      nombre: 'Diplomado en Intervención Terapéutica Familiar',
+      match: 'Terapéutica Familiar',
+      asesorNorte: 'Joaquín',
+      asesorSur: 'Eduardo',
+      categoryId: 1, // Diplomados
+    },
+    {
+      key: 'ia',
+      nombre: 'Diplomado en Inteligencia Artificial',
+      match: 'Inteligencia Artificial',
+      exclude: 'Derecho', // no confundir con "Diplomado en Inteligencia Artificial y Derecho"
+      asesorNorte: 'Zaida',
+      asesorSur: 'Constanza',
+      categoryId: 1, // Diplomados
+    },
+  ];
+  if (!s) return def;
+  try {
+    const p = JSON.parse(s);
+    return Array.isArray(p) && p.length ? p : def;
+  } catch {
+    return def;
+  }
+}
+
 export const config = {
   port: Number(process.env.PORT ?? 3000),
   /** URL pública del app (Railway o túnel), sin slash final. */
@@ -124,6 +169,9 @@ export const config = {
   callsSyncSince: process.env.CALLS_SYNC_SINCE ?? '', // backfill inicial desde esta fecha ISO (vacío = últimos 90 días)
   // Retención de auditoría: borra audit_log más antiguo que N días (0 = desactivado, no borra nada).
   auditRetentionDays: Number(process.env.AUDIT_RETENTION_DAYS ?? 0),
+  // ── Marcha blanca (piloto): fecha de arranque (para "leads antiguos" vs "nuevos") y programas a medir ──
+  marchaBlancaStart: process.env.MARCHA_BLANCA_START ?? '2026-08-27',
+  marchaBlancaProgramas: parseMarchaBlancaProgramas(process.env.MARCHA_BLANCA_PROGRAMAS),
   // Precio Anthropic por millón de tokens (USD) para estimar costo en el panel (0 = no mostrar).
   costInPerMtok: Number(process.env.ANTHROPIC_COST_IN_PER_MTOK ?? 0),
   costOutPerMtok: Number(process.env.ANTHROPIC_COST_OUT_PER_MTOK ?? 0),

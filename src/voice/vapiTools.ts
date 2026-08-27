@@ -20,6 +20,8 @@ export type VoiceCallCtx = {
   /** Campaña saliente: código de programa y Deal, tomados de la metadata de la llamada (Vapi). */
   programCode?: string;
   dealId?: number;
+  /** Programa de interés capturado durante la llamada (para el scorecard de la marcha blanca). */
+  programaInteres?: string;
 };
 
 /** Metadatos que viajan en la creación de la llamada (Vapi) y se leen en /vapi/llm: código de programa
@@ -93,6 +95,7 @@ async function guardarInteresVoz(ctx: VoiceCallCtx, data: DatosCliente, auth: Au
   // una sola vez por llamada, en cuanto hay programa de interés capturado.
   if (ref && data.programa_interes && !ctx.interesAccionado) {
     ctx.interesAccionado = true;
+    ctx.programaInteres = data.programa_interes;
     await setJson(ctxKey(ctx.callId), ctx, CTX_TTL);
     const res = await accionInteresVoz(ref, data, auth);
     log.info('registrar_interes_crm (voz): acciones lead caliente', { callId: ctx.callId, ...res });

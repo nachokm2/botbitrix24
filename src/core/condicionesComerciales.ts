@@ -85,7 +85,7 @@ function tipoDe(s: string): 'diplomado' | 'magister' | 'especialidad' | null {
 /** Programas comerciales que matchean un nombre del catálogo: exacto normalizado y, si no hay, "contiene".
  *  Emparejamiento tolerante (atrapa variantes de nombre entre el catálogo y la planilla), PERO respetando el
  *  TIPO cuando la consulta lo trae: si piden un "Diplomado en X", no devuelve el "Magíster en X" y viceversa. */
-function matchPrograma(nombre: string): ProgramaComercial[] {
+export function matchPrograma(nombre: string): ProgramaComercial[] {
   const q = norm(nombre);
   if (!q) return [];
   const tq = tipoDe(nombre); // tipo pedido en la consulta (si el nombre lo trae); null = no filtra por tipo
