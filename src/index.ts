@@ -15,6 +15,7 @@ import { metaVerify, verifyMetaSignature, metaWebhook } from './routes/meta';
 import { dashboardPage, metricsSummary } from './routes/dashboard';
 import { callsPage, callsData } from './routes/calls';
 import { initDb, dbRecentAudit, dbEnabled, startRetentionSweep } from './store/db';
+import { iniciarBarridoSeguimientos } from './ai/seguimiento';
 import { snapshot } from './obs/metrics';
 import { kvKind } from './store/kv';
 import { requireDashboardToken, requireAdminToken, requireAllowedOrigin } from './routes/guard';
@@ -190,6 +191,9 @@ initDb()
     startCampaignScheduler(); // no-op si no hay programas activos (CAMPAIGN_<code>_ACTIVO=true)
   })
   .catch((e) => log.error('initDb error', { err: String(e) }));
+
+// Seguimiento automático (WhatsApp) — solo Redis, independiente de Postgres.
+iniciarBarridoSeguimientos();
 
 app.listen(config.port, () =>
   log.info('PoC escuchando', { port: config.port, baseUrl: config.baseUrl || '(define BASE_URL)' }),

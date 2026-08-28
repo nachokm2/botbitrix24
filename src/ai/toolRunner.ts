@@ -6,6 +6,7 @@ import { getDealAsesores } from '../crm/directory';
 import { generarBriefing } from './briefing';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { markHumanTakeover, getSession, saveSession } from '../session';
+import { cancelarSeguimiento } from './seguimiento';
 import { callBitrix } from '../bitrix/client';
 import { once } from '../store/kv';
 import { log } from '../log';
@@ -88,6 +89,7 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
           await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: ctx.chatId }, ctx.auth);
         }
         await markHumanTakeover(ctx.conversationId); // tras escalar, el bot deja de responder en esa sesión
+        void cancelarSeguimiento(ctx.conversationId); // ya hay un asesor a cargo: no le manda seguimiento
 
         // Genera (una vez) un resumen del lead para el asesor y lo deja en el CRM.
         const entityBrief = ctx.crmEntity ?? null;

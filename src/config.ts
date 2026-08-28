@@ -162,6 +162,11 @@ export const config = {
   stageScoreMedio: process.env.BITRIX_STAGE_SCORE_MEDIO ?? '', // score 40-69
   // Auto-escalar a humano si el score alcanza este umbral (0 = desactivado).
   scoreEscalar: Number(process.env.SCORE_ESCALAR ?? 80),
+  // ── Seguimiento automático (WhatsApp): si el bot respondió y el cliente no volvió a escribir en
+  // N horas, se le manda UN mensaje de seguimiento generado por IA. 0 = desactivado. Se cancela solo
+  // si un humano toma la conversación (escalar_a_humano / operador). Requiere Redis (getRedisClient).
+  seguimientoHoras: Number(process.env.SEGUIMIENTO_HORAS ?? 3),
+  seguimientoIntervaloMin: Number(process.env.SEGUIMIENTO_INTERVALO_MIN ?? 10),
   // Auto-LLAMAR por voz (Vapi) si el score alcanza este umbral (0 = desactivado). Ej: 50.
   scoreLlamar: Number(process.env.SCORE_LLAMAR ?? 0),
   // Sincronización de llamadas a Postgres (para KPIs exactos del período):

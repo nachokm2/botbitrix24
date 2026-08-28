@@ -13,11 +13,13 @@ import { inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { resolveAllEntities, loadPriorContext, logConversationTurn } from '../crm/chat';
 import { primaryEntity } from '../crm/entities';
+import { esEmpleadoBitrix } from '../crm/directory';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
 import { WHATSAPP_PROFILE } from '../core/channel';
 import { extractIncomingMedia } from '../media/incoming';
 import { transcribeAudio } from '../ai/transcribe';
+import { programarSeguimiento, cancelarSeguimiento } from '../ai/seguimiento';
 import { getRequestContext, runWithRequestContext } from '../obs/requestContext';
 
 // Backpressure: el semáforo acota los turnos concurrentes POR INSTANCIA (decisión deliberada: la
@@ -81,7 +83,20 @@ async function handle(req: Request) {
   const sess = await getSession(dialogId);
   let sessChanged = false;
   if (!sess.clientId && fromUser) {
-    sess.clientId = fromUser; // primer mensaje = cliente
+    // Antes de fijar el primer remitente como "el cliente", verifica que NO sea un EMPLEADO real del
+    // portal. En deals reactivados el primer evento del chat a veces lo dispara el propio asesor (no
+    // el cliente) — si se fijara clientId a su ID, el mensaje real del cliente que llega después
+    // quedaría mal clasificado como "un operador escribió" y el bot se callaría para siempre en esa
+    // conversación (bug confirmado en producción: deal #3490143, Ruben Castrillon).
+    if (await esEmpleadoBitrix(Number(fromUser), auth)) {
+      inc('operator_msg');
+      void audit({ type: 'operator_msg', dialogId, detail: { fromUser, motivo: 'primer_mensaje_de_empleado' } });
+      return log.info('botMessage: primer mensaje del chat es de un empleado (no del cliente); se ignora sin fijar clientId', {
+        dialogId,
+        fromUser,
+      });
+    }
+    sess.clientId = fromUser; // primer mensaje (ya verificado que no es empleado) = cliente
     sessChanged = true;
   }
   if (sess.clientId && fromUser && fromUser !== sess.clientId) {
@@ -89,6 +104,7 @@ async function handle(req: Request) {
     await saveSession(dialogId, sess);
     inc('operator_msg');
     void audit({ type: 'operator_msg', dialogId, detail: { fromUser } });
+    void cancelarSeguimiento(dialogId); // un humano tomó la conversación: el bot no le manda seguimiento
     return log.info('botMessage: mensaje de operador/otro usuario; bot en silencio', {
       fromUser,
       clientId: sess.clientId,
@@ -173,6 +189,7 @@ async function handle(req: Request) {
   await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: dialogId, MESSAGE: reply }, auth);
   inc('reply');
   log.info('REPLY enviado', { dialogId, botId });
+  void programarSeguimiento(dialogId); // si el cliente no vuelve a escribir, se le manda un seguimiento (ver ai/seguimiento.ts)
 
   // Auditoría del turno (compliance) — independiente del CRM.
   await audit({

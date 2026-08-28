@@ -79,6 +79,28 @@ export async function getUsuarios(ids: number[], auth: Auth): Promise<Responsabl
   return out;
 }
 
+/**
+ * ¿Este ID de usuario es un EMPLEADO real del portal (asesor/operador)? `user.get` solo devuelve
+ * NAME/LAST_NAME/EMAIL para cuentas de verdad; los participantes externos de Open Lines (clientes
+ * por WhatsApp/IG/etc.) tienen un ID numérico pero NO existen como usuario del portal. Fail-open
+ * (false) ante cualquier error: mejor tratar como cliente por error que silenciar al bot con un
+ * cliente real (ver botEvents.ts: detección del primer mensaje de un chat reactivado).
+ */
+export async function esEmpleadoBitrix(id: number, auth: Auth): Promise<boolean> {
+  if (!Number.isFinite(id) || id <= 0) return false;
+  try {
+    const raw = await callCrm<BitrixUser | BitrixUser[] | { result?: BitrixUser[] }>('user.get', { ID: id }, auth);
+    let u: BitrixUser | undefined;
+    if (Array.isArray(raw)) u = raw[0];
+    else if (raw && 'result' in raw && Array.isArray(raw.result)) u = raw.result[0];
+    else u = raw as BitrixUser;
+    return !!(u && (u.NAME || u.LAST_NAME || u.EMAIL));
+  } catch (e) {
+    log.warn('esEmpleadoBitrix: user.get falló (se asume que NO es empleado)', { id, err: String(e) });
+    return false;
+  }
+}
+
 /** Responsable + observadores de un deal, ya con nombre/email resueltos. */
 export async function getDealAsesores(
   dealId: number,

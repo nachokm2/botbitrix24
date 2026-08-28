@@ -15,7 +15,7 @@ const BRIEFING_SYSTEM = `Preparas un RESUMEN BREVE para un asesor comercial de p
 - Próximo paso sugerido para el asesor.
 Máximo ~120 palabras. NO inventes datos que no estén en la conversación.`;
 
-function transcript(messages: any[]): string {
+export function transcript(messages: any[]): string {
   return messages
     .map((m) => {
       const c = m.content;
