@@ -7,6 +7,11 @@ import type { Request, Response } from 'express';
 process.env.REDIS_URL = '';
 process.env.DATABASE_URL = '';
 process.env.NODE_ENV = 'test';
+// iniciarLlamadaSaliente valida esta config ANTES de llamar a fetch (mockeado más abajo) — sin esto,
+// el test de solicitar_llamada corta antes con "Faltan VAPI_API_KEY/..." en un entorno sin .env (CI).
+process.env.VAPI_API_KEY = 'test-vapi-key';
+process.env.VAPI_ASSISTANT_ID = 'test-assistant-id';
+process.env.VAPI_PHONE_NUMBER_ID = 'test-phone-number-id';
 
 let impl: (args: any) => Promise<any> = async () => ({ content: [{ type: 'text', text: '' }], usage: {} });
 
