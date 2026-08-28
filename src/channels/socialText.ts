@@ -18,6 +18,7 @@ import { primaryEntity } from '../crm/entities';
 import { generarBriefing } from '../ai/briefing';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { getJson, setJson, once } from '../store/kv';
+import { audit } from '../obs/audit';
 import { log } from '../log';
 import type { Auth } from '../store';
 
@@ -210,5 +211,16 @@ export async function socialTextTurn(
     crmEntity: entity,
     profile,
   };
-  return runAgentTurn(ctx, message, priorContext, socialTextExecutor(channel, conversationId, auth, session, profile));
+  const reply = await runAgentTurn(ctx, message, priorContext, socialTextExecutor(channel, conversationId, auth, session, profile));
+  // Auditoría del turno (compliance + panel de métricas) — antes solo WhatsApp la registraba, así
+  // que "Mensajes" en el panel no contaba nada de Web Chat/Instagram/Messenger (bug real: 8 de 12
+  // conversaciones del día quedaban fuera del conteo).
+  const entityDespues = session.entities ? primaryEntity(session.entities) : null;
+  void audit({
+    type: 'turn',
+    dialogId: conversationId,
+    crmEntity: entityDespues ? `${entityDespues.type}#${entityDespues.id}` : undefined,
+    detail: { message, reply },
+  });
+  return reply;
 }

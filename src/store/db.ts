@@ -385,7 +385,11 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
       q(`SELECT type, count(*)::int c FROM audit_log WHERE true ${W} GROUP BY type`),
       q(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE dialog_id IS NOT NULL ${W}`),
       q(`SELECT detail->>'name' name, count(*)::int c FROM audit_log WHERE type='tool_call' ${W} GROUP BY 1`),
-      q(`SELECT count(*)::int c FROM audit_log WHERE type='tool_call' AND detail->>'name'='registrar_interes_crm' AND detail->>'ok'='true' ${W}`),
+      // DISTINCT dialog_id: registrar_interes_crm se llama varias veces por conversación (una por
+      // cada dato nuevo — nombre, email, teléfono, programa), así que contar filas infla el número
+      // muy por encima de los leads/negociaciones reales tocados (bug real: 12 "leads" con solo 5-6
+      // conversaciones detrás). Mismo criterio que ya usaba capturaConvs más abajo.
+      q(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE type='tool_call' AND detail->>'name'='registrar_interes_crm' AND detail->>'ok'='true' ${W}`),
       q(`SELECT round(avg((detail->>'score')::numeric))::int avg, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'score' IS NOT NULL ${W}`),
       q(`SELECT detail->>'intencion' k, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'intencion' IS NOT NULL ${W} GROUP BY 1`),
       q(`SELECT detail->>'sentimiento' k, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'sentimiento' IS NOT NULL ${W} GROUP BY 1`),
