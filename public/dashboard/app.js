@@ -4,10 +4,13 @@ var LBL = {
   consultar_programas:'Consultas de programas', detalle_programa:'Detalle de programa',
   registrar_interes_crm:'Registro de datos (CRM)', escalar_a_humano:'Escalar a humano'
 };
-var esc = function(s){ return String(s==null?'':s).replace(/[&<>]/g, function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); };
+var esc = function(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); };
 var num = function(n){ return (n==null?0:n).toLocaleString('es-CL'); };
+// Icono "?" con tooltip nativo (title): ayuda a quien lee el panel a entender qué mide cada número
+// sin tener que preguntar. Los títulos de sección (h2) llevan el suyo directo en index.html.
+function hint(desc){ return desc ? '<i class="hint" title="'+esc(desc)+'">?</i>' : ''; }
 
-function kpi(n,l){ return '<div class="card kpi"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
+function kpi(n,l,desc){ return '<div class="card kpi"><div class="n">'+n+'</div><div class="l">'+esc(l)+hint(desc)+'</div></div>'; }
 function fmtSeg(s){ if(s==null) return '—'; s=Math.round(s); if(s<60) return s+' s'; var m=Math.floor(s/60), r=s%60; return m+' min '+r+' s'; }
 function fmtMs(ms){ if(ms==null) return '—'; if(ms<1000) return ms+' ms'; return (ms/1000).toFixed(1)+' s'; }
 function barRow(lab,v,max,color){ var w=max>0?Math.round(v/max*100):0; return '<div class="bar"><div class="lab">'+esc(lab)+'</div><div class="track"><div class="fill" style="width:'+w+'%'+(color?';background:'+color:'')+'"></div></div><div class="v">'+num(v)+'</div></div>'; }
@@ -29,10 +32,15 @@ function render(d){
   var operador = agg? agg.operadorMsgs : pick(c.operator_msg);
 
   document.getElementById('kpis').innerHTML =
-    kpi(num(conversaciones),'Conversaciones') + kpi(num(mensajes),'Mensajes') +
-    kpi(num(leads),'Leads capturados') + kpi(num(escal),'Escalamientos a asesor') +
-    kpi(num(consultas),'Consultas de programas') + kpi(num(etapas),'Etapas de deal movidas') +
-    kpi(scoreAvg,'Score promedio') + kpi(num(operador),'Intervención humana') + kpi(num(errores),'Errores');
+    kpi(num(conversaciones),'Conversaciones','Diálogos distintos que el bot atendió en el período, en cualquier canal (WhatsApp, Web Chat, Instagram, Messenger).') +
+    kpi(num(mensajes),'Mensajes','Turnos de conversación respondidos por el bot (una respuesta del bot = un mensaje).') +
+    kpi(num(leads),'Leads capturados','Conversaciones donde se registró al menos un dato de contacto (nombre, correo o teléfono) en el CRM.') +
+    kpi(num(escal),'Escalamientos a asesor','Veces que la conversación se derivó a un asesor humano: porque el cliente lo pidió, o automáticamente por score alto.') +
+    kpi(num(consultas),'Consultas de programas','Veces que se usó la búsqueda de catálogo (consultar_programas) para encontrar o filtrar programas.') +
+    kpi(num(etapas),'Etapas de deal movidas','Veces que el bot movió la etapa de un Deal en el CRM según el score del lead.') +
+    kpi(scoreAvg,'Score promedio','Promedio de la nota 0-100 que un modelo de IA le asigna a cada conversación evaluada, estimando qué tan probable es que ese lead se matricule (interés claro, datos entregados, urgencia, tono). Esta nota también dispara mover de etapa, auto-llamar o auto-escalar.') +
+    kpi(num(operador),'Intervención humana','Veces que un asesor/operador real escribió directamente en un chat de WhatsApp (no el bot) — se verifica contra Bitrix que sea un empleado real, no el cliente. Solo aplica a WhatsApp.') +
+    kpi(num(errores),'Errores','Fallas técnicas registradas (ej. al guardar en el CRM o al auditar un evento).');
 
   // Por embudo
   var emb=(agg&&agg.porEmbudo)||[]; var labels=d.funnelLabels||{}; var embEl=document.getElementById('embudo');
@@ -52,14 +60,16 @@ function render(d){
   var escRate = conversaciones>0? Math.round(escConv/conversaciones*100) : 0;
   var tpc = conversaciones>0? (mensajes/conversaciones).toFixed(1) : '0';
   document.getElementById('convkpis').innerHTML =
-    kpi(captRate+'%','Tasa de captura de datos') + kpi(escRate+'%','Tasa de escalamiento') + kpi(tpc,'Mensajes por conversación');
+    kpi(captRate+'%','Tasa de captura de datos','% de conversaciones donde se logró registrar al menos un dato de contacto.') +
+    kpi(escRate+'%','Tasa de escalamiento','% de conversaciones que terminaron derivadas a un asesor humano.') +
+    kpi(tpc,'Mensajes por conversación','Promedio de respuestas del bot por conversación (más alto = conversaciones más largas).');
   document.getElementById('scorebuckets').innerHTML = dist(agg?agg.scoreBuckets:{}, {alto:'#12b76a',medio:'#f79009',bajo:'#f04438'});
 
   // Tiempos (respuesta/duración) por WhatsApp y por llamadas
   document.getElementById('tiempos').innerHTML =
-    kpi(agg?fmtMs(agg.respuestaWhatsappMs):'—','Tiempo de respuesta · WhatsApp') +
-    kpi(agg?fmtSeg(agg.duracionConvWhatsappSeg):'—','Duración de conversación · WhatsApp') +
-    kpi(agg?fmtSeg(agg.duracionLlamadaSeg):'—','Duración de llamada · Voz');
+    kpi(agg?fmtMs(agg.respuestaWhatsappMs):'—','Tiempo de respuesta · WhatsApp','Cuánto demora el bot en responder desde que llega el mensaje del cliente por WhatsApp.') +
+    kpi(agg?fmtSeg(agg.duracionConvWhatsappSeg):'—','Duración de conversación · WhatsApp','Tiempo entre el primer y el último mensaje de la conversación.') +
+    kpi(agg?fmtSeg(agg.duracionLlamadaSeg):'—','Duración de llamada · Voz','Duración promedio de las llamadas telefónicas que hace el agente de voz (IA).');
 
   // Marcha blanca por programa (tabla: 1 fila por programa piloto)
   var mb = d.marchaBlanca || [];

@@ -21,41 +21,41 @@
   <div class="grid" id="kpis"></div>
 
   <div class="sec row">
-    <div class="card"><h2 style="margin-top:0">Por embudo</h2><div id="embudo"></div></div>
-    <div class="card"><h2 style="margin-top:0">Por asesor responsable</h2><div id="asesores"></div></div>
+    <div class="card"><h2 style="margin-top:0">Por embudo<i class="hint" title="Evaluaciones de score agrupadas por embudo (Diplomados/Maestrías) del Deal — solo conversaciones ya vinculadas a un Deal.">?</i></h2><div id="embudo"></div></div>
+    <div class="card"><h2 style="margin-top:0">Por asesor responsable<i class="hint" title="Conversaciones evaluadas, agrupadas por el asesor asignado (responsable) del Deal en Bitrix.">?</i></h2><div id="asesores"></div></div>
   </div>
 
-  <div class="sec"><h2>Conversión del bot</h2><div class="card">
+  <div class="sec"><h2>Conversión del bot<i class="hint" title="Qué tan efectivo es el bot logrando su objetivo: capturar datos de contacto y/o derivar a un asesor.">?</i></h2><div class="card">
     <div class="grid" id="convkpis" style="margin-bottom:10px"></div>
     <div class="sub" style="margin-bottom:6px">Score por conversación</div>
     <div id="scorebuckets"></div>
   </div></div>
 
-  <div class="sec"><h2>Tiempos</h2><div class="card"><div class="grid" id="tiempos"></div></div></div>
+  <div class="sec"><h2>Tiempos<i class="hint" title="Tiempo de respuesta y duración de las conversaciones/llamadas, por canal.">?</i></h2><div class="card"><div class="grid" id="tiempos"></div></div></div>
 
-  <div class="sec"><h2>Marcha blanca por programa</h2><div class="card" style="overflow-x:auto"><table id="marchablanca"></table></div></div>
-
-  <div class="sec row">
-    <div class="card"><h2 style="margin-top:0">Programas más consultados</h2><div id="topprog"></div></div>
-    <div class="card"><h2 style="margin-top:0">Mayor interés registrado</h2><div id="topinteres"></div></div>
-  </div>
-  <div class="sec row">
-    <div class="card"><h2 style="margin-top:0">Consultas por facultad</h2><div id="porfacultad"></div></div>
-    <div class="card"><h2 style="margin-top:0">Consultas por tipo</h2><div id="portipo"></div></div>
-  </div>
-  <div class="sec"><h2>Gaps del catálogo (programas sin detalle)</h2><div class="card"><div id="gaps"></div></div></div>
-  <div class="sec"><h2>Horario de contacto (mensajes por hora del día)</h2><div class="card"><div class="days" id="horas"></div></div></div>
-
-  <div class="sec"><h2>Mensajes por día (últimos 7)</h2><div class="card"><div class="days" id="days"></div></div></div>
+  <div class="sec"><h2>Marcha blanca por programa<i class="hint" title="Scorecard del piloto: combina datos en vivo de Bitrix (leads/deals reales) con las métricas nativas del bot, para cada programa piloto.">?</i></h2><div class="card" style="overflow-x:auto"><table id="marchablanca"></table></div></div>
 
   <div class="sec row">
-    <div class="card"><h2 style="margin-top:0">Intención de los leads</h2><div id="intencion"></div></div>
-    <div class="card"><h2 style="margin-top:0">Sentimiento</h2><div id="sentimiento"></div></div>
+    <div class="card"><h2 style="margin-top:0">Programas más consultados<i class="hint" title="Programas más buscados por los usuarios (uso de consultar_programas/detalle_programa).">?</i></h2><div id="topprog"></div></div>
+    <div class="card"><h2 style="margin-top:0">Mayor interés registrado<i class="hint" title="Programa de interés más registrado al capturar datos de contacto (registrar_interes_crm).">?</i></h2><div id="topinteres"></div></div>
+  </div>
+  <div class="sec row">
+    <div class="card"><h2 style="margin-top:0">Consultas por facultad<i class="hint" title="En qué facultad buscan más los usuarios.">?</i></h2><div id="porfacultad"></div></div>
+    <div class="card"><h2 style="margin-top:0">Consultas por tipo<i class="hint" title="Tipo de programa más buscado: Magíster, Diplomado o Especialidad.">?</i></h2><div id="portipo"></div></div>
+  </div>
+  <div class="sec"><h2>Gaps del catálogo (programas sin detalle)<i class="hint" title="Programas que alguien pidió en detalle pero que todavía no tienen ficha cargada (detalle_programa sin resultado) — candidatos a completar.">?</i></h2><div class="card"><div id="gaps"></div></div></div>
+  <div class="sec"><h2>Horario de contacto (mensajes por hora del día)<i class="hint" title="A qué hora del día llegan más mensajes — sirve para dimensionar cobertura de asesores en horario punta.">?</i></h2><div class="card"><div class="days" id="horas"></div></div></div>
+
+  <div class="sec"><h2>Mensajes por día (últimos 7)<i class="hint" title="Volumen de mensajes por día, últimos 7 días, en todos los canales.">?</i></h2><div class="card"><div class="days" id="days"></div></div></div>
+
+  <div class="sec row">
+    <div class="card"><h2 style="margin-top:0">Intención de los leads<i class="hint" title="Nivel de intención de compra (alta/media/baja) que el modelo de IA detectó en cada evaluación de score.">?</i></h2><div id="intencion"></div></div>
+    <div class="card"><h2 style="margin-top:0">Sentimiento<i class="hint" title="Tono general (positivo/neutral/negativo) detectado en cada evaluación de score.">?</i></h2><div id="sentimiento"></div></div>
   </div>
 
-  <div class="sec"><h2>Uso de herramientas</h2><div class="card"><div id="tools"></div></div></div>
+  <div class="sec"><h2>Uso de herramientas<i class="hint" title="Cuántas veces se usó cada herramienta del bot (catálogo, condiciones comerciales, registrar interés, escalar a humano, etc.).">?</i></h2><div class="card"><div id="tools"></div></div></div>
 
-  <div class="sec"><h2>Actividad reciente</h2><div class="card" style="overflow-x:auto">
+  <div class="sec"><h2>Actividad reciente<i class="hint" title="Últimos eventos registrados (mensajes, escalamientos, llamadas, etc.) — para revisar rápido qué está pasando ahora.">?</i></h2><div class="card" style="overflow-x:auto">
     <table><thead><tr><th>Fecha</th><th>Evento</th><th>Diálogo</th><th>CRM</th></tr></thead><tbody id="recent"></tbody></table>
   </div></div>
 
