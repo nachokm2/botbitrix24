@@ -11,7 +11,8 @@ import {
   type LeadFuente,
 } from '../crm/crmWrite';
 import { buscarCrmPorTelefono } from '../crm/voiceActions';
-import { guardarVinculoChat } from '../crm/chat';
+import { guardarVinculoChat, loadPriorContext } from '../crm/chat';
+import { getHistory } from '../ai/memory';
 import type { CrmEntities } from '../crm/entities';
 import { primaryEntity } from '../crm/entities';
 import { generarBriefing } from '../ai/briefing';
@@ -196,6 +197,11 @@ export async function socialTextTurn(
 ): Promise<string> {
   const session = await getLeadSession(channel, conversationId);
   const entity = session.entities ? primaryEntity(session.entities) : null;
+  // Solo en el primer turno: si la sesión ya venía con una negociación real (encontrada por
+  // teléfono — ver resolverEntidad más arriba), carga el programa/notas ya registrados en el CRM
+  // para que el bot no vuelva a preguntar "¿qué programa te interesa?" de cero.
+  const esNueva = (await getHistory(conversationId)).length === 0;
+  const priorContext = esNueva && entity ? await loadPriorContext(entity, auth) : '';
   const ctx: AgentContext = {
     auth,
     conversationId,
@@ -204,5 +210,5 @@ export async function socialTextTurn(
     crmEntity: entity,
     profile,
   };
-  return runAgentTurn(ctx, message, '', socialTextExecutor(channel, conversationId, auth, session, profile));
+  return runAgentTurn(ctx, message, priorContext, socialTextExecutor(channel, conversationId, auth, session, profile));
 }

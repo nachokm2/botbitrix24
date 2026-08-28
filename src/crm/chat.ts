@@ -1,4 +1,5 @@
 import { callBitrix, callCrm } from '../bitrix/client';
+import { config } from '../config';
 import { log } from '../log';
 import type { Auth } from '../store';
 import { getJson, setJson, kvDel } from '../store/kv';
@@ -82,6 +83,29 @@ export async function logConversationTurn(entity: CrmEntity, userText: string, b
 
 /** Carga los últimos registros de conversación IA del CRM como "memoria" entre sesiones. */
 export async function loadPriorContext(entity: CrmEntity, auth: Auth): Promise<string> {
+  const partes: string[] = [];
+
+  // Programa de interés YA registrado en el Deal (p. ej. un deal creado por una campaña de marketing
+  // o un formulario web, ANTES de que el cliente escriba nada por este chat) — sin esto, el bot le
+  // vuelve a preguntar "¿qué programa te interesa?" aunque el CRM ya lo traiga (caso real: deal
+  // #3491489, Diego Carvajal, llegó desde una campaña con "Diplomado en Inteligencia Artificial" ya
+  // en el UF, y el bot igual preguntó desde cero).
+  if (entity.type === 'deal' && config.ufPrograma) {
+    try {
+      const d: any = await callCrm('crm.deal.get', { id: entity.id, select: [config.ufPrograma] }, auth);
+      const programa = d?.[config.ufPrograma];
+      if (programa) {
+        partes.push(
+          `Programa de interés YA REGISTRADO en el CRM para este cliente: "${programa}". Puedes usarlo directamente ` +
+            `(saludarlo mencionándolo, cotizar, dar detalles) sin volver a preguntarle qué programa le interesa — ` +
+            `solo pregúntalo de nuevo si el cliente menciona explícitamente uno distinto.`,
+        );
+      }
+    } catch (e) {
+      log.warn('loadPriorContext: no se pudo leer el programa del deal', { err: String(e), dealId: entity.id });
+    }
+  }
+
   try {
     const r = await callCrm<BitrixTimelineCommentResponse>(
       'crm.timeline.comment.list',
@@ -93,14 +117,16 @@ export async function loadPriorContext(entity: CrmEntity, auth: Auth): Promise<s
       auth,
     );
     const arr: BitrixTimelineComment[] = Array.isArray(r) ? r : (r?.comments ?? []);
-    return arr
+    const notas = arr
       .filter((c) => typeof c.COMMENT === 'string' && c.COMMENT.includes('Conversación IA'))
       .slice(0, 6)
       .reverse()
       .map((c) => c.COMMENT)
       .join('\n---\n');
+    if (notas) partes.push(notas);
   } catch (e) {
     log.warn('loadPriorContext falló', { err: String(e) });
-    return '';
   }
+
+  return partes.join('\n---\n');
 }
