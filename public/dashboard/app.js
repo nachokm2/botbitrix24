@@ -146,6 +146,12 @@ function render(d){
     return '<tr><td>'+esc(ts)+'</td><td><span class="tag">'+esc(r.type)+'</span></td><td>'+esc(r.dialog_id||'')+'</td><td>'+esc(r.crm_entity||'')+'</td></tr>';
   }).join('') : '<tr><td colspan="4" class="muted">Sin actividad'+(d.db!=='postgres'?' (Postgres apagado: la actividad histórica requiere DATABASE_URL)':'')+'.</td></tr>';
 
+  // Encabezado visible solo al imprimir/exportar a PDF (los botones de rango se ocultan ahí — ver
+  // .print-only y @media print en styles.css) — deja constancia de qué rango y cuándo se generó.
+  var RANGE_LBL={today:'Hoy','7d':'7 días','30d':'30 días',all:'Todo'};
+  var rangeLbl=RANGE_LBL[d.range]||d.range;
+  document.getElementById('printMeta').textContent = 'Rango: '+rangeLbl+' · Generado: '+new Date().toLocaleString('es-CL');
+
   document.getElementById('status').innerHTML = '<span class="pill">KV: '+esc(d.kv)+' · DB: '+esc(d.db)+'</span>';
   var tk=d.tokens||{}; var costStr=(tk.costUsd!=null)?(' · costo estim. US$'+tk.costUsd):'';
   document.getElementById('foot').textContent = 'Latencia LLM: '+num(live.llm.avgMs)+' ms (p95 '+num(live.llm.p95Ms)+' ms) · tokens '+num(tk.in)+' in / '+num(tk.out)+' out'+costStr+' · activo desde '+ new Date(d.startedAt).toLocaleString('es-CL') + ' · actualiza cada 15 s';
@@ -156,8 +162,10 @@ var currentRange='7d';
 function load(){ fetch('/metrics/summary?range='+currentRange+(K?'&k='+encodeURIComponent(K):'')).then(function(r){return r.json();}).then(render).catch(function(e){ document.getElementById('status').innerHTML='<span class="pill err">error al cargar</span>'; }); }
 document.getElementById('ranges').addEventListener('click', function(e){
   var b=e.target.closest('button'); if(!b) return;
-  currentRange=b.getAttribute('data-r');
-  [].forEach.call(this.querySelectorAll('button'), function(x){ x.classList.toggle('on', x===b); });
+  var r=b.getAttribute('data-r'); if(!r) return; // ej. #pdfBtn, que vive en la misma fila pero no es un rango
+  currentRange=r;
+  [].forEach.call(this.querySelectorAll('button[data-r]'), function(x){ x.classList.toggle('on', x===b); });
   load();
 });
+document.getElementById('pdfBtn').addEventListener('click', function(){ window.print(); });
 load(); setInterval(load, 15000);

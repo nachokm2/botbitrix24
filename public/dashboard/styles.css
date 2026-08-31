@@ -26,3 +26,18 @@ footer{margin-top:18px;color:var(--muted);font-size:11px;text-align:center}
 .hint{cursor:help;color:var(--muted);font-size:10px;line-height:14px;border:1px solid var(--line);border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;margin-left:5px;flex-shrink:0;font-style:normal;user-select:none}
 .kpi .l{display:flex;align-items:center;flex-wrap:wrap}
 .sec h2{display:flex;align-items:center}
+
+.pdf-btn{margin-left:auto;background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+.print-only{display:none}
+
+/* Impresión / "Guardar como PDF" del navegador (botón #pdfBtn → window.print()): oculta controles
+   que no aportan en un PDF, evita cortar tarjetas a la mitad entre páginas, y fuerza que se impriman
+   los colores (fondos/barras), que los navegadores omiten por defecto al imprimir. */
+@media print{
+  body{background:#fff}
+  .wrap{max-width:100%;padding:8px}
+  #ranges,#status{display:none !important}
+  .print-only{display:block;color:var(--muted);font-size:11px;margin:-6px 0 14px}
+  .card,.sec{break-inside:avoid;page-break-inside:avoid}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
