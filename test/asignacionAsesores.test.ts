@@ -71,6 +71,18 @@ test('asignarAsesorPorTurno: no hace nada si el programa no es uno de los 2 pilo
   assert.ok(!calls.find((c) => c.method === 'tasks.task.add'), 'no crea tarea');
 });
 
+test('asignarAsesorPorTurno: motivo="silencio" usa el texto NO urgente de la tarea', async () => {
+  calls.length = 0;
+  dealProgramas = { 205: 'Diplomado en Intervención Terapéutica Familiar' };
+
+  await asignarAsesorPorTurno({ deal: 205 }, auth, 'silencio');
+
+  const tarea = calls.find((c) => c.method === 'tasks.task.add');
+  assert.ok(tarea, 'igual crea la tarea');
+  assert.match(tarea!.params.fields.TITLE, /Contacto temprano/i, 'título distinto al de un escalado explícito');
+  assert.match(tarea!.params.fields.DESCRIPTION, /no es urgente/i, 'la descripción aclara que no es urgente');
+});
+
 test('asignarAsesorPorTurno: no reasigna ni duplica la tarea si se llama dos veces para el mismo deal', async () => {
   calls.length = 0;
   dealProgramas = { 204: 'Diplomado en Intervención Terapéutica Familiar' };

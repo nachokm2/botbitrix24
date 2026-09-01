@@ -189,7 +189,7 @@ async function handle(req: Request) {
   await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: dialogId, MESSAGE: reply }, auth);
   inc('reply');
   log.info('REPLY enviado', { dialogId, botId });
-  void programarSeguimiento(dialogId); // si el cliente no vuelve a escribir, se le manda un seguimiento (ver ai/seguimiento.ts)
+  void programarSeguimiento(dialogId, crmEntities); // si el cliente no vuelve a escribir: recordatorio y, si sigue en silencio, transferencia al asesor (ver ai/seguimiento.ts)
 
   // Auditoría del turno (compliance) — independiente del CRM.
   await audit({

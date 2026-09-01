@@ -185,6 +185,15 @@ export const config = {
   // si un humano toma la conversación (escalar_a_humano / operador). Requiere Redis (getRedisClient).
   seguimientoHoras: Number(process.env.SEGUIMIENTO_HORAS ?? 3),
   seguimientoIntervaloMin: Number(process.env.SEGUIMIENTO_INTERVALO_MIN ?? 10),
+  // Si tras el recordatorio el cliente SIGUE sin responder hasta esta cantidad de horas (desde la
+  // misma última respuesta del bot), se deriva el lead al asesor por turno (ver
+  // crm/asignacionAsesores.ts) — no urgente, solo para contacto temprano. 0 = desactivado.
+  seguimientoTransferenciaHoras: Number(process.env.SEGUIMIENTO_TRANSFERENCIA_HORAS ?? 4),
+  // Horario permitido para ENVIAR el seguimiento proactivo (hora local Chile, 0-23). Si el plazo
+  // cae fuera de esta ventana, se reprograma para el inicio de la ventana siguiente en vez de
+  // mandarlo de madrugada. No afecta las respuestas normales del bot a mensajes del cliente.
+  seguimientoHoraInicio: Number(process.env.SEGUIMIENTO_HORA_INICIO ?? 9),
+  seguimientoHoraFin: Number(process.env.SEGUIMIENTO_HORA_FIN ?? 21),
   // Auto-LLAMAR por voz (Vapi) si el score alcanza este umbral (0 = desactivado). Ej: 50.
   scoreLlamar: Number(process.env.SCORE_LLAMAR ?? 0),
   // Sincronización de llamadas a Postgres (para KPIs exactos del período):
