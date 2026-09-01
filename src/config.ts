@@ -141,6 +141,12 @@ export const config = {
   // regla de asignación nunca corre — el deal queda sin asesor asignado.
   asignacionStageDiplomado: process.env.BITRIX_ASIGNACION_STAGE_DIPLOMADO ?? 'C1:NEW',
   asignacionStageMagister: process.env.BITRIX_ASIGNACION_STAGE_MAGISTER ?? 'C3:NEW',
+  // Si un deal YA está en el embudo correcto pero NUNCA pasó por la etapa de Asignación (llegó ahí
+  // por otro camino — auto-CRM nativo de Bitrix, campaña de marketing — sin disparar la regla de
+  // asesor-por-oferta), se fuerza el movimiento UNA VEZ, pero solo si el deal fue creado hace menos
+  // de esta cantidad de horas — evita mover hacia atrás un deal viejo que un asesor ya viene
+  // trabajando de verdad (bug real: deal #3490881 quedó sin el asesor correcto por esto).
+  asignacionForzarVentanaHoras: Number(process.env.ASIGNACION_FORZAR_VENTANA_HORAS ?? 6),
   // IDs de las carpetas del Drive ("Brochures Bot/<tipo>") donde viven los PDF de cada tipo de programa.
   driveFolderMagister: process.env.BITRIX_DRIVE_FOLDER_MAGISTER ?? '',
   driveFolderDiplomado: process.env.BITRIX_DRIVE_FOLDER_DIPLOMADO ?? '',

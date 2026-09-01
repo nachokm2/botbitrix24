@@ -8,6 +8,7 @@ import { buscarBrochureDrive, detectarTipo, type BrochureEncontrado } from './dr
 import { agregarProgramaAcumulado, fusionarBrochures, renderCuerpoBrochureEmail } from './brochureEmail';
 import { getDealInfo, getUsuarios } from './directory';
 import { guardarVinculoChat, obtenerVinculoChat, borrarVinculoChat } from './chat';
+import { once } from '../store/kv';
 
 // Escrituras al CRM: creación/actualización de contacto/lead/deal, notas de timeline,
 // persistencia del scoring y lectura del teléfono del cliente.
@@ -227,13 +228,23 @@ function categoriaDeStage(stageId: string): number | null {
  * Si el deal quedó en el embudo EQUIVOCADO para su programa de interés (pasa cuando Bitrix vincula
  * su propio deal por su cuenta: siempre lo deja en un embudo/etapa fijos, sin importar el programa
  * real) lo mueve al embudo y etapa de "Asignación" que corresponden — eso dispara la regla de
- * asignación de asesor por oferta ya configurada en Bitrix24 (fuera de este código). Si el deal YA
- * está en el embudo correcto, no toca la etapa (no pisa el avance que haya hecho un asesor).
+ * asignación de asesor por oferta ya configurada en Bitrix24 (fuera de este código).
+ *
+ * Si el deal YA está en el embudo correcto no basta con no-tocar-nada: puede que haya llegado ahí
+ * por otro camino (ej. el mismo auto-CRM nativo de Bitrix, o una campaña de marketing) SIN pasar
+ * nunca por la etapa de Asignación — en ese caso la regla de asesor-por-oferta nunca corrió y el
+ * deal queda asignado al responsable por defecto (bug real detectado: deal #3490881, quedó en
+ * Rodrigo Palma en vez de Joaquín/Eduardo). Por eso, cuando el embudo ya es correcto pero la etapa
+ * no, se fuerza el movimiento a la etapa de Asignación UNA VEZ (lock en Redis) — pero SOLO si el
+ * deal es reciente (config.asignacionForzarVentanaHoras): un deal viejo en un embudo/etapa distintos
+ * a los de Asignación probablemente lo movió a propósito un asesor que ya lo viene trabajando, y no
+ * queremos devolverlo hacia atrás. Un deal recién creado, en cambio, casi seguro nunca fue tocado.
  */
 /** Solo LEE (no escribe) — devuelve los campos CATEGORY_ID/STAGE_ID a fusionar en el/los `fields`
  *  que el caller ya va a escribir con un único crm.deal.update (evita una llamada de escritura
  *  separada, y que quede "antes" del resto de campos en el registro de llamadas). Objeto vacío si
- *  no aplica o si el deal ya está en el embudo correcto (no pisa el avance que haya hecho un asesor). */
+ *  no aplica, si el deal ya está en el embudo/etapa correctos, si es un deal viejo, o si ya se
+ *  forzó una vez antes. */
 async function camposAsignacionSiCorresponde(dealId: number, programaInteres: string, auth: Auth): Promise<Record<string, unknown>> {
   const tipo = detectarTipo(programaInteres);
   const stageDestino =
@@ -242,8 +253,28 @@ async function camposAsignacionSiCorresponde(dealId: number, programaInteres: st
   const catDestino = categoriaDeStage(stageDestino);
   if (catDestino === null) return {};
   try {
-    const cur: any = await callCrm('crm.deal.get', { id: dealId, select: ['CATEGORY_ID'] }, auth);
-    if (Number(cur?.CATEGORY_ID) === catDestino) return {};
+    const cur: any = await callCrm('crm.deal.get', { id: dealId, select: ['CATEGORY_ID', 'STAGE_ID', 'DATE_CREATE'] }, auth);
+    if (Number(cur?.CATEGORY_ID) === catDestino) {
+      if (cur?.STAGE_ID === stageDestino) return {}; // ya está exactamente donde debe
+
+      // Mismo embudo pero NO en la etapa de Asignación: solo se fuerza si el deal es reciente.
+      const creadoMs = cur?.DATE_CREATE ? new Date(cur.DATE_CREATE).getTime() : NaN;
+      const horasDesdeCreacion = Number.isFinite(creadoMs) ? (Date.now() - creadoMs) / 3_600_000 : Infinity;
+      if (horasDesdeCreacion > config.asignacionForzarVentanaHoras) return {}; // deal viejo: no tocar
+
+      // Fuerza el movimiento SOLO la primera vez que vemos este deal — evita reintentar en cada
+      // turno y pisar el avance real de un asesor si se movió por su cuenta después de esta pasada.
+      const primeraVez = await once(`asignacion:forzado:deal#${dealId}`, 180 * 24 * 3600);
+      if (!primeraVez) return {};
+      log.info('camposAsignacionSiCorresponde: mismo embudo pero nunca pasó por Asignación; forzando una vez (deal reciente)', {
+        dealId,
+        tipo,
+        stageActual: cur?.STAGE_ID,
+        stageDestino,
+        horasDesdeCreacion: Math.round(horasDesdeCreacion * 10) / 10,
+      });
+      return { STAGE_ID: stageDestino };
+    }
     log.info('camposAsignacionSiCorresponde: moviendo deal al embudo/etapa de asignación', { dealId, tipo, stageDestino });
     return { CATEGORY_ID: catDestino, STAGE_ID: stageDestino };
   } catch (e) {

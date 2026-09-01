@@ -389,6 +389,43 @@ test('actualizarDatosCliente: no toca la etapa si el deal ya está en el embudo 
   assert.ok(!mover, 'no mueve nada: el embudo ya es el correcto');
 });
 
+test('actualizarDatosCliente: fuerza la etapa de Asignación una vez si el deal es reciente y nunca pasó por ahí (mismo embudo, otra etapa)', async () => {
+  calls.length = 0;
+  responder = (method) =>
+    method === 'crm.deal.get' ? { CATEGORY_ID: '3', STAGE_ID: 'C3:PREPARATION', DATE_CREATE: new Date().toISOString() } : {};
+
+  await actualizarDatosCliente({ deal: 60 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
+
+  const mover = calls.find((c) => c.method === 'crm.deal.update' && c.params.id === 60 && c.params.fields.STAGE_ID !== undefined);
+  assert.ok(mover, 'fuerza la etapa de Asignación aunque el embudo ya era correcto (deal reciente)');
+  assert.equal(mover!.params.fields.STAGE_ID, 'C3:NEW');
+  assert.equal(mover!.params.fields.CATEGORY_ID, undefined, 'no toca CATEGORY_ID: el embudo ya era correcto');
+});
+
+test('actualizarDatosCliente: NO fuerza dos veces el mismo deal (no pisa el avance real de un asesor después de la primera pasada)', async () => {
+  calls.length = 0;
+  responder = (method) =>
+    method === 'crm.deal.get' ? { CATEGORY_ID: '3', STAGE_ID: 'C3:PREPARATION', DATE_CREATE: new Date().toISOString() } : {};
+
+  await actualizarDatosCliente({ deal: 61 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
+  calls.length = 0; // limpia para verificar solo la SEGUNDA pasada
+  await actualizarDatosCliente({ deal: 61 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
+
+  const mover = calls.find((c) => c.method === 'crm.deal.update' && c.params.id === 61 && c.params.fields.STAGE_ID !== undefined);
+  assert.ok(!mover, 'la segunda vez no vuelve a mover la etapa');
+});
+
+test('actualizarDatosCliente: NO fuerza la etapa de un deal viejo (probablemente un asesor ya lo movió a propósito)', async () => {
+  calls.length = 0;
+  responder = (method) =>
+    method === 'crm.deal.get' ? { CATEGORY_ID: '3', STAGE_ID: 'C3:PREPARATION', DATE_CREATE: '2020-01-01T00:00:00+00:00' } : {};
+
+  await actualizarDatosCliente({ deal: 62 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
+
+  const mover = calls.find((c) => c.method === 'crm.deal.update' && c.params.id === 62 && c.params.fields.STAGE_ID !== undefined);
+  assert.ok(!mover, 'no toca un deal viejo, aunque nunca haya pasado por Asignación');
+});
+
 test('capturaDeDatosEnCurso: nombre+email guardados pero sin teléfono → captura a medias (true)', async () => {
   calls.length = 0;
   responder = (method) => {
