@@ -128,7 +128,7 @@ async function handle(req: Request) {
       files: params.FILES ?? params.files ?? null,
     });
   }
-  const media = await extractIncomingMedia(params, auth).catch((e) => {
+  const media = await extractIncomingMedia(params, auth, botId).catch((e) => {
     log.warn('media: extractIncomingMedia falló', { err: String(e) });
     return [] as Awaited<ReturnType<typeof extractIncomingMedia>>;
   });
@@ -161,6 +161,14 @@ async function handle(req: Request) {
       turnText = `(el cliente envió el archivo "${otros[0].name}" que no puedo abrir por este medio; pídele que te cuente por texto qué necesita)`;
     }
     log.info('media: turno enriquecido', { audios: media.filter((m) => m.kind === 'audio').length, imgs: imgs.length, otros: otros.length });
+  }
+  // El cliente mandó un adjunto (según el evento) pero NINGUNO se pudo bajar/procesar (ver logs de
+  // media: arriba) — antes esto dejaba el turno sin texto ni contenido y el bot ignoraba el mensaje
+  // en silencio (caso real: el cliente nunca recibía respuesta). Mejor avisarle que no se pudo abrir
+  // el adjunto en vez de callarse.
+  const habiaAdjunto = !!(params.FILES ?? params.files);
+  if (!turnText && !turnContent && habiaAdjunto && !media.length) {
+    turnText = '(el cliente envió un archivo que no se pudo procesar por este medio; pídele amablemente que cuente por texto qué necesita)';
   }
   if (!turnText && !turnContent) return log.info('botMessage: evento sin texto ni media procesable (ignorado)', { dialogId });
   const logText = turnText || '[imagen]';

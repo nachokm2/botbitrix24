@@ -99,12 +99,33 @@ async function fetchBinary(url: string, tag: string, id: number): Promise<Buffer
   }
 }
 
-/** Obtiene los bytes de un archivo de chat probando varias estrategias (el token del bot es
- *  participante del chat; el webhook admin NO, por eso disk.file.get vía webhook daba ACCESS_DENIED). */
-async function downloadChatFile(f: BxFile, params: any, auth: Auth): Promise<Buffer | null> {
+/** Obtiene los bytes de un archivo de chat probando varias estrategias. En producción se confirmó
+ *  que disk.file.get (ACCESS_DENIED), im.disk.file.get (ERROR_METHOD_NOT_FOUND) y urlDownload+auth
+ *  (devuelve el HTML de login, no el binario) fallan SIEMPRE para adjuntos de Open Lines/WhatsApp —
+ *  se dejan como respaldo por si algún archivo sí es accesible por esa vía, pero la que de verdad
+ *  funciona es imbot.v2.File.download (API "Chatbots 2.0"): pensada específicamente para que un BOT
+ *  baje un adjunto de un chat con sus propias credenciales (scope imbot, ya en uso por
+ *  imbot.message.add), sin necesitar ser "participante" a nivel de disco. */
+async function downloadChatFile(f: BxFile, params: any, auth: Auth, botId?: number): Promise<Buffer | null> {
   const chatId = Number(params?.CHAT_ID ?? params?.TO_CHAT_ID) || undefined;
 
-  // A) disk.file.get con el TOKEN DEL BOT (participante) → DOWNLOAD_URL firmada (REST).
+  // A) imbot.v2.File.download — la vía soportada para bots (ver comentario de la función).
+  if (botId) {
+    try {
+      const r = await callBitrix<{ downloadUrl?: string }>('imbot.v2.File.download', { botId, fileId: f.id }, auth);
+      if (r?.downloadUrl) {
+        const buf = await fetchBinary(r.downloadUrl, 'imbot.v2.File.download', f.id);
+        if (buf) return buf;
+      } else {
+        log.warn('media: imbot.v2.File.download sin downloadUrl', { id: f.id, keys: r ? Object.keys(r) : null });
+      }
+    } catch (e) {
+      log.warn('media: imbot.v2.File.download error', { id: f.id, err: String(e) });
+    }
+  }
+
+  // B) disk.file.get con el TOKEN DEL BOT → DOWNLOAD_URL firmada (REST). Respaldo: en la práctica dio
+  // ACCESS_DENIED para adjuntos de Open Lines (el bot no tiene acceso a nivel de disco a ese archivo).
   try {
     const env = await callBitrixEnvelope<any>('disk.file.get', { id: f.id }, auth);
     const url = env.result?.DOWNLOAD_URL;
@@ -118,7 +139,7 @@ async function downloadChatFile(f: BxFile, params: any, auth: Auth): Promise<Buf
     log.warn('media: disk.file.get(bot) error', { id: f.id, err: String(e) });
   }
 
-  // B) im.disk.file.get (archivo de chat, para participantes). Logueo la forma para diagnóstico.
+  // C) im.disk.file.get. Respaldo: en la práctica dio ERROR_METHOD_NOT_FOUND en este portal.
   try {
     const res: any = await callBitrix('im.disk.file.get', { chatId, id: f.id, fileId: f.id }, auth);
     log.info('media: im.disk.file.get respuesta', { id: f.id, shape: res && typeof res === 'object' ? Object.keys(res) : String(res).slice(0, 120) });
@@ -131,7 +152,8 @@ async function downloadChatFile(f: BxFile, params: any, auth: Auth): Promise<Buf
     log.warn('media: im.disk.file.get error', { id: f.id, err: String(e) });
   }
 
-  // C) urlDownload del evento + token OAuth (falla si la controladora ajax.php ignora OAuth → HTML).
+  // D) urlDownload del evento + token OAuth. Respaldo: en la práctica devuelve el HTML de login (esa
+  // URL apunta a una controladora pensada para sesión de navegador, no para un bearer token de REST).
   if (f.urlDownload) {
     const buf = await fetchBinary(authUrl(f.urlDownload, auth), 'urlDownload+auth', f.id);
     if (buf) return buf;
@@ -140,8 +162,10 @@ async function downloadChatFile(f: BxFile, params: any, auth: Auth): Promise<Buf
   return null;
 }
 
-/** Baja los adjuntos del evento y los devuelve en base64 (imágenes para visión, audios para STT). */
-export async function extractIncomingMedia(params: any, auth: Auth): Promise<IncomingMedia[]> {
+/** Baja los adjuntos del evento y los devuelve en base64 (imágenes para visión, audios para STT).
+ *  `botId` es necesario para imbot.v2.File.download (ver downloadChatFile) — sin él, esa vía se
+ *  salta y solo quedan los respaldos que en la práctica no funcionan para adjuntos de Open Lines. */
+export async function extractIncomingMedia(params: any, auth: Auth, botId?: number): Promise<IncomingMedia[]> {
   const files = collectFiles(params);
   if (!files.length) return [];
   log.info('media: adjuntos detectados', {
@@ -152,7 +176,7 @@ export async function extractIncomingMedia(params: any, auth: Auth): Promise<Inc
   const out: IncomingMedia[] = [];
   for (const f of files.slice(0, MAX_FILES)) {
     const kind = kindOf(f);
-    const buf = await downloadChatFile(f, params, auth);
+    const buf = await downloadChatFile(f, params, auth, botId);
     if (!buf) {
       log.warn('media: no se pudo bajar el adjunto por ninguna vía', { id: f.id, name: f.name });
       continue;
