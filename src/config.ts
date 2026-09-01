@@ -52,6 +52,11 @@ export type MarchaBlancaPrograma = {
   exclude?: string;
   asesorNorte?: string;
   asesorSur?: string;
+  /** ID de usuario Bitrix de cada asesor — para asignar directo (round-robin) y crear su tarea de
+   *  seguimiento al escalar (ver crm/asignacionAsesores.ts). Sin ambos IDs, ese mecanismo no aplica
+   *  para este programa (se sigue mostrando el nombre en el panel, solo no se auto-asigna). */
+  asesorNorteId?: number;
+  asesorSurId?: number;
   /** CATEGORY_ID (embudo) del Deal en Bitrix — acota la búsqueda ANTES del filtro de texto en el UF
    *  de programa (evita OPERATION_TIME_LIMIT: sin esto, crm.deal.list escanea TODO el portal). */
   categoryId: number;
@@ -66,7 +71,9 @@ function parseMarchaBlancaProgramas(s?: string): MarchaBlancaPrograma[] {
       nombre: 'Diplomado en Intervención Terapéutica Familiar',
       match: 'Terapéutica Familiar',
       asesorNorte: 'Joaquín Retamal',
+      asesorNorteId: 9,
       asesorSur: 'Eduardo Arias',
+      asesorSurId: 346393,
       categoryId: 1, // Diplomados
     },
     {
@@ -75,7 +82,9 @@ function parseMarchaBlancaProgramas(s?: string): MarchaBlancaPrograma[] {
       match: 'Inteligencia Artificial',
       exclude: 'Derecho', // no confundir con "Diplomado en Inteligencia Artificial y Derecho"
       asesorNorte: 'Zaida Verdugo',
+      asesorNorteId: 283901,
       asesorSur: 'Constanza Huitraiqueo Garabito',
+      asesorSurId: 368819,
       categoryId: 1, // Diplomados
     },
   ];
@@ -147,6 +156,9 @@ export const config = {
   // de esta cantidad de horas — evita mover hacia atrás un deal viejo que un asesor ya viene
   // trabajando de verdad (bug real: deal #3490881 quedó sin el asesor correcto por esto).
   asignacionForzarVentanaHoras: Number(process.env.ASIGNACION_FORZAR_VENTANA_HORAS ?? 6),
+  // Plazo (horas) de la tarea que se le crea al asesor asignado por turno cuando el bot escala a un
+  // humano en uno de los 2 programas piloto (ver crm/asignacionAsesores.ts).
+  asignacionTareaHoras: Number(process.env.ASIGNACION_TAREA_HORAS ?? 2),
   // IDs de las carpetas del Drive ("Brochures Bot/<tipo>") donde viven los PDF de cada tipo de programa.
   driveFolderMagister: process.env.BITRIX_DRIVE_FOLDER_MAGISTER ?? '',
   driveFolderDiplomado: process.env.BITRIX_DRIVE_FOLDER_DIPLOMADO ?? '',

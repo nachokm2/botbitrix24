@@ -12,6 +12,7 @@ import {
 } from '../crm/crmWrite';
 import { buscarCrmPorTelefono } from '../crm/voiceActions';
 import { guardarVinculoChat, loadPriorContext } from '../crm/chat';
+import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { getHistory } from '../ai/memory';
 import type { CrmEntities } from '../crm/entities';
 import { primaryEntity } from '../crm/entities';
@@ -171,6 +172,9 @@ export function socialTextExecutor(
       case 'escalar_a_humano': {
         const entities = await resolverEntidad((input ?? {}) as DatosCliente);
         const entity = entities ? primaryEntity(entities) : null;
+        // Si es uno de los 2 programas piloto: asigna por turno (Norte/Sur) + tarea de seguimiento
+        // (ver crm/asignacionAsesores.ts). Best-effort, no bloquea la respuesta.
+        if (entities) void asignarAsesorPorTurno(entities, auth);
         // Deja el resumen para el asesor (best-effort; no bloquea la respuesta).
         if (entity) void generarBriefing(conversationId, entity, auth);
         log.info(`${channel.label} escalar_a_humano`, { conversationId, entity, motivo: input?.motivo });
