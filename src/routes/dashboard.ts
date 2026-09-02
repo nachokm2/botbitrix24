@@ -35,7 +35,7 @@ export async function metricsSummary(req: Request, res: Response) {
       marchaBlancaCrm = marchaBlancaCache.data;
     } else {
       try {
-        const botByKey = new Map(marchaBlancaBot.map((b) => [b.key, { escaladosDealIds: b.escaladosDealIds }]));
+        const botByKey = new Map(marchaBlancaBot.map((b) => [b.key, { escalados: b.escalados }]));
         marchaBlancaCrm = await bitrixMarchaBlancaScorecard(botByKey, st.auth);
         marchaBlancaCache = { at: Date.now(), data: marchaBlancaCrm };
       } catch {

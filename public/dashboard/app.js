@@ -107,6 +107,37 @@ function render(d){
     mbEl.innerHTML = '<tr><td class="muted">Sin programas configurados.</td></tr>';
   }
 
+  // Deals escalados a asesor (1 fila por deal, de los 2 programas piloto) — para ver la etapa real
+  // de cada uno y si ya matriculó, no solo el conteo agregado de la tabla de arriba.
+  var escFilas = [];
+  mb.forEach(function(p){
+    var det = (p.crm && p.crm.escaladosDetalle) || [];
+    det.forEach(function(e){ escFilas.push({ programa: p.nombre, e: e }); });
+  });
+  var escEl = document.getElementById('escalados');
+  if (escFilas.length) {
+    var ecols = ['Programa','Deal','Asesor','Motivo','Etapa actual','Matrícula'];
+    var ethead = '<thead><tr>'+ecols.map(function(c){return '<th>'+esc(c)+'</th>';}).join('')+'</tr></thead>';
+    var etbody = '<tbody>'+escFilas.map(function(f){
+      var e = f.e;
+      var motivoLbl = e.motivo==='silencio' ? 'Silencio (sin respuesta)' : 'Pedido / score';
+      var matriculaLbl = e.matriculado
+        ? '<span class="tag" style="background:#d1fae5;color:#065f46">✓ Matriculado</span>'
+        : '<span class="tag">En curso</span>';
+      return '<tr>'+
+        '<td>'+esc(f.programa)+'</td>'+
+        '<td>'+esc(e.titulo)+' (#'+e.dealId+')</td>'+
+        '<td>'+esc(e.asesor||'—')+'</td>'+
+        '<td><span class="tag">'+esc(motivoLbl)+'</span></td>'+
+        '<td>'+esc(e.stageNombre||e.stageId||'—')+'</td>'+
+        '<td>'+matriculaLbl+'</td>'+
+      '</tr>';
+    }).join('')+'</tbody>';
+    escEl.innerHTML = ethead+etbody;
+  } else {
+    escEl.innerHTML = '<tr><td class="muted">Sin deals escalados a un asesor todavía.</td></tr>';
+  }
+
   // Demanda de programas
   document.getElementById('topprog').innerHTML = barsRows(agg&&agg.topProgramas, function(r){return progName(r.k);});
   document.getElementById('topinteres').innerHTML = barsRows(agg&&agg.topInteres, function(r){return r.k;});

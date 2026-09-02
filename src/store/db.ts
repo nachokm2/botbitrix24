@@ -467,6 +467,8 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
 
 // ─────────────────────────── Scorecard "marcha blanca" (métricas nativas del bot, por programa) ───────────────────────────
 
+export type EscaladoRef = { dealId: number; motivo: 'explicito' | 'silencio' };
+
 export type MarchaBlancaBotStats = {
   key: string;
   mensajes: number;
@@ -474,9 +476,12 @@ export type MarchaBlancaBotStats = {
   llamadasIA: number;
   slaContactoSeg: number | null;
   slaContactoN: number;
-  /** IDs de Deal escalados a un asesor (best-effort: solo cuando la entidad del CRM ya era un Deal en
-   *  el momento de escalar) — para cruzar después con los que llegaron a matrícula (WON) en Bitrix. */
-  escaladosDealIds: number[];
+  /** Deals escalados a un asesor (best-effort: solo cuando la entidad del CRM ya era un Deal en el
+   *  momento de escalar) — para cruzar después con la etapa/matrícula (WON) real en Bitrix. `motivo`
+   *  distingue el pedido explícito del cliente/auto-escalado por score ('explicito') del envío por
+   *  silencio tras el recordatorio automático ('silencio' — ver ai/seguimiento.ts). Si un mismo deal
+   *  tuvo ambos eventos, se prioriza 'silencio' por ser la señal más específica. */
+  escalados: EscaladoRef[];
 };
 
 /** Métricas que vienen 100% de audit_log (Postgres), filtradas por programa (match/exclude en texto
@@ -500,7 +505,7 @@ export async function dbMarchaBlancaBot(range = 'all'): Promise<MarchaBlancaBotS
         AND ($2::text IS NULL OR detail->'input'->>'programa_interes' NOT ILIKE $2)
         AND dialog_id IS NOT NULL`;
     try {
-      const [msgR, escR, callR, slaR, escEntR] = await Promise.all([
+      const [msgR, escR, callR, slaR, escEntR, escSilencioR] = await Promise.all([
         p.query(`SELECT count(*)::int c FROM audit_log WHERE type='turn' ${W} AND dialog_id IN (${progDialogsSql})`, [matchPat, excludePat]),
         p.query(
           `SELECT count(*)::int c FROM audit_log
@@ -538,7 +543,22 @@ export async function dbMarchaBlancaBot(range = 'all'): Promise<MarchaBlancaBotS
              AND dialog_id IN (${progDialogsSql})`,
           [matchPat, excludePat],
         ),
+        p.query(
+          `SELECT DISTINCT crm_entity FROM audit_log
+           WHERE type='seguimiento_transferencia' ${W}
+             AND crm_entity LIKE 'deal#%'
+             AND dialog_id IN (${progDialogsSql})`,
+          [matchPat, excludePat],
+        ),
       ]);
+      const idDe = (r: any) => Number(String(r.crm_entity).split('#')[1]);
+      const silencioIds = new Set(escSilencioR.rows.map(idDe).filter((n: number) => n > 0));
+      const explicitoIds = escEntR.rows.map(idDe).filter((n: number) => n > 0);
+      const todosIds = new Set([...explicitoIds, ...silencioIds]);
+      const escalados: EscaladoRef[] = [...todosIds].map((dealId) => ({
+        dealId,
+        motivo: silencioIds.has(dealId) ? 'silencio' : 'explicito',
+      }));
       out.push({
         key: prog.key,
         mensajes: msgR.rows[0]?.c ?? 0,
@@ -546,11 +566,11 @@ export async function dbMarchaBlancaBot(range = 'all'): Promise<MarchaBlancaBotS
         llamadasIA: callR.rows[0]?.c ?? 0,
         slaContactoSeg: slaR.rows[0]?.avg ?? null,
         slaContactoN: slaR.rows[0]?.c ?? 0,
-        escaladosDealIds: escEntR.rows.map((r: any) => Number(String(r.crm_entity).split('#')[1])).filter((n: number) => n > 0),
+        escalados,
       });
     } catch (e) {
       log.warn('dbMarchaBlancaBot falló', { err: String(e), programa: prog.key });
-      out.push({ key: prog.key, mensajes: 0, escalamientos: 0, llamadasIA: 0, slaContactoSeg: null, slaContactoN: 0, escaladosDealIds: [] });
+      out.push({ key: prog.key, mensajes: 0, escalamientos: 0, llamadasIA: 0, slaContactoSeg: null, slaContactoN: 0, escalados: [] });
     }
   }
   return out;

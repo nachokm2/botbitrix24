@@ -77,8 +77,14 @@ export async function programarSeguimiento(dialogId: string, entities?: CrmEntit
     const vencimientoRecordatorio = proximoHorarioPermitido(new Date(ahora + config.seguimientoHoras * 3600_000));
     await r.zadd(DUE_KEY, vencimientoRecordatorio.getTime(), dialogId);
     if (config.seguimientoTransferenciaHoras > 0) {
+      // Se calcula relativo al recordatorio YA resuelto (no de nuevo desde "ahora"): si ambos
+      // plazos caen de noche, redondear cada uno por separado a "la próxima ventana" los dejaría
+      // EMPATADOS en el mismo horario del día siguiente (el recordatorio y la transferencia
+      // disparándose juntos) — esto preserva que la transferencia sea siempre estrictamente
+      // posterior al recordatorio, dándole al cliente el tiempo real de responder entre ambos.
+      const deltaHoras = Math.max(config.seguimientoTransferenciaHoras - config.seguimientoHoras, 0);
       const vencimientoTransferencia = proximoHorarioPermitido(
-        new Date(ahora + config.seguimientoTransferenciaHoras * 3600_000),
+        new Date(vencimientoRecordatorio.getTime() + deltaHoras * 3600_000),
       );
       await r.zadd(TRANSFER_KEY, vencimientoTransferencia.getTime(), dialogId);
       if (entities && Object.keys(entities).length) {
