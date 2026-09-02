@@ -87,6 +87,7 @@ export async function metricsSummary(req: Request, res: Response) {
     funnelLabels: config.funnelLabels,
     marchaBlanca,
     marchaBlancaStart: config.marchaBlancaStart,
+    bitrixDomain: st.auth?.domain ?? null, // para armar el link directo a cada deal (ver "Deals escalados a asesor")
   });
 }
 

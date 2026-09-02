@@ -108,14 +108,23 @@ function render(d){
   }
 
   // Deals escalados a asesor (1 fila por deal, de los 2 programas piloto) — para ver la etapa real
-  // de cada uno y si ya matriculó, no solo el conteo agregado de la tabla de arriba.
+  // de cada uno, quién lo tiene y si ya matriculó, no solo el conteo agregado de la tabla de arriba.
   var escFilas = [];
   mb.forEach(function(p){
     var det = (p.crm && p.crm.escaladosDetalle) || [];
     det.forEach(function(e){ escFilas.push({ programa: p.nombre, e: e }); });
   });
+  var escResumenEl = document.getElementById('escresumen');
   var escEl = document.getElementById('escalados');
+  var dealUrl = function(id){ return d.bitrixDomain ? 'https://'+d.bitrixDomain+'/crm/deal/details/'+id+'/' : null; };
   if (escFilas.length) {
+    var totalMatric = escFilas.filter(function(f){return f.e.matriculado;}).length;
+    var porPrograma = {};
+    escFilas.forEach(function(f){ porPrograma[f.programa] = (porPrograma[f.programa]||0)+1; });
+    var resumenProgramas = Object.keys(porPrograma).map(function(k){ return num(porPrograma[k])+' '+esc(k); }).join(' · ');
+    escResumenEl.innerHTML = '<b>'+num(escFilas.length)+'</b> deals escalados · <b>'+num(totalMatric)+'</b> matriculados ('+
+      Math.round(totalMatric/escFilas.length*100)+'%) · '+resumenProgramas;
+
     var ecols = ['Programa','Deal','Asesor','Motivo','Etapa actual','Matrícula'];
     var ethead = '<thead><tr>'+ecols.map(function(c){return '<th>'+esc(c)+'</th>';}).join('')+'</tr></thead>';
     var etbody = '<tbody>'+escFilas.map(function(f){
@@ -124,9 +133,13 @@ function render(d){
       var matriculaLbl = e.matriculado
         ? '<span class="tag" style="background:#d1fae5;color:#065f46">✓ Matriculado</span>'
         : '<span class="tag">En curso</span>';
+      var url = dealUrl(e.dealId);
+      var dealCell = url
+        ? '<a href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(e.titulo)+' (#'+e.dealId+')</a>'
+        : esc(e.titulo)+' (#'+e.dealId+')';
       return '<tr>'+
         '<td>'+esc(f.programa)+'</td>'+
-        '<td>'+esc(e.titulo)+' (#'+e.dealId+')</td>'+
+        '<td>'+dealCell+'</td>'+
         '<td>'+esc(e.asesor||'—')+'</td>'+
         '<td><span class="tag">'+esc(motivoLbl)+'</span></td>'+
         '<td>'+esc(e.stageNombre||e.stageId||'—')+'</td>'+
@@ -135,6 +148,7 @@ function render(d){
     }).join('')+'</tbody>';
     escEl.innerHTML = ethead+etbody;
   } else {
+    escResumenEl.innerHTML = '';
     escEl.innerHTML = '<tr><td class="muted">Sin deals escalados a un asesor todavía.</td></tr>';
   }
 
