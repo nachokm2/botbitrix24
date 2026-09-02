@@ -28,6 +28,16 @@ async function record(method: string, params: any) {
   return {};
 }
 
+type AuditCall = { type: string; dialogId?: string; crmEntity?: string; detail?: unknown };
+const auditCalls: AuditCall[] = [];
+mock.module('../src/obs/audit.ts', {
+  namedExports: {
+    audit: async (e: AuditCall) => {
+      auditCalls.push(e);
+    },
+  },
+});
+
 mock.module('../src/store.ts', {
   namedExports: {
     getState: async () => ({ auth: { domain: 'test.bitrix24.com', access_token: 'tok' }, botId: 1 }),
@@ -137,6 +147,7 @@ test('programarSeguimiento: agenda recordatorio y transferencia, con la transfer
 
 test('barrerTransferenciasVencidas: cliente sigue en silencio tras el recordatorio → deriva al asesor SIN transferencia urgente', async () => {
   calls.length = 0;
+  auditCalls.length = 0;
   dealProgramas = { 302: 'Diplomado en Inteligencia Artificial' };
 
   await programarSeguimiento('dlg-silencio', { deal: 302 });
@@ -154,6 +165,13 @@ test('barrerTransferenciasVencidas: cliente sigue en silencio tras el recordator
 
   // Ya se consumió: una segunda pasada del barrido no vuelve a asignar ni duplicar la tarea.
   assert.equal(zsets.get('seguimiento:transferencia:due')!.has('dlg-silencio'), false, 'el vencimiento se reclama (ZREM) al procesarlo');
+
+  // Bug real encontrado en producción: el audit nunca dejaba crmEntity (top-level), quedaba NULL en
+  // la columna que el panel usa para cruzar con "Deals escalados a asesor" — nunca aparecía ahí pese
+  // a haberse asignado de verdad.
+  const a = auditCalls.find((c) => c.type === 'seguimiento_transferencia' && c.dialogId === 'dlg-silencio');
+  assert.ok(a, 'registra la auditoría de la transferencia');
+  assert.equal(a!.crmEntity, 'deal#302', 'deja crmEntity seteado (antes quedaba NULL siempre)');
 });
 
 test('barrerTransferenciasVencidas: no hace nada si el plazo todavía no vence', async () => {
@@ -164,4 +182,21 @@ test('barrerTransferenciasVencidas: no hace nada si el plazo todavía no vence',
   await barrerTransferenciasVencidas();
 
   assert.ok(!calls.find((c) => c.method === 'crm.deal.update'), 'no toca un deal cuyo plazo aún no venció');
+});
+
+test('barrerTransferenciasVencidas: silencio en un programa fuera del piloto → NO cuenta como transferencia (antes se registraba igual sin haber asignado a nadie)', async () => {
+  calls.length = 0;
+  auditCalls.length = 0;
+  dealProgramas = { 304: 'Diplomado en Otra Cosa Que No Es Piloto' };
+
+  await programarSeguimiento('dlg-no-piloto', { deal: 304 });
+  zsets.get('seguimiento:transferencia:due')!.set('dlg-no-piloto', Date.now() - 1000);
+
+  await barrerTransferenciasVencidas();
+
+  assert.ok(!calls.find((c) => c.method === 'crm.deal.update'), 'no asigna (no es programa piloto)');
+  assert.ok(
+    !auditCalls.find((c) => c.type === 'seguimiento_transferencia' && c.dialogId === 'dlg-no-piloto'),
+    'no registra una "transferencia" si en realidad no se asignó a nadie',
+  );
 });

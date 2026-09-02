@@ -38,38 +38,63 @@ function programaCoincide(texto: string, prog: MarchaBlancaPrograma): boolean {
  *  - 'escalado' (default): el cliente pidió hablar con alguien / el score disparó el auto-escalado.
  *  - 'silencio': el cliente dejó de responder tras el recordatorio automático (ver ai/seguimiento.ts)
  *    — NO es una transferencia urgente, es solo para que el asesor pueda contactarlo temprano.
+ *
+ * Devuelve `true` solo si REALMENTE asignó y creó la tarea (para que el llamador pueda distinguir
+ * "se derivó a un asesor" de "no aplicaba" — ej. programa fuera del piloto, o no había ningún deal
+ * — en vez de contarlo como una derivación real; ver ai/seguimiento.ts).
  */
 export async function asignarAsesorPorTurno(
   entities: CrmEntities,
   auth: Auth,
   motivo: 'escalado' | 'silencio' = 'escalado',
-): Promise<void> {
-  if (!entities.deal || !config.ufPrograma) return;
+): Promise<boolean> {
+  if (!config.ufPrograma) return false;
   const redis = getRedisClient();
-  if (!redis) return;
+  if (!redis) return false;
+
+  // Si el chat solo está vinculado a un Contacto (sin Deal) — pasa cuando el auto-CRM nativo de Open
+  // Lines todavía no actualizó el vínculo del chat, o el cliente escaló muy rápido, antes de que el
+  // bot llegara a resolver el Deal — busca directo en Bitrix si YA existe un Deal para ese contacto
+  // (puede existir aunque el chat no lo sepa todavía). Sin esto, ese cliente se queda sin asesor
+  // asignado para siempre (caso real: contacto #2398581, Terapia Familiar).
+  let dealId = entities.deal;
+  if (!dealId && entities.contact) {
+    try {
+      const r = await callCrm<Array<{ ID: string }>>(
+        'crm.deal.list',
+        { filter: { CONTACT_ID: entities.contact }, select: ['ID'], order: { DATE_CREATE: 'DESC' } },
+        auth,
+      );
+      const found = Array.isArray(r) ? r[0] : undefined;
+      if (found?.ID) dealId = Number(found.ID);
+    } catch (e) {
+      log.warn('asignarAsesorPorTurno: buscar deal por contacto falló', { err: String(e), contactId: entities.contact });
+    }
+  }
+  if (!dealId) return false;
 
   try {
-    const d: any = await callCrm('crm.deal.get', { id: entities.deal, select: [config.ufPrograma, 'TITLE'] }, auth);
+    const d: any = await callCrm('crm.deal.get', { id: dealId, select: [config.ufPrograma, 'TITLE'] }, auth);
     const programaTexto = String(d?.[config.ufPrograma] ?? d?.TITLE ?? '');
-    if (!programaTexto) return;
+    if (!programaTexto) return false;
 
     const prog = config.marchaBlancaProgramas.find((p) => programaCoincide(programaTexto, p));
-    if (!prog || !prog.asesorNorteId || !prog.asesorSurId) return;
+    if (!prog || !prog.asesorNorteId || !prog.asesorSurId) return false;
 
-    const primeraVez = await once(`asignacion:tarea:deal#${entities.deal}`, 365 * 24 * 3600);
-    if (!primeraVez) return; // ya se asignó por turno antes; no reasigna ni duplica la tarea
+    const primeraVez = await once(`asignacion:tarea:deal#${dealId}`, 365 * 24 * 3600);
+    if (!primeraVez) return false; // ya se asignó por turno antes; no reasigna ni duplica la tarea
 
     const turno = await redis.incr(`asignacion:turno:${prog.key}`);
     const asesorId = turno % 2 === 1 ? prog.asesorNorteId : prog.asesorSurId;
     const asesorNombre = turno % 2 === 1 ? prog.asesorNorte : prog.asesorSur;
 
-    await callCrm('crm.deal.update', { id: entities.deal, fields: { ASSIGNED_BY_ID: asesorId } }, auth);
+    await callCrm('crm.deal.update', { id: dealId, fields: { ASSIGNED_BY_ID: asesorId } }, auth);
 
     const deadline = new Date(Date.now() + config.asignacionTareaHoras * 3600_000).toISOString();
     const { titulo, descripcion, prioridad } =
       motivo === 'silencio'
         ? {
-            titulo: `🕓 Contacto temprano (${prog.nombre}) — Deal #${entities.deal}`,
+            titulo: `🕓 Contacto temprano (${prog.nombre}) — Deal #${dealId}`,
             descripcion:
               `El cliente dejó de responder al bot tras el recordatorio automático.\n` +
               `Programa: ${prog.nombre}\nNo es urgente, pero conviene contactarlo pronto (dentro de ${config.asignacionTareaHoras} horas) ` +
@@ -77,7 +102,7 @@ export async function asignarAsesorPorTurno(
             prioridad: 1,
           }
         : {
-            titulo: `📞 Seguimiento (${prog.nombre}) — Deal #${entities.deal}`,
+            titulo: `📞 Seguimiento (${prog.nombre}) — Deal #${dealId}`,
             descripcion:
               `El bot escaló esta conversación a un asesor humano.\n` +
               `Programa: ${prog.nombre}\nContactar dentro de ${config.asignacionTareaHoras} horas.`,
@@ -92,13 +117,13 @@ export async function asignarAsesorPorTurno(
           RESPONSIBLE_ID: asesorId,
           DEADLINE: deadline,
           PRIORITY: prioridad,
-          UF_CRM_TASK: [`D_${entities.deal}`],
+          UF_CRM_TASK: [`D_${dealId}`],
         },
       },
       auth,
     );
     log.info('asignarAsesorPorTurno: asignado y tarea creada', {
-      dealId: entities.deal,
+      dealId,
       programa: prog.key,
       motivo,
       turno,
@@ -106,7 +131,9 @@ export async function asignarAsesorPorTurno(
       asesorNombre,
       taskId: (t as any)?.task?.id ?? (t as any)?.id,
     });
+    return true;
   } catch (e) {
-    log.warn('asignarAsesorPorTurno falló', { err: String(e), dealId: entities.deal });
+    log.warn('asignarAsesorPorTurno falló', { err: String(e), dealId });
+    return false;
   }
 }

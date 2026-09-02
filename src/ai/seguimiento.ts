@@ -10,7 +10,7 @@ import { recordTokens, inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
-import type { CrmEntities } from '../crm/entities';
+import { primaryEntity, type CrmEntities } from '../crm/entities';
 
 // Seguimiento automático (WhatsApp/Open Lines) en 2 etapas, si el bot respondió y el cliente quedó
 // en silencio — ambas ancladas a la MISMA última respuesta del bot (no una después de la otra):
@@ -210,9 +210,20 @@ export async function barrerTransferenciasVencidas(): Promise<void> {
       const entities = await getJson<CrmEntities>(ENTITIES_KEY(dialogId));
       if (!entities || !(entities.deal || entities.lead || entities.contact)) continue;
 
-      await asignarAsesorPorTurno(entities, auth, 'silencio');
+      // Solo cuenta como "derivado" si REALMENTE asignó (deal real de uno de los 2 programas piloto,
+      // no asignado antes) — antes se registraba igual aunque no aplicara (ej. sin deal todavía, o
+      // programa fuera del piloto), inflando el conteo sin que pasara nada. Además, antes el audit
+      // no dejaba `crmEntity` (top-level, la columna que cruza con el panel), quedaba siempre NULL.
+      const asignado = await asignarAsesorPorTurno(entities, auth, 'silencio');
+      if (!asignado) continue;
       inc('seguimiento_transferencia');
-      await audit({ type: 'seguimiento_transferencia', dialogId, detail: { entities } });
+      const entity = primaryEntity(entities);
+      await audit({
+        type: 'seguimiento_transferencia',
+        dialogId,
+        crmEntity: entity ? `${entity.type}#${entity.id}` : undefined,
+        detail: { entities },
+      });
       log.info('seguimiento: derivado al asesor por falta de respuesta', { dialogId, entities });
     } catch (e) {
       log.warn('barrerTransferenciasVencidas: falló para un diálogo', { err: String(e), dialogId });

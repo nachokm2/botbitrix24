@@ -12,6 +12,7 @@ process.env.BITRIX_UF_PROGRAMA = 'UF_CRM_PROGRAMA_TEST';
 type Call = { method: string; params: any };
 const calls: Call[] = [];
 let dealProgramas: Record<number, string> = {};
+let dealPorContacto: Record<number, number> = {}; // contactId -> dealId (simula crm.deal.list)
 
 mock.module('../src/bitrix/client.ts', {
   namedExports: {
@@ -25,6 +26,10 @@ mock.module('../src/bitrix/client.ts', {
 async function record(method: string, params: any) {
   calls.push({ method, params });
   if (method === 'crm.deal.get') return { UF_CRM_PROGRAMA_TEST: dealProgramas[params.id] ?? '', TITLE: 'x' };
+  if (method === 'crm.deal.list') {
+    const dealId = dealPorContacto[params.filter?.CONTACT_ID];
+    return dealId ? [{ ID: String(dealId) }] : [];
+  }
   if (method === 'tasks.task.add') return { task: { id: 999 } };
   return {};
 }
@@ -81,6 +86,29 @@ test('asignarAsesorPorTurno: motivo="silencio" usa el texto NO urgente de la tar
   assert.ok(tarea, 'igual crea la tarea');
   assert.match(tarea!.params.fields.TITLE, /Contacto temprano/i, 'título distinto al de un escalado explícito');
   assert.match(tarea!.params.fields.DESCRIPTION, /no es urgente/i, 'la descripción aclara que no es urgente');
+});
+
+test('asignarAsesorPorTurno: sin deal pero con contacto, busca un deal existente vinculado a ese contacto', async () => {
+  calls.length = 0;
+  dealPorContacto = { 909527: 401 };
+  dealProgramas = { 401: 'Diplomado en Intervención Terapéutica Familiar' };
+
+  const asignado = await asignarAsesorPorTurno({ contact: 909527 }, auth);
+
+  assert.equal(asignado, true, 'encuentra el deal por el contacto y sí asigna');
+  const upd = calls.find((c) => c.method === 'crm.deal.update');
+  assert.equal(upd?.params.id, 401, 'usa el deal encontrado, no uno inventado');
+  assert.ok(calls.find((c) => c.method === 'tasks.task.add' && c.params.fields.UF_CRM_TASK?.[0] === 'D_401'));
+});
+
+test('asignarAsesorPorTurno: sin deal y sin ningún deal vinculado al contacto, no hace nada (y no cuenta como asignado)', async () => {
+  calls.length = 0;
+  dealPorContacto = {};
+
+  const asignado = await asignarAsesorPorTurno({ contact: 999999 }, auth);
+
+  assert.equal(asignado, false);
+  assert.ok(!calls.find((c) => c.method === 'crm.deal.update'));
 });
 
 test('asignarAsesorPorTurno: no reasigna ni duplica la tarea si se llama dos veces para el mismo deal', async () => {
