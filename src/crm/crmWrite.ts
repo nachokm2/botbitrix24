@@ -8,6 +8,7 @@ import { buscarBrochureDrive, detectarTipo, type BrochureEncontrado } from './dr
 import { agregarProgramaAcumulado, fusionarBrochures, renderCuerpoBrochureEmail } from './brochureEmail';
 import { getDealInfo, getUsuarios } from './directory';
 import { guardarVinculoChat, obtenerVinculoChat, borrarVinculoChat } from './chat';
+import { asignarAsesorPorTurno } from './asignacionAsesores';
 import { once } from '../store/kv';
 
 // Escrituras al CRM: creación/actualización de contacto/lead/deal, notas de timeline,
@@ -336,6 +337,9 @@ async function migrarSiCambioDeEntidad(chatId: any, entities: CrmEntities, auth:
           campos: Object.keys(fieldsDeal),
         });
       }
+      // Mismo motivo que en actualizarDatosCliente: apenas el deal tiene programa, se asigna al
+      // asesor por turno (si es piloto) — no espera a que el bot escale.
+      void asignarAsesorPorTurno({ deal: entities.deal }, auth, 'automatico');
     }
 
     if (cambioDeEntidad) await borrarVinculoChat(chatId);
@@ -405,6 +409,11 @@ export async function actualizarDatosCliente(
       // Embudo/etapa de asignación por oferta (ver camposAsignacionSiCorresponde) — fusionado en
       // el mismo `fields` para que sea UN solo crm.deal.update, no una llamada de escritura aparte.
       Object.assign(fields, await camposAsignacionSiCorresponde(e.deal, data.programa_interes, auth));
+      // Asigna al asesor por turno apenas se conoce el programa (si es uno de los 2 piloto) — no
+      // espera a que el bot escale: sin esto, un deal que el cliente conversa con el bot sin pedir
+      // nunca un humano se queda con el responsable por defecto (no es un asesor real). Fire-and-
+      // forget: no bloquea la captura de datos, e idempotente (una sola vez por deal).
+      void asignarAsesorPorTurno({ deal: e.deal }, auth, 'automatico');
       // Brochure(s) del/los programa(s) de interés — se ACUMULAN durante toda la conversación: si
       // la persona menciona un programa nuevo, se manda UN correo con TODOS los brochures juntos,
       // cada uno en su propio archivo (slots UF dedicados; si sobran programas respecto a slots,

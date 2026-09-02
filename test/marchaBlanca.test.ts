@@ -44,10 +44,13 @@ test('bitrixMarchaBlancaScorecard: arma el detalle por deal escalado (etapa, ase
     402: { TITLE: 'Deal María López', STAGE_ID: 'C1:UC_JARL1O', ASSIGNED_BY_ID: '368819' }, // Constanza (Sur IA)
   };
   const botStats = new Map([
-    ['ia', { escalados: [
-      { dealId: 401, motivo: 'explicito' as const },
-      { dealId: 402, motivo: 'silencio' as const },
-    ] }],
+    ['ia', {
+      escalados: [
+        { dealId: 401, motivo: 'explicito' as const },
+        { dealId: 402, motivo: 'silencio' as const },
+      ],
+      dealsConversados: [401, 402],
+    }],
   ]);
 
   const out = await bitrixMarchaBlancaScorecard(botStats, auth);
@@ -68,16 +71,41 @@ test('bitrixMarchaBlancaScorecard: arma el detalle por deal escalado (etapa, ase
   assert.equal(d402.motivo, 'silencio');
   assert.equal(d402.stageNombre, 'Contactado');
   assert.equal(d402.matriculado, false);
+
+  // negociacionesDetalle debe traer los mismos 2 (están en ambos: escalados Y conversados), marcados
+  // como escalado=true — sin duplicar la llamada a crm.deal.get para cada uno.
+  assert.equal(ia.negociacionesDetalle.length, 2);
+  assert.ok(ia.negociacionesDetalle.every((n) => n.escalado === true));
+  assert.equal(calls.filter((c) => c.method === 'crm.deal.get' && c.params.id === 401).length, 1, 'una sola consulta por deal, no una por escalados y otra por conversados');
 });
 
-test('bitrixMarchaBlancaScorecard: sin escalados, escaladosDetalle queda vacío (no llama crm.deal.get de más)', async () => {
+test('bitrixMarchaBlancaScorecard: caso Katherine — deal conversado pero NUNCA escalado (asignación manual) igual aparece en negociacionesDetalle, con escalado=false', async () => {
+  calls.length = 0;
+  dealesPorId = { 403: { TITLE: 'Deal Katherine', STAGE_ID: 'C1:UC_JARL1O', ASSIGNED_BY_ID: '9' } };
+  const botStats = new Map([['terapia_familiar', { escalados: [], dealsConversados: [403] }]]);
+
+  const out = await bitrixMarchaBlancaScorecard(botStats, auth);
+  const tf = out.find((p) => p.key === 'terapia_familiar')!;
+
+  assert.equal(tf.escaladosConDeal, 0, 'no cuenta como "escalado" (nunca pasó por escalar_a_humano)');
+  assert.equal(tf.escaladosDetalle.length, 0, 'no aparece en la tabla de escalados');
+  assert.equal(tf.negociacionesDetalle.length, 1, 'pero SÍ aparece en la de negociaciones trabajadas');
+  const n = tf.negociacionesDetalle[0];
+  assert.equal(n.dealId, 403);
+  assert.equal(n.escalado, false);
+  assert.equal(n.motivo, null);
+  assert.equal(n.asesor, 'Joaquín Retamal');
+});
+
+test('bitrixMarchaBlancaScorecard: sin escalados ni conversados, ambos detalles quedan vacíos (no llama crm.deal.get de más)', async () => {
   calls.length = 0;
   dealesPorId = {};
-  const botStats = new Map([['ia', { escalados: [] }]]);
+  const botStats = new Map([['ia', { escalados: [], dealsConversados: [] }]]);
 
   const out = await bitrixMarchaBlancaScorecard(botStats, auth);
   const ia = out.find((p) => p.key === 'ia')!;
 
   assert.deepEqual(ia.escaladosDetalle, []);
+  assert.deepEqual(ia.negociacionesDetalle, []);
   assert.ok(!calls.find((c) => c.method === 'crm.deal.get'));
 });

@@ -41,6 +41,20 @@ mock.module('../src/bitrix/client.ts', {
   },
 });
 
+// asignarAsesorPorTurno se llama fire-and-forget (void) en cuanto el deal tiene programa — se mockea
+// para poder verificar que SE LLAMA (con motivo='automatico'), sin repetir toda la lógica de turnos
+// (ya cubierta en asignacionAsesores.test.ts).
+type AsignacionCall = { entities: any; motivo: string };
+const asignacionCalls: AsignacionCall[] = [];
+mock.module('../src/crm/asignacionAsesores.ts', {
+  namedExports: {
+    asignarAsesorPorTurno: async (entities: any, _auth: any, motivo = 'escalado') => {
+      asignacionCalls.push({ entities, motivo });
+      return false;
+    },
+  },
+});
+
 // buscarBrochureDrive descarga el contenido con fetch() directo (la URL ya trae el token de
 // Bitrix) — se mockea el global para simular esa descarga sin tocar la red. Se usa un PDF real
 // (mínimo, generado con pdf-lib) porque fusionarBrochures necesita poder parsearlo cuando hay
@@ -145,6 +159,28 @@ test('actualizarDatosCliente: busca el brochure en el Drive, lo descarga y lo gu
   const cuerpo = update!.params.fields.UF_CRM_CUERPO_TEST;
   assert.match(cuerpo, /Magíster en Inteligencia Artificial/);
   assert.match(cuerpo, /Programa de interés/, 'singular cuando hay un solo programa');
+});
+
+test('actualizarDatosCliente: apenas el deal tiene programa de interés, asigna al asesor por turno (motivo="automatico")', async () => {
+  calls.length = 0;
+  asignacionCalls.length = 0;
+  responder = responderUnSoloPrograma();
+
+  await actualizarDatosCliente({ deal: 63 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
+
+  assert.equal(asignacionCalls.length, 1, 'antes esto NUNCA se llamaba hasta que el bot escalaba — el deal quedaba con el responsable por defecto');
+  assert.equal(asignacionCalls[0].entities.deal, 63);
+  assert.equal(asignacionCalls[0].motivo, 'automatico');
+});
+
+test('actualizarDatosCliente: sin programa_interes en el input, no dispara la asignación automática', async () => {
+  calls.length = 0;
+  asignacionCalls.length = 0;
+  responder = () => ({});
+
+  await actualizarDatosCliente({ deal: 64 }, undefined, { telefono: '+56911112222' }, auth);
+
+  assert.equal(asignacionCalls.length, 0);
 });
 
 test('actualizarDatosCliente: no vuelve a descargar el brochure si el programa no cambió', async () => {
@@ -328,6 +364,7 @@ test('ensureLeadForChat: crea el lead con crm.lead.add (no imopenlines.crm.lead.
 
 test('actualizarDatosCliente: migra los datos del lead propio (incluido el programa) cuando Bitrix vincula un contacto+deal distintos después', async () => {
   calls.length = 0;
+  asignacionCalls.length = 0;
   // Simula el estado dejado por ensureLeadForChat/el bloque LEAD en turnos anteriores: guardamos
   // el vínculo propio a un lead que ya tiene nombre+email+programa capturados (el lead no tiene UF
   // de programa, por eso se guarda acá).
@@ -355,6 +392,10 @@ test('actualizarDatosCliente: migra los datos del lead propio (incluido el progr
 
   const vinculo = await obtenerVinculoChat('chatMig');
   assert.equal(vinculo, null, 'borra el vínculo propio tras migrar (ya no hace falta)');
+
+  assert.equal(asignacionCalls.length, 1, 'también asigna al asesor por turno cuando el deal recién obtiene el programa vía migración (no solo vía input directo)');
+  assert.equal(asignacionCalls[0].entities.deal, 3480399);
+  assert.equal(asignacionCalls[0].motivo, 'automatico');
 });
 
 test('actualizarDatosCliente: mueve el deal al embudo/etapa de Asignación correctos si quedó en el embudo equivocado', async () => {

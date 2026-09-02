@@ -7,16 +7,23 @@ import type { CrmEntities } from './entities';
 import type { BitrixTaskAddResult } from '../bitrix/types';
 
 // Asignación por turno (round-robin Norte/Sur) + tarea de seguimiento, SOLO para los 2 programas
-// piloto de la marcha blanca. Se dispara cuando el bot escala a un humano (cualquier canal).
+// piloto de la marcha blanca. Se dispara: (a) apenas el deal tiene el programa de interés capturado
+// (motivo='automatico', ver crmWrite.ts) — el disparador MÁS temprano y el más común; (b) cuando el
+// bot escala a un humano (motivo='escalado'); (c) si el cliente queda en silencio tras el
+// recordatorio (motivo='silencio', ver ai/seguimiento.ts). El lock por deal asegura que solo el
+// PRIMERO de estos 3 disparadores en llegar hace la asignación real — los siguientes no reasignan.
 //
 // Por qué existe esto en vez de confiar en la regla de "asesor por oferta" de Bitrix (la que ya
 // corre sola cuando el deal entra al embudo/etapa de Asignación, ver crmWrite.ts:
 // camposAsignacionSiCorresponde): se confirmó en producción que esa regla NO reasigna un deal que
 // ya tiene un responsable real (ej. quedó en quien "recogió" la conversación en Open Lines) — caso
 // real: deal #3490881 (Katherine), quedó en Rodrigo Palma en vez de Joaquín/Eduardo pese a pasar
-// por la etapa correcta. Para los 2 programas del piloto, donde SÍ necesitamos que la asignación
-// sea confiable y pareja entre los 2 asesores, el bot mismo asigna directo — sin depender de esa
-// regla externa. Para el resto del catálogo (todos los demás programas) sigue rigiendo Bitrix.
+// por la etapa correcta. Además, el responsable POR DEFECTO de esos embudos no es un asesor real
+// (confirmado por el usuario) — sin un disparador temprano, cualquier deal que el bot conversa sin
+// llegar a escalar se queda ahí para siempre. Para los 2 programas del piloto, donde SÍ necesitamos
+// que la asignación sea confiable y pareja entre los 2 asesores, el bot mismo asigna directo — sin
+// depender de esa regla externa. Para el resto del catálogo (todos los demás programas) sigue
+// rigiendo Bitrix.
 
 function programaCoincide(texto: string, prog: MarchaBlancaPrograma): boolean {
   const t = texto.toLowerCase();
@@ -35,6 +42,9 @@ function programaCoincide(texto: string, prog: MarchaBlancaPrograma): boolean {
  * config, o si no hay Redis (no hay forma confiable de alternar sin estado compartido entre réplicas).
  *
  * `motivo` solo cambia el texto de la tarea que ve el asesor:
+ *  - 'automatico': el deal recién tiene el programa de interés capturado — el cliente sigue
+ *    conversando con el bot, no hay nada urgente que hacer todavía, es solo para que el deal quede
+ *    con el asesor correcto desde temprano (en vez de con el responsable por defecto).
  *  - 'escalado' (default): el cliente pidió hablar con alguien / el score disparó el auto-escalado.
  *  - 'silencio': el cliente dejó de responder tras el recordatorio automático (ver ai/seguimiento.ts)
  *    — NO es una transferencia urgente, es solo para que el asesor pueda contactarlo temprano.
@@ -46,7 +56,7 @@ function programaCoincide(texto: string, prog: MarchaBlancaPrograma): boolean {
 export async function asignarAsesorPorTurno(
   entities: CrmEntities,
   auth: Auth,
-  motivo: 'escalado' | 'silencio' = 'escalado',
+  motivo: 'automatico' | 'escalado' | 'silencio' = 'escalado',
 ): Promise<boolean> {
   if (!config.ufPrograma) return false;
   const redis = getRedisClient();
@@ -101,13 +111,22 @@ export async function asignarAsesorPorTurno(
               `mientras el interés sigue fresco. El bot sigue disponible si el cliente vuelve a escribir.`,
             prioridad: 1,
           }
-        : {
-            titulo: `📞 Seguimiento (${prog.nombre}) — Deal #${dealId}`,
-            descripcion:
-              `El bot escaló esta conversación a un asesor humano.\n` +
-              `Programa: ${prog.nombre}\nContactar dentro de ${config.asignacionTareaHoras} horas.`,
-            prioridad: 2,
-          };
+        : motivo === 'automatico'
+          ? {
+              titulo: `📋 Nuevo lead (${prog.nombre}) — Deal #${dealId}`,
+              descripcion:
+                `El bot está conversando con este cliente sobre ${prog.nombre}.\n` +
+                `No hay nada urgente que hacer todavía — el bot sigue respondiendo. Este deal queda asignado a ti ` +
+                `para que puedas hacerle seguimiento cuando quieras, en vez de quedar con el responsable por defecto.`,
+              prioridad: 1,
+            }
+          : {
+              titulo: `📞 Seguimiento (${prog.nombre}) — Deal #${dealId}`,
+              descripcion:
+                `El bot escaló esta conversación a un asesor humano.\n` +
+                `Programa: ${prog.nombre}\nContactar dentro de ${config.asignacionTareaHoras} horas.`,
+              prioridad: 2,
+            };
     const t = await callCrm<BitrixTaskAddResult>(
       'tasks.task.add',
       {

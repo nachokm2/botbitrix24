@@ -482,6 +482,11 @@ export type MarchaBlancaBotStats = {
    *  silencio tras el recordatorio automático ('silencio' — ver ai/seguimiento.ts). Si un mismo deal
    *  tuvo ambos eventos, se prioriza 'silencio' por ser la señal más específica. */
   escalados: EscaladoRef[];
+  /** TODOS los deals con los que el bot conversó (>=1 turno), haya escalado o no — más amplio que
+   *  `escalados`: cubre cualquier negociación donde el bot trabajó, para verificar matrículas sin
+   *  depender de que se haya disparado una escalada (ver Deal #3490881, Katherine: tuvo turnos de
+   *  conversación pero su asignación fue manual, nunca pasó por escalar_a_humano). */
+  dealsConversados: number[];
 };
 
 /** Métricas que vienen 100% de audit_log (Postgres), filtradas por programa (match/exclude en texto
@@ -505,7 +510,7 @@ export async function dbMarchaBlancaBot(range = 'all'): Promise<MarchaBlancaBotS
         AND ($2::text IS NULL OR detail->'input'->>'programa_interes' NOT ILIKE $2)
         AND dialog_id IS NOT NULL`;
     try {
-      const [msgR, escR, callR, slaR, escEntR, escSilencioR] = await Promise.all([
+      const [msgR, escR, callR, slaR, escEntR, escSilencioR, conversadosR] = await Promise.all([
         p.query(`SELECT count(*)::int c FROM audit_log WHERE type='turn' ${W} AND dialog_id IN (${progDialogsSql})`, [matchPat, excludePat]),
         p.query(
           `SELECT count(*)::int c FROM audit_log
@@ -550,6 +555,13 @@ export async function dbMarchaBlancaBot(range = 'all'): Promise<MarchaBlancaBotS
              AND dialog_id IN (${progDialogsSql})`,
           [matchPat, excludePat],
         ),
+        p.query(
+          `SELECT DISTINCT crm_entity FROM audit_log
+           WHERE type='turn'
+             AND crm_entity LIKE 'deal#%'
+             AND dialog_id IN (${progDialogsSql})`,
+          [matchPat, excludePat],
+        ),
       ]);
       const idDe = (r: any) => Number(String(r.crm_entity).split('#')[1]);
       const silencioIds = new Set(escSilencioR.rows.map(idDe).filter((n: number) => n > 0));
@@ -559,6 +571,7 @@ export async function dbMarchaBlancaBot(range = 'all'): Promise<MarchaBlancaBotS
         dealId,
         motivo: silencioIds.has(dealId) ? 'silencio' : 'explicito',
       }));
+      const dealsConversados = conversadosR.rows.map(idDe).filter((n: number) => n > 0);
       out.push({
         key: prog.key,
         mensajes: msgR.rows[0]?.c ?? 0,
@@ -567,10 +580,20 @@ export async function dbMarchaBlancaBot(range = 'all'): Promise<MarchaBlancaBotS
         slaContactoSeg: slaR.rows[0]?.avg ?? null,
         slaContactoN: slaR.rows[0]?.c ?? 0,
         escalados,
+        dealsConversados,
       });
     } catch (e) {
       log.warn('dbMarchaBlancaBot falló', { err: String(e), programa: prog.key });
-      out.push({ key: prog.key, mensajes: 0, escalamientos: 0, llamadasIA: 0, slaContactoSeg: null, slaContactoN: 0, escalados: [] });
+      out.push({
+        key: prog.key,
+        mensajes: 0,
+        escalamientos: 0,
+        llamadasIA: 0,
+        slaContactoSeg: null,
+        slaContactoN: 0,
+        escalados: [],
+        dealsConversados: [],
+      });
     }
   }
   return out;

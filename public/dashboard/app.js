@@ -107,6 +107,55 @@ function render(d){
     mbEl.innerHTML = '<tr><td class="muted">Sin programas configurados.</td></tr>';
   }
 
+  var dealUrl = function(id){ return d.bitrixDomain ? 'https://'+d.bitrixDomain+'/crm/deal/details/'+id+'/' : null; };
+  var dealLinkCell = function(titulo, dealId){
+    var url = dealUrl(dealId);
+    return url ? '<a href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(titulo)+' (#'+dealId+')</a>' : esc(titulo)+' (#'+dealId+')';
+  };
+  var matriculaCell = function(matriculado){
+    return matriculado
+      ? '<span class="tag" style="background:#d1fae5;color:#065f46">✓ Matriculado</span>'
+      : '<span class="tag">En curso</span>';
+  };
+
+  // TODAS las negociaciones que el bot trabajó (conversó), haya escalado o no — más amplio que la
+  // tabla de escalados de abajo (ej. Katherine: tuvo conversación pero se asignó a mano, nunca pasó
+  // por escalar_a_humano, así que no aparecería en "Deals escalados a asesor").
+  var negFilas = [];
+  mb.forEach(function(p){
+    var det = (p.crm && p.crm.negociacionesDetalle) || [];
+    det.forEach(function(n){ negFilas.push({ programa: p.nombre, n: n }); });
+  });
+  var negResumenEl = document.getElementById('negresumen');
+  var negEl = document.getElementById('negociaciones');
+  if (negFilas.length) {
+    var totalMatricN = negFilas.filter(function(f){return f.n.matriculado;}).length;
+    var totalEscN = negFilas.filter(function(f){return f.n.escalado;}).length;
+    negResumenEl.innerHTML = '<b>'+num(negFilas.length)+'</b> negociaciones trabajadas · <b>'+num(totalMatricN)+'</b> matriculadas ('+
+      Math.round(totalMatricN/negFilas.length*100)+'%) · <b>'+num(totalEscN)+'</b> escaladas a un asesor';
+
+    var ncols = ['Programa','Deal','Asesor','Etapa actual','Escalado','Matrícula'];
+    var nthead = '<thead><tr>'+ncols.map(function(c){return '<th>'+esc(c)+'</th>';}).join('')+'</tr></thead>';
+    var ntbody = '<tbody>'+negFilas.map(function(f){
+      var n = f.n;
+      var escLbl = !n.escalado
+        ? '<span class="tag">No</span>'
+        : '<span class="tag" style="background:#dbeafe;color:#1e40af">'+(n.motivo==='silencio'?'Silencio':'Pedido / score')+'</span>';
+      return '<tr>'+
+        '<td>'+esc(f.programa)+'</td>'+
+        '<td>'+dealLinkCell(n.titulo, n.dealId)+'</td>'+
+        '<td>'+esc(n.asesor||'—')+'</td>'+
+        '<td>'+esc(n.stageNombre||n.stageId||'—')+'</td>'+
+        '<td>'+escLbl+'</td>'+
+        '<td>'+matriculaCell(n.matriculado)+'</td>'+
+      '</tr>';
+    }).join('')+'</tbody>';
+    negEl.innerHTML = nthead+ntbody;
+  } else {
+    negResumenEl.innerHTML = '';
+    negEl.innerHTML = '<tr><td class="muted">El bot todavía no tuvo conversaciones ligadas a un deal de estos programas.</td></tr>';
+  }
+
   // Deals escalados a asesor (1 fila por deal, de los 2 programas piloto) — para ver la etapa real
   // de cada uno, quién lo tiene y si ya matriculó, no solo el conteo agregado de la tabla de arriba.
   var escFilas = [];
@@ -116,7 +165,6 @@ function render(d){
   });
   var escResumenEl = document.getElementById('escresumen');
   var escEl = document.getElementById('escalados');
-  var dealUrl = function(id){ return d.bitrixDomain ? 'https://'+d.bitrixDomain+'/crm/deal/details/'+id+'/' : null; };
   if (escFilas.length) {
     var totalMatric = escFilas.filter(function(f){return f.e.matriculado;}).length;
     var porPrograma = {};
@@ -130,20 +178,13 @@ function render(d){
     var etbody = '<tbody>'+escFilas.map(function(f){
       var e = f.e;
       var motivoLbl = e.motivo==='silencio' ? 'Silencio (sin respuesta)' : 'Pedido / score';
-      var matriculaLbl = e.matriculado
-        ? '<span class="tag" style="background:#d1fae5;color:#065f46">✓ Matriculado</span>'
-        : '<span class="tag">En curso</span>';
-      var url = dealUrl(e.dealId);
-      var dealCell = url
-        ? '<a href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(e.titulo)+' (#'+e.dealId+')</a>'
-        : esc(e.titulo)+' (#'+e.dealId+')';
       return '<tr>'+
         '<td>'+esc(f.programa)+'</td>'+
-        '<td>'+dealCell+'</td>'+
+        '<td>'+dealLinkCell(e.titulo, e.dealId)+'</td>'+
         '<td>'+esc(e.asesor||'—')+'</td>'+
         '<td><span class="tag">'+esc(motivoLbl)+'</span></td>'+
         '<td>'+esc(e.stageNombre||e.stageId||'—')+'</td>'+
-        '<td>'+matriculaLbl+'</td>'+
+        '<td>'+matriculaCell(e.matriculado)+'</td>'+
       '</tr>';
     }).join('')+'</tbody>';
     escEl.innerHTML = ethead+etbody;

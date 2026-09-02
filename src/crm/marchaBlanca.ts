@@ -29,6 +29,20 @@ export type EscaladoDetalle = {
   matriculado: boolean;
 };
 
+/** Un deal donde el bot conversó con el cliente — sea o no que haya escalado a un asesor. Más amplio
+ *  que EscaladoDetalle: cubre cualquier negociación que el bot trabajó (ej. Deal #3490881, Katherine:
+ *  tuvo conversación pero su asignación fue manual, nunca pasó por escalar_a_humano). */
+export type NegociacionDetalle = {
+  dealId: number;
+  titulo: string;
+  asesor: string | null;
+  stageId: string | null;
+  stageNombre: string | null;
+  matriculado: boolean;
+  escalado: boolean;
+  motivo: 'explicito' | 'silencio' | null;
+};
+
 export type ProgramaScorecard = {
   key: string;
   nombre: string;
@@ -44,6 +58,7 @@ export type ProgramaScorecard = {
   escaladosConDeal: number;
   escaladosMatriculados: number;
   escaladosDetalle: EscaladoDetalle[];
+  negociacionesDetalle: NegociacionDetalle[];
 };
 
 function baseFilter(nombrePrograma: string, exclude: string | undefined, categoryId: number): Record<string, unknown> {
@@ -81,7 +96,7 @@ async function nombresDeEtapa(categoryId: number, auth: Auth): Promise<Map<strin
 }
 
 export async function bitrixMarchaBlancaScorecard(
-  botStats: Map<string, { escalados: EscaladoRef[] }>,
+  botStats: Map<string, { escalados: EscaladoRef[]; dealsConversados: number[] }>,
   auth: Auth,
 ): Promise<ProgramaScorecard[]> {
   const out: ProgramaScorecard[] = [];
@@ -120,43 +135,62 @@ export async function bitrixMarchaBlancaScorecard(
       }
       const ticketReal = montos.length ? Math.round(montos.reduce((a, b) => a + b, 0) / montos.length) : null;
 
-      // Escalados: consulta cada deal escalado (set chico, viene de audit_log) en vez de traer TODOS
-      // los ganados — evita otra enumeración amplia. Trae etapa/título/asesor de una sola pasada.
+      // Deals con los que el bot trabajó: unión de escalados (audit_log de escalar_a_humano/
+      // auto_escalation/seguimiento_transferencia) y conversados (>=1 turno) — un mismo deal puede
+      // venir de ambas fuentes; se consulta UNA sola vez cada uno (set chico, viene de audit_log) en
+      // vez de traer TODOS los ganados — evita otra enumeración amplia.
       const escalados = botStats.get(prog.key)?.escalados ?? [];
-      if (escalados.length && !etapasPorCategoria.has(prog.categoryId)) {
+      const dealsConversados = botStats.get(prog.key)?.dealsConversados ?? [];
+      const motivoPorDeal = new Map(escalados.map((e) => [e.dealId, e.motivo]));
+      const todosLosDeals = new Set([...escalados.map((e) => e.dealId), ...dealsConversados]);
+
+      if (todosLosDeals.size && !etapasPorCategoria.has(prog.categoryId)) {
         etapasPorCategoria.set(prog.categoryId, await nombresDeEtapa(prog.categoryId, auth));
       }
       const etapas = etapasPorCategoria.get(prog.categoryId);
-      const escaladosDetalle: EscaladoDetalle[] = [];
+      const negociacionesDetalle: NegociacionDetalle[] = [];
       let escaladosMatriculados = 0;
-      for (const ref of escalados) {
+      for (const dealId of todosLosDeals) {
         try {
           const d = await callCrm<{ TITLE?: string; STAGE_ID?: string; ASSIGNED_BY_ID?: string }>(
             'crm.deal.get',
-            { id: ref.dealId },
+            { id: dealId },
             auth,
           );
           const matriculadoRef = !!d?.STAGE_ID?.endsWith(':WON');
-          if (matriculadoRef) escaladosMatriculados++;
+          const motivo = motivoPorDeal.get(dealId) ?? null;
+          if (motivo && matriculadoRef) escaladosMatriculados++;
           const asesor =
             d?.ASSIGNED_BY_ID != null && prog.asesorNorteId != null && Number(d.ASSIGNED_BY_ID) === prog.asesorNorteId
               ? (prog.asesorNorte ?? null)
               : d?.ASSIGNED_BY_ID != null && prog.asesorSurId != null && Number(d.ASSIGNED_BY_ID) === prog.asesorSurId
                 ? (prog.asesorSur ?? null)
                 : (d?.ASSIGNED_BY_ID ?? null);
-          escaladosDetalle.push({
-            dealId: ref.dealId,
-            titulo: d?.TITLE ?? `Deal #${ref.dealId}`,
+          negociacionesDetalle.push({
+            dealId,
+            titulo: d?.TITLE ?? `Deal #${dealId}`,
             asesor,
-            motivo: ref.motivo,
             stageId: d?.STAGE_ID ?? null,
             stageNombre: d?.STAGE_ID ? (etapas?.get(d.STAGE_ID) ?? d.STAGE_ID) : null,
             matriculado: matriculadoRef,
+            escalado: motivo != null,
+            motivo,
           });
         } catch {
           /* deal borrado o inaccesible: no cuenta */
         }
       }
+      const escaladosDetalle: EscaladoDetalle[] = negociacionesDetalle
+        .filter((n) => n.motivo != null)
+        .map((n) => ({
+          dealId: n.dealId,
+          titulo: n.titulo,
+          asesor: n.asesor,
+          motivo: n.motivo as 'explicito' | 'silencio',
+          stageId: n.stageId,
+          stageNombre: n.stageNombre,
+          matriculado: n.matriculado,
+        }));
 
       const catalogo = matchPrograma(prog.nombre)[0];
       out.push({
@@ -174,6 +208,7 @@ export async function bitrixMarchaBlancaScorecard(
         escaladosConDeal: escalados.length,
         escaladosMatriculados,
         escaladosDetalle,
+        negociacionesDetalle,
       });
     } catch (e) {
       log.warn('bitrixMarchaBlancaScorecard falló', { err: String(e), programa: prog.key });
@@ -192,6 +227,7 @@ export async function bitrixMarchaBlancaScorecard(
         escaladosConDeal: 0,
         escaladosMatriculados: 0,
         escaladosDetalle: [],
+        negociacionesDetalle: [],
       });
     }
   }

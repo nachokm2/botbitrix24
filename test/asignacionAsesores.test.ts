@@ -88,6 +88,19 @@ test('asignarAsesorPorTurno: motivo="silencio" usa el texto NO urgente de la tar
   assert.match(tarea!.params.fields.DESCRIPTION, /no es urgente/i, 'la descripción aclara que no es urgente');
 });
 
+test('asignarAsesorPorTurno: motivo="automatico" usa el texto de "nuevo lead" (no urgente, sin mencionar escalada)', async () => {
+  calls.length = 0;
+  dealProgramas = { 206: 'Diplomado en Inteligencia Artificial' };
+
+  const asignado = await asignarAsesorPorTurno({ deal: 206 }, auth, 'automatico');
+
+  assert.equal(asignado, true);
+  const tarea = calls.find((c) => c.method === 'tasks.task.add');
+  assert.ok(tarea, 'igual crea la tarea (para que el asesor sepa que tiene un lead nuevo)');
+  assert.match(tarea!.params.fields.TITLE, /Nuevo lead/i);
+  assert.doesNotMatch(tarea!.params.fields.DESCRIPTION, /escaló/i, 'no da a entender que hubo una escalada');
+});
+
 test('asignarAsesorPorTurno: sin deal pero con contacto, busca un deal existente vinculado a ese contacto', async () => {
   calls.length = 0;
   dealPorContacto = { 909527: 401 };
