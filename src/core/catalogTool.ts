@@ -75,6 +75,7 @@ export function detallePrograma(input: any, shape: DetalleShape) {
     nombre: d.nombre,
     requisitos: d.requisitos,
     descripcion: d.descripcion,
+    fechaInicio: d.fechaInicio,
     nota_precio: NOTA_PRECIO,
   };
 }

@@ -10,6 +10,10 @@ export type DetallePrograma = {
   url: string;
   arancel?: string | null;
   matricula?: string | null;
+  /** Mes/fecha de inicio de la próxima cohorte, en texto libre (ej. "Fines de septiembre de 2026").
+   *  Solo se completa cuando se confirma el dato real; si falta, el bot debe decir que no lo tiene y
+   *  ofrecer derivar a un asesor (ver ai/prompt.ts) — nunca inventar un mes. */
+  fechaInicio?: string;
   duracion?: string;
   modalidad?: string;
   grado?: string;

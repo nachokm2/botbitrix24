@@ -63,6 +63,15 @@ test('detalle_programa: full (chat) devuelve objeto detalle; voice devuelve camp
   assert.equal(voice.malla, undefined, 'la voz no recibe la malla');
 });
 
+test('detalle_programa: fechaInicio real llega al bot (chat y voz) — antes el bot inventaba el mes al no tener este dato', () => {
+  const nombre = 'Diplomado en Intervención Terapéutica Familiar';
+  const full: any = detallePrograma({ nombre }, WHATSAPP_PROFILE.catalog.detalle);
+  assert.equal(full.detalle.fechaInicio, 'Fines de septiembre de 2026');
+
+  const voice: any = detallePrograma({ nombre }, VOICE_PROFILE.catalog.detalle);
+  assert.equal(voice.fechaInicio, 'Fines de septiembre de 2026', 'también llega en el shape reducido de voz/Instagram/Messenger');
+});
+
 test('detalle_programa: desconocido → SIN_DETALLE (chat) / encontrado:false (voz)', () => {
   const full: any = detallePrograma({ nombre: 'no existe abc' }, WHATSAPP_PROFILE.catalog.detalle);
   assert.equal(full.ok, false);
