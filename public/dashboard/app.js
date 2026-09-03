@@ -35,11 +35,11 @@ function render(d){
     kpi(num(conversaciones),'Conversaciones','Diálogos distintos que el bot atendió en el período, en cualquier canal (WhatsApp, Web Chat, Instagram, Messenger).') +
     kpi(num(mensajes),'Mensajes','Turnos de conversación respondidos por el bot (una respuesta del bot = un mensaje).') +
     kpi(num(leads),'Leads capturados','Conversaciones donde se registró al menos un dato de contacto (nombre, correo o teléfono) en el CRM.') +
-    kpi(num(escal),'Escalamientos a asesor','Veces que la conversación se derivó a un asesor humano: porque el cliente lo pidió, o automáticamente por score alto.') +
+    kpi(num(escal),'Escalamientos a asesor','El BOT decidió derivar la conversación a un asesor: porque el cliente lo pidió, o automáticamente por score alto. Es la acción del bot al derivar, no confirma que un asesor ya haya respondido. Cuenta en cualquier canal (WhatsApp, Web Chat, Instagram, Messenger).') +
     kpi(num(consultas),'Consultas de programas','Veces que se usó la búsqueda de catálogo (consultar_programas) para encontrar o filtrar programas.') +
     kpi(num(etapas),'Etapas de deal movidas','Veces que el bot movió la etapa de un Deal en el CRM según el score del lead.') +
     kpi(scoreAvg,'Score promedio','Promedio de la nota 0-100 que un modelo de IA le asigna a cada conversación evaluada, estimando qué tan probable es que ese lead se matricule (interés claro, datos entregados, urgencia, tono). Esta nota también dispara mover de etapa, auto-llamar o auto-escalar.') +
-    kpi(num(operador),'Intervención humana','Veces que un asesor/operador real escribió directamente en un chat de WhatsApp (no el bot) — se verifica contra Bitrix que sea un empleado real, no el cliente. Solo aplica a WhatsApp.') +
+    kpi(num(operador),'Intervención humana','Veces que un asesor/operador REAL escribió directamente en un chat de WhatsApp (no el bot; se verifica contra Bitrix que sea un empleado, no el cliente). Solo cuenta WhatsApp — por eso puede ser menor que "Escalamientos a asesor" (que suma todos los canales y no confirma que el asesor ya haya escrito), o mayor, si un asesor entra a conversar sin que el bot haya escalado antes.') +
     kpi(num(errores),'Errores','Fallas técnicas registradas (ej. al guardar en el CRM o al auditar un evento).');
 
   // Por embudo
