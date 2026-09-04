@@ -109,6 +109,18 @@ test('actualizarDatosCliente: fusiona email nuevo sin borrar el existente', asyn
   assert.ok(calls.find((c) => c.method === 'crm.timeline.comment.add'), 'deja nota en el timeline');
 });
 
+test('actualizarDatosCliente: registra profesión y dirección en la nota (antecedentes de postulación)', async () => {
+  calls.length = 0;
+  responder = () => ({});
+
+  await actualizarDatosCliente({ contact: 8 }, undefined, { profesion: 'Trabajadora social', direccion: 'Av. Siempre Viva 123' }, auth);
+
+  const nota = calls.find((c) => c.method === 'crm.timeline.comment.add');
+  assert.ok(nota, 'deja una nota en el timeline');
+  assert.match(nota!.params.fields.COMMENT, /Profesión: Trabajadora social/);
+  assert.match(nota!.params.fields.COMMENT, /Dirección: Av\. Siempre Viva 123/);
+});
+
 test('actualizarDatosCliente: no duplica un email que ya está presente', async () => {
   calls.length = 0;
   responder = (method) => {

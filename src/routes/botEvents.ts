@@ -132,6 +132,9 @@ async function handle(req: Request) {
     log.warn('media: extractIncomingMedia falló', { err: String(e) });
     return [] as Awaited<ReturnType<typeof extractIncomingMedia>>;
   });
+  // Última imagen del turno (si hay) — se le pasa al agente para que una tool pueda subir los bytes
+  // reales al CRM si el modelo reconoce que es un documento (ver registrar_documento_identidad).
+  let pendingImage: { base64: string; mediaType: string } | null = null;
   if (media.length) {
     // Audios → transcripción (se agregan como texto del cliente).
     for (const a of media.filter((m) => m.kind === 'audio')) {
@@ -154,6 +157,7 @@ async function handle(req: Request) {
       ];
       for (const img of imgs) blocks.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
       turnContent = blocks;
+      pendingImage = { base64: imgs[0].base64, mediaType: imgs[0].mediaType };
     }
     // Archivo no visualizable (pdf/doc) y nada más que responder.
     const otros = media.filter((m) => m.kind === 'file');
@@ -189,7 +193,7 @@ async function handle(req: Request) {
   // Agente real: motor conversacional único, con el perfil del canal WhatsApp (Open Lines).
   // turnContent (bloques con imagen) tiene prioridad; si no, el texto (incluye audios transcritos).
   const reply = await runAgentTurn(
-    { auth, conversationId: dialogId, chatId, botId, crmEntity, crmEntities, profile: WHATSAPP_PROFILE },
+    { auth, conversationId: dialogId, chatId, botId, crmEntity, crmEntities, profile: WHATSAPP_PROFILE, pendingImage },
     turnContent ?? turnText,
     priorContext,
   );

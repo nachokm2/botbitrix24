@@ -64,6 +64,22 @@ test('solicitar_llamada: cadena no numérica se rechaza', async () => {
   assert.equal(r.error, 'TELEFONO_INVALIDO');
 });
 
+test('registrar_documento_identidad: sin imagen en el turno, se rechaza (evita subir algo de un turno anterior)', async () => {
+  const r = await executeTool('registrar_documento_identidad', {}, { ...ctx, pendingImage: null });
+  assert.equal(r.ok, false);
+  assert.equal(r.error, 'SIN_IMAGEN');
+});
+
+test('registrar_documento_identidad: con imagen pero sin Deal todavía, se rechaza (no hay dónde adjuntarla)', async () => {
+  const r = await executeTool(
+    'registrar_documento_identidad',
+    {},
+    { ...ctx, pendingImage: { base64: 'ZmFrZQ==', mediaType: 'image/jpeg' } },
+  );
+  assert.equal(r.ok, false);
+  assert.equal(r.error, 'SIN_DEAL');
+});
+
 test('tool desconocida devuelve UNKNOWN_TOOL', async () => {
   const r = await executeTool('herramienta_inexistente', {}, ctx);
   assert.equal(r.ok, false);

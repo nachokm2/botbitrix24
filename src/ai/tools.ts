@@ -84,6 +84,8 @@ export const tools = [
           description: 'Teléfono de contacto que entregue el cliente; se agrega a su ficha (no reemplaza el de WhatsApp).',
         },
         rut: { type: 'string' },
+        profesion: { type: 'string', description: 'Profesión u ocupación del cliente, si la entrega (parte de los antecedentes para su postulación/matrícula).' },
+        direccion: { type: 'string', description: 'Dirección del cliente, si la entrega (parte de los antecedentes para su postulación/matrícula).' },
         programa_interes: {
           type: 'string',
           description:
@@ -95,6 +97,18 @@ export const tools = [
       },
       required: [],
     },
+  },
+  {
+    // Solo tiene efecto en WhatsApp (WHATSAPP_PROFILE.toolNames) — es el único canal donde el cliente
+    // puede mandar una foto que el bot vea directamente (visión) en el mismo turno.
+    name: 'registrar_documento_identidad',
+    description:
+      'Sube al CRM la foto de un documento de identidad (cédula de identidad chilena) que el cliente ACABA de ' +
+      'enviar EN ESTE MISMO turno — solo llámala si estás viendo esa imagen ahora mismo (no la llames por texto, ' +
+      'ni para una imagen de un turno anterior, ni para otro tipo de imagen como un comprobante de pago o una ' +
+      'captura de pantalla). Úsala cuando el cliente esté avanzando su proceso de matrícula y te haya enviado la ' +
+      'foto de su cédula.',
+    input_schema: { type: 'object', properties: {}, required: [] },
   },
   {
     name: 'solicitar_llamada',

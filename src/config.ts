@@ -139,6 +139,10 @@ export const config = {
   // acumulan más programas que slots, los que sobran se fusionan en el ÚLTIMO slot disponible.
   ufBrochureFile2: process.env.BITRIX_UF_BROCHURE_FILE_2 ?? '',
   ufBrochureFile3: process.env.BITRIX_UF_BROCHURE_FILE_3 ?? '',
+  // Campo UF tipo "Archivo" (en el Deal) "Cedula de identidad CL" — el bot lo sube cuando el cliente
+  // envía la foto de su cédula por WhatsApp durante el proceso de matrícula (ver ai/toolRunner.ts:
+  // registrar_documento_identidad). Campo real ya existente en el portal (UF_CRM_1709318371).
+  ufCedula: process.env.BITRIX_UF_CEDULA ?? '',
   // Campo UF tipo "String" (en el Deal) con el cuerpo HTML del correo del brochure ya renderizado
   // por el bot (con TODOS los programas acumulados durante la conversación) — la plantilla bizproc
   // solo lo referencia vía {=Document:...}, sin necesitar loops nativos (ver crm/brochureEmail.ts).

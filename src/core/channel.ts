@@ -51,6 +51,10 @@ export type AgentContext = {
   chatId?: string | number; // chat (Open Lines)
   botId?: number; // chat
   phone?: string; // voz
+  /** Última imagen recibida EN ESTE TURNO (WhatsApp) — el modelo ya la "ve" vía visión; se deja acá
+   *  para que una tool (registrar_documento_identidad) pueda subir los bytes reales al CRM cuando el
+   *  modelo reconozca que es una cédula de identidad. Los tool-calls no pueden llevar binarios. */
+  pendingImage?: { base64: string; mediaType: string } | null;
 };
 
 // Prompt de voz (M2, Custom LLM): réplica exacta del prompt "Sofía" que vivía en el dashboard de
@@ -163,7 +167,7 @@ export const WHATSAPP_PROFILE: ChannelProfile = {
   model: config.model, // Claude Sonnet
   maxResponseTokens: 1024,
   systemPrompt: SYSTEM_PROMPT,
-  toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'solicitar_llamada', 'escalar_a_humano'],
+  toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'registrar_documento_identidad', 'solicitar_llamada', 'escalar_a_humano'],
   catalog: {
     consultar: { limit: 20, verbose: true, wrapOk: true, moreNote: MORE_NOTE_CHAT },
     detalle: 'full',

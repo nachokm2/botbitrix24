@@ -32,7 +32,11 @@ const SCORING_SYSTEM = `Eres un evaluador de leads comerciales para programas de
 Analiza la conversación y devuelve SOLO un JSON (sin texto adicional, sin markdown) con esta forma exacta:
 {"score": <entero 0-100>, "intencion": "alta|media|baja", "sentimiento": "positivo|neutral|negativo", "justificacion": "<1 frase>"}
 El "score" estima la calidad/probabilidad de matrícula del lead. Considera: claridad del interés en un programa concreto,
-datos de contacto entregados (nombre, email), urgencia/decisión y tono. Sé estricto: sin interés claro, score bajo.`;
+datos de contacto entregados (nombre, email), urgencia/decisión y tono. Sé estricto: sin interés claro, score bajo.
+Si el cliente expresa la DECISIÓN concreta de matricularse (no solo consultar o comparar), en cualquier frase — ej.
+"quiero matricularme", "cómo me matriculo", "quiero inscribirme ya", "ya me decidí, cómo postulo", "quiero asegurar mi
+cupo", "tengo la posibilidad de generar la matrícula" — es SIEMPRE intención alta y score >= 80, aunque falten datos
+de contacto.`;
 
 function transcript(messages: any[]): string {
   return messages

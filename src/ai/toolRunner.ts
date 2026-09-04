@@ -8,8 +8,9 @@ import { generarBriefing } from './briefing';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { markHumanTakeover, getSession, saveSession } from '../session';
 import { cancelarSeguimiento } from './seguimiento';
-import { callBitrix } from '../bitrix/client';
+import { callBitrix, callCrm } from '../bitrix/client';
 import { once } from '../store/kv';
+import { config } from '../config';
 import { log } from '../log';
 
 export async function executeTool(name: string, input: any, ctx: AgentContext): Promise<any> {
@@ -30,6 +31,32 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
         if (!r.ok) return { ok: false, error: r.error };
         log.info('tool registrar_interes_crm', { actualizado: r.actualizado });
         return { ok: true, actualizado: r.actualizado };
+      }
+
+      case 'registrar_documento_identidad': {
+        if (!ctx.pendingImage) {
+          return {
+            ok: false,
+            error: 'SIN_IMAGEN',
+            mensaje: 'No hay ninguna imagen nueva en este turno; solo puedes usar esto justo después de que el cliente envíe la foto.',
+          };
+        }
+        const dealId = ctx.crmEntities?.deal;
+        if (!dealId || !config.ufCedula) {
+          return {
+            ok: false,
+            error: 'SIN_DEAL',
+            mensaje: 'Todavía no tengo su ficha lista para adjuntar el documento; sigue capturando sus datos y ofrece que lo reenvíe apenas la tengamos.',
+          };
+        }
+        const ext = ctx.pendingImage.mediaType.includes('png') ? 'png' : 'jpg';
+        await callCrm(
+          'crm.deal.update',
+          { id: dealId, fields: { [config.ufCedula]: { fileData: [`cedula-deal-${dealId}.${ext}`, ctx.pendingImage.base64] } } },
+          ctx.auth,
+        );
+        log.info('tool registrar_documento_identidad: cédula subida al deal', { dealId });
+        return { ok: true, mensaje: 'Confirma cálidamente al cliente que recibiste su documento correctamente y continúa el proceso.' };
       }
 
       case 'solicitar_llamada': {

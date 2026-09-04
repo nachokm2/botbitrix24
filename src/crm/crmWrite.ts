@@ -22,6 +22,8 @@ export type DatosCliente = {
   email?: string;
   telefono?: string;
   rut?: string;
+  profesion?: string;
+  direccion?: string;
   programa_interes?: string;
   comentario?: string;
 };
@@ -157,6 +159,8 @@ export async function addNota(type: CrmEntity['type'], id: number, data: DatosCl
       data.email ? `Email: ${data.email}` : '',
       data.telefono ? `Teléfono: ${data.telefono}` : '',
       data.rut ? `RUT: ${data.rut}` : '',
+      data.profesion ? `Profesión: ${data.profesion}` : '',
+      data.direccion ? `Dirección: ${data.direccion}` : '',
       data.comentario ? `Nota: ${data.comentario}` : '',
     ]
       .filter(Boolean)
