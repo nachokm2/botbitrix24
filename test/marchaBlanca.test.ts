@@ -11,14 +11,17 @@ process.env.BITRIX_UF_PROGRAMA = 'UF_CRM_PROGRAMA_TEST';
 
 type Call = { method: string; params: any };
 const calls: Call[] = [];
-let dealesPorId: Record<number, { TITLE?: string; STAGE_ID?: string; ASSIGNED_BY_ID?: string }> = {};
+let dealesPorId: Record<number, { TITLE?: string; STAGE_ID?: string; ASSIGNED_BY_ID?: string; OPPORTUNITY?: string }> = {};
 
 mock.module('../src/bitrix/client.ts', {
   namedExports: {
     callBitrix: async (method: string, params: any) => record(method, params),
     callCrm: async (method: string, params: any) => record(method, params),
     callBitrixEnvelope: async (method: string, params: any) => ({ result: record(method, params), total: 0 }),
-    callCrmEnvelope: async (method: string, params: any) => ({ result: [], total: 0, next: null }),
+    // countDeals (dealsALaFecha/dealsAntiguos) usa esto con start:-1 — en producción da total:0
+    // SIEMPRE (bug real de Bitrix, ver comentario en marchaBlanca.ts), así que el mock replica ese
+    // mismo comportamiento conocido en vez de simular un conteo que en la práctica no existe.
+    callCrmEnvelope: async () => ({ result: [], total: 0, next: null }),
     callWebhook: async () => ({}),
   },
 });
@@ -53,6 +56,22 @@ mock.module('../src/store/db.ts', {
 
 const { bitrixMarchaBlancaScorecard, resolverDialogosPorProgramaPiloto } = await import('../src/crm/marchaBlanca');
 const auth = { domain: 'test.bitrix24.com', access_token: 'tok' } as any;
+
+test('bitrixMarchaBlancaScorecard: "matriculados" y "ticket promedio" salen de negociacionesDetalle (deals que el bot trabajó), NO de un scan amplio de Bitrix (bug real: ese scan da total:0 siempre o tarda 15+ segundos)', async () => {
+  calls.length = 0;
+  dealesPorId = {
+    501: { TITLE: 'Deal A', STAGE_ID: 'C1:WON', OPPORTUNITY: '800000' },
+    502: { TITLE: 'Deal B', STAGE_ID: 'C1:WON', OPPORTUNITY: '900000' },
+    503: { TITLE: 'Deal C', STAGE_ID: 'C1:UC_JARL1O' }, // en curso, no matriculado — no debe contar
+  };
+  const botStats = new Map([['ia', { escalados: [], dealsConversados: [501, 502, 503] }]]);
+
+  const out = await bitrixMarchaBlancaScorecard(botStats, auth);
+  const ia = out.find((p) => p.key === 'ia')!;
+
+  assert.equal(ia.matriculados, 2, 'cuenta los 2 deals con STAGE_ID :WON entre los que el bot trabajó');
+  assert.equal(ia.ticketPromedio, 850000, 'promedio de los 2 montos reales (OPPORTUNITY)');
+});
 
 test('bitrixMarchaBlancaScorecard: arma el detalle por deal escalado (etapa, asesor, motivo, matrícula)', async () => {
   calls.length = 0;

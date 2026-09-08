@@ -160,40 +160,23 @@ export async function bitrixMarchaBlancaScorecard(
     try {
       if (!config.ufPrograma) throw new Error('BITRIX_UF_PROGRAMA no configurado');
       const filter = baseFilter(prog.nombre, prog.exclude, prog.categoryId);
-      const wonFilter = { ...filter, '%STAGE_ID': 'WON' };
       const antiguosFilter = { ...filter, '<DATE_CREATE': config.marchaBlancaStart + 'T00:00:00' };
 
-      const [dealsALaFecha, matriculados, dealsAntiguos] = await Promise.all([
+      // BUG REAL descubierto en producción: el "start:-1" que usa countDeals para contar sin traer
+      // filas devuelve total:0 SIEMPRE en este portal en cuanto el filtro incluye el "%" (contiene)
+      // sobre el UF de programa (texto libre) — confirmado: el MISMO filtro con paginación normal
+      // (sin start:-1) da el total correcto, pero tarda 15+ segundos por el volumen histórico del
+      // portal (millones de deals). Por eso dealsALaFecha/dealsAntiguos siguen en 0 por ahora
+      // (limitación conocida — no se resuelve acá sin arriesgar timeouts en cada refresco del panel).
+      const [dealsALaFecha, dealsAntiguos] = await Promise.all([
         countDeals(filter, auth),
-        countDeals(wonFilter, auth),
         countDeals(antiguosFilter, auth),
       ]);
-
-      // Ticket promedio REAL: solo los deals GANADOS desde el arranque del piloto (set chico, se puede
-      // paginar sin riesgo). Antes de esa fecha no hay forma barata de traer los montos uno a uno.
-      const wonSincePilotoFilter = { ...wonFilter, '>=DATE_CREATE': config.marchaBlancaStart + 'T00:00:00' };
-      const montos: number[] = [];
-      let wStart = 0;
-      for (let page = 0; page < 20; page++) {
-        // tope 20 páginas (1000 deals ganados desde el piloto) — de sobra para un piloto de 2 programas
-        const env = await callCrmEnvelope<Array<{ ID: string; OPPORTUNITY: string }>>(
-          'crm.deal.list',
-          { filter: wonSincePilotoFilter, select: ['ID', 'OPPORTUNITY'], start: wStart },
-          auth,
-        );
-        for (const d of env.result ?? []) {
-          const n = Number(d.OPPORTUNITY) || 0;
-          if (n > 0) montos.push(n);
-        }
-        if (env.next == null) break;
-        wStart = env.next;
-      }
-      const ticketReal = montos.length ? Math.round(montos.reduce((a, b) => a + b, 0) / montos.length) : null;
 
       // Deals con los que el bot trabajó: unión de escalados (audit_log de escalar_a_humano/
       // auto_escalation/seguimiento_transferencia) y conversados (>=1 turno) — un mismo deal puede
       // venir de ambas fuentes; se consulta UNA sola vez cada uno (set chico, viene de audit_log) en
-      // vez de traer TODOS los ganados — evita otra enumeración amplia.
+      // vez de traer TODOS los ganados del portal — evita otra enumeración amplia y lenta.
       const escalados = botStats.get(prog.key)?.escalados ?? [];
       const dealsConversados = botStats.get(prog.key)?.dealsConversados ?? [];
       const motivoPorDeal = new Map(escalados.map((e) => [e.dealId, e.motivo]));
@@ -205,9 +188,10 @@ export async function bitrixMarchaBlancaScorecard(
       const etapas = etapasPorCategoria.get(prog.categoryId);
       const negociacionesDetalle: NegociacionDetalle[] = [];
       let escaladosMatriculados = 0;
+      const montos: number[] = [];
       for (const dealId of todosLosDeals) {
         try {
-          const d = await callCrm<{ TITLE?: string; STAGE_ID?: string; ASSIGNED_BY_ID?: string }>(
+          const d = await callCrm<{ TITLE?: string; STAGE_ID?: string; ASSIGNED_BY_ID?: string; OPPORTUNITY?: string }>(
             'crm.deal.get',
             { id: dealId },
             auth,
@@ -215,6 +199,10 @@ export async function bitrixMarchaBlancaScorecard(
           const matriculadoRef = !!d?.STAGE_ID?.endsWith(':WON');
           const motivo = motivoPorDeal.get(dealId) ?? null;
           if (motivo && matriculadoRef) escaladosMatriculados++;
+          if (matriculadoRef) {
+            const monto = Number(d?.OPPORTUNITY) || 0;
+            if (monto > 0) montos.push(monto);
+          }
           const asesor =
             d?.ASSIGNED_BY_ID != null && prog.asesorNorteId != null && Number(d.ASSIGNED_BY_ID) === prog.asesorNorteId
               ? (prog.asesorNorte ?? null)
@@ -246,6 +234,14 @@ export async function bitrixMarchaBlancaScorecard(
           stageNombre: n.stageNombre,
           matriculado: n.matriculado,
         }));
+
+      // "matriculados" y "ticket promedio" salen de negociacionesDetalle (deals con los que el bot
+      // trabajó, set chico y ya consultado arriba) — NO de un scan amplio de Bitrix (ese es el que
+      // tarda 15+ segundos, ver comentario de dealsALaFecha más arriba). Queda con alcance más
+      // acotado que antes (solo deals que el bot conversó, no CUALQUIER matrícula del programa desde
+      // siempre) pero es un número REAL y rápido en vez de uno amplio que nunca funcionó (daba 0).
+      const matriculados = negociacionesDetalle.filter((n) => n.matriculado).length;
+      const ticketReal = montos.length ? Math.round(montos.reduce((a, b) => a + b, 0) / montos.length) : null;
 
       const catalogo = matchPrograma(prog.nombre)[0];
       out.push({
