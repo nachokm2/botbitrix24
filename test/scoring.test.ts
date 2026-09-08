@@ -43,6 +43,29 @@ test('moverEtapaPorScore: score bajo no mueve nada', () => {
   assert.equal(target, '');
 });
 
+test('moverEtapaPorScore: score alto pero SIN datos de contacto completos cae a "medio" (Interesado), no a "alto" (Postulante)', () => {
+  const target = moverEtapaPorScore({
+    score: 85,
+    dealCategory: 1,
+    stageMap: { '1': { alto: 'C1:ALTO', medio: 'C1:MEDIO' } },
+    stageScoreAlto: '',
+    stageScoreMedio: '',
+    datosCompletos: false,
+  });
+  assert.equal(target, 'C1:MEDIO');
+});
+
+test('moverEtapaPorScore: datosCompletos no se especifica (legacy) → se comporta como si estuvieran completos', () => {
+  const target = moverEtapaPorScore({
+    score: 85,
+    dealCategory: 1,
+    stageMap: { '1': { alto: 'C1:ALTO', medio: 'C1:MEDIO' } },
+    stageScoreAlto: '',
+    stageScoreMedio: '',
+  });
+  assert.equal(target, 'C1:ALTO');
+});
+
 test('moverEtapaPorScore: no repite la misma etapa a la que ya se movió', () => {
   const target = moverEtapaPorScore({
     score: 85,

@@ -560,11 +560,10 @@ export async function getTelefonoCliente(entities: CrmEntities, auth: Auth): Pro
   return null;
 }
 
-/** ¿Hay una captura de datos de contacto EN CURSO (nombre/email/teléfono con algunos ya guardados
- *  pero no todos)? Se usa para no interrumpir con una auto-escalación justo cuando el bot está a
- *  mitad de pedir los datos (score alto + secuencia de captura sin terminar → cortaba antes de
- *  llegar al teléfono). Sin captura empezada (0 de 3) o ya completa (3 de 3), no bloquea nada. */
-export async function capturaDeDatosEnCurso(entities: CrmEntities, auth: Auth): Promise<boolean> {
+/** Cuenta cuántos de los 3 datos de contacto (nombre/email/teléfono) ya están guardados en el
+ *  contacto/lead vinculado — null si no hay CRM que leer o falló la consulta. Compartido por
+ *  capturaDeDatosEnCurso (0<n<3) y datosDeContactoCompletos (n===3, ver moverEtapaPorScore). */
+async function completitudDatosContacto(entities: CrmEntities, auth: Auth): Promise<number | null> {
   const leerCompletitud = (r: BitrixContact | BitrixLead) => ({
     nombre: !!r?.NAME,
     email: Array.isArray(r?.EMAIL) && r.EMAIL.length > 0,
@@ -577,13 +576,29 @@ export async function capturaDeDatosEnCurso(entities: CrmEntities, auth: Auth): 
     } else if (entities.lead) {
       datos = leerCompletitud(await callCrm<BitrixLead>('crm.lead.get', { id: entities.lead }, auth));
     }
-    if (!datos) return false;
-    const completados = [datos.nombre, datos.email, datos.telefono].filter(Boolean).length;
-    return completados > 0 && completados < 3;
+    if (!datos) return null;
+    return [datos.nombre, datos.email, datos.telefono].filter(Boolean).length;
   } catch (e) {
-    log.warn('capturaDeDatosEnCurso falló', { err: String(e) });
-    return false; // ante duda, no bloquear la escalación
+    log.warn('completitudDatosContacto falló', { err: String(e) });
+    return null;
   }
+}
+
+/** ¿Hay una captura de datos de contacto EN CURSO (nombre/email/teléfono con algunos ya guardados
+ *  pero no todos)? Se usa para no interrumpir con una auto-escalación justo cuando el bot está a
+ *  mitad de pedir los datos (score alto + secuencia de captura sin terminar → cortaba antes de
+ *  llegar al teléfono). Sin captura empezada (0 de 3) o ya completa (3 de 3), no bloquea nada. */
+export async function capturaDeDatosEnCurso(entities: CrmEntities, auth: Auth): Promise<boolean> {
+  const n = await completitudDatosContacto(entities, auth);
+  return n != null && n > 0 && n < 3;
+}
+
+/** ¿Ya se capturaron los 3 datos de contacto (nombre/email/teléfono)? Se usa para decidir si un
+ *  score alto llega a "Postulante" (datos completos) o se queda en "Interesado" (score alto pero
+ *  todavía sin cómo contactarlo) — ver moverEtapaPorScore. Ante duda (falló la consulta) asume que
+ *  NO están completos: no arriesga marcar como postulante a alguien sin datos reales. */
+export async function datosDeContactoCompletos(entities: CrmEntities, auth: Auth): Promise<boolean> {
+  return (await completitudDatosContacto(entities, auth)) === 3;
 }
 
 /** Guarda la evaluación del lead (score/intención/sentimiento) en el CRM: campos UF (si están

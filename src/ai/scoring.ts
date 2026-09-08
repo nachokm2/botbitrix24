@@ -7,6 +7,7 @@ import {
   getTelefonoCliente,
   obtenerContextoLlamada,
   capturaDeDatosEnCurso,
+  datosDeContactoCompletos,
   type LeadEval,
 } from '../crm/crmWrite';
 import { getDealInfo } from '../crm/directory';
@@ -82,6 +83,11 @@ export async function evaluarLead(messages: any[]): Promise<LeadEval | null> {
 
 /**
  * Decide a qué etapa mover el deal según el score (o '' si no corresponde mover ninguna).
+ * Score >=70 con datos de contacto completos (nombre/email/teléfono) → etapa "alto" (Postulante):
+ * ya se le puede dar seguimiento real. Score >=70 SIN datos completos, o score 40-69, → etapa
+ * "medio" (Interesado): el score por sí solo no basta para llamarlo postulante si no hay cómo
+ * contactarlo. datosCompletos no se pasa (undefined) en llamadas legacy/tests → se asume true
+ * (no cambia el comportamiento previo de quien no le importa esta distinción).
  * Pura — sin I/O — para poder testear la lógica de negocio sin mockear el CRM (ver ALT-Media-4).
  */
 export function moverEtapaPorScore(opts: {
@@ -91,6 +97,7 @@ export function moverEtapaPorScore(opts: {
   stageMap: Record<string, { alto?: string; medio?: string }>;
   stageScoreAlto: string;
   stageScoreMedio: string;
+  datosCompletos?: boolean;
 }): string {
   let m: { alto?: string; medio?: string } | undefined;
   if (Object.keys(opts.stageMap).length) {
@@ -100,7 +107,7 @@ export function moverEtapaPorScore(opts: {
   }
   let target = '';
   if (m) {
-    if (opts.score >= 70 && m.alto) target = m.alto;
+    if (opts.score >= 70 && m.alto && opts.datosCompletos !== false) target = m.alto;
     else if (opts.score >= 40 && m.medio) target = m.medio;
   }
   return target && target !== opts.lastStage ? target : '';
@@ -167,6 +174,9 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
       if (sess.responsableId === undefined) sess.responsableId = info.responsableId ?? -1;
     }
 
+    // Solo consulta el CRM por la completitud de datos cuando realmente puede cambiar el resultado
+    // (score<70 siempre cae en "medio" o no-mueve, sin importar los datos).
+    const datosCompletos = evalData.score >= 70 ? await datosDeContactoCompletos(crmEntities, auth) : true;
     const target = moverEtapaPorScore({
       score: evalData.score,
       dealCategory: sess.dealCategory ?? -1,
@@ -174,6 +184,7 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
       stageMap: config.stageMap,
       stageScoreAlto: config.stageScoreAlto,
       stageScoreMedio: config.stageScoreMedio,
+      datosCompletos,
     });
     if (target) {
       try {
