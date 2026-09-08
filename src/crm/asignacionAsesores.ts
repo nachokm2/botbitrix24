@@ -25,7 +25,10 @@ import type { BitrixTaskAddResult } from '../bitrix/types';
 // depender de esa regla externa. Para el resto del catálogo (todos los demás programas) sigue
 // rigiendo Bitrix.
 
-function programaCoincide(texto: string, prog: MarchaBlancaPrograma): boolean {
+/** ¿El texto (programa_interes, TITLE, o UF_PROGRAMA real de un Deal) corresponde a este programa
+ *  piloto? Exportada para reutilizar el MISMO criterio de match donde haga falta cruzar contra el
+ *  programa real de Bitrix (ver crm/marchaBlanca.ts:resolverDialogosPorProgramaPiloto). */
+export function programaCoincide(texto: string, prog: MarchaBlancaPrograma): boolean {
   const t = texto.toLowerCase();
   if (!t.includes(prog.match.toLowerCase())) return false;
   if (prog.exclude && t.includes(prog.exclude.toLowerCase())) return false;

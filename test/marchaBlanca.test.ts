@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 // pueda mostrar "Deals escalados a asesor" (pedido del usuario: verificar matrículas de los 2
 // programas piloto viendo dónde quedó cada deal, no solo un conteo agregado).
 process.env.NODE_ENV = 'test';
+process.env.REDIS_URL = ''; // resolverDialogosPorProgramaPiloto importa asignacionAsesores.ts -> store/kv.ts
 process.env.BITRIX_UF_PROGRAMA = 'UF_CRM_PROGRAMA_TEST';
 
 type Call = { method: string; params: any };
@@ -24,6 +25,10 @@ mock.module('../src/bitrix/client.ts', {
 function record(method: string, params: any): any {
   calls.push({ method, params });
   if (method === 'crm.deal.get') return dealesPorId[params.id] ?? {};
+  if (method === 'crm.deal.list') {
+    const ids: number[] = params.filter?.['@ID'] ?? [];
+    return ids.map((id) => ({ ID: String(id), ...(dealesPorId[id] ?? {}) }));
+  }
   if (method === 'crm.status.list') {
     return [
       { STATUS_ID: 'C1:NEW', NAME: 'Asignación' },
@@ -34,7 +39,19 @@ function record(method: string, params: any): any {
   return {};
 }
 
-const { bitrixMarchaBlancaScorecard } = await import('../src/crm/marchaBlanca');
+// dbDialogosConDeal/dbDialogosPorTextoPrograma: las 2 señales que resolverDialogosPorProgramaPiloto
+// combina — se mockean para controlar el escenario exacto de cada test (los datos reales de
+// Postgres se probaron aparte, directo contra la base, ver historial de la sesión).
+let dialogosConDeal: Array<{ dialogId: string; dealId: number }> = [];
+let dialogosPorTexto: Record<string, string[]> = {}; // match del programa -> dialogIds
+mock.module('../src/store/db.ts', {
+  namedExports: {
+    dbDialogosConDeal: async () => dialogosConDeal,
+    dbDialogosPorTextoPrograma: async (prog: { match: string }) => dialogosPorTexto[prog.match] ?? [],
+  },
+});
+
+const { bitrixMarchaBlancaScorecard, resolverDialogosPorProgramaPiloto } = await import('../src/crm/marchaBlanca');
 const auth = { domain: 'test.bitrix24.com', access_token: 'tok' } as any;
 
 test('bitrixMarchaBlancaScorecard: arma el detalle por deal escalado (etapa, asesor, motivo, matrícula)', async () => {
@@ -108,4 +125,33 @@ test('bitrixMarchaBlancaScorecard: sin escalados ni conversados, ambos detalles 
   assert.deepEqual(ia.escaladosDetalle, []);
   assert.deepEqual(ia.negociacionesDetalle, []);
   assert.ok(!calls.find((c) => c.method === 'crm.deal.get'));
+});
+
+test('resolverDialogosPorProgramaPiloto: combina el diálogo por TEXTO con el diálogo detectado por el programa REAL del Deal (caso real: 93/106 diálogos no tenían registrar_interes_crm con texto de programa)', async () => {
+  calls.length = 0;
+  dealesPorId = {};
+  // dlg-texto: solo se sabe por el texto que el bot pasó a registrar_interes_crm (nunca llegó a Deal).
+  dialogosPorTexto = { 'Terapéutica Familiar': ['dlg-texto'] };
+  // dlg-deal-viejo: el bot conversó con un Deal que YA traía el programa cargado desde antes (por
+  // campaña) — el bot correctamente no volvió a registrar el texto, así que NO aparece en
+  // dialogosPorTexto, solo se puede saber consultando el Deal real.
+  dialogosConDeal = [{ dialogId: 'dlg-deal-viejo', dealId: 900 }];
+  dealesPorId[900] = { UF_CRM_PROGRAMA_TEST: 'Diplomado en Intervención Terapéutica Familiar' } as any;
+
+  const mapa = await resolverDialogosPorProgramaPiloto(auth);
+
+  assert.deepEqual(new Set(mapa.get('terapia_familiar')), new Set(['dlg-texto', 'dlg-deal-viejo']), 'une ambas señales, no solo la de texto');
+  assert.deepEqual(mapa.get('ia'), [], 'no contamina el otro programa');
+});
+
+test('resolverDialogosPorProgramaPiloto: un Deal de un programa NO piloto no se cuela', async () => {
+  calls.length = 0;
+  dealesPorId = { 901: { UF_CRM_PROGRAMA_TEST: 'Diplomado en Otra Cosa' } as any };
+  dialogosPorTexto = {};
+  dialogosConDeal = [{ dialogId: 'dlg-otro', dealId: 901 }];
+
+  const mapa = await resolverDialogosPorProgramaPiloto(auth);
+
+  assert.deepEqual(mapa.get('terapia_familiar'), []);
+  assert.deepEqual(mapa.get('ia'), []);
 });

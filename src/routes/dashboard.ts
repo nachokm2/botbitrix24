@@ -2,33 +2,75 @@ import type { Request, Response } from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { snapshot } from '../obs/metrics';
-import { dbMetricsSummary, dbRecentAudit, dbEnabled, dbMarchaBlancaBot } from '../store/db';
+import { dbMetricsSummary, dbRecentAudit, dbEnabled, dbMarchaBlancaBot, dbPilotoProgresoReal } from '../store/db';
 import { kvKind } from '../store/kv';
 import { getState } from '../store';
 import { getUsuarios } from '../crm/directory';
-import { bitrixMarchaBlancaScorecard, type ProgramaScorecard } from '../crm/marchaBlanca';
+import { bitrixMarchaBlancaScorecard, resolverDialogosPorProgramaPiloto, type ProgramaScorecard } from '../crm/marchaBlanca';
 import { config } from '../config';
 
 const RANGES = ['today', '7d', '30d', 'all'];
 
+// Proyección del piloto ("marcha blanca"), tal como se presentó en el correo de lanzamiento a la
+// jefatura (2 programas, ~142 leads/mes c/u). Son valores de REFERENCIA para comparar contra los
+// reales del mes, no resultados comprometidos — ver dbPilotoProgresoReal (audit_log) +
+// bitrixMarchaBlancaScorecard (matrículas reales en Bitrix) para el lado "real".
+const PILOTO_PROYECCION = {
+  programas: 2,
+  leadsEsperados: 284,
+  primeraRespuestaAutomatica: 284,
+  mensajesIA: 1800,
+  llamadas: 70,
+  minutosLlamadas: 500,
+  llamadasContestadasMin: 55,
+  llamadasContestadasMax: 60,
+  escalamientosMin: 40,
+  escalamientosMax: 50,
+  leadsAltaIntencionMin: 20,
+  leadsAltaIntencionMax: 30,
+  costoUsdMin: 175,
+  costoUsdMax: 420,
+};
+
 // El scorecard de marcha blanca mezcla conteos en vivo de Bitrix (leads/deals) — cachear unos minutos
-// evita golpear la API en cada refresco del panel (15s) mientras alguien lo tiene abierto.
-let marchaBlancaCache: { at: number; data: ProgramaScorecard[] } | null = null;
+// evita golpear la API en cada refresco del panel (15s) mientras alguien lo tiene abierto. La
+// resolución de diálogos por programa (cruce contra el UF_PROGRAMA real de cada Deal, ver
+// crm/marchaBlanca.ts:resolverDialogosPorProgramaPiloto) comparte el mismo TTL: usa el mismo
+// crm.deal.list en lote, así que cachearla junto al scorecard evita duplicar esa llamada.
+let marchaBlancaCache: { at: number; data: ProgramaScorecard[]; dialogosPorPrograma: Map<string, string[]> } | null = null;
 const MARCHA_BLANCA_TTL_MS = 3 * 60 * 1000;
 
 /** JSON con métricas de negocio (persistentes) + técnicas (en memoria) + actividad reciente. */
 export async function metricsSummary(req: Request, res: Response) {
   const range = RANGES.includes(String(req.query.range)) ? String(req.query.range) : '7d';
-  const [live, agg, recent, marchaBlancaBot] = await Promise.all([
+  const st = await getState();
+
+  // Diálogos REALES por programa piloto (cruce contra Bitrix) — antes de dbMarchaBlancaBot/
+  // dbPilotoProgresoReal, que ahora los reciben resueltos en vez de aproximar por texto libre.
+  let dialogosPorPrograma: Map<string, string[]> | undefined;
+  if (st.auth) {
+    if (marchaBlancaCache && Date.now() - marchaBlancaCache.at < MARCHA_BLANCA_TTL_MS) {
+      dialogosPorPrograma = marchaBlancaCache.dialogosPorPrograma;
+    } else {
+      try {
+        dialogosPorPrograma = await resolverDialogosPorProgramaPiloto(st.auth);
+      } catch {
+        dialogosPorPrograma = marchaBlancaCache?.dialogosPorPrograma;
+      }
+    }
+  }
+  const dialogosCombinados = dialogosPorPrograma ? [...new Set([...dialogosPorPrograma.values()].flat())] : undefined;
+
+  const [live, agg, recent, marchaBlancaBot, pilotoReal] = await Promise.all([
     snapshot(),
     dbMetricsSummary(range),
     dbRecentAudit(15),
-    dbMarchaBlancaBot('all'), // el scorecard del piloto siempre es "desde siempre" (no sigue el selector Hoy/7d/30d)
+    dbMarchaBlancaBot('all', dialogosPorPrograma), // el scorecard del piloto siempre es "desde siempre" (no sigue el selector Hoy/7d/30d)
+    dbPilotoProgresoReal(dialogosCombinados), // proyección vs. real del piloto (correo de lanzamiento) — también "desde siempre"
   ]);
 
   // Scorecard de marcha blanca: combina lo nativo del bot (mensajes/escalamientos/llamadas IA/SLA,
   // siempre disponible) con leads/deals reales de Bitrix (requiere auth; cacheado — ver MARCHA_BLANCA_TTL_MS).
-  const st = await getState();
   let marchaBlancaCrm: ProgramaScorecard[] | null = null;
   if (st.auth) {
     if (marchaBlancaCache && Date.now() - marchaBlancaCache.at < MARCHA_BLANCA_TTL_MS) {
@@ -37,12 +79,19 @@ export async function metricsSummary(req: Request, res: Response) {
       try {
         const botByKey = new Map(marchaBlancaBot.map((b) => [b.key, { escalados: b.escalados, dealsConversados: b.dealsConversados }]));
         marchaBlancaCrm = await bitrixMarchaBlancaScorecard(botByKey, st.auth);
-        marchaBlancaCache = { at: Date.now(), data: marchaBlancaCrm };
+        marchaBlancaCache = { at: Date.now(), data: marchaBlancaCrm, dialogosPorPrograma: dialogosPorPrograma ?? new Map() };
       } catch {
         marchaBlancaCrm = marchaBlancaCache?.data ?? null;
       }
     }
   }
+  // Matrículas y "leads que avanzan" REALES de los 2 programas piloto (combinados) — solo entre las
+  // negociaciones donde el bot efectivamente conversó/escaló (negociacionesDetalle), no cualquier
+  // matrícula del embudo (esas pueden venir de otros canales/campañas sin que el bot haya participado).
+  const negociacionesPiloto = (marchaBlancaCrm ?? []).flatMap((p) => p.negociacionesDetalle);
+  const matriculasReales = negociacionesPiloto.filter((n) => n.matriculado).length;
+  const avanzandoReales = negociacionesPiloto.filter((n) => !n.matriculado && !n.stageId?.endsWith(':LOSE')).length;
+
   const crmByKey = new Map((marchaBlancaCrm ?? []).map((r) => [r.key, r]));
   const marchaBlanca = config.marchaBlancaProgramas.map((prog) => ({
     key: prog.key,
@@ -88,6 +137,15 @@ export async function metricsSummary(req: Request, res: Response) {
     marchaBlanca,
     marchaBlancaStart: config.marchaBlancaStart,
     bitrixDomain: st.auth?.domain ?? null, // para armar el link directo a cada deal (ver "Deals escalados a asesor")
+    piloto: {
+      proyeccion: PILOTO_PROYECCION,
+      real: {
+        ...pilotoReal,
+        matriculas: matriculasReales,
+        leadsAvanzando: avanzandoReales,
+        costoUsdClaude: cost, // único componente de costo real que el bot puede medir solo (Vapi/ElevenLabs/GCP/Railway: ver factura de cada proveedor)
+      },
+    },
   });
 }
 

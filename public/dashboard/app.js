@@ -42,6 +42,53 @@ function render(d){
     kpi(num(operador),'Intervención humana','Veces que un asesor/operador REAL escribió directamente en un chat de WhatsApp (no el bot; se verifica contra Bitrix que sea un empleado, no el cliente). Solo cuenta WhatsApp — por eso puede ser menor que "Escalamientos a asesor" (que suma todos los canales y no confirma que el asesor ya haya escrito), o mayor, si un asesor entra a conversar sin que el bot haya escalado antes.') +
     kpi(num(errores),'Errores','Fallas técnicas registradas (ej. al guardar en el CRM o al auditar un evento).');
 
+  // Piloto: proyección (correo de lanzamiento a la jefatura) vs. real acumulado (2 programas
+  // combinados, no por separado — así se presentó la proyección: "284 leads", no "142 + 142").
+  var pil = d.piloto || {};
+  var proy = pil.proyeccion || {};
+  var real = pil.real || {};
+  var rangoTxt = function(min, max){ return num(min)+'–'+num(max); };
+  var cumplCell = function(realVal, proyMid){
+    if (!proyMid) return '—';
+    var pct = Math.round((realVal||0)/proyMid*100);
+    var color = pct>=80 ? '#12b76a' : pct>=40 ? '#f79009' : '#f04438';
+    return '<b style="color:'+color+'">'+pct+'%</b>';
+  };
+  var filasPiloto = [
+    { label:'Leads ingresados', proy:num(proy.leadsEsperados), real:real.leadsIngresados, proyMid:proy.leadsEsperados },
+    { label:'Leads atendidos por el bot (primera respuesta automática)', proy:num(proy.primeraRespuestaAutomatica), real:real.leadsAtendidos, proyMid:proy.primeraRespuestaAutomatica },
+    { label:'Mensajes enviados por IA', proy:num(proy.mensajesIA), real:real.mensajes, proyMid:proy.mensajesIA },
+    { label:'Llamadas realizadas', proy:num(proy.llamadas), real:real.llamadasRealizadas, proyMid:proy.llamadas },
+    { label:'Llamadas solicitadas por el cliente', proy:'—', real:real.llamadasSolicitadas, proyMid:0 },
+    { label:'Llamadas contestadas', proy:rangoTxt(proy.llamadasContestadasMin,proy.llamadasContestadasMax), real:real.llamadasContestadas, proyMid:(proy.llamadasContestadasMin+proy.llamadasContestadasMax)/2 },
+    { label:'Minutos de llamadas', proy:num(proy.minutosLlamadas), real:real.minutosLlamadas, proyMid:proy.minutosLlamadas },
+    { label:'Escalamientos a ejecutivo', proy:rangoTxt(proy.escalamientosMin,proy.escalamientosMax), real:real.escalamientos, proyMid:(proy.escalamientosMin+proy.escalamientosMax)/2,
+      nota: num(real.escalamientosExplicitos)+' por pedido del cliente / score alto · '+num(real.escalamientosPorSilencio)+' por quedarse en silencio' },
+    { label:'Leads de alta intención', proy:rangoTxt(proy.leadsAltaIntencionMin,proy.leadsAltaIntencionMax), real:real.leadsAltaIntencion, proyMid:(proy.leadsAltaIntencionMin+proy.leadsAltaIntencionMax)/2 },
+    { label:'Leads que siguen avanzando en Bitrix24', proy:'—', real:real.leadsAvanzando, proyMid:0 },
+    { label:'Matrículas asociadas a leads gestionados por el bot', proy:'—', real:real.matriculas, proyMid:0 },
+  ];
+  var pilThead = '<thead><tr><th>Indicador</th><th>Proyectado</th><th>Real</th><th>Cumplimiento</th></tr></thead>';
+  var pilTbody = '<tbody>'+filasPiloto.map(function(f){
+    var notaHtml = f.nota ? '<div class="sub" style="font-size:11px;margin-top:2px">'+esc(f.nota)+'</div>' : '';
+    return '<tr><td>'+esc(f.label)+'</td><td>'+f.proy+'</td><td>'+num(f.real)+notaHtml+'</td><td>'+cumplCell(f.real,f.proyMid)+'</td></tr>';
+  }).join('')+'</tbody>';
+  document.getElementById('piloto').innerHTML = pilThead+pilTbody;
+
+  var costoClaudeTxt = real.costoUsdClaude!=null ? ('US$'+real.costoUsdClaude) : '—';
+  var filasCosto = [
+    { label:'Vapi (llamadas IA)', proy:'US$25–40', real:'—' },
+    { label:'ElevenLabs (voz)', proy:'US$50–150', real:'—' },
+    { label:'Claude (procesamiento IA)', proy:'US$20–60', real:costoClaudeTxt },
+    { label:'Máquina virtual GCP', proy:'US$30–80', real:'—' },
+    { label:'Railway / infraestructura', proy:'US$20–40', real:'—' },
+    { label:'Margen de contingencia', proy:'US$30–50', real:'—' },
+    { label:'TOTAL', proy:'US$'+proy.costoUsdMin+'–'+proy.costoUsdMax, real:costoClaudeTxt+' (solo Claude — falta sumar Vapi/ElevenLabs/GCP/Railway desde la factura de cada proveedor)' },
+  ];
+  var costThead = '<thead><tr><th>Componente</th><th>Proyectado</th><th>Real</th></tr></thead>';
+  var costTbody = '<tbody>'+filasCosto.map(function(f){ return '<tr><td>'+esc(f.label)+'</td><td>'+esc(f.proy)+'</td><td>'+esc(f.real)+'</td></tr>'; }).join('')+'</tbody>';
+  document.getElementById('pilotocostos').innerHTML = costThead+costTbody;
+
   // Por embudo
   var emb=(agg&&agg.porEmbudo)||[]; var labels=d.funnelLabels||{}; var embEl=document.getElementById('embudo');
   if(emb.length){ var emax=Math.max.apply(null,emb.map(function(x){return x.c;}))||1;

@@ -489,11 +489,21 @@ export type MarchaBlancaBotStats = {
   dealsConversados: number[];
 };
 
-/** Métricas que vienen 100% de audit_log (Postgres), filtradas por programa (match/exclude en texto
- *  libre capturado por el bot). El SLA de contacto es tiempo entre escalar_a_humano/auto_escalation y
- *  el primer mensaje de un OPERADOR humano en ese mismo diálogo (operator_msg ya se registra cuando
- *  alguien != el cliente escribe en el chat de WhatsApp — ver routes/botEvents.ts). */
-export async function dbMarchaBlancaBot(range = 'all'): Promise<MarchaBlancaBotStats[]> {
+/**
+ * Métricas que vienen 100% de audit_log (Postgres), filtradas por programa. El SLA de contacto es
+ * tiempo entre escalar_a_humano/auto_escalation y el primer mensaje de un OPERADOR humano en ese
+ * mismo diálogo (operator_msg ya se registra cuando alguien != el cliente escribe en el chat de
+ * WhatsApp — ver routes/botEvents.ts).
+ *
+ * `dialogIdsPorPrograma` (opcional): lista de dialog_id YA resuelta por programa (ver
+ * crm/marchaBlanca.ts:resolverDialogosPorProgramaPiloto, que cruza contra el UF_PROGRAMA REAL de
+ * cada Deal en Bitrix) — mucho más confiable que el texto libre de registrar_interes_crm: cubre
+ * deals que YA tenían el programa cargado desde antes (por campaña), donde el bot correctamente no
+ * vuelve a registrar ese texto (ver ai/prompt.ts + crm/chat.ts:loadPriorContext), así que el método
+ * por texto solo los pierde. Sin este parámetro (p. ej. sin auth de Bitrix disponible), cae al
+ * método viejo (texto) como aproximación.
+ */
+export async function dbMarchaBlancaBot(range = 'all', dialogIdsPorPrograma?: Map<string, string[]>): Promise<MarchaBlancaBotStats[]> {
   if (!pool) return [];
   const p = pool;
   const interval = range in RANGE_INTERVAL ? RANGE_INTERVAL[range] : null;
@@ -503,20 +513,25 @@ export async function dbMarchaBlancaBot(range = 'all'): Promise<MarchaBlancaBotS
   for (const prog of config.marchaBlancaProgramas) {
     const matchPat = `%${prog.match}%`;
     const excludePat = prog.exclude ? `%${prog.exclude}%` : null;
-    const progDialogsSql = `
-      SELECT DISTINCT dialog_id FROM audit_log
-      WHERE type='tool_call' AND detail->>'name'='registrar_interes_crm'
-        AND detail->'input'->>'programa_interes' ILIKE $1
-        AND ($2::text IS NULL OR detail->'input'->>'programa_interes' NOT ILIKE $2)
-        AND dialog_id IS NOT NULL`;
+    const resueltos = dialogIdsPorPrograma?.get(prog.key);
+    const dialogFilterSql = resueltos
+      ? `dialog_id = ANY($1::text[])`
+      : `dialog_id IN (
+          SELECT DISTINCT dialog_id FROM audit_log
+          WHERE type='tool_call' AND detail->>'name'='registrar_interes_crm'
+            AND detail->'input'->>'programa_interes' ILIKE $1
+            AND ($2::text IS NULL OR detail->'input'->>'programa_interes' NOT ILIKE $2)
+            AND dialog_id IS NOT NULL
+        )`;
+    const dialogParams: unknown[] = resueltos ? [resueltos] : [matchPat, excludePat];
     try {
       const [msgR, escR, callR, slaR, escEntR, escSilencioR, conversadosR] = await Promise.all([
-        p.query(`SELECT count(*)::int c FROM audit_log WHERE type='turn' ${W} AND dialog_id IN (${progDialogsSql})`, [matchPat, excludePat]),
+        p.query(`SELECT count(*)::int c FROM audit_log WHERE type='turn' ${W} AND ${dialogFilterSql}`, dialogParams),
         p.query(
           `SELECT count(*)::int c FROM audit_log
            WHERE ((type='auto_escalation') OR (type='tool_call' AND detail->>'name'='escalar_a_humano')) ${W}
-             AND dialog_id IN (${progDialogsSql})`,
-          [matchPat, excludePat],
+             AND ${dialogFilterSql}`,
+          dialogParams,
         ),
         p.query(
           `SELECT count(*)::int c FROM audit_log
@@ -529,7 +544,7 @@ export async function dbMarchaBlancaBot(range = 'all'): Promise<MarchaBlancaBotS
           `WITH esc AS (
              SELECT dialog_id, min(ts) esc_ts FROM audit_log
              WHERE ((type='auto_escalation') OR (type='tool_call' AND detail->>'name'='escalar_a_humano')) ${W}
-               AND dialog_id IN (${progDialogsSql})
+               AND ${dialogFilterSql}
              GROUP BY dialog_id
            ),
            contact AS (
@@ -539,28 +554,28 @@ export async function dbMarchaBlancaBot(range = 'all'): Promise<MarchaBlancaBotS
            )
            SELECT round(avg(extract(epoch from (contact_ts - esc_ts))))::int avg, count(*)::int c
            FROM esc JOIN contact USING (dialog_id)`,
-          [matchPat, excludePat],
+          dialogParams,
         ),
         p.query(
           `SELECT DISTINCT crm_entity FROM audit_log
            WHERE ((type='auto_escalation') OR (type='tool_call' AND detail->>'name'='escalar_a_humano')) ${W}
              AND crm_entity LIKE 'deal#%'
-             AND dialog_id IN (${progDialogsSql})`,
-          [matchPat, excludePat],
+             AND ${dialogFilterSql}`,
+          dialogParams,
         ),
         p.query(
           `SELECT DISTINCT crm_entity FROM audit_log
            WHERE type='seguimiento_transferencia' ${W}
              AND crm_entity LIKE 'deal#%'
-             AND dialog_id IN (${progDialogsSql})`,
-          [matchPat, excludePat],
+             AND ${dialogFilterSql}`,
+          dialogParams,
         ),
         p.query(
           `SELECT DISTINCT crm_entity FROM audit_log
            WHERE type='turn'
              AND crm_entity LIKE 'deal#%'
-             AND dialog_id IN (${progDialogsSql})`,
-          [matchPat, excludePat],
+             AND ${dialogFilterSql}`,
+          dialogParams,
         ),
       ]);
       const idDe = (r: any) => Number(String(r.crm_entity).split('#')[1]);
@@ -597,6 +612,166 @@ export async function dbMarchaBlancaBot(range = 'all'): Promise<MarchaBlancaBotS
     }
   }
   return out;
+}
+
+/** Arma "campo ILIKE %match% [AND campo NOT ILIKE %exclude%] OR ..." para CUALQUIERA de los
+ *  programas piloto — para el reporte combinado (los 2 programas juntos, no uno por fila como en
+ *  dbMarchaBlancaBot). `campo` es la expresión SQL ya lista (ej. detail->>'programaInteres'). */
+function filtroCualquierProgramaPiloto(campo: string): { sql: string; params: string[] } {
+  const partes: string[] = [];
+  const params: string[] = [];
+  for (const prog of config.marchaBlancaProgramas) {
+    params.push(`%${prog.match}%`);
+    let clause = `${campo} ILIKE $${params.length}`;
+    if (prog.exclude) {
+      params.push(`%${prog.exclude}%`);
+      clause += ` AND ${campo} NOT ILIKE $${params.length}`;
+    }
+    partes.push(`(${clause})`);
+  }
+  return { sql: partes.length ? partes.join(' OR ') : 'FALSE', params };
+}
+
+/** Todos los pares (dialog_id, deal_id) distintos donde el bot dejó >=1 turno vinculado a un Deal —
+ *  de CUALQUIER programa (sin filtrar todavía). Es la base para el cruce contra el UF_PROGRAMA REAL
+ *  de cada Deal (ver crm/marchaBlanca.ts:resolverDialogosPorProgramaPiloto): cubre los diálogos que
+ *  el método por texto (registrar_interes_crm) pierde porque el Deal ya tenía el programa cargado
+ *  desde antes y el bot correctamente no lo volvió a registrar. */
+export async function dbDialogosConDeal(): Promise<Array<{ dialogId: string; dealId: number }>> {
+  if (!pool) return [];
+  try {
+    const r = await pool.query(
+      `SELECT DISTINCT dialog_id, split_part(crm_entity, '#', 2)::int AS deal_id
+       FROM audit_log WHERE type='turn' AND crm_entity LIKE 'deal#%' AND dialog_id IS NOT NULL`,
+    );
+    return r.rows.map((row: any) => ({ dialogId: row.dialog_id as string, dealId: row.deal_id as number }));
+  } catch (e) {
+    log.warn('dbDialogosConDeal falló', { err: String(e) });
+    return [];
+  }
+}
+
+/** Diálogos que en ALGÚN momento pasaron el texto de este programa a registrar_interes_crm — señal
+ *  complementaria a dbDialogosConDeal (cubre leads que nunca llegaron a tener un Deal). */
+export async function dbDialogosPorTextoPrograma(prog: { match: string; exclude?: string }): Promise<string[]> {
+  if (!pool) return [];
+  try {
+    const r = await pool.query(
+      `SELECT DISTINCT dialog_id FROM audit_log
+       WHERE type='tool_call' AND detail->>'name'='registrar_interes_crm'
+         AND detail->'input'->>'programa_interes' ILIKE $1
+         AND ($2::text IS NULL OR detail->'input'->>'programa_interes' NOT ILIKE $2)
+         AND dialog_id IS NOT NULL`,
+      [`%${prog.match}%`, prog.exclude ? `%${prog.exclude}%` : null],
+    );
+    return r.rows.map((row: any) => row.dialog_id as string);
+  } catch (e) {
+    log.warn('dbDialogosPorTextoPrograma falló', { err: String(e), match: prog.match });
+    return [];
+  }
+}
+
+export type PilotoProgresoReal = {
+  leadsIngresados: number;
+  leadsAtendidos: number;
+  mensajes: number;
+  leadsAltaIntencion: number;
+  llamadasSolicitadas: number;
+  llamadasRealizadas: number;
+  llamadasContestadas: number;
+  minutosLlamadas: number;
+  escalamientos: number;
+  escalamientosPorSilencio: number;
+  escalamientosExplicitos: number;
+};
+
+const PILOTO_VACIO: PilotoProgresoReal = {
+  leadsIngresados: 0, leadsAtendidos: 0, mensajes: 0, leadsAltaIntencion: 0, llamadasSolicitadas: 0,
+  llamadasRealizadas: 0, llamadasContestadas: 0, minutosLlamadas: 0, escalamientos: 0,
+  escalamientosPorSilencio: 0, escalamientosExplicitos: 0,
+};
+
+/**
+ * Métricas REALES (audit_log), combinando los 2 programas piloto en UN solo total — para comparar
+ * contra la proyección del correo de lanzamiento de la marcha blanca (ver routes/dashboard.ts).
+ * Distinto de dbMarchaBlancaBot (que da 1 fila POR programa): acá es la suma de ambos, tal como se
+ * presentó la proyección ("284 leads", no "142 + 142").
+ *
+ * `dialogIds` (opcional): lista YA resuelta de dialog_id de CUALQUIERA de los 2 programas piloto
+ * (unión, ver crm/marchaBlanca.ts:resolverDialogosPorProgramaPiloto — cruza contra el UF_PROGRAMA
+ * real de cada Deal, no solo el texto de registrar_interes_crm). Sin este parámetro cae al método
+ * viejo por texto (menos confiable — ver el docblock de dbMarchaBlancaBot para el porqué).
+ * "leadsIngresados" y "leadsAtendidos" quedan iguales a propósito: el bot responde SIEMPRE de
+ * inmediato al primer mensaje (arquitectura "bot-first"), así que todo lead que entra queda atendido.
+ */
+export async function dbPilotoProgresoReal(dialogIds?: string[]): Promise<PilotoProgresoReal> {
+  if (!pool) return PILOTO_VACIO;
+  const p = pool;
+  const progUF = filtroCualquierProgramaPiloto(`detail->'input'->>'programa_interes'`);
+  const progInteres = filtroCualquierProgramaPiloto(`detail->>'programaInteres'`);
+  const dialogWhere = dialogIds
+    ? `dialog_id = ANY($1::text[])`
+    : `dialog_id IN (
+        SELECT DISTINCT dialog_id FROM audit_log
+        WHERE type='tool_call' AND detail->>'name'='registrar_interes_crm'
+          AND dialog_id IS NOT NULL AND (${progUF.sql})
+      )`;
+  const dialogParams: unknown[] = dialogIds ? [dialogIds] : progUF.params;
+
+  try {
+    const [atendidosR, mensajesR, altaR, llamSolR, vozR, escR, escSilR] = await Promise.all([
+      p.query(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE type='turn' AND ${dialogWhere}`, dialogParams),
+      p.query(`SELECT count(*)::int c FROM audit_log WHERE type='turn' AND ${dialogWhere}`, dialogParams),
+      p.query(
+        `SELECT count(DISTINCT dialog_id)::int c FROM audit_log
+         WHERE type='lead_score' AND detail->>'intencion'='alta' AND ${dialogWhere}`,
+        dialogParams,
+      ),
+      p.query(
+        `SELECT count(*)::int c FROM audit_log
+         WHERE type='tool_call' AND detail->>'name'='solicitar_llamada' AND detail->>'ok'='true'
+           AND ${dialogWhere}`,
+        dialogParams,
+      ),
+      p.query(
+        `SELECT count(*)::int total,
+                count(*) FILTER (WHERE coalesce((detail->>'duration')::int, 0) > 0)::int contestadas,
+                coalesce(sum(coalesce((detail->>'duration')::int, 0)), 0)::int seg_total
+         FROM audit_log WHERE type='voice_call' AND (${progInteres.sql})`,
+        progInteres.params,
+      ),
+      p.query(
+        `SELECT count(*)::int c FROM audit_log
+         WHERE ((type='auto_escalation') OR (type='tool_call' AND detail->>'name'='escalar_a_humano'))
+           AND ${dialogWhere}`,
+        dialogParams,
+      ),
+      p.query(`SELECT count(*)::int c FROM audit_log WHERE type='seguimiento_transferencia' AND ${dialogWhere}`, dialogParams),
+    ]);
+
+    // "escalamientos" (auto_escalation/escalar_a_humano) y "seguimiento_transferencia" son 2 caminos
+    // DISTINTOS hacia un asesor humano (pedido explícito/score vs. silencio) — se SUMAN para el total,
+    // no se resta uno del otro.
+    const escalamientosExplicitos = escR.rows[0]?.c ?? 0;
+    const escalamientosPorSilencio = escSilR.rows[0]?.c ?? 0;
+    const leadsAtendidos = atendidosR.rows[0]?.c ?? 0;
+    return {
+      leadsIngresados: leadsAtendidos,
+      leadsAtendidos,
+      mensajes: mensajesR.rows[0]?.c ?? 0,
+      leadsAltaIntencion: altaR.rows[0]?.c ?? 0,
+      llamadasSolicitadas: llamSolR.rows[0]?.c ?? 0,
+      llamadasRealizadas: vozR.rows[0]?.total ?? 0,
+      llamadasContestadas: vozR.rows[0]?.contestadas ?? 0,
+      minutosLlamadas: Math.round((vozR.rows[0]?.seg_total ?? 0) / 60),
+      escalamientos: escalamientosExplicitos + escalamientosPorSilencio,
+      escalamientosPorSilencio,
+      escalamientosExplicitos,
+    };
+  } catch (e) {
+    log.warn('dbPilotoProgresoReal falló', { err: String(e) });
+    return PILOTO_VACIO;
+  }
 }
 
 // ─────────────────────────── Campaña de voz saliente (plano de control) ───────────────────────────

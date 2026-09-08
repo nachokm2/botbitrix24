@@ -3,8 +3,9 @@ import { config } from '../config';
 import { matchPrograma } from '../core/condicionesComerciales';
 import { log } from '../log';
 import type { Auth } from '../store';
-import type { EscaladoRef } from '../store/db';
+import { dbDialogosConDeal, dbDialogosPorTextoPrograma, type EscaladoRef } from '../store/db';
 import type { BitrixStatus, BitrixStatusListResponse } from '../bitrix/types';
+import { programaCoincide } from './asignacionAsesores';
 
 // Scorecard del piloto ("marcha blanca"): mezcla datos EN VIVO de Bitrix (leads/deals reales, no
 // pasan por audit_log) con las métricas nativas del bot (audit_log, ver store/db.ts:dbMarchaBlancaBot).
@@ -79,6 +80,60 @@ function precioListaPrograma(nombre: string): number | null {
   const m = matchPrograma(nombre);
   const p = m.find((x) => x.total != null) ?? m[0];
   return p?.total ?? null;
+}
+
+/**
+ * Resuelve, para cada programa piloto, el conjunto REAL de dialog_id que le pertenecen. Combina 2
+ * señales:
+ *  (a) el texto que el bot pasó a registrar_interes_crm (cubre leads que nunca llegaron a tener un
+ *      Deal, así que Bitrix no tiene dónde guardar el programa);
+ *  (b) el programa REAL (UF_PROGRAMA) de cada Deal con el que el bot conversó — imprescindible
+ *      porque cuando un Deal YA tenía el programa cargado desde antes (creado por una campaña de
+ *      marketing), loadPriorContext le dice al bot que NO vuelva a preguntarlo/registrarlo — así que
+ *      (a) por sí sola pierde esos diálogos (caso real: 93 de 106 diálogos reales del bot no tenían
+ *      NINGÚN registrar_interes_crm con programa_interes, precisamente por esto).
+ * Se usa UNA sola llamada a crm.deal.list (filtro "@ID") para los N deals distintos, no N llamadas.
+ */
+export async function resolverDialogosPorProgramaPiloto(auth: Auth): Promise<Map<string, string[]>> {
+  const out = new Map<string, Set<string>>();
+  for (const prog of config.marchaBlancaProgramas) out.set(prog.key, new Set());
+
+  await Promise.all(
+    config.marchaBlancaProgramas.map(async (prog) => {
+      const dialogIds = await dbDialogosPorTextoPrograma(prog);
+      for (const d of dialogIds) out.get(prog.key)!.add(d);
+    }),
+  );
+
+  if (config.ufPrograma) {
+    const pares = await dbDialogosConDeal();
+    const dealIds = [...new Set(pares.map((x) => x.dealId))];
+    if (dealIds.length) {
+      try {
+        const deals = await callCrm<Array<{ ID: string; TITLE?: string; [k: string]: unknown }>>(
+          'crm.deal.list',
+          { filter: { '@ID': dealIds }, select: ['ID', config.ufPrograma, 'TITLE'] },
+          auth,
+        );
+        const programaPorDeal = new Map<number, string>();
+        for (const d of Array.isArray(deals) ? deals : []) {
+          const texto = String(d[config.ufPrograma] ?? d.TITLE ?? '');
+          if (texto) programaPorDeal.set(Number(d.ID), texto);
+        }
+        for (const { dialogId, dealId } of pares) {
+          const texto = programaPorDeal.get(dealId);
+          if (!texto) continue;
+          for (const prog of config.marchaBlancaProgramas) {
+            if (programaCoincide(texto, prog)) out.get(prog.key)!.add(dialogId);
+          }
+        }
+      } catch (e) {
+        log.warn('resolverDialogosPorProgramaPiloto: crm.deal.list falló', { err: String(e) });
+      }
+    }
+  }
+
+  return new Map([...out.entries()].map(([key, set]) => [key, [...set]]));
 }
 
 /** Nombre legible de cada etapa (STATUS_ID → NAME) de un embudo — se cachea por categoryId dentro
