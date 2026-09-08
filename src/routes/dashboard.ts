@@ -28,8 +28,10 @@ const PILOTO_PROYECCION = {
   escalamientosMax: 50,
   leadsAltaIntencionMin: 20,
   leadsAltaIntencionMax: 30,
-  costoUsdMin: 175,
-  costoUsdMax: 420,
+  // Del correo original (175-420) menos la máquina virtual GCP (30-80): no hay una VM de GCP
+  // encendida para las llamadas de WhatsApp, ese componente no aplica.
+  costoUsdMin: 145,
+  costoUsdMax: 340,
 };
 
 // El scorecard de marcha blanca mezcla conteos en vivo de Bitrix (leads/deals) — cachear unos minutos
@@ -143,7 +145,8 @@ export async function metricsSummary(req: Request, res: Response) {
         ...pilotoReal,
         matriculas: matriculasReales,
         leadsAvanzando: avanzandoReales,
-        costoUsdClaude: cost, // único componente de costo real que el bot puede medir solo (Vapi/ElevenLabs/GCP/Railway: ver factura de cada proveedor)
+        costoUsdClaude: cost, // el único componente que el bot puede medir solo (los demás: ver factura/panel de uso de cada proveedor)
+        costoUsdRailway: config.costoUsdRailway, // actualizado a mano (COSTO_USD_RAILWAY) desde Project → Usage en Railway
       },
     },
   });

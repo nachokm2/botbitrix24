@@ -1,4 +1,12 @@
-try { if (window.BX24) BX24.init(function(){ try{ BX24.fitWindow(); }catch(e){} }); } catch(e){}
+// BX24.fitWindow() ajusta el alto del iframe de Bitrix24 al contenido — pero acá se llamaba UNA sola
+// vez al cargar el script, antes de que render() pintara los datos reales (todavía no había ni
+// siquiera un fetch en curso). Bitrix fijaba el iframe a esa altura casi vacía y el contenido real
+// (mucho más alto) desbordaba, mostrando 2 barras de scroll: la del iframe fijo + la del documento
+// interno. Se guarda si BX24 quedó listo y se vuelve a llamar al final de cada render() (el alto
+// puede cambiar entre polls: más/menos filas en las tablas de negociaciones/escalados).
+var bxReady = false;
+try { if (window.BX24) BX24.init(function(){ bxReady = true; fitBx(); }); } catch(e){}
+function fitBx(){ try{ if(bxReady) BX24.fitWindow(); }catch(e){} }
 
 var LBL = {
   consultar_programas:'Consultas de programas', detalle_programa:'Detalle de programa',
@@ -10,10 +18,56 @@ var num = function(n){ return (n==null?0:n).toLocaleString('es-CL'); };
 // sin tener que preguntar. Los títulos de sección (h2) llevan el suyo directo en index.html.
 function hint(desc){ return desc ? '<i class="hint" title="'+esc(desc)+'">?</i>' : ''; }
 
-function kpi(n,l,desc){ return '<div class="card kpi"><div class="n">'+n+'</div><div class="l">'+esc(l)+hint(desc)+'</div></div>'; }
+// Color + ícono por tarjeta del scorecard superior (barra de acento a la izquierda + badge) — solo
+// decorativo, no cambia el dato. Sin key (kpi() reutilizado en "Conversión del bot"/"Tiempos") queda
+// con el estilo neutro por defecto.
+var KPI_META = {
+  conversaciones:{color:'#2f6fed',icon:'💬'}, mensajes:{color:'#6366f1',icon:'✉️'},
+  leads:{color:'#12b76a',icon:'🎯'}, escal:{color:'#f79009',icon:'🧑‍💼'},
+  consultas:{color:'#0891b2',icon:'🔎'}, etapas:{color:'#7c3aed',icon:'🔀'},
+  score:{color:'#0d9488',icon:'⭐'}, operador:{color:'#f79009',icon:'🗣️'},
+  matriculas:{color:'#12b76a',icon:'🎓'}, errores:{color:'#f04438',icon:'⚠️'},
+};
+// Última cifra mostrada por tarjeta (persiste entre polls de 15s) — permite que el conteo animado
+// arranque desde 0 solo la PRIMERA vez, y en los refrescos siguientes solo se mueva si el valor
+// realmente cambió (evita que los números "salten" a cada rato sin motivo).
+var lastKpiValues = {};
+function kpi(n,l,desc,key){
+  var meta = (key && KPI_META[key]) || null;
+  var numeric = typeof n === 'number';
+  var accentStyle = meta ? ' style="--accent:'+meta.color+'"' : '';
+  var icoHtml = meta ? '<span class="ico" style="background:'+meta.color+'22;color:'+meta.color+'">'+meta.icon+'</span>' : '';
+  var nHtml = (numeric && key) ? num(lastKpiValues[key]||0) : esc(n);
+  return '<div class="card kpi"'+accentStyle+'>'+icoHtml
+    +'<div class="n"'+(numeric&&key?' data-key="'+key+'" data-target="'+n+'"':'')+'>'+nHtml+'</div>'
+    +'<div class="l">'+esc(l)+hint(desc)+'</div></div>';
+}
+// Cuenta ascendente/descendente suave hacia el valor nuevo — solo anima la DIFERENCIA respecto al
+// último valor mostrado (no arranca de 0 cada 15s, para que un panel dejado abierto no parpadee).
+function animateKpis(){
+  [].forEach.call(document.querySelectorAll('#kpis .n[data-key]'), function(el){
+    var key = el.getAttribute('data-key');
+    var target = Number(el.getAttribute('data-target'))||0;
+    var from = lastKpiValues[key]||0;
+    lastKpiValues[key] = target;
+    if(from===target){ el.textContent = num(target); return; }
+    var start=null, dur=650;
+    function step(ts){
+      if(!start) start=ts;
+      var p=Math.min(1,(ts-start)/dur), eased=1-Math.pow(1-p,3);
+      el.textContent = num(Math.round(from+(target-from)*eased));
+      if(p<1) requestAnimationFrame(step); else el.textContent = num(target);
+    }
+    requestAnimationFrame(step);
+  });
+}
 function fmtSeg(s){ if(s==null) return '—'; s=Math.round(s); if(s<60) return s+' s'; var m=Math.floor(s/60), r=s%60; return m+' min '+r+' s'; }
 function fmtMs(ms){ if(ms==null) return '—'; if(ms<1000) return ms+' ms'; return (ms/1000).toFixed(1)+' s'; }
-function barRow(lab,v,max,color){ var w=max>0?Math.round(v/max*100):0; return '<div class="bar"><div class="lab">'+esc(lab)+'</div><div class="track"><div class="fill" style="width:'+w+'%'+(color?';background:'+color:'')+'"></div></div><div class="v">'+num(v)+'</div></div>'; }
+// La primera vez que se pinta el panel, las barras/columnas "crecen" desde 0 (ver growAnimated) — da
+// una entrada vistosa al abrir el panel. En los refrescos siguientes (cada 15s) se pintan directo en
+// su valor final, sin animación, para que un panel dejado abierto en una pantalla no parpadee solo.
+var firstRender = true;
+function barRow(lab,v,max,color){ var w=max>0?Math.round(v/max*100):0; var wStyle=firstRender?0:w; return '<div class="bar"><div class="lab">'+esc(lab)+'</div><div class="track"><div class="fill" data-w="'+w+'" style="width:'+wStyle+'%'+(color?';background:'+color:'')+'"></div></div><div class="v">'+num(v)+'</div></div>'; }
 function dist(obj, colors){ obj=obj||{}; var keys=Object.keys(obj); if(!keys.length) return '<div class="muted">Sin datos aún.</div>'; var max=Math.max.apply(null,keys.map(function(k){return obj[k];})); return keys.map(function(k){return barRow(k, obj[k], max, colors&&colors[k]);}).join(''); }
 function progName(k){ var s=String(k||''); if(s.indexOf('http')===0){ s=s.replace(/\/+$/,''); s=s.substring(s.lastIndexOf('/')+1); } return s.replace(/-/g,' '); }
 function barsRows(rows, labFn){ rows=rows||[]; if(!rows.length) return '<div class="muted">Sin datos aún.</div>'; var mx=Math.max.apply(null,rows.map(function(r){return r.c;}))||1; return rows.map(function(r){ return barRow(labFn?labFn(r):r.k, r.c, mx); }).join(''); }
@@ -30,17 +84,24 @@ function render(d){
   var scoreAvg = agg&&agg.scoreAvg!=null? agg.scoreAvg : '—';
   var errores = pick(c.errors);
   var operador = agg? agg.operadorMsgs : pick(c.operator_msg);
+  // Matrículas reales de los 2 programas piloto (combinados) — a diferencia de las demás tarjetas,
+  // NO sigue el selector Hoy/7d/30d/Todo: es el acumulado desde que arrancó el piloto (mismo dato que
+  // "Piloto: proyección vs. real" más abajo), porque matricular es un proceso que tarda más que el
+  // rango típico que se mira acá.
+  var matriculasPiloto = (d.piloto && d.piloto.real && d.piloto.real.matriculas) || 0;
 
   document.getElementById('kpis').innerHTML =
-    kpi(num(conversaciones),'Conversaciones','Diálogos distintos que el bot atendió en el período, en cualquier canal (WhatsApp, Web Chat, Instagram, Messenger).') +
-    kpi(num(mensajes),'Mensajes','Turnos de conversación respondidos por el bot (una respuesta del bot = un mensaje).') +
-    kpi(num(leads),'Leads capturados','Conversaciones donde se registró al menos un dato de contacto (nombre, correo o teléfono) en el CRM.') +
-    kpi(num(escal),'Escalamientos a asesor','El BOT decidió derivar la conversación a un asesor: porque el cliente lo pidió, o automáticamente por score alto. Es la acción del bot al derivar, no confirma que un asesor ya haya respondido. Cuenta en cualquier canal (WhatsApp, Web Chat, Instagram, Messenger).') +
-    kpi(num(consultas),'Consultas de programas','Veces que se usó la búsqueda de catálogo (consultar_programas) para encontrar o filtrar programas.') +
-    kpi(num(etapas),'Etapas de deal movidas','Veces que el bot movió la etapa de un Deal en el CRM según el score del lead.') +
-    kpi(scoreAvg,'Score promedio','Promedio de la nota 0-100 que un modelo de IA le asigna a cada conversación evaluada, estimando qué tan probable es que ese lead se matricule (interés claro, datos entregados, urgencia, tono). Esta nota también dispara mover de etapa, auto-llamar o auto-escalar.') +
-    kpi(num(operador),'Intervención humana','Veces que un asesor/operador REAL escribió directamente en un chat de WhatsApp (no el bot; se verifica contra Bitrix que sea un empleado, no el cliente). Solo cuenta WhatsApp — por eso puede ser menor que "Escalamientos a asesor" (que suma todos los canales y no confirma que el asesor ya haya escrito), o mayor, si un asesor entra a conversar sin que el bot haya escalado antes.') +
-    kpi(num(errores),'Errores','Fallas técnicas registradas (ej. al guardar en el CRM o al auditar un evento).');
+    kpi(conversaciones,'Conversaciones','Diálogos distintos que el bot atendió en el período, en cualquier canal (WhatsApp, Web Chat, Instagram, Messenger).','conversaciones') +
+    kpi(mensajes,'Mensajes','Turnos de conversación respondidos por el bot (una respuesta del bot = un mensaje).','mensajes') +
+    kpi(leads,'Leads capturados','Conversaciones donde se registró al menos un dato de contacto (nombre, correo o teléfono) en el CRM.','leads') +
+    kpi(escal,'Escalamientos a asesor','El BOT decidió derivar la conversación a un asesor: porque el cliente lo pidió, o automáticamente por score alto. Es la acción del bot al derivar, no confirma que un asesor ya haya respondido. Cuenta en cualquier canal (WhatsApp, Web Chat, Instagram, Messenger).','escal') +
+    kpi(consultas,'Consultas de programas','Veces que se usó la búsqueda de catálogo (consultar_programas) para encontrar o filtrar programas.','consultas') +
+    kpi(etapas,'Etapas de deal movidas','Veces que el bot movió la etapa de un Deal en el CRM según el score del lead.','etapas') +
+    kpi(scoreAvg,'Score promedio','Promedio de la nota 0-100 que un modelo de IA le asigna a cada conversación evaluada, estimando qué tan probable es que ese lead se matricule (interés claro, datos entregados, urgencia, tono). Esta nota también dispara mover de etapa, auto-llamar o auto-escalar.','score') +
+    kpi(operador,'Intervención humana','Veces que un asesor/operador REAL escribió directamente en un chat de WhatsApp (no el bot; se verifica contra Bitrix que sea un empleado, no el cliente). Solo cuenta WhatsApp — por eso puede ser menor que "Escalamientos a asesor" (que suma todos los canales y no confirma que el asesor ya haya escrito), o mayor, si un asesor entra a conversar sin que el bot haya escalado antes.','operador') +
+    kpi(matriculasPiloto,'Matrículas (piloto)','Matrículas reales entre las negociaciones con las que el bot conversó/escaló, de los 2 programas piloto combinados. Acumulado desde el inicio del piloto — NO cambia con el selector Hoy/7 días/30 días/Todo (ver detalle en "Piloto: proyección vs. real" y "Negociaciones que trabajó el bot").','matriculas') +
+    kpi(errores,'Errores','Fallas técnicas registradas (ej. al guardar en el CRM o al auditar un evento).','errores');
+  animateKpis();
 
   // Piloto: proyección (correo de lanzamiento a la jefatura) vs. real acumulado (2 programas
   // combinados, no por separado — así se presentó la proyección: "284 leads", no "142 + 142").
@@ -75,15 +136,18 @@ function render(d){
   }).join('')+'</tbody>';
   document.getElementById('piloto').innerHTML = pilThead+pilTbody;
 
+  // Máquina virtual GCP: sin VM encendida para las llamadas de WhatsApp, ese componente no aplica
+  // (se sacó también del total proyectado — ver PILOTO_PROYECCION en routes/dashboard.ts).
   var costoClaudeTxt = real.costoUsdClaude!=null ? ('US$'+real.costoUsdClaude) : '—';
+  var costoRailwayTxt = real.costoUsdRailway!=null ? ('US$'+real.costoUsdRailway) : '—';
+  var sumaCostoReal = (real.costoUsdClaude||0) + (real.costoUsdRailway||0);
   var filasCosto = [
     { label:'Vapi (llamadas IA)', proy:'US$25–40', real:'—' },
     { label:'ElevenLabs (voz)', proy:'US$50–150', real:'—' },
     { label:'Claude (procesamiento IA)', proy:'US$20–60', real:costoClaudeTxt },
-    { label:'Máquina virtual GCP', proy:'US$30–80', real:'—' },
-    { label:'Railway / infraestructura', proy:'US$20–40', real:'—' },
+    { label:'Railway / infraestructura', proy:'US$20–40', real:costoRailwayTxt },
     { label:'Margen de contingencia', proy:'US$30–50', real:'—' },
-    { label:'TOTAL', proy:'US$'+proy.costoUsdMin+'–'+proy.costoUsdMax, real:costoClaudeTxt+' (solo Claude — falta sumar Vapi/ElevenLabs/GCP/Railway desde la factura de cada proveedor)' },
+    { label:'TOTAL', proy:'US$'+proy.costoUsdMin+'–'+proy.costoUsdMax, real:'US$'+sumaCostoReal.toFixed(2)+' (falta sumar Vapi/ElevenLabs desde la factura de cada proveedor)' },
   ];
   var costThead = '<thead><tr><th>Componente</th><th>Proyectado</th><th>Real</th></tr></thead>';
   var costTbody = '<tbody>'+filasCosto.map(function(f){ return '<tr><td>'+esc(f.label)+'</td><td>'+esc(f.proy)+'</td><td>'+esc(f.real)+'</td></tr>'; }).join('')+'</tbody>';
@@ -251,13 +315,13 @@ function render(d){
   // Horario de contacto (0-23h)
   var hmap={}; ((agg&&agg.porHora)||[]).forEach(function(x){hmap[x.h]=x.c;});
   var hmx=1; for(var h=0;h<24;h++) hmx=Math.max(hmx, hmap[h]||0);
-  var hbars=[]; for(var h2=0;h2<24;h2++){ var v=hmap[h2]||0; hbars.push('<div class="d"><div class="col" style="height:'+Math.round(v/hmx*80)+'px" title="'+v+'"></div><div class="dl">'+h2+'</div></div>'); }
+  var hbars=[]; for(var h2=0;h2<24;h2++){ var v=hmap[h2]||0; var hh=Math.round(v/hmx*80); hbars.push('<div class="d"><div class="col" data-h="'+hh+'" style="height:'+(firstRender?0:hh)+'px" title="'+v+'"></div><div class="dl">'+h2+'</div></div>'); }
   document.getElementById('horas').innerHTML = agg? hbars.join('') : '<span class="muted">Requiere Postgres (DATABASE_URL).</span>';
 
   // Mensajes por día
   var days = (agg&&agg.porDia)||[]; var dEl=document.getElementById('days');
   if(days.length){ var mx=Math.max.apply(null,days.map(function(x){return x.c;}))||1;
-    dEl.innerHTML = days.map(function(x){ var h=Math.round(x.c/mx*80); var dd=x.d.slice(5); return '<div class="d"><div class="col" style="height:'+h+'px" title="'+x.c+'"></div><div class="dl">'+dd+'</div></div>'; }).join('');
+    dEl.innerHTML = days.map(function(x){ var h=Math.round(x.c/mx*80); var dd=x.d.slice(5); return '<div class="d"><div class="col" data-h="'+h+'" style="height:'+(firstRender?0:h)+'px" title="'+x.c+'"></div><div class="dl">'+dd+'</div></div>'; }).join('');
   } else dEl.innerHTML='<span class="muted">Sin datos persistentes (Postgres) aún.</span>';
 
   // Intención / sentimiento (agg o contadores en memoria)
@@ -288,6 +352,21 @@ function render(d){
   document.getElementById('status').innerHTML = '<span class="pill">KV: '+esc(d.kv)+' · DB: '+esc(d.db)+'</span>';
   var tk=d.tokens||{}; var costStr=(tk.costUsd!=null)?(' · costo estim. US$'+tk.costUsd):'';
   document.getElementById('foot').textContent = 'Latencia LLM: '+num(live.llm.avgMs)+' ms (p95 '+num(live.llm.p95Ms)+' ms) · tokens '+num(tk.in)+' in / '+num(tk.out)+' out'+costStr+' · activo desde '+ new Date(d.startedAt).toLocaleString('es-CL') + ' · actualiza cada 15 s';
+
+  if(firstRender) growAnimated();
+  firstRender = false;
+  fitBx();
+}
+// Hace crecer las barras/columnas desde 0 hasta su valor real (data-w/data-h) — solo se llama en el
+// primer render (ver firstRender): un doble requestAnimationFrame fuerza que el navegador pinte el
+// estado "0" antes de pasar al valor final, si no la transición CSS no llega a dispararse.
+function growAnimated(){
+  requestAnimationFrame(function(){
+    requestAnimationFrame(function(){
+      [].forEach.call(document.querySelectorAll('.bar .fill[data-w]'), function(el){ el.style.width = el.getAttribute('data-w')+'%'; });
+      [].forEach.call(document.querySelectorAll('.days .col[data-h]'), function(el){ el.style.height = el.getAttribute('data-h')+'px'; });
+    });
+  });
 }
 
 var K = new URLSearchParams(location.search).get('k') || '';

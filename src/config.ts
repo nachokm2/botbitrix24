@@ -211,6 +211,10 @@ export const config = {
   // Precio Anthropic por millón de tokens (USD) para estimar costo en el panel (0 = no mostrar).
   costInPerMtok: Number(process.env.ANTHROPIC_COST_IN_PER_MTOK ?? 0),
   costOutPerMtok: Number(process.env.ANTHROPIC_COST_OUT_PER_MTOK ?? 0),
+  // Gasto real de Railway del mes (USD) para la tabla "Costos mensuales estimados" del piloto — a
+  // diferencia del de Claude, no hay API para leerlo solo: se actualiza a mano desde el panel de
+  // uso de Railway (Project → Usage) cada vez que se quiera refrescar el reporte. Vacío = no mostrar.
+  costoUsdRailway: process.env.COSTO_USD_RAILWAY ? Number(process.env.COSTO_USD_RAILWAY) : null,
 
   // ── Fase 2: Agente de voz (Vapi + Twilio + registro en telefonía Bitrix) ──
   // Vapi corre la conversación (STT/TTS/barge-in + Claude) y llama a nuestro backend por webhooks.
