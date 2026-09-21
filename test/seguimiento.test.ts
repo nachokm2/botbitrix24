@@ -1,10 +1,11 @@
 import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 
-// seguimiento.ts: seguimiento en 2 etapas si el cliente queda en silencio tras la última respuesta
+// seguimiento.ts: seguimiento en 3 etapas si el cliente queda en silencio tras la última respuesta
 // del bot — 1) recordatorio (IA) a SEGUIMIENTO_HORAS, 2) si SIGUE sin responder, derivación al
-// asesor por turno a SEGUIMIENTO_TRANSFERENCIA_HORAS (NO urgente: no silencia al bot). Caso real que
-// motivó el horario permitido: el recordatorio se disparó a las 2am (respuesta a las 10:59pm + 3h).
+// asesor por turno a SEGUIMIENTO_TRANSFERENCIA_HORAS (NO urgente: no silencia al bot), 3) último
+// recordatorio (IA, otro tono) a SEGUIMIENTO_SEGUNDO_HORAS. Caso real que motivó el horario
+// permitido: el recordatorio se disparó a las 2am (respuesta a las 10:59pm + 3h).
 process.env.NODE_ENV = 'test';
 process.env.BITRIX_UF_PROGRAMA = 'UF_CRM_PROGRAMA_TEST';
 
@@ -143,6 +144,25 @@ test('programarSeguimiento: agenda recordatorio y transferencia, con la transfer
   const due = zsets.get('seguimiento:due')!.get('dlg-orden')!;
   const transferencia = zsets.get('seguimiento:transferencia:due')!.get('dlg-orden')!;
   assert.ok(transferencia > due, 'la transferencia vence después que el recordatorio');
+});
+
+test('programarSeguimiento: el último recordatorio (10h) queda SIEMPRE después del primero, aunque ambos plazos caigan de noche', async () => {
+  await programarSeguimiento('dlg-tres-etapas', { deal: 305 });
+  const primero = zsets.get('seguimiento:due')!.get('dlg-tres-etapas')!;
+  const ultimo = zsets.get('seguimiento:segundo:due')!.get('dlg-tres-etapas')!;
+  assert.ok(ultimo > primero, 'nunca se disparan juntos: el último se calcula relativo al primero ya resuelto');
+});
+
+test('programarSeguimiento: con SEGUIMIENTO_SEGUNDO_HORAS=0 no agenda el último recordatorio', async () => {
+  const original = config.seguimientoSegundoHoras;
+  config.seguimientoSegundoHoras = 0;
+  try {
+    await programarSeguimiento('dlg-sin-segundo', { deal: 306 });
+    assert.ok(!zsets.get('seguimiento:segundo:due')?.has('dlg-sin-segundo'), 'la cola del último recordatorio queda vacía');
+    assert.ok(zsets.get('seguimiento:due')!.has('dlg-sin-segundo'), 'pero el primer recordatorio se agenda igual');
+  } finally {
+    config.seguimientoSegundoHoras = original;
+  }
 });
 
 test('barrerTransferenciasVencidas: cliente sigue en silencio tras el recordatorio → deriva al asesor SIN transferencia urgente', async () => {

@@ -12,32 +12,48 @@ import { log } from '../log';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { primaryEntity, type CrmEntities } from '../crm/entities';
 
-// Seguimiento automático (WhatsApp/Open Lines) en 2 etapas, si el bot respondió y el cliente quedó
-// en silencio — ambas ancladas a la MISMA última respuesta del bot (no una después de la otra):
-//  1) A las SEGUIMIENTO_HORAS: se le manda UN mensaje de seguimiento (generado por IA a partir de
-//     la propia conversación) — ver barrerSeguimientosVencidos.
+// Seguimiento automático (WhatsApp/Open Lines) en 3 etapas, si el bot respondió y el cliente quedó
+// en silencio — las TRES ancladas a la MISMA última respuesta del bot (no una después de la otra):
+//  1) A las SEGUIMIENTO_HORAS (ej. 3h): se le manda UN mensaje de seguimiento (generado por IA a
+//     partir de la propia conversación) — ver barrerSeguimientosVencidos.
 //  2) A las SEGUIMIENTO_TRANSFERENCIA_HORAS (más tarde, ej. 4h): si el cliente SIGUE sin responder
 //     (ni siquiera al recordatorio), se deriva el lead al asesor asignado por turno + se crea una
 //     tarea — ver barrerTransferenciasVencidas. NO es una transferencia urgente (no se silencia al
 //     bot ni se toma la sesión de Open Lines): es solo para que un humano pueda contactarlo temprano
 //     por su cuenta; si el cliente vuelve a escribir, el bot le sigue respondiendo normal.
+//  3) A las SEGUIMIENTO_SEGUNDO_HORAS (ej. 10h): ÚLTIMO recordatorio por IA, con otro tono (cierra
+//     dejando la puerta abierta en vez de volver a preguntar lo mismo) — ver
+//     barrerSegundosRecordatoriosVencidos. Va después de la derivación a propósito: el asesor ya
+//     tiene el lead, pero el bot le da una última oportunidad de retomar por su cuenta.
 // Si el cliente responde en cualquier momento, botEvents.ts vuelve a llamar a programarSeguimiento
 // tras la respuesta del bot, lo que reprograma (o cancela, ver más abajo) ambas etapas desde cero.
 //
-// Se agenda con 2 ZSETs en Redis (dialogId -> vencimiento) que un barrido periódico recorre — mismo
+// Se agenda con 3 ZSETs en Redis (dialogId -> vencimiento) que un barrido periódico recorre — mismo
 // patrón que store/db.ts:startRetentionSweep. Solo WhatsApp: es el único canal donde el bot puede
 // escribirle a alguien por iniciativa propia (Web Chat/Instagram/Messenger no tienen una forma de
 // "empujar" un mensaje al visitante fuera de una respuesta), y el único con deals reales a los que
 // asignar un asesor por turno.
 
 const DUE_KEY = 'seguimiento:due';
+const SEGUNDO_KEY = 'seguimiento:segundo:due';
 const TRANSFER_KEY = 'seguimiento:transferencia:due';
-const ENTITIES_TTL_SEC = 2 * 24 * 3600; // cubre holgado el plazo más largo (transferencia)
+const ENTITIES_TTL_SEC = 2 * 24 * 3600; // cubre holgado el plazo de la transferencia (la única etapa que los usa)
 const TIMEZONE = 'America/Santiago';
 
 const ENTITIES_KEY = (dialogId: string) => `seguimiento:entidades:${dialogId}`;
 
-const SEGUIMIENTO_SYSTEM = `Eres Sofía, asesora comercial de Postgrados de la Universidad Autónoma de Chile. El cliente no ha respondido desde tu último mensaje. Escribe UN mensaje de seguimiento breve (1 a 3 frases), cálido y natural, en español de Chile, tratando siempre de "usted" (nunca tuteas ni voseas): retoma el hilo de la conversación (el programa o tema del que hablaban) y ofrece seguir ayudando. No repitas literalmente algo que ya dijiste, no inventes datos ni programas, no uses un saludo formal tipo "Estimado/a". NO empieces el mensaje con "Oye" ni otras muletillas informales similares ("Ey", "Oiga"). NUNCA uses voseo chileno ("cómo estai", "cachai", "teni") ni jerga de calle: representas a una universidad — cercano pero profesional, como corresponde a una asesora. Devuelve SOLO el mensaje, sin comillas ni explicación.`;
+const TONO_SEGUIMIENTO = `Escribe en español de Chile, tratando siempre de "usted" (nunca tuteas ni voseas). No inventes datos ni programas, no uses un saludo formal tipo "Estimado/a", y no empieces con "Oye" ni otras muletillas informales similares ("Ey", "Oiga"). NUNCA uses voseo chileno ("cómo estai", "cachai", "teni") ni jerga de calle: representas a una universidad — cercano pero profesional, como corresponde a una asesora. Devuelve SOLO el mensaje, sin comillas ni explicación.`;
+
+/** Prompt del recordatorio según la etapa: el primero retoma el hilo, el segundo (y último, horas
+ *  más tarde) cierra dejando la puerta abierta — si mandara otra vez "¿te quedaron dudas?" se
+ *  leería como insistencia, que es justo lo que molesta a alguien que ya decidió no responder. */
+function sistemaSeguimiento(etapa: 1 | 2): string {
+  const base = 'Eres Sofía, asesora comercial de Postgrados de la Universidad Autónoma de Chile. El cliente no ha respondido desde tu último mensaje.';
+  if (etapa === 1) {
+    return `${base} Escribe UN mensaje de seguimiento breve (1 a 3 frases), cálido y natural: retoma el hilo de la conversación (el programa o tema del que hablaban) y ofrece seguir ayudando. No repitas literalmente algo que ya dijiste. ${TONO_SEGUIMIENTO}`;
+  }
+  return `${base} Ya le escribiste UN recordatorio hace varias horas y tampoco respondió: este es el ÚLTIMO mensaje que le enviarás. Escribe UN mensaje breve (1 a 2 frases) que cierre con elegancia: entiende que puede no ser el momento, deja la puerta abierta para cuando quiera retomar y menciona que un asesor queda disponible. NO insistas, NO vuelvas a preguntar "¿te quedaron dudas?" ni repitas el recordatorio anterior, y NO presiones con urgencia, cupos ni descuentos. ${TONO_SEGUIMIENTO}`;
+}
 
 /** Hora local (0-23) de Chile para un instante dado — usa Intl.DateTimeFormat en vez de aritmética
  *  manual de offset para que el cambio de horario de verano/invierno quede resuelto solo. */
@@ -59,14 +75,14 @@ export function proximoHorarioPermitido(fecha: Date): Date {
   return t;
 }
 
-/** Programa (o reprograma) las 2 etapas del seguimiento de un diálogo, ambas desde AHORA (se llama
+/** Programa (o reprograma) las 3 etapas del seguimiento de un diálogo, todas desde AHORA (se llama
  *  tras cada respuesta del bot, así que el plazo siempre corre desde la ÚLTIMA vez que el bot
- *  habló): el recordatorio a SEGUIMIENTO_HORAS y, si sigue sin responder, la transferencia al
- *  asesor a SEGUIMIENTO_TRANSFERENCIA_HORAS. Si esos plazos caen fuera del horario permitido, se
- *  corren al inicio de la próxima ventana. `entities` (si se pasa) queda guardado para que la
- *  transferencia sepa a qué deal/lead asignar — normalmente ya lo tiene resuelto quien llama (ver
- *  botEvents.ts). No hace nada si la regla está desactivada, si no hay Redis, o si un humano ya
- *  tomó la conversación. */
+ *  habló): el recordatorio a SEGUIMIENTO_HORAS, la transferencia al asesor a
+ *  SEGUIMIENTO_TRANSFERENCIA_HORAS y el último recordatorio a SEGUIMIENTO_SEGUNDO_HORAS. Si esos
+ *  plazos caen fuera del horario permitido, se corren al inicio de la próxima ventana. `entities`
+ *  (si se pasa) queda guardado para que la transferencia sepa a qué deal/lead asignar —
+ *  normalmente ya lo tiene resuelto quien llama (ver botEvents.ts). No hace nada si la regla está
+ *  desactivada, si no hay Redis, o si un humano ya tomó la conversación. */
 export async function programarSeguimiento(dialogId: string, entities?: CrmEntities): Promise<void> {
   const r = getRedisClient();
   if (!r || config.seguimientoHoras <= 0) return;
@@ -93,32 +109,45 @@ export async function programarSeguimiento(dialogId: string, entities?: CrmEntit
     } else {
       await r.zrem(TRANSFER_KEY, dialogId).catch(() => {});
     }
+    if (config.seguimientoSegundoHoras > 0) {
+      // Mismo cuidado que con la transferencia: relativo al recordatorio YA resuelto, para que el
+      // último mensaje quede siempre estrictamente después del primero aunque ambos plazos caigan
+      // de noche y se corran a la misma ventana del día siguiente.
+      const deltaHoras = Math.max(config.seguimientoSegundoHoras - config.seguimientoHoras, 0);
+      const vencimientoSegundo = proximoHorarioPermitido(
+        new Date(vencimientoRecordatorio.getTime() + deltaHoras * 3600_000),
+      );
+      await r.zadd(SEGUNDO_KEY, vencimientoSegundo.getTime(), dialogId);
+    } else {
+      await r.zrem(SEGUNDO_KEY, dialogId).catch(() => {});
+    }
   } catch (e) {
     log.warn('programarSeguimiento falló', { err: String(e), dialogId });
   }
 }
 
 /** Cancela el seguimiento pendiente de un diálogo (un humano tomó la conversación, o el cliente
- *  respondió — ver botEvents.ts, que reprograma en vez de cancelar en ese caso). Cancela ambas
- *  etapas: no tiene sentido mandar el recordatorio ni transferir si ya hay un humano a cargo. */
+ *  respondió — ver botEvents.ts, que reprograma en vez de cancelar en ese caso). Cancela las 3
+ *  etapas: no tiene sentido recordarle nada ni transferir si ya hay un humano a cargo. */
 export async function cancelarSeguimiento(dialogId: string): Promise<void> {
   const r = getRedisClient();
   if (!r) return;
   try {
     await r.zrem(DUE_KEY, dialogId);
+    await r.zrem(SEGUNDO_KEY, dialogId);
     await r.zrem(TRANSFER_KEY, dialogId);
   } catch (e) {
     log.warn('cancelarSeguimiento falló', { err: String(e), dialogId });
   }
 }
 
-async function generarMensajeSeguimiento(dialogId: string): Promise<string | null> {
+async function generarMensajeSeguimiento(dialogId: string, etapa: 1 | 2): Promise<string | null> {
   const t = transcript(await getHistory(dialogId));
   if (t.length < 5) return null;
   const resp = await anthropic.messages.create({
     model: CLASSIFIER,
     max_tokens: 200,
-    system: SEGUIMIENTO_SYSTEM,
+    system: sistemaSeguimiento(etapa),
     messages: [{ role: 'user', content: `Conversación:\n${t}\n\nEscribe el mensaje de seguimiento.` }],
   });
   recordTokens((resp as any).usage);
@@ -126,16 +155,18 @@ async function generarMensajeSeguimiento(dialogId: string): Promise<string | nul
   return texto || null;
 }
 
-/** Recorre los diálogos vencidos y envía el seguimiento (una sola vez cada uno — ZREM es el reclamo
- *  atómico: si hay más de una réplica corriendo el barrido, solo una logra "borrar y procesar"). */
-export async function barrerSeguimientosVencidos(): Promise<void> {
+/** Recorre los diálogos vencidos de una cola de recordatorios y envía el mensaje (una sola vez cada
+ *  uno — ZREM es el reclamo atómico: si hay más de una réplica corriendo el barrido, solo una logra
+ *  "borrar y procesar"). `etapa` decide el tono del mensaje (ver sistemaSeguimiento) y queda en la
+ *  auditoría, para poder separar después cuántos respondieron al primero y cuántos al último. */
+async function barrerRecordatorios(key: string, etapa: 1 | 2): Promise<void> {
   const r = getRedisClient();
   if (!r) return;
   let vencidos: string[] = [];
   try {
-    vencidos = await r.zrangebyscore(DUE_KEY, '-inf', Date.now());
+    vencidos = await r.zrangebyscore(key, '-inf', Date.now());
   } catch (e) {
-    log.warn('barrerSeguimientosVencidos: zrangebyscore falló', { err: String(e) });
+    log.warn('barrerRecordatorios: zrangebyscore falló', { err: String(e), key });
     return;
   }
   if (!vencidos.length) return;
@@ -146,7 +177,7 @@ export async function barrerSeguimientosVencidos(): Promise<void> {
   if (!auth || !botId) return; // sin auth/bot no se puede enviar nada todavía
 
   for (const dialogId of vencidos) {
-    const reclamado = await r.zrem(DUE_KEY, dialogId).catch(() => 0);
+    const reclamado = await r.zrem(key, dialogId).catch(() => 0);
     if (!reclamado) continue; // otra réplica ya lo tomó
 
     try {
@@ -156,26 +187,37 @@ export async function barrerSeguimientosVencidos(): Promise<void> {
       const ahora = new Date();
       if (horaEnChile(ahora) < config.seguimientoHoraInicio || horaEnChile(ahora) >= config.seguimientoHoraFin) {
         const vencimiento = proximoHorarioPermitido(ahora);
-        await r.zadd(DUE_KEY, vencimiento.getTime(), dialogId);
+        await r.zadd(key, vencimiento.getTime(), dialogId);
         continue;
       }
 
       const sess = await getSession(dialogId);
       if (sess.humanTookOver) continue; // un humano ya tomó la conversación mientras tanto
 
-      const mensaje = await generarMensajeSeguimiento(dialogId);
+      const mensaje = await generarMensajeSeguimiento(dialogId, etapa);
       if (!mensaje) continue;
 
       await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: dialogId, MESSAGE: mensaje }, auth);
       const history = await getHistory(dialogId);
       await setHistory(dialogId, [...history, { role: 'assistant', content: mensaje }]);
       inc('seguimiento');
-      await audit({ type: 'seguimiento', dialogId, detail: { mensaje } });
-      log.info('seguimiento enviado', { dialogId });
+      await audit({ type: 'seguimiento', dialogId, detail: { mensaje, etapa } });
+      log.info('seguimiento enviado', { dialogId, etapa });
     } catch (e) {
-      log.warn('barrerSeguimientosVencidos: falló para un diálogo', { err: String(e), dialogId });
+      log.warn('barrerRecordatorios: falló para un diálogo', { err: String(e), dialogId, key });
     }
   }
+}
+
+/** Primer recordatorio (SEGUIMIENTO_HORAS): retoma el hilo de la conversación. */
+export async function barrerSeguimientosVencidos(): Promise<void> {
+  await barrerRecordatorios(DUE_KEY, 1);
+}
+
+/** Último recordatorio (SEGUIMIENTO_SEGUNDO_HORAS): cierra dejando la puerta abierta. */
+export async function barrerSegundosRecordatoriosVencidos(): Promise<void> {
+  if (config.seguimientoSegundoHoras <= 0) return;
+  await barrerRecordatorios(SEGUNDO_KEY, 2);
 }
 
 /** Recorre los diálogos cuyo plazo de TRANSFERENCIA venció (el cliente no respondió ni al
@@ -233,18 +275,20 @@ export async function barrerTransferenciasVencidas(): Promise<void> {
 
 let intervalo: ReturnType<typeof setInterval> | null = null;
 
-/** Arranca el barrido periódico (cada SEGUIMIENTO_INTERVALO_MIN minutos): recordatorio y
+/** Arranca el barrido periódico (cada SEGUIMIENTO_INTERVALO_MIN minutos): los 2 recordatorios y la
  *  transferencia corren en el mismo tick. No-op sin Redis o con la regla desactivada
  *  (SEGUIMIENTO_HORAS=0), y no se vuelve a arrancar si ya está corriendo. */
 export function iniciarBarridoSeguimientos(): void {
   if (!getRedisClient() || config.seguimientoHoras <= 0 || intervalo) return;
   intervalo = setInterval(() => {
     barrerSeguimientosVencidos().catch((e) => log.warn('barrerSeguimientosVencidos (intervalo) falló', { err: String(e) }));
+    barrerSegundosRecordatoriosVencidos().catch((e) => log.warn('barrerSegundosRecordatoriosVencidos (intervalo) falló', { err: String(e) }));
     barrerTransferenciasVencidas().catch((e) => log.warn('barrerTransferenciasVencidas (intervalo) falló', { err: String(e) }));
   }, config.seguimientoIntervaloMin * 60_000);
   intervalo.unref();
   log.info('seguimiento: barrido activo', {
     horas: config.seguimientoHoras,
+    segundoHoras: config.seguimientoSegundoHoras,
     transferenciaHoras: config.seguimientoTransferenciaHoras,
     intervaloMin: config.seguimientoIntervaloMin,
   });

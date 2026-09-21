@@ -189,6 +189,10 @@ export const config = {
   // si un humano toma la conversación (escalar_a_humano / operador). Requiere Redis (getRedisClient).
   seguimientoHoras: Number(process.env.SEGUIMIENTO_HORAS ?? 3),
   seguimientoIntervaloMin: Number(process.env.SEGUIMIENTO_INTERVALO_MIN ?? 10),
+  // SEGUNDO (y último) recordatorio por IA, si tras el primero el cliente sigue sin responder —
+  // medido desde la misma última respuesta del bot, así que debe ser mayor que SEGUIMIENTO_HORAS.
+  // 0 = desactivado (solo un recordatorio).
+  seguimientoSegundoHoras: Number(process.env.SEGUIMIENTO_SEGUNDO_HORAS ?? 10),
   // Si tras el recordatorio el cliente SIGUE sin responder hasta esta cantidad de horas (desde la
   // misma última respuesta del bot), se deriva el lead al asesor por turno (ver
   // crm/asignacionAsesores.ts) — no urgente, solo para contacto temprano. 0 = desactivado.
