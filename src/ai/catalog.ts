@@ -1,12 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { marca } from '../marca';
 
 // Catálogo REAL de programas de postgrado de la Universidad Autónoma de Chile.
 // Fuente: https://postgrados.uautonoma.cl/programas/magisteres/ (paginado) y /programas/doctorados/
 // Extraído el 2026-06-28. Para refrescar: volver a leer esos listados y regenerar este arreglo.
 export type Programa = {
   nombre: string;
-  tipo: 'magister' | 'diplomado' | 'especialidad';
+  /** Postgrados: magister/diplomado/especialidad · Carver: licenciatura/maestria/curso. */
+  tipo: 'magister' | 'diplomado' | 'especialidad' | 'licenciatura' | 'maestria' | 'curso';
   facultad: string;
   modalidad: string; // 'online' | 'presencial' | '' (no especificada)
   duracion: string;
@@ -89,8 +91,15 @@ const ESPECIALIDADES: Programa[] = (JSON.parse(readFileSync(ESP_PATH, 'utf8')) a
   url: e.url,
 }));
 
-/** Catálogo completo: magísteres + diplomados + especialidades. */
-export const PROGRAMAS: Programa[] = [...MAGISTERES, ...DIPLOMADOS, ...ESPECIALIDADES];
+// Catálogo de Carver University (38 programas), generado por scripts/build-carver-data.ts desde las
+// fichas de carver.university. Solo se carga cuando MARCA=carver (ver marca.ts).
+const CARVER_PATH = fileURLToPath(new URL('./carver.programas.data.json', import.meta.url));
+
+/** Catálogo completo de la marca activa. Postgrados: magísteres + diplomados + especialidades. */
+export const PROGRAMAS: Programa[] =
+  marca.catalogo === 'carver'
+    ? (JSON.parse(readFileSync(CARVER_PATH, 'utf8')) as Programa[])
+    : [...MAGISTERES, ...DIPLOMADOS, ...ESPECIALIDADES];
 
 export const FACULTADES = [
   'Administración y Negocios',

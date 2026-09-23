@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { marca } from '../marca';
 
 // Detalle enriquecido por programa (arancel, matrícula, requisitos, descripción,
 // objetivos, malla, becas, brochure). Datos reales de postgrados.uautonoma.cl
@@ -27,7 +28,10 @@ export type DetallePrograma = {
   brochureUrl?: string | null;
 };
 
-const DATA_PATH = fileURLToPath(new URL('./detalles.data.json', import.meta.url));
+// El archivo depende de la MARCA (ver marca.ts): Postgrados usa el suyo de siempre; Carver el que
+// genera scripts/build-carver-data.ts desde el catálogo extraído de carver.university.
+const ARCHIVO = marca.catalogo === 'carver' ? './carver.detalles.data.json' : './detalles.data.json';
+const DATA_PATH = fileURLToPath(new URL(ARCHIVO, import.meta.url));
 export const DETALLES: Record<string, DetallePrograma> = JSON.parse(readFileSync(DATA_PATH, 'utf8'));
 
 const slugFromUrl = (u: string) => u.replace(/\/+$/, '').split('/').pop() ?? u;

@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { marca } from '../marca';
 import { SYSTEM_PROMPT } from '../ai/prompt';
 import { MANEJO_OBJECIONES } from './promptObjeciones';
 import type { ConsultarPresentation, DetalleShape } from './catalogTool';
@@ -160,6 +161,19 @@ const MORE_NOTE_CHAT = 'Hay más resultados; pide al usuario que afine por facul
 const MORE_NOTE_VOICE = 'Hay más resultados; pide afinar por facultad o tema.';
 const EMPTY_NOTE_VOICE = 'No hay coincidencias; sugiere afinar el tema o derivar a un asesor. No inventes programas.';
 
+// consultar_condiciones_comerciales lee la planilla comercial de Postgrados: una marca que no la
+// tiene (ver marca.ts) no debe llevar la herramienta, o el bot intentaría cotizar contra una
+// planilla donde ninguno de sus programas existe.
+const TOOLS_WHATSAPP = [
+  'consultar_programas',
+  'detalle_programa',
+  ...(marca.usaPlanillaComercial ? ['consultar_condiciones_comerciales'] : []),
+  'registrar_interes_crm',
+  ...(marca.capturaDocumentos ? ['registrar_documento_identidad'] : []),
+  ...(marca.tieneVoz ? ['solicitar_llamada'] : []),
+  'escalar_a_humano',
+];
+
 /** WhatsApp (Open Lines): el adaptador de referencia. Comportamiento idéntico al histórico. */
 export const WHATSAPP_PROFILE: ChannelProfile = {
   id: 'whatsapp',
@@ -167,7 +181,7 @@ export const WHATSAPP_PROFILE: ChannelProfile = {
   model: config.model, // Claude Sonnet
   maxResponseTokens: 1024,
   systemPrompt: SYSTEM_PROMPT,
-  toolNames: ['consultar_programas', 'detalle_programa', 'consultar_condiciones_comerciales', 'registrar_interes_crm', 'registrar_documento_identidad', 'solicitar_llamada', 'escalar_a_humano'],
+  toolNames: TOOLS_WHATSAPP,
   catalog: {
     consultar: { limit: 20, verbose: true, wrapOk: true, moreNote: MORE_NOTE_CHAT },
     detalle: 'full',

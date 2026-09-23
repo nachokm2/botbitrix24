@@ -1,5 +1,6 @@
 import { callBitrix } from '../bitrix/client';
 import { config } from '../config';
+import { marca } from '../marca';
 import { log } from '../log';
 import type { Auth } from '../store';
 
@@ -30,9 +31,9 @@ export async function registerBot(auth: Auth): Promise<number> {
       EVENT_WELCOME_MESSAGE: `${config.baseUrl}/events/bot/welcome`,
       EVENT_BOT_DELETE: `${config.baseUrl}/events/bot/delete`,
       PROPERTIES: {
-        NAME: 'Sofía',
+        NAME: marca.botNombre,
         COLOR: 'AZURE',
-        WORK_POSITION: 'Asesora de Admisión de Postgrados',
+        WORK_POSITION: marca.botCargo,
       },
     },
     auth,
@@ -51,9 +52,9 @@ export async function updateBot(auth: Auth, botId: number) {
       BOT_ID: botId,
       FIELDS: {
         PROPERTIES: {
-          NAME: 'Sofía',
+          NAME: marca.botNombre,
           COLOR: 'AZURE',
-          WORK_POSITION: 'Asesora de Admisión de Postgrados',
+          WORK_POSITION: marca.botCargo,
         },
       },
     },

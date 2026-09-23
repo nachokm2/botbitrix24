@@ -1,6 +1,7 @@
 import { retrieve } from './retrieval';
 import { esProgramaCotizable } from './condicionesComerciales';
 import { getDetalle } from '../ai/detalles';
+import { marca } from '../marca';
 
 // Núcleo compartido de las herramientas de catálogo (M1 + M5). La BÚSQUEDA (retrieve, ver retrieval.ts)
 // y el DETALLE (getDetalle) son funciones compartidas; lo que estaba DUPLICADO —y divergía— era el "shaping"
@@ -29,7 +30,10 @@ export type DetalleShape = 'full' | 'voice';
 export function consultarProgramas(input: any, p: ConsultarPresentation) {
   // Solo recomienda lo que se puede COTIZAR/vender: excluye masivos/becas, pausa, suspendidos, matrícula
   // cerrada, nuevos sin precio, bloqueados y lo que no está en la planilla comercial.
-  const all = retrieve(input ?? {}).filter((x) => esProgramaCotizable(x.nombre));
+  // El filtro comercial solo aplica donde existe esa planilla (Postgrados). En otra marca dejaría
+  // el catálogo en CERO: ninguno de sus programas figura en la planilla de Postgrados.
+  const encontrados = retrieve(input ?? {});
+  const all = marca.usaPlanillaComercial ? encontrados.filter((x) => esProgramaCotizable(x.nombre)) : encontrados;
   const shown = all.slice(0, p.limit);
   const programas = p.verbose
     ? shown
