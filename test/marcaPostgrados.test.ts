@@ -46,3 +46,13 @@ test('sin MARCA: WhatsApp mantiene sus 7 herramientas, incluida la de precios', 
     'escalar_a_humano',
   ]);
 });
+
+test('precio: si el cliente llega con una tarjeta que YA muestra el descuento, el bot debe cotizar consistente con ella', () => {
+  // Caso real (Amelia Mendoza, 10/09): el anuncio le mostró "Arancel con 40% dcto.: $654.000", el bot
+  // le cotizó $1.240.000 de lista y respondió "No estoy interesada". Pasaba en 26 conversaciones de
+  // las últimas 60 días: la regla de "no menciones el descuento" contradecía a la propia campaña.
+  assert.match(SYSTEM_PROMPT, /EXCEPCIÓN QUE MANDA SOBRE TODO LO DEMÁS/);
+  assert.match(SYSTEM_PROMPT, /cotiza de forma CONSISTENTE con lo que él ya vio/);
+  // Y la regla general sigue vigente para quien llega de cero
+  assert.match(SYSTEM_PROMPT, /NO menciones el descuento por iniciativa propia/);
+});
