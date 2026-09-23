@@ -14,6 +14,7 @@ import { audit } from '../obs/audit';
 import { resolveAllEntities, loadPriorContext, logConversationTurn } from '../crm/chat';
 import { primaryEntity } from '../crm/entities';
 import { esEmpleadoBitrix } from '../crm/directory';
+import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
 import { WHATSAPP_PROFILE, type AgentContext } from '../core/channel';
@@ -181,6 +182,15 @@ async function handle(req: Request) {
   const crmEntities = await resolveAllEntities(params, chatId, auth);
   const crmEntity = primaryEntity(crmEntities);
   log.info('CRM entity', { primary: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : 'ninguna', all: crmEntities });
+
+  // Si la conversación es de un programa piloto, el deal queda con SU asesor desde el primer mensaje,
+  // sin esperar a que la persona entregue datos. Antes la asignación solo se disparaba al capturar un
+  // dato, al escalar o por silencio: quien preguntaba y no dejaba nada se quedaba con el responsable
+  // por defecto del embudo (caso real: deal #3581633). Sin tarea, para no llenarle los pendientes al
+  // asesor por cada consulta suelta — la tarea se crea igual cuando el bot escala o tras el silencio.
+  void asignarAsesorPorTurno(crmEntities, auth, 'automatico', { crearTarea: false }).catch((e) =>
+    log.warn('asignación temprana falló', { err: String(e), dialogId }),
+  );
 
   // Memoria entre sesiones: al iniciar una conversación nueva, carga notas previas del CRM.
   const esNueva = (await getHistory(dialogId)).length === 0;

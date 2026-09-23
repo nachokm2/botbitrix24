@@ -60,10 +60,12 @@ export async function asignarAsesorPorTurno(
   entities: CrmEntities,
   auth: Auth,
   motivo: 'automatico' | 'escalado' | 'silencio' = 'escalado',
+  opts: { crearTarea?: boolean } = {},
 ): Promise<boolean> {
   if (!config.ufPrograma) return false;
   const redis = getRedisClient();
   if (!redis) return false;
+  const crearTarea = opts.crearTarea !== false;
 
   // Si el chat solo está vinculado a un Contacto (sin Deal) — pasa cuando el auto-CRM nativo de Open
   // Lines todavía no actualizó el vínculo del chat, o el cliente escaló muy rápido, antes de que el
@@ -86,22 +88,68 @@ export async function asignarAsesorPorTurno(
   }
   if (!dealId) return false;
 
+  const LOCK = `asignacion:tarea:deal#${dealId}`;
+  const ASESOR_KEY = `asignacion:asesor:deal#${dealId}`;
+  const NO_PILOTO = `asignacion:nopiloto:deal#${dealId}`;
+
+  // Atajos baratos (Redis) para no pedirle el deal a Bitrix en CADA mensaje: si ya se asignó y no
+  // venimos a re-verificar por un escalamiento, o si ya se supo que este deal no es del piloto, corta.
+  const yaAsignado = (await redis.exists(LOCK).catch(() => 0)) === 1;
+  if (yaAsignado && motivo !== 'escalado') return false;
+  if (!yaAsignado && (await redis.exists(NO_PILOTO).catch(() => 0)) === 1) return false;
+
   try {
-    const d: any = await callCrm('crm.deal.get', { id: dealId, select: [config.ufPrograma, 'TITLE'] }, auth);
+    const d: any = await callCrm(
+      'crm.deal.get',
+      { id: dealId, select: [config.ufPrograma, 'TITLE', 'ASSIGNED_BY_ID'] },
+      auth,
+    );
     const programaTexto = String(d?.[config.ufPrograma] ?? d?.TITLE ?? '');
-    if (!programaTexto) return false;
+    const prog = programaTexto
+      ? config.marchaBlancaProgramas.find((p) => programaCoincide(programaTexto, p))
+      : undefined;
+    if (!prog || !prog.asesorNorteId || !prog.asesorSurId) {
+      // No es del piloto: recuérdalo un rato para no volver a consultarlo en cada turno.
+      await redis.set(NO_PILOTO, '1', 'EX', 24 * 3600).catch(() => {});
+      return false;
+    }
 
-    const prog = config.marchaBlancaProgramas.find((p) => programaCoincide(programaTexto, p));
-    if (!prog || !prog.asesorNorteId || !prog.asesorSurId) return false;
+    // Ya se había asignado y ahora el bot está escalando: verifica que el deal siga con un asesor
+    // del programa. Si volvió al responsable POR DEFECTO del embudo (alguien reasignó, o una
+    // automatización de Bitrix lo devolvió), lo corrige — pero si lo tiene cualquier otra persona,
+    // se respeta esa asignación (decisión del usuario: el bot no le quita un deal a un asesor real).
+    if (yaAsignado) {
+      const actual = Number(d?.ASSIGNED_BY_ID ?? 0);
+      const esDelPrograma = actual === prog.asesorNorteId || actual === prog.asesorSurId;
+      if (esDelPrograma || !config.responsablesPorDefecto.includes(actual)) return false;
+      const guardado = Number((await redis.get(ASESOR_KEY).catch(() => null)) ?? 0);
+      const destino = guardado === prog.asesorNorteId || guardado === prog.asesorSurId ? guardado : prog.asesorNorteId;
+      await callCrm('crm.deal.update', { id: dealId, fields: { ASSIGNED_BY_ID: destino } }, auth);
+      log.info('asignarAsesorPorTurno: responsable corregido al escalar', {
+        dealId,
+        programa: prog.key,
+        estabaEn: actual,
+        vuelveA: destino,
+      });
+      return true;
+    }
 
-    const primeraVez = await once(`asignacion:tarea:deal#${dealId}`, 365 * 24 * 3600);
-    if (!primeraVez) return false; // ya se asignó por turno antes; no reasigna ni duplica la tarea
+    const primeraVez = await once(LOCK, 365 * 24 * 3600);
+    if (!primeraVez) return false; // otra réplica lo tomó entremedio
 
     const turno = await redis.incr(`asignacion:turno:${prog.key}`);
     const asesorId = turno % 2 === 1 ? prog.asesorNorteId : prog.asesorSurId;
     const asesorNombre = turno % 2 === 1 ? prog.asesorNorte : prog.asesorSur;
 
     await callCrm('crm.deal.update', { id: dealId, fields: { ASSIGNED_BY_ID: asesorId } }, auth);
+    // Se recuerda a QUIÉN le tocó: si más adelante hay que corregir el responsable, vuelve al mismo
+    // asesor en vez de consumir otro turno y desbalancear el reparto.
+    await redis.set(ASESOR_KEY, String(asesorId), 'EX', 365 * 24 * 3600).catch(() => {});
+
+    if (!crearTarea) {
+      log.info('asignarAsesorPorTurno: asignado sin tarea', { dealId, programa: prog.key, motivo, turno, asesorId, asesorNombre });
+      return true;
+    }
 
     const deadline = new Date(Date.now() + config.asignacionTareaHoras * 3600_000).toISOString();
     const { titulo, descripcion, prioridad } =

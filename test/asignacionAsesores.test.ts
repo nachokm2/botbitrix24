@@ -13,6 +13,7 @@ type Call = { method: string; params: any };
 const calls: Call[] = [];
 let dealProgramas: Record<number, string> = {};
 let dealPorContacto: Record<number, number> = {}; // contactId -> dealId (simula crm.deal.list)
+let dealResponsable: Record<number, number> = {}; // dealId -> ASSIGNED_BY_ID actual
 
 mock.module('../src/bitrix/client.ts', {
   namedExports: {
@@ -25,7 +26,8 @@ mock.module('../src/bitrix/client.ts', {
 });
 async function record(method: string, params: any) {
   calls.push({ method, params });
-  if (method === 'crm.deal.get') return { UF_CRM_PROGRAMA_TEST: dealProgramas[params.id] ?? '', TITLE: 'x' };
+  if (method === 'crm.deal.get')
+    return { UF_CRM_PROGRAMA_TEST: dealProgramas[params.id] ?? '', TITLE: 'x', ASSIGNED_BY_ID: dealResponsable[params.id] ?? 0 };
   if (method === 'crm.deal.list') {
     const dealId = dealPorContacto[params.filter?.CONTACT_ID];
     return dealId ? [{ ID: String(dealId) }] : [];
@@ -38,15 +40,31 @@ async function record(method: string, params: any) {
 // real (primer llamado por key → true; siguientes → false), SIN depender de Redis de verdad.
 const contadores = new Map<string, number>();
 const usados = new Set<string>();
-const fakeRedis = { incr: async (key: string) => { const n = (contadores.get(key) ?? 0) + 1; contadores.set(key, n); return n; } };
+const claves = new Map<string, string>();
+const fakeRedis = {
+  incr: async (key: string) => { const n = (contadores.get(key) ?? 0) + 1; contadores.set(key, n); return n; },
+  // La asignación usa estos 3 además de incr: exists (atajo para no consultar Bitrix en cada turno),
+  // get/set (recuerda a qué asesor le tocó el deal, para corregir sin gastar otro turno).
+  exists: async (key: string) => (claves.has(key) ? 1 : 0),
+  get: async (key: string) => claves.get(key) ?? null,
+  set: async (key: string, val: string) => { claves.set(key, val); return 'OK'; },
+};
 mock.module('../src/store/kv.ts', {
   namedExports: {
     getRedisClient: () => fakeRedis,
-    once: async (key: string) => { if (usados.has(key)) return false; usados.add(key); return true; },
+    // once() escribe la MISMA llave que luego lee exists() — en Redis de verdad es una sola clave,
+    // así que el fake debe compartirla o el atajo de "ya asignado" nunca se activaría en las pruebas.
+    once: async (key: string) => {
+      if (usados.has(key)) return false;
+      usados.add(key);
+      claves.set(key, '1');
+      return true;
+    },
   },
 });
 
 const { asignarAsesorPorTurno } = await import('../src/crm/asignacionAsesores');
+const { config } = await import('../src/config');
 const auth = { domain: '', access_token: '' } as any;
 
 test('asignarAsesorPorTurno: alterna Norte/Sur entre deals distintos del mismo programa', async () => {
@@ -134,4 +152,60 @@ test('asignarAsesorPorTurno: no reasigna ni duplica la tarea si se llama dos vec
 
   assert.ok(!calls.find((c) => c.method === 'crm.deal.update'), 'la segunda vez no reasigna');
   assert.ok(!calls.find((c) => c.method === 'tasks.task.add'), 'la segunda vez no duplica la tarea');
+});
+
+// ── Corrección del responsable al escalar ──────────────────────────────────────────────────────
+// Caso real: el bot asignó el deal #3578969 a Joaquín y un minuto después el responsable volvió al
+// responsable POR DEFECTO del embudo (un usuario con 3.599 deals, que no es un asesor). Al escalar,
+// el bot avisaba al cliente ESE nombre. Decisión del usuario: corregir SOLO si el deal está en ese
+// responsable por defecto; si lo tiene cualquier otra persona, se respeta.
+
+test('escalado: si el deal volvió al responsable por defecto, lo corrige al asesor que le tocó', async () => {
+  calls.length = 0;
+  dealProgramas[700] = 'Diplomado en Intervención Terapéutica Familiar';
+  const original = config.responsablesPorDefecto.slice();
+  config.responsablesPorDefecto.push(4173);
+  try {
+    await asignarAsesorPorTurno({ deal: 700 }, auth); // asignación inicial
+    const asignado = calls.find((c) => c.method === 'crm.deal.update')!.params.fields.ASSIGNED_BY_ID;
+
+    dealResponsable[700] = 4173; // alguien (o una automatización) lo devolvió al default
+    calls.length = 0;
+    const ok = await asignarAsesorPorTurno({ deal: 700 }, auth, 'escalado');
+
+    assert.equal(ok, true, 'debe corregirlo');
+    const update = calls.find((c) => c.method === 'crm.deal.update');
+    assert.equal(update?.params.fields.ASSIGNED_BY_ID, asignado, 'vuelve al MISMO asesor, sin gastar otro turno');
+    assert.ok(!calls.some((c) => c.method === 'tasks.task.add'), 'no duplica la tarea');
+  } finally {
+    config.responsablesPorDefecto.length = 0;
+    config.responsablesPorDefecto.push(...original);
+  }
+});
+
+test('escalado: si el deal lo tiene otra persona (no el responsable por defecto), NO se lo quita', async () => {
+  calls.length = 0;
+  dealProgramas[701] = 'Diplomado en Inteligencia Artificial';
+  const original = config.responsablesPorDefecto.slice();
+  config.responsablesPorDefecto.push(4173);
+  try {
+    await asignarAsesorPorTurno({ deal: 701 }, auth);
+    dealResponsable[701] = 99999; // otro asesor real tomó el deal
+    calls.length = 0;
+    const ok = await asignarAsesorPorTurno({ deal: 701 }, auth, 'escalado');
+    assert.equal(ok, false);
+    assert.ok(!calls.some((c) => c.method === 'crm.deal.update'), 'respeta la asignación de un asesor real');
+  } finally {
+    config.responsablesPorDefecto.length = 0;
+    config.responsablesPorDefecto.push(...original);
+  }
+});
+
+test('crearTarea=false: asigna el deal al asesor pero NO le crea una tarea', async () => {
+  calls.length = 0;
+  dealProgramas[702] = 'Diplomado en Intervención Terapéutica Familiar';
+  const ok = await asignarAsesorPorTurno({ deal: 702 }, auth, 'automatico', { crearTarea: false });
+  assert.equal(ok, true);
+  assert.ok(calls.some((c) => c.method === 'crm.deal.update'), 'sí reasigna el deal');
+  assert.ok(!calls.some((c) => c.method === 'tasks.task.add'), 'pero no genera pendientes por una consulta suelta');
 });

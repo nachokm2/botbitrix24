@@ -212,6 +212,14 @@ export const config = {
   // ── Marcha blanca (piloto): fecha de arranque (para "leads antiguos" vs "nuevos") y programas a medir ──
   marchaBlancaStart: process.env.MARCHA_BLANCA_START ?? '2026-08-27',
   marchaBlancaProgramas: parseMarchaBlancaProgramas(process.env.MARCHA_BLANCA_PROGRAMAS),
+  // IDs de usuario que son el responsable POR DEFECTO del embudo, no un asesor real: cualquier deal
+  // que nadie reasigna queda en ellos (caso real: 3.599 deals de Diplomados en un solo usuario). Al
+  // escalar, si el deal está en uno de estos, el bot lo corrige al asesor del programa; si lo tiene
+  // cualquier otra persona, respeta esa asignación y no se mete. Vacío = nunca corrige.
+  responsablesPorDefecto: (process.env.BITRIX_RESPONSABLES_POR_DEFECTO ?? '')
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0),
   // Precio Anthropic por millón de tokens (USD) para estimar costo en el panel (0 = no mostrar).
   costInPerMtok: Number(process.env.ANTHROPIC_COST_IN_PER_MTOK ?? 0),
   costOutPerMtok: Number(process.env.ANTHROPIC_COST_OUT_PER_MTOK ?? 0),

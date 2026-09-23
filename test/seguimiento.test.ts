@@ -57,6 +57,7 @@ const zsets = new Map<string, Map<string, number>>();
 const contadores = new Map<string, number>();
 const usados = new Set<string>();
 const kvStore = new Map<string, string>();
+const claves = new Map<string, string>(); // exists/get/set del fake de Redis (asignación)
 
 const fakeRedis = {
   zadd: async (key: string, score: number, member: string) => {
@@ -80,6 +81,9 @@ const fakeRedis = {
     contadores.set(key, n);
     return n;
   },
+  exists: async (key: string) => (claves.has(key) ? 1 : 0),
+  get: async (key: string) => claves.get(key) ?? null,
+  set: async (key: string, val: string) => { claves.set(key, val); return 'OK'; },
   hincrby: async () => 1, // usado por obs/metrics.ts:inc() — no relevante para estas pruebas
 };
 
