@@ -16,7 +16,7 @@ import { primaryEntity } from '../crm/entities';
 import { esEmpleadoBitrix } from '../crm/directory';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
-import { WHATSAPP_PROFILE } from '../core/channel';
+import { WHATSAPP_PROFILE, type AgentContext } from '../core/channel';
 import { extractIncomingMedia } from '../media/incoming';
 import { transcribeAudio } from '../ai/transcribe';
 import { programarSeguimiento, cancelarSeguimiento } from '../ai/seguimiento';
@@ -192,15 +192,34 @@ async function handle(req: Request) {
 
   // Agente real: motor conversacional único, con el perfil del canal WhatsApp (Open Lines).
   // turnContent (bloques con imagen) tiene prioridad; si no, el texto (incluye audios transcritos).
-  const reply = await runAgentTurn(
-    { auth, conversationId: dialogId, chatId, botId, crmEntity, crmEntities, profile: WHATSAPP_PROFILE, pendingImage },
-    turnContent ?? turnText,
-    priorContext,
-  );
+  const ctxTurno: AgentContext = {
+    auth,
+    conversationId: dialogId,
+    chatId,
+    botId,
+    crmEntity,
+    crmEntities,
+    profile: WHATSAPP_PROFILE,
+    pendingImage,
+  };
+  const reply = await runAgentTurn(ctxTurno, turnContent ?? turnText, priorContext);
 
   await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: dialogId, MESSAGE: reply }, auth);
   inc('reply');
   log.info('REPLY enviado', { dialogId, botId });
+
+  // Recién ahora se entrega la sesión al asesor (la marcó escalar_a_humano): al hacerlo, Bitrix le
+  // quita al bot el permiso de escribir en ese chat, así que ANTES de este punto la despedida no
+  // habría llegado nunca. Si fallara, el cliente igual recibió su respuesta y el asesor ya quedó
+  // asignado con su tarea (ver crm/asignacionAsesores.ts), así que no se corta el turno.
+  if (ctxTurno.transferirAOperador) {
+    try {
+      await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: chatId }, auth);
+      log.info('sesión entregada al operador tras responder', { dialogId, chatId });
+    } catch (e) {
+      log.warn('no se pudo entregar la sesión al operador', { err: String(e), dialogId, chatId });
+    }
+  }
   void programarSeguimiento(dialogId, crmEntities); // si el cliente no vuelve a escribir: recordatorio y, si sigue en silencio, transferencia al asesor (ver ai/seguimiento.ts)
 
   // Auditoría del turno (compliance) — independiente del CRM.

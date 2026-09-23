@@ -113,9 +113,13 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
       }
 
       case 'escalar_a_humano': {
-        if (ctx.chatId) {
-          await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: ctx.chatId }, ctx.auth);
-        }
+        // La sesión NO se transfiere acá: se marca para que el adaptador la entregue al operador
+        // DESPUÉS de enviar la respuesta. Transferirla ahora hacía que Bitrix rechazara el mensaje
+        // del bot ("CANCELED No puede enviar mensajes al chat especificado"), así que el cliente que
+        // pedía un asesor no recibía nada — 3 de 3 escalamientos explícitos en producción. El
+        // escalamiento automático por score (ai/scoring.ts) siempre funcionó porque ahí el orden ya
+        // era el correcto: primero el mensaje, después la transferencia.
+        if (ctx.chatId) ctx.transferirAOperador = true;
         await markHumanTakeover(ctx.conversationId); // tras escalar, el bot deja de responder en esa sesión
         void cancelarSeguimiento(ctx.conversationId); // ya hay un asesor a cargo: no le manda seguimiento
 

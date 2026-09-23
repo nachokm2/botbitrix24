@@ -56,6 +56,12 @@ export type AgentContext = {
    *  para que una tool (registrar_documento_identidad) pueda subir los bytes reales al CRM cuando el
    *  modelo reconozca que es una cédula de identidad. Los tool-calls no pueden llevar binarios. */
   pendingImage?: { base64: string; mediaType: string } | null;
+  /** Lo marca escalar_a_humano: la sesión de Open Lines debe pasar al operador DESPUÉS de enviar la
+   *  respuesta, nunca antes. Si se transfiere primero, Bitrix rechaza el mensaje del bot con
+   *  "CANCELED No puede enviar mensajes al chat especificado" y el cliente que pidió un asesor se
+   *  queda sin ninguna respuesta (pasaba en el 100% de los escalamientos explícitos). El adaptador
+   *  del canal es quien ejecuta la transferencia al final del turno (ver routes/botEvents.ts). */
+  transferirAOperador?: boolean;
 };
 
 // Prompt de voz (M2, Custom LLM): réplica exacta del prompt "Sofía" que vivía en el dashboard de
