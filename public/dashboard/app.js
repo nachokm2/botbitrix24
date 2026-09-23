@@ -82,7 +82,9 @@ function render(d){
   var consultas = agg? (agg.tools&&agg.tools.consultar_programas||0) : pick(c['tool:consultar_programas']);
   var etapas = agg? agg.etapasMovidas : pick(c.stage_move);
   var scoreAvg = agg&&agg.scoreAvg!=null? agg.scoreAvg : '—';
-  var errores = pick(c.errors);
+  // Los errores salen de la BASE (agg), no del contador en memoria: ese se reinicia en cada deploy,
+  // así que una falla de ayer se veía como cero hoy. Sin agg (Postgres apagado) cae al contador.
+  var errores = agg && agg.errores != null ? agg.errores : pick(c.errors);
   var operador = agg? agg.operadorMsgs : pick(c.operator_msg);
   // Matrículas reales de los 2 programas piloto (combinados) — a diferencia de las demás tarjetas,
   // NO sigue el selector Hoy/7d/30d/Todo: es el acumulado desde que arrancó el piloto (mismo dato que
@@ -100,7 +102,7 @@ function render(d){
     kpi(scoreAvg,'Score promedio','Promedio de la nota 0-100 que un modelo de IA le asigna a cada conversación evaluada, estimando qué tan probable es que ese lead se matricule (interés claro, datos entregados, urgencia, tono). Esta nota también dispara mover de etapa, auto-llamar o auto-escalar.','score') +
     kpi(operador,'Intervención humana','Veces que un asesor/operador REAL escribió directamente en un chat de WhatsApp (no el bot; se verifica contra Bitrix que sea un empleado, no el cliente). Solo cuenta WhatsApp — por eso puede ser menor que "Escalamientos a asesor" (que suma todos los canales y no confirma que el asesor ya haya escrito), o mayor, si un asesor entra a conversar sin que el bot haya escalado antes.','operador') +
     kpi(matriculasPiloto,'Matrículas (piloto)','Matrículas reales entre las negociaciones con las que el bot conversó/escaló, de los 2 programas piloto combinados. Acumulado desde el inicio del piloto — NO cambia con el selector Hoy/7 días/30 días/Todo (ver detalle en "Piloto: proyección vs. real" y "Negociaciones que trabajó el bot").','matriculas') +
-    kpi(errores,'Errores','Fallas técnicas registradas (ej. al guardar en el CRM o al auditar un evento).','errores');
+    kpi(errores,'Errores','Fallas técnicas del período: el bot no pudo responder, no pudo ENVIAR la respuesta (el cliente se queda esperando), o falló al guardar en el CRM. El detalle de cada una está más abajo, en "Fallas técnicas".','errores');
   animateKpis();
 
   // Piloto: proyección (correo de lanzamiento a la jefatura) vs. real acumulado (2 programas
@@ -335,6 +337,37 @@ function render(d){
   var tkeys=Object.keys(tools).filter(function(k){return tools[k];});
   var tmax=tkeys.length?Math.max.apply(null,tkeys.map(function(k){return tools[k];})):0;
   document.getElementById('tools').innerHTML = tkeys.length? tkeys.map(function(k){return barRow(LBL[k]||k, tools[k], tmax);}).join('') : '<div class="muted">Sin uso registrado aún.</div>';
+
+  // Fallas técnicas: el detalle accionable de los errores. Una falla al ENVIAR deja a un cliente sin
+  // respuesta, y sin esta tabla no había forma de enterarse (pasó con 3 clientes reales).
+  var errs = d.erroresRecientes || [];
+  var entidadCell = function (ent) {
+    var m = /^(deal|contact|lead)#(\d+)$/.exec(String(ent || ''));
+    if (!m) return '<span class="muted">—</span>';
+    if (m[1] !== 'deal') return esc(m[1] + ' #' + m[2]); // contactos/leads no tienen link armado acá
+    return dealLinkCell('deal', Number(m[2]));
+  };
+  var ETAPA = { envio_respuesta: 'No se pudo enviar la respuesta', motor: 'El bot no pudo responder', turno: 'Falla del turno' };
+  var errEl = document.getElementById('errores');
+  var errResumen = document.getElementById('erroresresumen');
+  if (errs.length) {
+    errResumen.textContent = errs.length + (errs.length === 1 ? ' falla registrada' : ' fallas registradas') +
+      ' (las más recientes). Si dice "No se pudo enviar la respuesta", ese cliente quedó esperando: conviene contactarlo.';
+    errEl.innerHTML = '<thead><tr><th>Fecha</th><th>Qué pasó</th><th>Conversación</th><th>CRM</th><th>Detalle</th></tr></thead><tbody>' +
+      errs.map(function (e) {
+        var ts = e.ts ? new Date(e.ts).toLocaleString('es-CL') : '';
+        var etapa = ETAPA[e.etapa] || e.etapa || '—';
+        var grave = e.etapa === 'envio_respuesta';
+        return '<tr><td>' + esc(ts) + '</td>' +
+          '<td>' + (grave ? '<b class="err">' + esc(etapa) + '</b>' : esc(etapa)) + '</td>' +
+          '<td>' + esc(e.dialog_id || '—') + '</td>' +
+          '<td>' + entidadCell(e.crm_entity) + '</td>' +
+          '<td class="muted">' + esc(String(e.err || '').slice(0, 120)) + '</td></tr>';
+      }).join('') + '</tbody>';
+  } else {
+    errResumen.textContent = '';
+    errEl.innerHTML = '<tr><td class="muted">Sin fallas registradas. 🎉</td></tr>';
+  }
 
   // Reciente
   var rec=d.recent||[];

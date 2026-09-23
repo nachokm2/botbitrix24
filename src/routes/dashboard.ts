@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { snapshot } from '../obs/metrics';
-import { dbMetricsSummary, dbRecentAudit, dbEnabled, dbMarchaBlancaBot, dbPilotoProgresoReal } from '../store/db';
+import { dbMetricsSummary, dbRecentAudit, dbEnabled, dbMarchaBlancaBot, dbPilotoProgresoReal, dbErroresRecientes } from '../store/db';
 import { kvKind } from '../store/kv';
 import { getState } from '../store';
 import { getUsuarios } from '../crm/directory';
@@ -63,10 +63,11 @@ export async function metricsSummary(req: Request, res: Response) {
   }
   const dialogosCombinados = dialogosPorPrograma ? [...new Set([...dialogosPorPrograma.values()].flat())] : undefined;
 
-  const [live, agg, recent, marchaBlancaBot, pilotoReal] = await Promise.all([
+  const [live, agg, recent, erroresRecientes, marchaBlancaBot, pilotoReal] = await Promise.all([
     snapshot(),
     dbMetricsSummary(range),
     dbRecentAudit(15),
+    dbErroresRecientes(15),
     dbMarchaBlancaBot('all', dialogosPorPrograma), // el scorecard del piloto siempre es "desde siempre" (no sigue el selector Hoy/7d/30d)
     dbPilotoProgresoReal(dialogosCombinados), // proyección vs. real del piloto (correo de lanzamiento) — también "desde siempre"
   ]);
@@ -135,6 +136,7 @@ export async function metricsSummary(req: Request, res: Response) {
     tokens: { in: tin, out: tout, costUsd: cost },
     agg,
     recent,
+    erroresRecientes, // fallas técnicas con motivo y etapa, para poder accionarlas desde el panel
     funnelLabels: config.funnelLabels,
     marchaBlanca,
     marchaBlancaStart: config.marchaBlancaStart,

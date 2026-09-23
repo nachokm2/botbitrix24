@@ -229,6 +229,9 @@ export async function runAgentTurn(
     return text;
   } catch (e) {
     inc('errors');
+    // Además del contador en memoria (que se pierde en cada deploy), deja la falla en la auditoría:
+    // el cliente recibió una disculpa genérica en vez de una respuesta real, y eso debe verse.
+    void audit({ type: 'error', dialogId: ctx.conversationId, detail: { etapa: 'motor', err: String(e) } });
     log.error('agentLoop error', { err: String(e) });
     return 'Disculpa, tuve un inconveniente técnico. ¿Puedes repetir tu consulta?';
   }

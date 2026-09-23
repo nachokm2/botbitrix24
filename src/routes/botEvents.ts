@@ -49,7 +49,13 @@ export async function botMessageHandler(req: Request, res: Response) {
   // trabajo en segundo plano loguee con la correlación correcta, sin fugas entre peticiones.
   void withKeyedLock(dialogId, () =>
     turnLimit(() => runWithRequestContext({ requestId, dialogId }, () => handle(req))),
-  ).catch((e) => log.error('botMessage: error', { err: String(e) }));
+  ).catch((e) => {
+    // Red de seguridad: cualquier falla del turno que no se haya registrado más adentro queda igual
+    // en la auditoría, para que el panel la muestre en vez de que se pierda solo en los logs.
+    inc('errors');
+    void audit({ type: 'error', dialogId, detail: { etapa: 'turno', err: String(e) } });
+    log.error('botMessage: error', { err: String(e) });
+  });
 }
 
 async function handle(req: Request) {
@@ -214,7 +220,22 @@ async function handle(req: Request) {
   };
   const reply = await runAgentTurn(ctxTurno, turnContent ?? turnText, priorContext);
 
-  await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: dialogId, MESSAGE: reply }, auth);
+  // Si el envío falla, el cliente se queda SIN respuesta: hay que dejar rastro accionable, no solo
+  // un log. Antes esto no quedaba registrado en ninguna parte y 3 clientes reales quedaron sin
+  // contestación sin que nadie se enterara (ver fix 748885f).
+  try {
+    await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: dialogId, MESSAGE: reply }, auth);
+  } catch (e) {
+    inc('errors');
+    await audit({
+      type: 'error',
+      dialogId,
+      crmEntity: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : undefined,
+      detail: { etapa: 'envio_respuesta', err: String(e) },
+    });
+    log.error('REPLY no se pudo enviar: el cliente quedó sin respuesta', { err: String(e), dialogId, botId });
+    return; // no se audita el turno como exitoso ni se sigue: el cliente no recibió nada
+  }
   inc('reply');
   log.info('REPLY enviado', { dialogId, botId });
 

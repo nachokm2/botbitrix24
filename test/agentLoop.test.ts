@@ -11,6 +11,12 @@ process.env.NODE_ENV = 'test';
 // `impl` es la implementación programable de anthropic.messages.create para cada test.
 let impl: (args: any) => Promise<any> = async () => ({ content: [{ type: 'text', text: '' }], usage: {} });
 
+type AuditCall = { type: string; dialogId?: string; detail?: any };
+const auditCalls: AuditCall[] = [];
+mock.module('../src/obs/audit.ts', {
+  namedExports: { audit: async (e: AuditCall) => { auditCalls.push(e); } },
+});
+
 mock.module('../src/ai/client.ts', {
   namedExports: {
     anthropic: { messages: { create: (args: any) => impl(args) } },
@@ -82,4 +88,18 @@ test('runAgentTurn: error del modelo devuelve mensaje de fallback (no revienta)'
   };
   const reply = await runAgentTurn({ ...ctx(), conversationId: 'al-error' }, 'hola');
   assert.match(reply, /inconveniente técnico/i);
+});
+
+test('runAgentTurn: el fallo queda AUDITADO (antes solo subía un contador en memoria que se perdía en cada deploy)', async () => {
+  auditCalls.length = 0;
+  impl = async () => {
+    throw new Error('boom de la API');
+  };
+  await runAgentTurn({ ...ctx(), conversationId: 'al-error-auditado' }, 'hola');
+
+  const err = auditCalls.find((a) => a.type === 'error');
+  assert.ok(err, 'una falla del motor tiene que dejar rastro consultable, no solo un log');
+  assert.equal(err!.dialogId, 'al-error-auditado', 'con el diálogo, para poder ir a ver a ese cliente');
+  assert.equal(err!.detail?.etapa, 'motor');
+  assert.match(String(err!.detail?.err), /boom de la API/);
 });

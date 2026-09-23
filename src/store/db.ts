@@ -144,6 +144,28 @@ export async function dbInsertAudit(e: AuditEntry): Promise<void> {
   }
 }
 
+/** Fallas técnicas recientes, con el motivo y en qué etapa del turno ocurrieron. A diferencia del
+ *  resto de la auditoría, acá SÍ se devuelve parte del detalle (etapa + mensaje de error): no lleva
+ *  el texto de la conversación, y sin él un error en el panel es un número que nadie puede accionar.
+ *  Existe porque un fallo al ENVIAR la respuesta dejaba al cliente sin contestación y no quedaba
+ *  rastro en ninguna parte (3 clientes reales así, ver fix 748885f). */
+export async function dbErroresRecientes(limit = 15): Promise<any[]> {
+  if (!pool) return [];
+  try {
+    const r = await pool.query(
+      `SELECT ts, dialog_id, crm_entity,
+              detail->>'etapa' etapa,
+              left(coalesce(detail->>'err',''), 200) err
+       FROM audit_log WHERE type='error' ORDER BY ts DESC LIMIT $1`,
+      [limit],
+    );
+    return r.rows;
+  } catch (err) {
+    log.warn('dbErroresRecientes falló', { err: String(err) });
+    return [];
+  }
+}
+
 export async function dbRecentAudit(limit = 20): Promise<any[]> {
   if (!pool) return [];
   try {
@@ -433,6 +455,9 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
       leadsCapturados: leadsOk.rows[0]?.c ?? 0,
       escalamientos: (byTypeMap['auto_escalation'] ?? 0) + (toolMap['escalar_a_humano'] ?? 0),
       etapasMovidas: byTypeMap['stage_move'] ?? 0,
+      // Fallas técnicas del período. Antes el panel solo miraba un contador EN MEMORIA que se
+      // reiniciaba en cada deploy, así que un error de ayer era invisible hoy (ver audit type='error').
+      errores: byTypeMap['error'] ?? 0,
       scoreAvg: scoreAgg.rows[0]?.avg ?? null,
       scoreCount: scoreAgg.rows[0]?.c ?? 0,
       intencion: map(intenc.rows, 'k'),
