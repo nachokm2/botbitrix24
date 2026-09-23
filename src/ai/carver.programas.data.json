@@ -1,0 +1,306 @@
+[
+  {
+    "nombre": "Curso de Educación Continua en Competencias Digitales para Educadores",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/continuingeducation/curso-de-educacion-continua-en-competencias-digitales-para-educadores"
+  },
+  {
+    "nombre": "Curso de Educación Continua en Inteligencia Artificial Aplicada",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/continuingeducation/curso-de-educacion-continua-en-inteligencia-artificial-aplicada"
+  },
+  {
+    "nombre": "Claves de la comunicación estratégica",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/claves-comunicacion-estrategica"
+  },
+  {
+    "nombre": "Diferentes modos de violencia en la pareja",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/diferentes-modos-violencia-en-la-pareja"
+  },
+  {
+    "nombre": "Diseño de sistemas seguros",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/diseno-de-sistemas-seguros"
+  },
+  {
+    "nombre": "Envejecimiento y demencia",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/envejecimiento-demencias"
+  },
+  {
+    "nombre": "Estrategia organizacional y talento humano",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/estrategia-organizacional-talento-humano"
+  },
+  {
+    "nombre": "Estrategias de responsabilidad social y desarrollo sostenible",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/estrategias-responsabilidad-social-desarrollo-sostenible"
+  },
+  {
+    "nombre": "Finanzas y bienestar personal",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/finanzas-bienestar-personal"
+  },
+  {
+    "nombre": "Introducción a la formulación y evaluación de proyectos",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/formulacion-evaluacion-proyectos"
+  },
+  {
+    "nombre": "Funciones y módulos de Python",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/funciones-modulos-python"
+  },
+  {
+    "nombre": "Hacking ético",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/hacking-etico"
+  },
+  {
+    "nombre": "IA: tendencias y futuro",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/ia-tendencias-futuro"
+  },
+  {
+    "nombre": "Intervención en la clínica de parejas",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/intervencion-clinica-parejas"
+  },
+  {
+    "nombre": "Introducción a Python y conceptos básicos de programación",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/introduccion-python"
+  },
+  {
+    "nombre": "Introducción de la minería de datos y Machine Learning",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/mineria-datos-machine-learning"
+  },
+  {
+    "nombre": "Negociación estratégica en las organizaciones",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/negociacion-estrategica-organizaciones"
+  },
+  {
+    "nombre": "Personal Branding",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/personal-branding"
+  },
+  {
+    "nombre": "Problemáticas de salud mental infanto-juvenil",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/problematicas-salud-mental-infanto-juvenil"
+  },
+  {
+    "nombre": "Problemas ligados a la sexualidad y el encuentro con el otro",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/sexualidad-encuentro-con-el-otro"
+  },
+  {
+    "nombre": "Transformación digital e IA",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/transformacion-digital-ia"
+  },
+  {
+    "nombre": "Urgencias en salud mental",
+    "tipo": "curso",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "20 Horas",
+    "url": "https://carver.university/es/programas-academicos/noocs/urgencias-salud-mental"
+  },
+  {
+    "nombre": "Maestría en Arquitectura de Software",
+    "tipo": "maestria",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/postgrado/maestria-en-arquitectura-de-software"
+  },
+  {
+    "nombre": "Maestría en Ciencias en Educación Virtual",
+    "tipo": "maestria",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/postgrado/maestria-en-ciencias-en-educacion-virtual"
+  },
+  {
+    "nombre": "Maestría en Educación en Salud y Simulación Clínica",
+    "tipo": "maestria",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/postgrado/maestria-en-educación-en-salud-y-simulacion-clinica"
+  },
+  {
+    "nombre": "Maestría en Ergonomía Ocupacional y Gestión",
+    "tipo": "maestria",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/postgrado/maestria-en-ergonomia-ocupacional-y-gestion"
+  },
+  {
+    "nombre": "Maestría en Gestión de Seguridad y Salud Ocupacional",
+    "tipo": "maestria",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/postgrado/maestria-en-gestion-de-seguridad-y-salud-ocupacional"
+  },
+  {
+    "nombre": "Maestría en Gestión Estratégica de Organizaciones de Salud",
+    "tipo": "maestria",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/postgrado/maestria-en-gestion-estrategica-organizaciones-de-salud"
+  },
+  {
+    "nombre": "Maestría en Ingeniería",
+    "tipo": "maestria",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/postgrado/maestria-en-ingenieria"
+  },
+  {
+    "nombre": "Maestría en Inteligencia Artificial",
+    "tipo": "maestria",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/postgrado/maestria-en-inteligencia-artificial"
+  },
+  {
+    "nombre": "Maestría en Neurodivergencia",
+    "tipo": "maestria",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/postgrado/maestria-en-neurodivergencia"
+  },
+  {
+    "nombre": "Maestría en Salud Mental",
+    "tipo": "maestria",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/postgrado/maestria-en-salud-mental"
+  },
+  {
+    "nombre": "Maestría en Administración de Empresas MBA",
+    "tipo": "maestria",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/postgrado/maestriaenadministraciondeempresas"
+  },
+  {
+    "nombre": "Maestría en Administración Pública",
+    "tipo": "maestria",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/postgrado/maestriaenadministracionpublica"
+  },
+  {
+    "nombre": "Maestría en Psicología",
+    "tipo": "maestria",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "",
+    "url": "https://carver.university/es/programas-academicos/postgrado/maestriaenpsicologia"
+  },
+  {
+    "nombre": "Licenciatura en Administración de Empresas",
+    "tipo": "licenciatura",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "4 años",
+    "url": "https://carver.university/es/programas-academicos/pregrado/licenciatura-en-administracion-de-empresas"
+  },
+  {
+    "nombre": "Licenciatura en Ingeniería Informática",
+    "tipo": "licenciatura",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "4 años",
+    "url": "https://carver.university/es/programas-academicos/pregrado/licenciaturaeningenieriainformatica"
+  },
+  {
+    "nombre": "Licenciatura en Psicología",
+    "tipo": "licenciatura",
+    "facultad": "",
+    "modalidad": "online",
+    "duracion": "4 años",
+    "url": "https://carver.university/es/programas-academicos/pregrado/licenciaturaenpsicologia"
+  }
+]
