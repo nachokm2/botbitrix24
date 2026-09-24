@@ -22,8 +22,10 @@ mock.module('../src/bitrix/client.ts', {
     callWebhook: async () => ({}),
   },
 });
+let fallarEnvio = false; // para simular que Bitrix rechaza el mensaje del bot
 async function record(method: string, params: any) {
   calls.push({ method, params });
+  if (method === 'imbot.message.add' && fallarEnvio) throw new Error('CANCELED No puede enviar mensajes al chat especificado');
   if (method === 'crm.deal.get') return { UF_CRM_PROGRAMA_TEST: dealProgramas[params.id] ?? '', TITLE: 'x' };
   if (method === 'tasks.task.add') return { task: { id: 999 } };
   return {};
@@ -36,6 +38,14 @@ mock.module('../src/obs/audit.ts', {
     audit: async (e: AuditCall) => {
       auditCalls.push(e);
     },
+  },
+});
+
+mock.module('../src/ai/client.ts', {
+  namedExports: {
+    anthropic: { messages: { create: async () => ({ content: [{ type: 'text', text: 'Un recordatorio de prueba.' }], usage: {} }) } },
+    REASONER: 'claude-test-sonnet',
+    CLASSIFIER: 'claude-test-haiku',
   },
 });
 
@@ -110,6 +120,7 @@ const {
   proximoHorarioPermitido,
   programarSeguimiento,
   barrerTransferenciasVencidas,
+  barrerSeguimientosVencidos,
 } = await import('../src/ai/seguimiento');
 const { config } = await import('../src/config');
 
@@ -223,4 +234,29 @@ test('barrerTransferenciasVencidas: silencio en un programa fuera del piloto →
     !auditCalls.find((c) => c.type === 'seguimiento_transferencia' && c.dialogId === 'dlg-no-piloto'),
     'no registra una "transferencia" si en realidad no se asignó a nadie',
   );
+});
+
+test('barrerSeguimientosVencidos: si el envío del recordatorio FALLA, queda auditado como error (antes solo había un log)', async () => {
+  // El audit de 'seguimiento' se escribe DESPUÉS del envío, así que un fallo no dejaba ninguna fila:
+  // el panel mostraba la conversación como normal y nadie sabía que ese cliente no fue contactado.
+  calls.length = 0;
+  auditCalls.length = 0;
+  kvStore.set('mem:dlg-envio-falla', JSON.stringify([
+    { role: 'user', content: 'hola, quiero información del diplomado' },
+    { role: 'assistant', content: 'Con gusto le cuento.' },
+  ]));
+  zsets.set('seguimiento:due', new Map([['dlg-envio-falla', Date.now() - 1000]]));
+
+  fallarEnvio = true;
+  try {
+    await barrerSeguimientosVencidos();
+  } finally {
+    fallarEnvio = false;
+  }
+
+  const err = auditCalls.find((a) => a.type === 'error');
+  assert.ok(err, 'un recordatorio que no se envía tiene que quedar registrado');
+  assert.equal(err!.dialogId, 'dlg-envio-falla');
+  assert.equal((err!.detail as any)?.etapa, 'recordatorio_1');
+  assert.ok(!auditCalls.some((a) => a.type === 'seguimiento'), 'y NO debe contarse como recordatorio enviado');
 });

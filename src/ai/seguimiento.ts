@@ -204,6 +204,16 @@ async function barrerRecordatorios(key: string, etapa: 1 | 2): Promise<void> {
       await audit({ type: 'seguimiento', dialogId, detail: { mensaje, etapa } });
       log.info('seguimiento enviado', { dialogId, etapa });
     } catch (e) {
+      // Un recordatorio que no se envía es un cliente al que el bot cree haber contactado y no lo
+      // hizo. Antes solo quedaba este log y nada en el panel: la auditoría de 'seguimiento' se
+      // escribe DESPUÉS del envío, así que los fallos no dejaban ninguna fila (mismo punto ciego que
+      // dejó a 3 clientes sin respuesta, ver fix 748885f).
+      inc('errors');
+      await audit({
+        type: 'error',
+        dialogId,
+        detail: { etapa: etapa === 2 ? 'recordatorio_2' : 'recordatorio_1', err: String(e) },
+      }).catch(() => {});
       log.warn('barrerRecordatorios: falló para un diálogo', { err: String(e), dialogId, key });
     }
   }
@@ -268,6 +278,10 @@ export async function barrerTransferenciasVencidas(): Promise<void> {
       });
       log.info('seguimiento: derivado al asesor por falta de respuesta', { dialogId, entities });
     } catch (e) {
+      // Si falla, el lead queda sin asesor asignado y sin tarea, y nadie se entera: el ZREM de más
+      // arriba ya lo sacó de la cola, así que no se reintenta nunca.
+      inc('errors');
+      await audit({ type: 'error', dialogId, detail: { etapa: 'derivacion_por_silencio', err: String(e) } }).catch(() => {});
       log.warn('barrerTransferenciasVencidas: falló para un diálogo', { err: String(e), dialogId });
     }
   }
