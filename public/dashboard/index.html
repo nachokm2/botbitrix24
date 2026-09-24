@@ -21,9 +21,10 @@
 
   <div id="printMeta" class="print-only"></div>
 
+  <div class="sub" style="margin:-4px 0 8px">Actividad del bot en <b>todos los programas del catálogo</b>, según el rango elegido arriba.</div>
   <div class="grid" id="kpis"></div>
 
-  <div class="sec"><h2>Piloto: proyección vs. real<i class="hint" title="Compara la proyección presentada en el correo de lanzamiento de la marcha blanca (2 programas, ~142 leads/mes c/u) contra los resultados reales acumulados de los 2 programas piloto combinados. Los valores proyectados son de referencia, no resultados comprometidos.">?</i></h2><div class="card" style="overflow-x:auto"><table id="piloto"></table>
+  <div class="sec"><h2>Piloto: proyección vs. real<i class="hint" title="Compara la proyección presentada en el correo de lanzamiento de la marcha blanca (2 programas, ~142 leads/mes c/u) contra los resultados reales acumulados de los 2 programas piloto combinados. Los valores proyectados son de referencia, no resultados comprometidos.">?</i></h2><div class="card" style="overflow-x:auto"><div class="sub" style="margin-bottom:8px">Solo los <b>2 programas de la marcha blanca</b>, desde que arrancó el piloto. Por eso estas cifras son menores que las tarjetas de arriba, que cubren todo el catálogo.</div><table id="piloto"></table>
     <div class="sub" style="margin-top:14px;margin-bottom:6px">Costos mensuales estimados</div>
     <table id="pilotocostos"></table>
   </div></div>
@@ -41,7 +42,7 @@
 
   <div class="sec"><h2>Tiempos<i class="hint" title="Tiempo de respuesta y duración de las conversaciones/llamadas, por canal.">?</i></h2><div class="card"><div class="grid" id="tiempos"></div></div></div>
 
-  <div class="sec"><h2>Marcha blanca por programa<i class="hint" title="Scorecard del piloto: combina datos en vivo de Bitrix (leads/deals reales) con las métricas nativas del bot, para cada programa piloto.">?</i></h2><div class="card" style="overflow-x:auto"><table id="marchablanca"></table></div></div>
+  <div class="sec"><h2>Marcha blanca por programa<i class="hint" title="Scorecard del piloto, por programa. TODAS las cifras se refieren a las negociaciones que el BOT trabajó (conversó o derivó), no al total del programa en el portal: ese total no se puede contar de forma confiable sin arriesgar que el panel se caiga por tiempo de espera. 'Escalamientos del bot' cuenta solo cuando el bot derivó por su cuenta (el cliente lo pidió o el score lo disparó); 'Derivados → matriculados' incluye ADEMÁS las derivaciones por silencio, por eso es un número mayor.">?</i></h2><div class="card" style="overflow-x:auto"><table id="marchablanca"></table></div></div>
 
   <div class="sec"><h2>Negociaciones que trabajó el bot<i class="hint" title="TODO deal donde el bot tuvo conversación con el cliente, haya escalado a un asesor o no — para verificar matrículas sin depender de que se haya disparado una escalada. Marca cuáles además fueron escaladas.">?</i></h2><div class="card" style="overflow-x:auto"><div id="negresumen" class="sub" style="margin-bottom:8px"></div><table id="negociaciones"></table></div></div>
 

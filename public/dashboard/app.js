@@ -23,7 +23,7 @@ function hint(desc){ return desc ? '<i class="hint" title="'+esc(desc)+'">?</i>'
 // con el estilo neutro por defecto.
 var KPI_META = {
   conversaciones:{color:'#2f6fed',icon:'💬'}, mensajes:{color:'#6366f1',icon:'✉️'},
-  leads:{color:'#12b76a',icon:'🎯'}, escal:{color:'#f79009',icon:'🧑‍💼'},
+  escal:{color:'#f79009',icon:'🧑‍💼'},
   consultas:{color:'#0891b2',icon:'🔎'}, etapas:{color:'#7c3aed',icon:'🔀'},
   score:{color:'#0d9488',icon:'⭐'}, operador:{color:'#f79009',icon:'🗣️'},
   matriculas:{color:'#12b76a',icon:'🎓'}, errores:{color:'#f04438',icon:'⚠️'},
@@ -77,7 +77,6 @@ function render(d){
   var pick=function(a,b){ return (a!=null)?a:(b||0); };
   var conversaciones = agg? agg.conversaciones : pick(c.conversations);
   var mensajes = agg? agg.turnos : pick(c.inbound);
-  var leads = agg? agg.leadsCapturados : pick(c['tool:registrar_interes_crm']);
   var escal = agg? agg.escalamientos : (pick(c.auto_escalation)+pick(c['tool:escalar_a_humano']));
   var consultas = agg? (agg.tools&&agg.tools.consultar_programas||0) : pick(c['tool:consultar_programas']);
   var etapas = agg? agg.etapasMovidas : pick(c.stage_move);
@@ -95,8 +94,7 @@ function render(d){
   document.getElementById('kpis').innerHTML =
     kpi(conversaciones,'Conversaciones','Diálogos distintos que el bot atendió en el período, en cualquier canal (WhatsApp, Web Chat, Instagram, Messenger).','conversaciones') +
     kpi(mensajes,'Mensajes','Turnos de conversación respondidos por el bot (una respuesta del bot = un mensaje).','mensajes') +
-    kpi(leads,'Leads capturados','Conversaciones donde se registró al menos un dato de contacto (nombre, correo o teléfono) en el CRM.','leads') +
-    kpi(escal,'Escalamientos a asesor','El BOT decidió derivar la conversación a un asesor: porque el cliente lo pidió, o automáticamente por score alto. Es la acción del bot al derivar, no confirma que un asesor ya haya respondido. Cuenta en cualquier canal (WhatsApp, Web Chat, Instagram, Messenger).','escal') +
+    kpi(escal,'Escalamientos a asesor','El BOT derivó la conversación porque el cliente lo pidió o el score lo disparó. NO incluye las derivaciones por falta de respuesta (silencio): esas aparecen en la tabla "Piloto: proyección vs. real", por eso ahí el número es mayor aunque cubra solo 2 programas. No confirma que un asesor ya haya respondido. Cuenta todos los canales.','escal') +
     kpi(consultas,'Consultas de programas','Veces que se usó la búsqueda de catálogo (consultar_programas) para encontrar o filtrar programas.','consultas') +
     kpi(etapas,'Etapas de deal movidas','Veces que el bot movió la etapa de un Deal en el CRM según el score del lead.','etapas') +
     kpi(scoreAvg,'Score promedio','Promedio de la nota 0-100 que un modelo de IA le asigna a cada conversación evaluada, estimando qué tan probable es que ese lead se matricule (interés claro, datos entregados, urgencia, tono). Esta nota también dispara mover de etapa, auto-llamar o auto-escalar.','score') +
@@ -125,7 +123,7 @@ function render(d){
     { label:'Llamadas solicitadas por el cliente', proy:'—', real:real.llamadasSolicitadas, proyMid:0 },
     { label:'Llamadas contestadas', proy:rangoTxt(proy.llamadasContestadasMin,proy.llamadasContestadasMax), real:real.llamadasContestadas, proyMid:(proy.llamadasContestadasMin+proy.llamadasContestadasMax)/2 },
     { label:'Minutos de llamadas', proy:num(proy.minutosLlamadas), real:real.minutosLlamadas, proyMid:proy.minutosLlamadas },
-    { label:'Escalamientos a ejecutivo', proy:rangoTxt(proy.escalamientosMin,proy.escalamientosMax), real:real.escalamientos, proyMid:(proy.escalamientosMin+proy.escalamientosMax)/2,
+    { label:'Derivaciones a un asesor (incluye por silencio)', proy:rangoTxt(proy.escalamientosMin,proy.escalamientosMax), real:real.escalamientos, proyMid:(proy.escalamientosMin+proy.escalamientosMax)/2,
       nota: num(real.escalamientosExplicitos)+' por pedido del cliente / score alto · '+num(real.escalamientosPorSilencio)+' por quedarse en silencio' },
     { label:'Leads de alta intención', proy:rangoTxt(proy.leadsAltaIntencionMin,proy.leadsAltaIntencionMax), real:real.leadsAltaIntencion, proyMid:(proy.leadsAltaIntencionMin+proy.leadsAltaIntencionMax)/2 },
     { label:'Leads que siguen avanzando en Bitrix24', proy:'—', real:real.leadsAvanzando, proyMid:0 },
@@ -189,9 +187,11 @@ function render(d){
   var mbMoney = function(n){ return n==null ? '—' : '$'+num(n); };
   var mbEl = document.getElementById('marchablanca');
   if (mb.length) {
-    var cols = ['Programa','Estado','Asesor norte','Asesor sur','Leads a la fecha','Matriculados','% cierre',
-      'Ticket promedio','Leads antiguos','Leads nuevos','Mensajes','Escalamientos','SLA contacto asesor',
-      'Escalados → matriculados','Llamadas IA'];
+    // Los nombres dicen exactamente qué se mide: estas columnas cuentan las negociaciones que el BOT
+    // trabajó, no el total del programa en el portal (ese conteo no es viable, ver crm/marchaBlanca.ts).
+    var cols = ['Programa','Estado','Asesor norte','Asesor sur','Negociaciones del bot','Matriculados','% cierre',
+      'Ticket promedio','— ya existían','— nuevas','Mensajes','Escalamientos del bot','SLA contacto asesor',
+      'Derivados → matriculados','Llamadas IA'];
     var thead = '<thead><tr>'+cols.map(function(c){return '<th>'+esc(c)+'</th>';}).join('')+'</tr></thead>';
     var tbody = '<tbody>'+mb.map(function(p){
       var c = p.crm, b = p.bot;
@@ -347,7 +347,14 @@ function render(d){
     if (m[1] !== 'deal') return esc(m[1] + ' #' + m[2]); // contactos/leads no tienen link armado acá
     return dealLinkCell('deal', Number(m[2]));
   };
-  var ETAPA = { envio_respuesta: 'No se pudo enviar la respuesta', motor: 'El bot no pudo responder', turno: 'Falla del turno' };
+  var ETAPA = {
+    envio_respuesta: 'No se pudo enviar la respuesta',
+    motor: 'El bot no pudo responder',
+    turno: 'Falla del turno',
+    recordatorio_1: 'No se pudo enviar el recordatorio',
+    recordatorio_2: 'No se pudo enviar el último recordatorio',
+    derivacion_por_silencio: 'No se pudo derivar al asesor por silencio',
+  };
   var errEl = document.getElementById('errores');
   var errResumen = document.getElementById('erroresresumen');
   if (errs.length) {

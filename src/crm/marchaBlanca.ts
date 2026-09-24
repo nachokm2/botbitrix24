@@ -1,4 +1,4 @@
-import { callCrm, callCrmEnvelope } from '../bitrix/client';
+import { callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { matchPrograma } from '../core/condicionesComerciales';
 import { log } from '../log';
@@ -50,10 +50,15 @@ export type ProgramaScorecard = {
   estado: string | null;
   asesorNorte?: string;
   asesorSur?: string;
+  /** Negociaciones que el BOT trabajó (conversó o derivó). NO es el total del programa en el
+   *  portal: ese conteo no se puede hacer sin arriesgar timeouts (ver comentario en el scorecard). */
   dealsALaFecha: number;
   matriculados: number;
+  /** Matriculados sobre las negociaciones trabajadas por el bot. */
   pctCierre: number;
+  /** Promedio de los montos REALES de las matrículas; null si todavía no hay ninguna. */
   ticketPromedio: number | null;
+  /** De las trabajadas, cuántas ya existían antes de que arrancara la marcha blanca. */
   dealsAntiguos: number;
   dealsNuevos: number;
   escaladosConDeal: number;
@@ -62,25 +67,12 @@ export type ProgramaScorecard = {
   negociacionesDetalle: NegociacionDetalle[];
 };
 
-function baseFilter(nombrePrograma: string, exclude: string | undefined, categoryId: number): Record<string, unknown> {
-  // CATEGORY_ID primero: acota a un embudo (indexado) antes del filtro de texto en el UF de programa.
-  const filter: Record<string, unknown> = { CATEGORY_ID: categoryId, [`%${config.ufPrograma}`]: nombrePrograma };
-  if (exclude) filter[`!%${config.ufPrograma}`] = exclude;
-  return filter;
-}
-
-/** Cuenta deals que matchean `filter` sin traer filas (Bitrix: start:-1 → solo `total`). */
-async function countDeals(filter: Record<string, unknown>, auth: Auth): Promise<number> {
-  const env = await callCrmEnvelope<unknown[]>('crm.deal.list', { filter, select: ['ID'], start: -1 }, auth);
-  return env.total ?? 0;
-}
-
-/** Precio de lista (fallback) cuando aún no hay matrículas reales para promediar. */
-function precioListaPrograma(nombre: string): number | null {
-  const m = matchPrograma(nombre);
-  const p = m.find((x) => x.total != null) ?? m[0];
-  return p?.total ?? null;
-}
+// NOTA: acá vivían baseFilter/countDeals/precioListaPrograma. Se eliminaron al dejar de contar los
+// deals del programa en todo el portal: countDeals usaba `start:-1`, que en este portal devuelve
+// total:0 en cuanto el filtro lleva un "%" sobre el UF de programa — devolvía ceros silenciosos. Y
+// precioListaPrograma servía de relleno del ticket promedio, que hacía pasar el precio de catálogo
+// por ingreso medido. Si alguna vez se necesita el total real del programa, hay que paginar (15+ s)
+// y hacerlo fuera del refresco del panel.
 
 /**
  * Resuelve, para cada programa piloto, el conjunto REAL de dialog_id que le pertenecen. Combina 2
@@ -110,15 +102,23 @@ export async function resolverDialogosPorProgramaPiloto(auth: Auth): Promise<Map
     const dealIds = [...new Set(pares.map((x) => x.dealId))];
     if (dealIds.length) {
       try {
-        const deals = await callCrm<Array<{ ID: string; TITLE?: string; [k: string]: unknown }>>(
-          'crm.deal.list',
-          { filter: { '@ID': dealIds }, select: ['ID', config.ufPrograma, 'TITLE'] },
-          auth,
-        );
+        // BUG REAL: esto pedía los N deals en UNA sola llamada. crm.deal.list devuelve como máximo
+        // 50 filas por página, así que con 74 deals en el histórico se resolvían 50 y los 24
+        // restantes quedaban sin programa — sus diálogos no entraban en ningún programa piloto y el
+        // panel perdía esas negociaciones: mostraba 21 en Terapéutica Familiar cuando eran 29, y 11
+        // en Inteligencia Artificial cuando eran 18. Se pide de a 50.
         const programaPorDeal = new Map<number, string>();
-        for (const d of Array.isArray(deals) ? deals : []) {
-          const texto = String(d[config.ufPrograma] ?? d.TITLE ?? '');
-          if (texto) programaPorDeal.set(Number(d.ID), texto);
+        const LOTE = 50;
+        for (let i = 0; i < dealIds.length; i += LOTE) {
+          const deals = await callCrm<Array<{ ID: string; TITLE?: string; [k: string]: unknown }>>(
+            'crm.deal.list',
+            { filter: { '@ID': dealIds.slice(i, i + LOTE) }, select: ['ID', config.ufPrograma, 'TITLE'] },
+            auth,
+          );
+          for (const d of Array.isArray(deals) ? deals : []) {
+            const texto = String(d[config.ufPrograma] ?? d.TITLE ?? '');
+            if (texto) programaPorDeal.set(Number(d.ID), texto);
+          }
         }
         for (const { dialogId, dealId } of pares) {
           const texto = programaPorDeal.get(dealId);
@@ -159,19 +159,16 @@ export async function bitrixMarchaBlancaScorecard(
   for (const prog of config.marchaBlancaProgramas) {
     try {
       if (!config.ufPrograma) throw new Error('BITRIX_UF_PROGRAMA no configurado');
-      const filter = baseFilter(prog.nombre, prog.exclude, prog.categoryId);
-      const antiguosFilter = { ...filter, '<DATE_CREATE': config.marchaBlancaStart + 'T00:00:00' };
-
-      // BUG REAL descubierto en producción: el "start:-1" que usa countDeals para contar sin traer
-      // filas devuelve total:0 SIEMPRE en este portal en cuanto el filtro incluye el "%" (contiene)
-      // sobre el UF de programa (texto libre) — confirmado: el MISMO filtro con paginación normal
-      // (sin start:-1) da el total correcto, pero tarda 15+ segundos por el volumen histórico del
-      // portal (millones de deals). Por eso dealsALaFecha/dealsAntiguos siguen en 0 por ahora
-      // (limitación conocida — no se resuelve acá sin arriesgar timeouts en cada refresco del panel).
-      const [dealsALaFecha, dealsAntiguos] = await Promise.all([
-        countDeals(filter, auth),
-        countDeals(antiguosFilter, auth),
-      ]);
+      // Antes acá se contaban TODOS los deals del programa en el portal (countDeals). No funciona:
+      // el "start:-1" que usa para contar sin traer filas devuelve total:0 SIEMPRE en este portal en
+      // cuanto el filtro incluye el "%" (contiene) sobre el UF de programa — confirmado, el MISMO
+      // filtro con paginación normal da el total correcto pero tarda 15+ segundos por el volumen
+      // histórico. El resultado era una tabla con "0 leads" y, peor, un "% cierre" de 0% en un
+      // programa con 2 matriculados, porque dividía por ese cero.
+      //
+      // Ahora las 3 columnas se calculan sobre las negociaciones que el bot REALMENTE trabajó (las
+      // mismas que ya se consultan más abajo, sin ninguna llamada extra) y se renombraron en el panel
+      // para decir exactamente eso. Se mide menos, pero lo que se muestra es cierto.
 
       // Deals con los que el bot trabajó: unión de escalados (audit_log de escalar_a_humano/
       // auto_escalation/seguimiento_transferencia) y conversados (>=1 turno) — un mismo deal puede
@@ -189,14 +186,17 @@ export async function bitrixMarchaBlancaScorecard(
       const negociacionesDetalle: NegociacionDetalle[] = [];
       let escaladosMatriculados = 0;
       const montos: number[] = [];
+      let dealsAntiguos = 0; // creados ANTES de que arrancara la marcha blanca (venían del embudo)
       for (const dealId of todosLosDeals) {
         try {
-          const d = await callCrm<{ TITLE?: string; STAGE_ID?: string; ASSIGNED_BY_ID?: string; OPPORTUNITY?: string }>(
+          const d = await callCrm<{ TITLE?: string; STAGE_ID?: string; ASSIGNED_BY_ID?: string; OPPORTUNITY?: string; DATE_CREATE?: string }>(
             'crm.deal.get',
             { id: dealId },
             auth,
           );
           const matriculadoRef = !!d?.STAGE_ID?.endsWith(':WON');
+          // Ya venía del embudo antes del piloto, o es un lead que entró durante la marcha blanca.
+          if (d?.DATE_CREATE && d.DATE_CREATE < config.marchaBlancaStart) dealsAntiguos++;
           const motivo = motivoPorDeal.get(dealId) ?? null;
           if (motivo && matriculadoRef) escaladosMatriculados++;
           if (matriculadoRef) {
@@ -250,12 +250,17 @@ export async function bitrixMarchaBlancaScorecard(
         estado: catalogo?.estado ?? null,
         asesorNorte: prog.asesorNorte,
         asesorSur: prog.asesorSur,
-        dealsALaFecha,
+        dealsALaFecha: todosLosDeals.size, // negociaciones que el bot trabajó (ver comentario arriba)
         matriculados,
-        pctCierre: dealsALaFecha ? Math.round((matriculados / dealsALaFecha) * 100) : 0,
-        ticketPromedio: ticketReal ?? precioListaPrograma(prog.nombre),
+        // Se cierra sobre lo trabajado, no sobre un total que no se puede contar. Antes dividía por
+        // 0 y mostraba "0% de cierre" en un programa con 2 matriculados.
+        pctCierre: todosLosDeals.size ? Math.round((matriculados / todosLosDeals.size) * 100) : 0,
+        // Solo el ticket REAL de las matrículas. Antes, sin matrículas, caía al precio de LISTA del
+        // catálogo: la columna mostraba $864.000 en un programa con 0 matriculados, como si fuera
+        // ingreso medido.
+        ticketPromedio: ticketReal,
         dealsAntiguos,
-        dealsNuevos: dealsALaFecha - dealsAntiguos,
+        dealsNuevos: todosLosDeals.size - dealsAntiguos,
         escaladosConDeal: escalados.length,
         escaladosMatriculados,
         escaladosDetalle,

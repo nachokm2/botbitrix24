@@ -71,6 +71,21 @@ test('bitrixMarchaBlancaScorecard: "matriculados" y "ticket promedio" salen de n
 
   assert.equal(ia.matriculados, 2, 'cuenta los 2 deals con STAGE_ID :WON entre los que el bot trabajó');
   assert.equal(ia.ticketPromedio, 850000, 'promedio de los 2 montos reales (OPPORTUNITY)');
+  assert.equal(ia.dealsALaFecha, 3, 'las 3 negociaciones que el bot trabajó');
+  assert.equal(ia.pctCierre, 67, '2 de 3 — antes dividía por un total que Bitrix devolvía como 0 y daba 0%');
+});
+
+test('bitrixMarchaBlancaScorecard: sin matrículas, el ticket promedio queda VACÍO (antes mostraba el precio de lista como si fuera ingreso)', async () => {
+  calls.length = 0;
+  dealesPorId = { 601: { TITLE: 'Deal sin matricular', STAGE_ID: 'C1:UC_JARL1O', OPPORTUNITY: '900000' } };
+  const botStats = new Map([['ia', { escalados: [], dealsConversados: [601] }]]);
+
+  const out = await bitrixMarchaBlancaScorecard(botStats, auth);
+  const ia = out.find((p) => p.key === 'ia')!;
+
+  assert.equal(ia.matriculados, 0);
+  assert.equal(ia.ticketPromedio, null, 'sin matrículas no hay ticket que promediar');
+  assert.equal(ia.pctCierre, 0);
 });
 
 test('bitrixMarchaBlancaScorecard: arma el detalle por deal escalado (etapa, asesor, motivo, matrícula)', async () => {
@@ -173,4 +188,26 @@ test('resolverDialogosPorProgramaPiloto: un Deal de un programa NO piloto no se 
 
   assert.deepEqual(mapa.get('terapia_familiar'), []);
   assert.deepEqual(mapa.get('ia'), []);
+});
+
+test('resolverDialogosPorProgramaPiloto: pide los deals de a 50 — crm.deal.list no devuelve más por página', async () => {
+  // Bug real: se pedían los 74 deals del histórico en UNA llamada; Bitrix devolvía 50 y los otros 24
+  // quedaban sin programa, así que el panel mostraba 21 negociaciones en Terapéutica Familiar cuando
+  // eran 29, y 11 en Inteligencia Artificial cuando eran 18.
+  calls.length = 0;
+  dealesPorId = {};
+  dialogosPorTexto = {};
+  dialogosConDeal = [];
+  for (let i = 1; i <= 120; i++) {
+    const dealId = 1000 + i;
+    dialogosConDeal.push({ dialogId: 'dlg-' + i, dealId });
+    dealesPorId[dealId] = { UF_CRM_PROGRAMA_TEST: 'Diplomado en Intervención Terapéutica Familiar' } as any;
+  }
+
+  const mapa = await resolverDialogosPorProgramaPiloto(auth);
+
+  const lotes = calls.filter((c) => c.method === 'crm.deal.list');
+  assert.equal(lotes.length, 3, '120 deals → 3 llamadas de 50, 50 y 20');
+  assert.ok(lotes.every((l) => (l.params.filter['@ID'] ?? []).length <= 50), 'ningún lote puede exceder 50');
+  assert.equal(mapa.get('terapia_familiar')!.length, 120, 'no se puede perder ningún diálogo por el corte de página');
 });
