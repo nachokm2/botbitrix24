@@ -23,7 +23,7 @@ function hint(desc){ return desc ? '<i class="hint" title="'+esc(desc)+'">?</i>'
 // con el estilo neutro por defecto.
 var KPI_META = {
   conversaciones:{color:'#2f6fed',icon:'💬'}, mensajes:{color:'#6366f1',icon:'✉️'},
-  escal:{color:'#f79009',icon:'🧑‍💼'},
+  escal:{color:'#f79009',icon:'🧑‍💼'}, postulantes:{color:'#7c3aed',icon:'📝'},
   consultas:{color:'#0891b2',icon:'🔎'}, etapas:{color:'#7c3aed',icon:'🔀'},
   score:{color:'#0d9488',icon:'⭐'}, operador:{color:'#f79009',icon:'🗣️'},
   matriculas:{color:'#12b76a',icon:'🎓'}, errores:{color:'#f04438',icon:'⚠️'},
@@ -90,6 +90,7 @@ function render(d){
   // "Piloto: proyección vs. real" más abajo), porque matricular es un proceso que tarda más que el
   // rango típico que se mira acá.
   var matriculasPiloto = (d.piloto && d.piloto.real && d.piloto.real.matriculas) || 0;
+  var postulantesPiloto = (d.piloto && d.piloto.real && d.piloto.real.postulantes) || 0;
 
   document.getElementById('kpis').innerHTML =
     kpi(conversaciones,'Conversaciones','Diálogos distintos que el bot atendió en el período, en cualquier canal (WhatsApp, Web Chat, Instagram, Messenger).','conversaciones') +
@@ -99,6 +100,7 @@ function render(d){
     kpi(etapas,'Etapas de deal movidas','Veces que el bot movió la etapa de un Deal en el CRM según el score del lead.','etapas') +
     kpi(scoreAvg,'Score promedio','Promedio de la nota 0-100 que un modelo de IA le asigna a cada conversación evaluada, estimando qué tan probable es que ese lead se matricule (interés claro, datos entregados, urgencia, tono). Esta nota también dispara mover de etapa, auto-llamar o auto-escalar.','score') +
     kpi(operador,'Intervención humana','Veces que un asesor/operador REAL escribió directamente en un chat de WhatsApp (no el bot; se verifica contra Bitrix que sea un empleado, no el cliente). Solo cuenta WhatsApp — por eso puede ser menor que "Escalamientos a asesor" (que suma todos los canales y no confirma que el asesor ya haya escrito), o mayor, si un asesor entra a conversar sin que el bot haya escalado antes.','operador') +
+    kpi(postulantesPiloto,'Postulantes (piloto)','Negociaciones de los 2 programas piloto que están HOY en la etapa "Postulantes" de Bitrix24 — el paso previo a la matrícula, al que el bot mueve cuando el score es alto y ya capturó nombre, correo y teléfono. Es una foto del momento: si la persona matricula, deja de contar acá y pasa a "Matrículas". Acumulado del piloto, NO cambia con el selector Hoy/7 días/30 días/Todo.','postulantes') +
     kpi(matriculasPiloto,'Matrículas (piloto)','Matrículas reales entre las negociaciones con las que el bot conversó/escaló, de los 2 programas piloto combinados. Acumulado desde el inicio del piloto — NO cambia con el selector Hoy/7 días/30 días/Todo (ver detalle en "Piloto: proyección vs. real" y "Negociaciones que trabajó el bot").','matriculas') +
     kpi(errores,'Errores','Fallas técnicas del período: el bot no pudo responder, no pudo ENVIAR la respuesta (el cliente se queda esperando), o falló al guardar en el CRM. El detalle de cada una está más abajo, en "Fallas técnicas".','errores');
   animateKpis();
@@ -116,8 +118,13 @@ function render(d){
     return '<b style="color:'+color+'">'+pct+'%</b>';
   };
   var filasPiloto = [
-    { label:'Leads ingresados', proy:num(proy.leadsEsperados), real:real.leadsIngresados, proyMid:proy.leadsEsperados },
-    { label:'Leads atendidos por el bot (primera respuesta automática)', proy:num(proy.primeraRespuestaAutomatica), real:real.leadsAtendidos, proyMid:proy.primeraRespuestaAutomatica },
+    // Dos cosas distintas, antes confundidas en una: cuántos leads LLEGARON (todos, los atienda el
+    // bot o no) y a cuántos alcanzó a atender el bot. Mezclarlas hacía concluir que habían llegado
+    // pocos leads, cuando llegaron casi el doble de lo proyectado.
+    { label:'Leads que llegaron al programa', proy:num(proy.leadsEsperados), real:real.leadsCreados, proyMid:proy.leadsEsperados,
+      nota: real.leadsCreados == null ? 'no se pudo contar en este momento' : 'incluye los que nunca escribieron por WhatsApp (formularios de campaña)' },
+    { label:'De esos, conversaron con el bot', proy:'—', real:real.leadsAtendidos, proyMid:0,
+      nota: 'solo puede atender a quien escribe: el resto deja sus datos en el formulario y nunca abre conversación' },
     { label:'Mensajes enviados por IA', proy:num(proy.mensajesIA), real:real.mensajes, proyMid:proy.mensajesIA },
     { label:'Llamadas realizadas', proy:num(proy.llamadas), real:real.llamadasRealizadas, proyMid:proy.llamadas },
     { label:'Llamadas solicitadas por el cliente', proy:'—', real:real.llamadasSolicitadas, proyMid:0 },
@@ -132,7 +139,8 @@ function render(d){
   var pilThead = '<thead><tr><th>Indicador</th><th>Proyectado</th><th>Real</th><th>Cumplimiento</th></tr></thead>';
   var pilTbody = '<tbody>'+filasPiloto.map(function(f){
     var notaHtml = f.nota ? '<div class="sub" style="font-size:11px;margin-top:2px">'+esc(f.nota)+'</div>' : '';
-    return '<tr><td>'+esc(f.label)+'</td><td>'+f.proy+'</td><td>'+num(f.real)+notaHtml+'</td><td>'+cumplCell(f.real,f.proyMid)+'</td></tr>';
+    var realTxt = f.real == null ? '—' : num(f.real); // null = no se pudo medir; mostrar 0 mentiría
+    return '<tr><td>'+esc(f.label)+'</td><td>'+f.proy+'</td><td>'+realTxt+notaHtml+'</td><td>'+cumplCell(f.real,f.proyMid)+'</td></tr>';
   }).join('')+'</tbody>';
   document.getElementById('piloto').innerHTML = pilThead+pilTbody;
 

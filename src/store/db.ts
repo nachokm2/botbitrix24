@@ -512,6 +512,9 @@ export type MarchaBlancaBotStats = {
    *  depender de que se haya disparado una escalada (ver Deal #3490881, Katherine: tuvo turnos de
    *  conversación pero su asignación fue manual, nunca pasó por escalar_a_humano). */
   dealsConversados: number[];
+  /** Contactos con los que el bot conversó sin que el chat estuviera vinculado a una negociación:
+   *  la mitad de las conversaciones quedan así. Se resuelven a sus deals en crm/marchaBlanca.ts. */
+  contactosConversados: number[];
 };
 
 /**
@@ -550,7 +553,7 @@ export async function dbMarchaBlancaBot(range = 'all', dialogIdsPorPrograma?: Ma
         )`;
     const dialogParams: unknown[] = resueltos ? [resueltos] : [matchPat, excludePat];
     try {
-      const [msgR, escR, callR, slaR, escEntR, escSilencioR, conversadosR] = await Promise.all([
+      const [msgR, escR, callR, slaR, escEntR, escSilencioR, conversadosR, contactosR] = await Promise.all([
         p.query(`SELECT count(*)::int c FROM audit_log WHERE type='turn' ${W} AND ${dialogFilterSql}`, dialogParams),
         p.query(
           `SELECT count(*)::int c FROM audit_log
@@ -602,6 +605,17 @@ export async function dbMarchaBlancaBot(range = 'all', dialogIdsPorPrograma?: Ma
              AND ${dialogFilterSql}`,
           dialogParams,
         ),
+        // La MITAD de las conversaciones del bot quedan vinculadas a un CONTACTO, no a una
+        // negociación (75 y 75, medido en producción). Contando solo las de negociación, la tabla
+        // por programa mostraba la mitad del trabajo real. Estos contactos se resuelven a sus deals
+        // en crm/marchaBlanca.ts.
+        p.query(
+          `SELECT DISTINCT crm_entity FROM audit_log
+           WHERE type='turn'
+             AND crm_entity LIKE 'contact#%'
+             AND ${dialogFilterSql}`,
+          dialogParams,
+        ),
       ]);
       const idDe = (r: any) => Number(String(r.crm_entity).split('#')[1]);
       const silencioIds = new Set(escSilencioR.rows.map(idDe).filter((n: number) => n > 0));
@@ -612,6 +626,7 @@ export async function dbMarchaBlancaBot(range = 'all', dialogIdsPorPrograma?: Ma
         motivo: silencioIds.has(dealId) ? 'silencio' : 'explicito',
       }));
       const dealsConversados = conversadosR.rows.map(idDe).filter((n: number) => n > 0);
+      const contactosConversados = contactosR.rows.map(idDe).filter((n: number) => n > 0);
       out.push({
         key: prog.key,
         mensajes: msgR.rows[0]?.c ?? 0,
@@ -621,6 +636,7 @@ export async function dbMarchaBlancaBot(range = 'all', dialogIdsPorPrograma?: Ma
         slaContactoN: slaR.rows[0]?.c ?? 0,
         escalados,
         dealsConversados,
+        contactosConversados,
       });
     } catch (e) {
       log.warn('dbMarchaBlancaBot falló', { err: String(e), programa: prog.key });
@@ -633,6 +649,7 @@ export async function dbMarchaBlancaBot(range = 'all', dialogIdsPorPrograma?: Ma
         slaContactoN: 0,
         escalados: [],
         dealsConversados: [],
+        contactosConversados: [],
       });
     }
   }

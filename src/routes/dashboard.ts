@@ -80,7 +80,9 @@ export async function metricsSummary(req: Request, res: Response) {
       marchaBlancaCrm = marchaBlancaCache.data;
     } else {
       try {
-        const botByKey = new Map(marchaBlancaBot.map((b) => [b.key, { escalados: b.escalados, dealsConversados: b.dealsConversados }]));
+        const botByKey = new Map(
+          marchaBlancaBot.map((b) => [b.key, { escalados: b.escalados, dealsConversados: b.dealsConversados, contactosConversados: b.contactosConversados }]),
+        );
         marchaBlancaCrm = await bitrixMarchaBlancaScorecard(botByKey, st.auth);
         marchaBlancaCache = { at: Date.now(), data: marchaBlancaCrm, dialogosPorPrograma: dialogosPorPrograma ?? new Map() };
       } catch {
@@ -93,6 +95,16 @@ export async function metricsSummary(req: Request, res: Response) {
   // matrícula del embudo (esas pueden venir de otros canales/campañas sin que el bot haya participado).
   const negociacionesPiloto = (marchaBlancaCrm ?? []).flatMap((p) => p.negociacionesDetalle);
   const matriculasReales = negociacionesPiloto.filter((n) => n.matriculado).length;
+  // Postulantes: la etapa previa a la matrícula, a la que el bot promueve por score alto con datos
+  // completos. Cada programa la resuelve con su propio embudo (ver crm/marchaBlanca.ts).
+  const postulantesReales = (marchaBlancaCrm ?? []).reduce((a, p) => a + (p.postulantes ?? 0), 0);
+  // Leads que ENTRARON al programa (todos, no solo los del bot). Es el número que corresponde comparar
+  // contra la proyección del correo: antes se comparaba "los que atendió el bot" contra "los que se
+  // esperaba que llegaran", y eso hacía concluir que habían llegado pocos leads cuando llegaron casi
+  // el doble de lo proyectado. null si el conteo falló en algún programa.
+  const leadsCreadosReales = (marchaBlancaCrm ?? []).some((p) => p.leadsCreados == null)
+    ? null
+    : (marchaBlancaCrm ?? []).reduce((a, p) => a + (p.leadsCreados ?? 0), 0);
   const avanzandoReales = negociacionesPiloto.filter((n) => !n.matriculado && !n.stageId?.endsWith(':LOSE')).length;
 
   const crmByKey = new Map((marchaBlancaCrm ?? []).map((r) => [r.key, r]));
@@ -146,6 +158,8 @@ export async function metricsSummary(req: Request, res: Response) {
       real: {
         ...pilotoReal,
         matriculas: matriculasReales,
+        postulantes: postulantesReales,
+        leadsCreados: leadsCreadosReales,
         leadsAvanzando: avanzandoReales,
         costoUsdClaude: cost, // el único componente que el bot puede medir solo (los demás: ver factura/panel de uso de cada proveedor)
         costoUsdRailway: config.costoUsdRailway, // actualizado a mano (COSTO_USD_RAILWAY) desde Project → Usage en Railway

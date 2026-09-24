@@ -11,6 +11,7 @@ process.env.BITRIX_UF_PROGRAMA = 'UF_CRM_PROGRAMA_TEST';
 
 type Call = { method: string; params: any };
 const calls: Call[] = [];
+let dealsPorContacto: Record<number, number[]> = {}; // contactId -> sus deals
 let dealesPorId: Record<number, { TITLE?: string; STAGE_ID?: string; ASSIGNED_BY_ID?: string; OPPORTUNITY?: string }> = {};
 
 mock.module('../src/bitrix/client.ts', {
@@ -29,6 +30,12 @@ function record(method: string, params: any): any {
   calls.push({ method, params });
   if (method === 'crm.deal.get') return dealesPorId[params.id] ?? {};
   if (method === 'crm.deal.list') {
+    if (params.filter?.['@CONTACT_ID']) {
+      const contactos: number[] = params.filter['@CONTACT_ID'];
+      return contactos.flatMap((c) =>
+        (dealsPorContacto[c] ?? []).map((id) => ({ ID: String(id), ...(dealesPorId[id] ?? {}) })),
+      );
+    }
     const ids: number[] = params.filter?.['@ID'] ?? [];
     return ids.map((id) => ({ ID: String(id), ...(dealesPorId[id] ?? {}) }));
   }
@@ -55,6 +62,7 @@ mock.module('../src/store/db.ts', {
 });
 
 const { bitrixMarchaBlancaScorecard, resolverDialogosPorProgramaPiloto } = await import('../src/crm/marchaBlanca');
+const { config } = await import('../src/config');
 const auth = { domain: 'test.bitrix24.com', access_token: 'tok' } as any;
 
 test('bitrixMarchaBlancaScorecard: "matriculados" y "ticket promedio" salen de negociacionesDetalle (deals que el bot trabajó), NO de un scan amplio de Bitrix (bug real: ese scan da total:0 siempre o tarda 15+ segundos)', async () => {
@@ -127,7 +135,11 @@ test('bitrixMarchaBlancaScorecard: arma el detalle por deal escalado (etapa, ase
   // como escalado=true — sin duplicar la llamada a crm.deal.get para cada uno.
   assert.equal(ia.negociacionesDetalle.length, 2);
   assert.ok(ia.negociacionesDetalle.every((n) => n.escalado === true));
-  assert.equal(calls.filter((c) => c.method === 'crm.deal.get' && c.params.id === 401).length, 1, 'una sola consulta por deal, no una por escalados y otra por conversados');
+  // Los deals se traen por LOTES, no uno por uno: con ~60 deals, una llamada por deal dejaba la carga
+  // fría del panel en 33 s. Se comprueba que no haya vuelto el crm.deal.get por deal.
+  assert.ok(!calls.some((c) => c.method === 'crm.deal.get'), 'no se consulta deal por deal');
+  const lotes = calls.filter((c) => c.method === 'crm.deal.list' && c.params.filter?.['@ID']);
+  assert.equal(lotes.length, 1, 'los 2 deals se traen en UN solo lote');
 });
 
 test('bitrixMarchaBlancaScorecard: caso Katherine — deal conversado pero NUNCA escalado (asignación manual) igual aparece en negociacionesDetalle, con escalado=false', async () => {
@@ -210,4 +222,53 @@ test('resolverDialogosPorProgramaPiloto: pide los deals de a 50 — crm.deal.lis
   assert.equal(lotes.length, 3, '120 deals → 3 llamadas de 50, 50 y 20');
   assert.ok(lotes.every((l) => (l.params.filter['@ID'] ?? []).length <= 50), 'ningún lote puede exceder 50');
   assert.equal(mapa.get('terapia_familiar')!.length, 120, 'no se puede perder ningún diálogo por el corte de página');
+});
+
+test('bitrixMarchaBlancaScorecard: cuenta los "postulantes" por la etapa configurada, no por su nombre', async () => {
+  // Es la MISMA etapa a la que el bot promueve por score alto con datos completos (BITRIX_STAGE_MAP).
+  // Buscarla por el nombre "Postulantes" sería frágil: en Bitrix se puede renombrar una etapa.
+  calls.length = 0;
+  const original = JSON.stringify(config.stageMap);
+  (config as any).stageMap = { '1': { alto: 'C1:UC_7IPG9H', medio: 'C1:UC_H45JCL' } };
+  dealesPorId = {
+    801: { TITLE: 'Va postulando', STAGE_ID: 'C1:UC_7IPG9H' },
+    802: { TITLE: 'Otro postulante', STAGE_ID: 'C1:UC_7IPG9H' },
+    803: { TITLE: 'Solo interesado', STAGE_ID: 'C1:UC_H45JCL' },
+    804: { TITLE: 'Ya matriculado', STAGE_ID: 'C1:WON', OPPORTUNITY: '800000' },
+  };
+  try {
+    const out = await bitrixMarchaBlancaScorecard(
+      new Map([['terapia_familiar', { escalados: [], dealsConversados: [801, 802, 803, 804] }]]),
+      auth,
+    );
+    const tf = out.find((p) => p.key === 'terapia_familiar')!;
+    assert.equal(tf.postulantes, 2, 'solo los 2 que están en la etapa de postulación');
+    assert.equal(tf.matriculados, 1, 'el matriculado ya NO cuenta como postulante');
+  } finally {
+    (config as any).stageMap = JSON.parse(original);
+  }
+});
+
+test('bitrixMarchaBlancaScorecard: suma las conversaciones vinculadas a un CONTACTO, no solo las de negociación', async () => {
+  // La mitad de las conversaciones del bot quedan vinculadas al contacto (75 y 75 en producción):
+  // contando solo las de negociación, la tabla mostraba la mitad del trabajo real, y un cliente que
+  // sí conversó aparecía como nunca atendido (caso real: Fernando Calderón, deal #3530073).
+  calls.length = 0;
+  dealesPorId = {
+    901: { TITLE: 'Vino por deal', STAGE_ID: 'C1:UC_JARL1O', UF_CRM_PROGRAMA_TEST: 'Diplomado en Intervención Terapéutica Familiar' } as any,
+    902: { TITLE: 'Vino por contacto', STAGE_ID: 'C1:UC_JARL1O', UF_CRM_PROGRAMA_TEST: 'Diplomado en Intervención Terapéutica Familiar' } as any,
+    903: { TITLE: 'De otro programa', STAGE_ID: 'C1:UC_JARL1O', UF_CRM_PROGRAMA_TEST: 'Diplomado en Otra Cosa' } as any,
+  };
+  dealsPorContacto = { 555: [902, 903] }; // el contacto tiene 2 deals, solo uno es de este programa
+
+  const out = await bitrixMarchaBlancaScorecard(
+    new Map([['terapia_familiar', { escalados: [], dealsConversados: [901], contactosConversados: [555] }]]),
+    auth,
+  );
+  const tf = out.find((p) => p.key === 'terapia_familiar')!;
+
+  assert.equal(tf.dealsALaFecha, 2, 'el deal directo + el que se resolvió desde el contacto');
+  const ids = tf.negociacionesDetalle.map((n) => n.dealId).sort();
+  assert.deepEqual(ids, [901, 902]);
+  assert.ok(!ids.includes(903), 'no se cuela el deal del contacto que es de otro programa');
 });

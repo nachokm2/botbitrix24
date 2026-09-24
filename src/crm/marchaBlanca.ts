@@ -1,5 +1,5 @@
-import { callCrm } from '../bitrix/client';
-import { config } from '../config';
+import { callCrm, callCrmEnvelope } from '../bitrix/client';
+import { config, type MarchaBlancaPrograma } from '../config';
 import { matchPrograma } from '../core/condicionesComerciales';
 import { log } from '../log';
 import type { Auth } from '../store';
@@ -53,7 +53,13 @@ export type ProgramaScorecard = {
   /** Negociaciones que el BOT trabajó (conversó o derivó). NO es el total del programa en el
    *  portal: ese conteo no se puede hacer sin arriesgar timeouts (ver comentario en el scorecard). */
   dealsALaFecha: number;
+  /** Leads que ENTRARON al programa desde el inicio del piloto (todos, no solo los del bot). null si
+   *  el conteo falló. Es el denominador honesto para "cuántos de los que llegaron atendió el bot". */
+  leadsCreados: number | null;
   matriculados: number;
+  /** En la etapa a la que el bot promueve con score alto + datos completos (BITRIX_STAGE_MAP.alto,
+   *  "Postulantes" en Diplomados). Es el paso previo a la matrícula. */
+  postulantes: number;
   /** Matriculados sobre las negociaciones trabajadas por el bot. */
   pctCierre: number;
   /** Promedio de los montos REALES de las matrículas; null si todavía no hay ninguna. */
@@ -136,6 +142,62 @@ export async function resolverDialogosPorProgramaPiloto(auth: Auth): Promise<Map
   return new Map([...out.entries()].map(([key, set]) => [key, [...set]]));
 }
 
+
+/** Cuántos leads (deals) del programa entraron DESDE que arrancó la marcha blanca. Se pagina de a 50
+ *  porque el conteo rápido de Bitrix (`start:-1`) devuelve 0 con este filtro — ver la nota de arriba.
+ *  Acotado por fecha tarda 3-6 s, aceptable porque el scorecard se cachea 3 minutos. Devuelve null si
+ *  falla: mejor un "—" en el panel que un número inventado. */
+async function contarLeadsDelPrograma(
+  prog: { nombre: string; match: string; exclude?: string; categoryId: number },
+  auth: Auth,
+): Promise<number | null> {
+  if (!config.ufPrograma) return null;
+  const filter: Record<string, unknown> = {
+    CATEGORY_ID: prog.categoryId,
+    [`%${config.ufPrograma}`]: prog.match,
+    '>=DATE_CREATE': config.marchaBlancaStart + 'T00:00:00',
+  };
+  if (prog.exclude) filter[`!%${config.ufPrograma}`] = prog.exclude;
+  try {
+    let total = 0;
+    let start = 0;
+    for (let pagina = 0; pagina < 40; pagina++) {
+      const env = await callCrmEnvelope<unknown[]>('crm.deal.list', { filter, select: ['ID'], start }, auth);
+      total += (env.result ?? []).length;
+      if (env.next == null) return total;
+      start = env.next;
+    }
+    log.warn('contarLeadsDelPrograma: se cortó en 40 páginas', { programa: prog.nombre });
+    return total;
+  } catch (e) {
+    log.warn('contarLeadsDelPrograma falló', { err: String(e), programa: prog.nombre });
+    return null;
+  }
+}
+
+
+// El conteo real de leads hay que paginarlo (el conteo rápido de Bitrix devuelve 0 con este filtro),
+// y a través del limitador de llamadas del cliente eso tarda ~40 s para los 2 programas. Medido: una
+// carga fría del panel pasó de 6,6 s a 43,6 s. Por eso NINGUNA petición lo espera: se sirve el último
+// valor conocido y, si está vencido, se dispara un refresco en segundo plano para la próxima. La
+// primera vez devuelve null (el panel muestra "—") hasta que ese refresco termine.
+const LEADS_TTL_MS = 30 * 60 * 1000;
+const leadsCache = new Map<string, { at: number; valor: number | null }>();
+const leadsRefrescando = new Set<string>();
+
+function leadsCreadosCacheado(prog: MarchaBlancaPrograma, auth: Auth): number | null {
+  const previo = leadsCache.get(prog.key);
+  const vencido = !previo || Date.now() - previo.at > LEADS_TTL_MS;
+  if (vencido && !leadsRefrescando.has(prog.key)) {
+    leadsRefrescando.add(prog.key);
+    void contarLeadsDelPrograma(prog, auth)
+      .then((valor) => leadsCache.set(prog.key, { at: Date.now(), valor }))
+      .catch((e) => log.warn('refresco de leads falló', { err: String(e), programa: prog.key }))
+      .finally(() => leadsRefrescando.delete(prog.key));
+  }
+  return previo?.valor ?? null;
+}
+
 /** Nombre legible de cada etapa (STATUS_ID → NAME) de un embudo — se cachea por categoryId dentro
  *  de una misma corrida del scorecard (los 2 programas piloto comparten embudo casi siempre). */
 async function nombresDeEtapa(categoryId: number, auth: Auth): Promise<Map<string, string>> {
@@ -151,7 +213,7 @@ async function nombresDeEtapa(categoryId: number, auth: Auth): Promise<Map<strin
 }
 
 export async function bitrixMarchaBlancaScorecard(
-  botStats: Map<string, { escalados: EscaladoRef[]; dealsConversados: number[] }>,
+  botStats: Map<string, { escalados: EscaladoRef[]; dealsConversados: number[]; contactosConversados?: number[] }>,
   auth: Auth,
 ): Promise<ProgramaScorecard[]> {
   const out: ProgramaScorecard[] = [];
@@ -179,6 +241,34 @@ export async function bitrixMarchaBlancaScorecard(
       const motivoPorDeal = new Map(escalados.map((e) => [e.dealId, e.motivo]));
       const todosLosDeals = new Set([...escalados.map((e) => e.dealId), ...dealsConversados]);
 
+      // La MITAD de las conversaciones del bot queda vinculada a un CONTACTO y no a una negociación
+      // (75 y 75, medido en producción): el chat se abre antes de que exista el Deal, o Bitrix lo
+      // vincula al contacto. Sin esto la tabla mostraba la mitad del trabajo real — y un cliente que
+      // sí conversó aparecía como "nunca atendido" (caso real: Fernando Calderón, deal #3530073).
+      // Se traen los deals de esos contactos y se quedan SOLO los de este programa.
+      const contactos = botStats.get(prog.key)?.contactosConversados ?? [];
+      if (contactos.length) {
+        const LOTE = 50;
+        for (let i = 0; i < contactos.length; i += LOTE) {
+          try {
+            const deals = await callCrm<Array<{ ID: string; TITLE?: string; [k: string]: unknown }>>(
+              'crm.deal.list',
+              {
+                filter: { '@CONTACT_ID': contactos.slice(i, i + LOTE), CATEGORY_ID: prog.categoryId },
+                select: ['ID', config.ufPrograma, 'TITLE'],
+              },
+              auth,
+            );
+            for (const d of Array.isArray(deals) ? deals : []) {
+              const texto = String(d[config.ufPrograma] ?? d.TITLE ?? '');
+              if (texto && programaCoincide(texto, prog)) todosLosDeals.add(Number(d.ID));
+            }
+          } catch (e) {
+            log.warn('scorecard: no se pudieron resolver los deals de los contactos', { err: String(e), programa: prog.key });
+          }
+        }
+      }
+
       if (todosLosDeals.size && !etapasPorCategoria.has(prog.categoryId)) {
         etapasPorCategoria.set(prog.categoryId, await nombresDeEtapa(prog.categoryId, auth));
       }
@@ -187,13 +277,32 @@ export async function bitrixMarchaBlancaScorecard(
       let escaladosMatriculados = 0;
       const montos: number[] = [];
       let dealsAntiguos = 0; // creados ANTES de que arrancara la marcha blanca (venían del embudo)
-      for (const dealId of todosLosDeals) {
+      // Los deals se traen POR LOTES (crm.deal.list, 50 por página) en vez de uno por uno con
+      // crm.deal.get: con ~60 deals eran ~60 llamadas encoladas en el limitador y la carga fría del
+      // panel se iba a 33 s. Con lotes son 2 llamadas.
+      type DealFila = { TITLE?: string; STAGE_ID?: string; ASSIGNED_BY_ID?: string; OPPORTUNITY?: string; DATE_CREATE?: string };
+      const dealsPorId = new Map<number, DealFila>();
+      const idsDeals = [...todosLosDeals];
+      for (let i = 0; i < idsDeals.length; i += 50) {
         try {
-          const d = await callCrm<{ TITLE?: string; STAGE_ID?: string; ASSIGNED_BY_ID?: string; OPPORTUNITY?: string; DATE_CREATE?: string }>(
-            'crm.deal.get',
-            { id: dealId },
+          const filas = await callCrm<Array<DealFila & { ID: string }>>(
+            'crm.deal.list',
+            {
+              filter: { '@ID': idsDeals.slice(i, i + 50) },
+              select: ['ID', 'TITLE', 'STAGE_ID', 'ASSIGNED_BY_ID', 'OPPORTUNITY', 'DATE_CREATE'],
+            },
             auth,
           );
+          for (const f of Array.isArray(filas) ? filas : []) dealsPorId.set(Number(f.ID), f);
+        } catch (e) {
+          log.warn('scorecard: no se pudo traer un lote de deals', { err: String(e), programa: prog.key });
+        }
+      }
+
+      for (const dealId of todosLosDeals) {
+        try {
+          const d = dealsPorId.get(dealId);
+          if (!d) continue; // el lote falló o el deal ya no existe
           const matriculadoRef = !!d?.STAGE_ID?.endsWith(':WON');
           // Ya venía del embudo antes del piloto, o es un lead que entró durante la marcha blanca.
           if (d?.DATE_CREATE && d.DATE_CREATE < config.marchaBlancaStart) dealsAntiguos++;
@@ -240,7 +349,14 @@ export async function bitrixMarchaBlancaScorecard(
       // tarda 15+ segundos, ver comentario de dealsALaFecha más arriba). Queda con alcance más
       // acotado que antes (solo deals que el bot conversó, no CUALQUIER matrícula del programa desde
       // siempre) pero es un número REAL y rápido en vez de uno amplio que nunca funcionó (daba 0).
+      const leadsCreados = leadsCreadosCacheado(prog, auth);
       const matriculados = negociacionesDetalle.filter((n) => n.matriculado).length;
+      // "Postulantes" no se busca por nombre de etapa (se puede renombrar en Bitrix): se usa la MISMA
+      // etapa a la que el bot promueve por score alto con datos completos, la de BITRIX_STAGE_MAP.
+      const etapaPostulante = config.stageMap[String(prog.categoryId)]?.alto ?? '';
+      const postulantes = etapaPostulante
+        ? negociacionesDetalle.filter((n) => n.stageId === etapaPostulante).length
+        : 0;
       const ticketReal = montos.length ? Math.round(montos.reduce((a, b) => a + b, 0) / montos.length) : null;
 
       const catalogo = matchPrograma(prog.nombre)[0];
@@ -251,7 +367,9 @@ export async function bitrixMarchaBlancaScorecard(
         asesorNorte: prog.asesorNorte,
         asesorSur: prog.asesorSur,
         dealsALaFecha: todosLosDeals.size, // negociaciones que el bot trabajó (ver comentario arriba)
+        leadsCreados,
         matriculados,
+        postulantes,
         // Se cierra sobre lo trabajado, no sobre un total que no se puede contar. Antes dividía por
         // 0 y mostraba "0% de cierre" en un programa con 2 matriculados.
         pctCierre: todosLosDeals.size ? Math.round((matriculados / todosLosDeals.size) * 100) : 0,
@@ -275,6 +393,8 @@ export async function bitrixMarchaBlancaScorecard(
         asesorNorte: prog.asesorNorte,
         asesorSur: prog.asesorSur,
         dealsALaFecha: 0,
+        leadsCreados: null,
+        postulantes: 0,
         matriculados: 0,
         pctCierre: 0,
         ticketPromedio: null,
