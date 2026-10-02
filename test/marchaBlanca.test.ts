@@ -12,7 +12,10 @@ process.env.BITRIX_UF_PROGRAMA = 'UF_CRM_PROGRAMA_TEST';
 type Call = { method: string; params: any };
 const calls: Call[] = [];
 let dealsPorContacto: Record<number, number[]> = {}; // contactId -> sus deals
-let dealesPorId: Record<number, { TITLE?: string; STAGE_ID?: string; ASSIGNED_BY_ID?: string; OPPORTUNITY?: string }> = {};
+let dealesPorId: Record<
+  number,
+  { TITLE?: string; STAGE_ID?: string; ASSIGNED_BY_ID?: string; OPPORTUNITY?: string; MOVED_BY_ID?: string; MOVED_TIME?: string }
+> = {};
 
 mock.module('../src/bitrix/client.ts', {
   namedExports: {
@@ -271,4 +274,68 @@ test('bitrixMarchaBlancaScorecard: suma las conversaciones vinculadas a un CONTA
   const ids = tf.negociacionesDetalle.map((n) => n.dealId).sort();
   assert.deepEqual(ids, [901, 902]);
   assert.ok(!ids.includes(903), 'no se cuela el deal del contacto que es de otro programa');
+});
+
+// La columna de seguimiento reemplazó a un "SLA contacto asesor" que era estructuralmente imposible:
+// medía el tiempo hasta el primer mensaje de un operador DENTRO del chat del bot, pero al transferir
+// la sesión el bot deja de recibir esos mensajes y los asesores trabajan por teléfono/correo desde
+// Bitrix. Resultado real: 10 escalamientos, 0 casos medidos, columna siempre en "—".
+//
+// Lo que sí se puede medir contra el CRM es quién movió la negociación después de derivarla. El
+// riesgo de esa señal es contar como "el asesor tomó el caso" el barrido automático que pasa a RMKT
+// las negociaciones que nadie tocó: en producción ese robot (#45 "Resp. Autom.") movió 31 de las 36
+// derivaciones del piloto, así que sin descartarlo la columna diría que casi todo se atendió.
+test('bitrixMarchaBlancaScorecard: el seguimiento cuenta al asesor que movió la negociación y descarta el barrido automático (#45)', async () => {
+  calls.length = 0;
+  const T0 = Date.parse('2026-09-10T12:00:00.000Z');
+  const mas = (h: number) => new Date(T0 + h * 3600_000).toISOString();
+  dealesPorId = {
+    701: { TITLE: 'Tomado a las 3 h', STAGE_ID: 'C1:UC_JARL1O', MOVED_BY_ID: '346393', MOVED_TIME: mas(3) },
+    704: { TITLE: 'Tomado a las 5 h', STAGE_ID: 'C1:UC_JARL1O', MOVED_BY_ID: '368819', MOVED_TIME: mas(5) },
+    705: { TITLE: 'Tomado a las 30 h', STAGE_ID: 'C1:WON', MOVED_BY_ID: '9', MOVED_TIME: mas(30) },
+    702: { TITLE: 'Barrido a RMKT', STAGE_ID: 'C1:APOLOGY', MOVED_BY_ID: '45', MOVED_TIME: mas(20) },
+    703: { TITLE: 'Último movimiento previo a derivar', STAGE_ID: 'C1:NEW', MOVED_BY_ID: '346393', MOVED_TIME: mas(-4) },
+  };
+  const ts = new Date(T0).toISOString();
+  const botStats = new Map([
+    ['ia', {
+      escalados: [
+        { dealId: 701, motivo: 'explicito' as const, ts },
+        { dealId: 704, motivo: 'silencio' as const, ts },
+        { dealId: 705, motivo: 'explicito' as const, ts },
+        { dealId: 702, motivo: 'silencio' as const, ts },
+        { dealId: 703, motivo: 'explicito' as const, ts },
+      ],
+      dealsConversados: [],
+    }],
+  ]);
+
+  const out = await bitrixMarchaBlancaScorecard(botStats, auth);
+  const ia = out.find((p) => p.key === 'ia')!;
+
+  assert.equal(ia.seguimiento.derivados, 5, 'el denominador son TODAS las derivaciones, explícitas y por silencio');
+  assert.equal(
+    ia.seguimiento.atendidos,
+    3,
+    'quedan fuera el barrido automático (#45) y el deal cuyo último movimiento es anterior a la derivación',
+  );
+  assert.equal(ia.seguimiento.medianaSeg, 5 * 3600, 'mediana de 3 h / 5 h / 30 h — no el promedio, que los 30 h desvirtuarían');
+
+  // No debe costar llamadas extra a Bitrix: los dos campos viajan en el crm.deal.list que ya se hacía.
+  assert.equal(calls.filter((c) => c.method === 'crm.activity.list').length, 0, 'no consulta actividades');
+  const select = calls.find((c) => c.method === 'crm.deal.list' && c.params.filter?.['@ID'])?.params.select ?? [];
+  assert.ok(select.includes('MOVED_BY_ID') && select.includes('MOVED_TIME'), 'viajan en la consulta de deals que ya existía');
+});
+
+test('bitrixMarchaBlancaScorecard: sin derivaciones, el seguimiento queda vacío en vez de mostrar un 0/0 engañoso', async () => {
+  calls.length = 0;
+  dealesPorId = { 801: { TITLE: 'Solo conversado', STAGE_ID: 'C1:UC_JARL1O', MOVED_BY_ID: '346393', MOVED_TIME: '2026-09-11T12:00:00.000Z' } };
+  const botStats = new Map([['ia', { escalados: [], dealsConversados: [801] }]]);
+
+  const out = await bitrixMarchaBlancaScorecard(botStats, auth);
+  const ia = out.find((p) => p.key === 'ia')!;
+
+  assert.equal(ia.seguimiento.derivados, 0);
+  assert.equal(ia.seguimiento.atendidos, 0);
+  assert.equal(ia.seguimiento.medianaSeg, null, 'sin casos no hay mediana que mostrar');
 });

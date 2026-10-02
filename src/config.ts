@@ -220,6 +220,14 @@ export const config = {
     .split(',')
     .map((s) => Number(s.trim()))
     .filter((n) => Number.isFinite(n) && n > 0),
+  // IDs de usuario que NO son personas sino automatizaciones de Bitrix (robots/reglas). El caso real
+  // es #45 "Resp. Autom.", que barre a RMKT las negociaciones que nadie tocó: movió 31 de las 36
+  // derivaciones del piloto. Se usa para no contar ese barrido como "el asesor tomó el caso" en la
+  // columna de seguimiento (ver crm/marchaBlanca.ts). Vacío = todo movimiento cuenta como humano.
+  usuariosAutomaticos: (process.env.BITRIX_USUARIOS_AUTOMATICOS ?? '45')
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0),
   // Precio Anthropic por millón de tokens (USD) para estimar costo en el panel (0 = no mostrar).
   costInPerMtok: Number(process.env.ANTHROPIC_COST_IN_PER_MTOK ?? 0),
   costOutPerMtok: Number(process.env.ANTHROPIC_COST_OUT_PER_MTOK ?? 0),

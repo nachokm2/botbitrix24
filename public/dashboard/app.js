@@ -62,6 +62,7 @@ function animateKpis(){
   });
 }
 function fmtSeg(s){ if(s==null) return '—'; s=Math.round(s); if(s<60) return s+' s'; var m=Math.floor(s/60), r=s%60; return m+' min '+r+' s'; }
+function fmtEspera(s){ if(s==null) return '—'; if(s<3600) return Math.round(s/60)+' min'; if(s<86400) return (s/3600).toFixed(1)+' h'; return (s/86400).toFixed(1)+' d'; }
 function fmtMs(ms){ if(ms==null) return '—'; if(ms<1000) return ms+' ms'; return (ms/1000).toFixed(1)+' s'; }
 // La primera vez que se pinta el panel, las barras/columnas "crecen" desde 0 (ver growAnimated) — da
 // una entrada vistosa al abrir el panel. En los refrescos siguientes (cada 15s) se pintan directo en
@@ -198,12 +199,18 @@ function render(d){
     // Los nombres dicen exactamente qué se mide: estas columnas cuentan las negociaciones que el BOT
     // trabajó, no el total del programa en el portal (ese conteo no es viable, ver crm/marchaBlanca.ts).
     var cols = ['Programa','Estado','Asesor norte','Asesor sur','Negociaciones del bot','Matriculados','% cierre',
-      'Ticket promedio','— ya existían','— nuevas','Mensajes','Escalamientos del bot','SLA contacto asesor',
+      'Ticket promedio','— ya existían','— nuevas','Mensajes','Escalamientos del bot','Derivados que tomó un asesor',
       'Derivados → matriculados','Llamadas IA'];
     var thead = '<thead><tr>'+cols.map(function(c){return '<th>'+esc(c)+'</th>';}).join('')+'</tr></thead>';
     var tbody = '<tbody>'+mb.map(function(p){
       var c = p.crm, b = p.bot;
-      var sla = b && b.slaContactoSeg!=null ? fmtSeg(b.slaContactoSeg)+' ('+num(b.slaContactoN)+')' : '—';
+      // Qué pasó DESPUÉS de derivar: cuántos de los casos que el bot entregó movió después un humano
+      // en el CRM, y cuánto tardó (mediana). Lo que NO aparece acá quedó esperando o se lo llevó el
+      // barrido automático a RMKT — ver seguimientoAsesor() en crm/marchaBlanca.ts.
+      var sg = c && c.seguimiento;
+      var seguimiento = sg && sg.derivados
+        ? num(sg.atendidos)+' / '+num(sg.derivados)+(sg.medianaSeg!=null ? ' · '+fmtEspera(sg.medianaSeg) : '')
+        : '—';
       var escMatric = c ? num(c.escaladosMatriculados)+' / '+num(c.escaladosConDeal) : '—';
       return '<tr>'+
         '<td>'+esc(p.nombre)+'</td>'+
@@ -218,7 +225,7 @@ function render(d){
         '<td>'+(c?num(c.dealsNuevos):'—')+'</td>'+
         '<td>'+(b?num(b.mensajes):'—')+'</td>'+
         '<td>'+(b?num(b.escalamientos):'—')+'</td>'+
-        '<td>'+sla+'</td>'+
+        '<td>'+seguimiento+'</td>'+
         '<td>'+escMatric+'</td>'+
         '<td>'+(b?num(b.llamadasIA):'—')+'</td>'+
       '</tr>';

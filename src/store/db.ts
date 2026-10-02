@@ -492,15 +492,15 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
 
 // ─────────────────────────── Scorecard "marcha blanca" (métricas nativas del bot, por programa) ───────────────────────────
 
-export type EscaladoRef = { dealId: number; motivo: 'explicito' | 'silencio' };
+/** Una derivación a un asesor: el deal, por qué se derivó y CUÁNDO. La fecha es lo que permite
+ *  medir después, contra Bitrix, cuánto tardó un humano en tomar el caso (ver crm/marchaBlanca.ts). */
+export type EscaladoRef = { dealId: number; motivo: 'explicito' | 'silencio'; ts: string };
 
 export type MarchaBlancaBotStats = {
   key: string;
   mensajes: number;
   escalamientos: number;
   llamadasIA: number;
-  slaContactoSeg: number | null;
-  slaContactoN: number;
   /** Deals escalados a un asesor (best-effort: solo cuando la entidad del CRM ya era un Deal en el
    *  momento de escalar) — para cruzar después con la etapa/matrícula (WON) real en Bitrix. `motivo`
    *  distingue el pedido explícito del cliente/auto-escalado por score ('explicito') del envío por
@@ -518,10 +518,14 @@ export type MarchaBlancaBotStats = {
 };
 
 /**
- * Métricas que vienen 100% de audit_log (Postgres), filtradas por programa. El SLA de contacto es
- * tiempo entre escalar_a_humano/auto_escalation y el primer mensaje de un OPERADOR humano en ese
- * mismo diálogo (operator_msg ya se registra cuando alguien != el cliente escribe en el chat de
- * WhatsApp — ver routes/botEvents.ts).
+ * Métricas que vienen 100% de audit_log (Postgres), filtradas por programa.
+ *
+ * Antes esto calculaba un "SLA de contacto" como el tiempo hasta el primer operator_msg en el mismo
+ * diálogo. Esa medición era estructuralmente imposible: una vez que la sesión se transfiere, el bot
+ * deja de recibir los mensajes del chat, y además los asesores trabajan por teléfono/correo desde
+ * Bitrix, no dentro del chat del bot. Resultado: 10 escalamientos, 0 casos medidos, columna siempre
+ * en "—". El seguimiento del asesor ahora se mide contra el CRM (ver crm/marchaBlanca.ts), usando
+ * la fecha de derivación que estas consultas devuelven en `escalados[].ts`.
  *
  * `dialogIdsPorPrograma` (opcional): lista de dialog_id YA resuelta por programa (ver
  * crm/marchaBlanca.ts:resolverDialogosPorProgramaPiloto, que cruza contra el UF_PROGRAMA REAL de
@@ -553,7 +557,7 @@ export async function dbMarchaBlancaBot(range = 'all', dialogIdsPorPrograma?: Ma
         )`;
     const dialogParams: unknown[] = resueltos ? [resueltos] : [matchPat, excludePat];
     try {
-      const [msgR, escR, callR, slaR, escEntR, escSilencioR, conversadosR, contactosR] = await Promise.all([
+      const [msgR, escR, callR, escEntR, escSilencioR, conversadosR, contactosR] = await Promise.all([
         p.query(`SELECT count(*)::int c FROM audit_log WHERE type='turn' ${W} AND ${dialogFilterSql}`, dialogParams),
         p.query(
           `SELECT count(*)::int c FROM audit_log
@@ -569,33 +573,19 @@ export async function dbMarchaBlancaBot(range = 'all', dialogIdsPorPrograma?: Ma
           [matchPat, excludePat],
         ),
         p.query(
-          `WITH esc AS (
-             SELECT dialog_id, min(ts) esc_ts FROM audit_log
-             WHERE ((type='auto_escalation') OR (type='tool_call' AND detail->>'name'='escalar_a_humano')) ${W}
-               AND ${dialogFilterSql}
-             GROUP BY dialog_id
-           ),
-           contact AS (
-             SELECT e.dialog_id, min(o.ts) contact_ts
-             FROM esc e JOIN audit_log o ON o.dialog_id = e.dialog_id AND o.type='operator_msg' AND o.ts > e.esc_ts
-             GROUP BY e.dialog_id
-           )
-           SELECT round(avg(extract(epoch from (contact_ts - esc_ts))))::int avg, count(*)::int c
-           FROM esc JOIN contact USING (dialog_id)`,
-          dialogParams,
-        ),
-        p.query(
-          `SELECT DISTINCT crm_entity FROM audit_log
+          `SELECT crm_entity, min(ts) ts FROM audit_log
            WHERE ((type='auto_escalation') OR (type='tool_call' AND detail->>'name'='escalar_a_humano')) ${W}
              AND crm_entity LIKE 'deal#%'
-             AND ${dialogFilterSql}`,
+             AND ${dialogFilterSql}
+           GROUP BY crm_entity`,
           dialogParams,
         ),
         p.query(
-          `SELECT DISTINCT crm_entity FROM audit_log
+          `SELECT crm_entity, min(ts) ts FROM audit_log
            WHERE type='seguimiento_transferencia' ${W}
              AND crm_entity LIKE 'deal#%'
-             AND ${dialogFilterSql}`,
+             AND ${dialogFilterSql}
+           GROUP BY crm_entity`,
           dialogParams,
         ),
         p.query(
@@ -618,12 +608,28 @@ export async function dbMarchaBlancaBot(range = 'all', dialogIdsPorPrograma?: Ma
         ),
       ]);
       const idDe = (r: any) => Number(String(r.crm_entity).split('#')[1]);
-      const silencioIds = new Set(escSilencioR.rows.map(idDe).filter((n: number) => n > 0));
-      const explicitoIds = escEntR.rows.map(idDe).filter((n: number) => n > 0);
+      // Fecha de derivación por deal: si tuvo escalada explícita Y envío por silencio, vale la más
+      // temprana — es el momento en que el caso quedó realmente en manos de un asesor.
+      const tsPorDeal = new Map<number, string>();
+      const recolectar = (rows: any[]) => {
+        const ids: number[] = [];
+        for (const r of rows) {
+          const id = idDe(r);
+          if (!(id > 0)) continue;
+          ids.push(id);
+          const ts = new Date(r.ts).toISOString();
+          const previo = tsPorDeal.get(id);
+          if (!previo || ts < previo) tsPorDeal.set(id, ts);
+        }
+        return ids;
+      };
+      const silencioIds = new Set(recolectar(escSilencioR.rows));
+      const explicitoIds = recolectar(escEntR.rows);
       const todosIds = new Set([...explicitoIds, ...silencioIds]);
       const escalados: EscaladoRef[] = [...todosIds].map((dealId) => ({
         dealId,
         motivo: silencioIds.has(dealId) ? 'silencio' : 'explicito',
+        ts: tsPorDeal.get(dealId)!,
       }));
       const dealsConversados = conversadosR.rows.map(idDe).filter((n: number) => n > 0);
       const contactosConversados = contactosR.rows.map(idDe).filter((n: number) => n > 0);
@@ -632,8 +638,6 @@ export async function dbMarchaBlancaBot(range = 'all', dialogIdsPorPrograma?: Ma
         mensajes: msgR.rows[0]?.c ?? 0,
         escalamientos: escR.rows[0]?.c ?? 0,
         llamadasIA: callR.rows[0]?.c ?? 0,
-        slaContactoSeg: slaR.rows[0]?.avg ?? null,
-        slaContactoN: slaR.rows[0]?.c ?? 0,
         escalados,
         dealsConversados,
         contactosConversados,
@@ -645,8 +649,6 @@ export async function dbMarchaBlancaBot(range = 'all', dialogIdsPorPrograma?: Ma
         mensajes: 0,
         escalamientos: 0,
         llamadasIA: 0,
-        slaContactoSeg: null,
-        slaContactoN: 0,
         escalados: [],
         dealsConversados: [],
         contactosConversados: [],

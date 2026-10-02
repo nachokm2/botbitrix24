@@ -69,6 +69,10 @@ export type ProgramaScorecard = {
   dealsNuevos: number;
   escaladosConDeal: number;
   escaladosMatriculados: number;
+  /** Qué pasó DESPUÉS de derivar: de las negociaciones que el bot dejó en manos de un asesor
+   *  (escalada explícita + envío por silencio), en cuántas un humano movió efectivamente la
+   *  negociación en el CRM, y cuánto tardó (mediana). Ver seguimientoAsesor() más abajo. */
+  seguimiento: { derivados: number; atendidos: number; medianaSeg: number | null };
   escaladosDetalle: EscaladoDetalle[];
   negociacionesDetalle: NegociacionDetalle[];
 };
@@ -212,6 +216,54 @@ async function nombresDeEtapa(categoryId: number, auth: Auth): Promise<Map<strin
   }
 }
 
+/**
+ * Seguimiento del asesor: de las negociaciones que el bot dejó en manos de un humano (escalada
+ * explícita + envío por silencio), en cuántas ese humano movió realmente la negociación en el CRM,
+ * y cuánto tardó.
+ *
+ * POR QUÉ ESTA SEÑAL Y NO OTRA. Se midieron las 36 derivaciones del piloto contra Bitrix:
+ *  - Llamadas: 0 de 144 actividades. Los asesores llaman por fuera, no queda registro en el CRM.
+ *  - Correos: 46, pero dominados por campañas masivas ("40% DESCUENTO- ...", "Especialízate Online")
+ *    que se cruzan por fecha con la derivación. Medir contra ellos daba "el asesor contestó en 4
+ *    minutos" cuando lo que pasó fue un envío masivo. Filtrando campañas quedaban 2 casos de 36, y
+ *    uno era el acuse automático de postulación.
+ *  - Comentarios de timeline: 12 de 12 eran logs del robot de WhatsApp, ninguno una nota de asesor.
+ *  - Movimiento de etapa: 33 de 36 lo tienen, pero 31 los movió el usuario #45 "Resp. Autom.",
+ *    el barrido automático a RMKT. Ese es el único caso con un AUTOR consultable, así que es la
+ *    señal que se usa, descartando los usuarios automáticos (config.usuariosAutomaticos).
+ *
+ * LÍMITE CONOCIDO: MOVED_BY_ID/MOVED_TIME son del ÚLTIMO movimiento. Si un asesor movió la
+ * negociación y después el barrido automático la pasó a RMKT, ese asesor deja de verse y el número
+ * queda por debajo de lo real (medido: ~3 casos de 36). Se prefiere así, con 0 llamadas extra a
+ * Bitrix, antes que reconstruir el historial completo por negociación: crm.stagehistory.list no
+ * dice quién movió, así que tampoco resolvería la atribución.
+ *
+ * Se reporta MEDIANA, no promedio: con casos de 7 y 20 días el promedio deja de describir el caso
+ * típico (promedio 1,4 d contra mediana 5,2 h sobre los mismos datos).
+ */
+function seguimientoAsesor(
+  escalados: EscaladoRef[],
+  dealsPorId: Map<number, { MOVED_BY_ID?: string; MOVED_TIME?: string }>,
+): { derivados: number; atendidos: number; medianaSeg: number | null } {
+  const automaticos = new Set(config.usuariosAutomaticos);
+  const esperas: number[] = [];
+  for (const e of escalados) {
+    const d = dealsPorId.get(e.dealId);
+    if (!d?.MOVED_TIME || !d.MOVED_BY_ID) continue;
+    if (automaticos.has(Number(d.MOVED_BY_ID))) continue; // el barrido a RMKT no es un asesor tomando el caso
+    const movido = new Date(d.MOVED_TIME).getTime();
+    const derivado = new Date(e.ts).getTime();
+    if (!Number.isFinite(movido) || !Number.isFinite(derivado) || movido <= derivado) continue;
+    esperas.push((movido - derivado) / 1000);
+  }
+  esperas.sort((a, b) => a - b);
+  return {
+    derivados: escalados.length,
+    atendidos: esperas.length,
+    medianaSeg: esperas.length ? Math.round(esperas[Math.floor(esperas.length / 2)]) : null,
+  };
+}
+
 export async function bitrixMarchaBlancaScorecard(
   botStats: Map<string, { escalados: EscaladoRef[]; dealsConversados: number[]; contactosConversados?: number[] }>,
   auth: Auth,
@@ -280,7 +332,17 @@ export async function bitrixMarchaBlancaScorecard(
       // Los deals se traen POR LOTES (crm.deal.list, 50 por página) en vez de uno por uno con
       // crm.deal.get: con ~60 deals eran ~60 llamadas encoladas en el limitador y la carga fría del
       // panel se iba a 33 s. Con lotes son 2 llamadas.
-      type DealFila = { TITLE?: string; STAGE_ID?: string; ASSIGNED_BY_ID?: string; OPPORTUNITY?: string; DATE_CREATE?: string };
+      type DealFila = {
+        TITLE?: string;
+        STAGE_ID?: string;
+        ASSIGNED_BY_ID?: string;
+        OPPORTUNITY?: string;
+        DATE_CREATE?: string;
+        /** Último movimiento de etapa: quién y cuándo. Son la única señal fiable de que un HUMANO
+         *  trabajó la negociación después de la derivación — ver seguimientoAsesor(). */
+        MOVED_BY_ID?: string;
+        MOVED_TIME?: string;
+      };
       const dealsPorId = new Map<number, DealFila>();
       const idsDeals = [...todosLosDeals];
       for (let i = 0; i < idsDeals.length; i += 50) {
@@ -289,7 +351,7 @@ export async function bitrixMarchaBlancaScorecard(
             'crm.deal.list',
             {
               filter: { '@ID': idsDeals.slice(i, i + 50) },
-              select: ['ID', 'TITLE', 'STAGE_ID', 'ASSIGNED_BY_ID', 'OPPORTUNITY', 'DATE_CREATE'],
+              select: ['ID', 'TITLE', 'STAGE_ID', 'ASSIGNED_BY_ID', 'OPPORTUNITY', 'DATE_CREATE', 'MOVED_BY_ID', 'MOVED_TIME'],
             },
             auth,
           );
@@ -358,6 +420,7 @@ export async function bitrixMarchaBlancaScorecard(
         ? negociacionesDetalle.filter((n) => n.stageId === etapaPostulante).length
         : 0;
       const ticketReal = montos.length ? Math.round(montos.reduce((a, b) => a + b, 0) / montos.length) : null;
+      const seguimiento = seguimientoAsesor(escalados, dealsPorId);
 
       const catalogo = matchPrograma(prog.nombre)[0];
       out.push({
@@ -381,6 +444,7 @@ export async function bitrixMarchaBlancaScorecard(
         dealsNuevos: todosLosDeals.size - dealsAntiguos,
         escaladosConDeal: escalados.length,
         escaladosMatriculados,
+        seguimiento,
         escaladosDetalle,
         negociacionesDetalle,
       });
@@ -402,6 +466,7 @@ export async function bitrixMarchaBlancaScorecard(
         dealsNuevos: 0,
         escaladosConDeal: 0,
         escaladosMatriculados: 0,
+        seguimiento: { derivados: 0, atendidos: 0, medianaSeg: null },
         escaladosDetalle: [],
         negociacionesDetalle: [],
       });
