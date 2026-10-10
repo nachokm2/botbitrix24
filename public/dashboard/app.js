@@ -403,6 +403,31 @@ function render(d){
 
   // Reciente
   var rec=d.recent||[];
+  // Conversaciones: lo único que permite evaluar si el bot respondió BIEN. Los números de arriba
+  // dicen cuántas hubo; esto deja leer qué se dijo. Se pide el detalle al abrir una, no de entrada:
+  // traer el texto de todas en cada refresco sería mucho volumen para algo que se mira de a una.
+  var convs = d.conversaciones || [];
+  var convEl = document.getElementById('conversaciones');
+  document.getElementById('convresumen').textContent = convs.length
+    ? convs.length + ' conversaciones · haz clic en una para leer el intercambio completo'
+    : 'Todavía no hay conversaciones registradas.';
+  if (convs.length) {
+    var cabecera = '<thead><tr><th>Última actividad</th><th>Turnos</th><th>CRM</th><th>Último mensaje del cliente</th></tr></thead>';
+    convEl.innerHTML = cabecera + '<tbody>' + convs.map(function(c){
+      return '<tr class="convrow" data-dialog="'+esc(c.dialog_id)+'" style="cursor:pointer">'+
+        '<td>'+new Date(c.fin).toLocaleString('es-CL')+'</td>'+
+        '<td>'+num(c.turnos)+'</td>'+
+        '<td>'+esc(c.crm_entity||'—')+'</td>'+
+        '<td>'+esc(String(c.ultimo_mensaje||'').slice(0,80))+'</td>'+
+      '</tr>';
+    }).join('') + '</tbody>';
+    convEl.querySelectorAll('.convrow').forEach(function(fila){
+      fila.addEventListener('click', function(){ abrirConversacion(fila.getAttribute('data-dialog')); });
+    });
+  } else {
+    convEl.innerHTML = '';
+  }
+
   document.getElementById('recent').innerHTML = rec.length? rec.map(function(r){
     var ts=r.ts? new Date(r.ts).toLocaleString('es-CL') : '';
     return '<tr><td>'+esc(ts)+'</td><td><span class="tag">'+esc(r.type)+'</span></td><td>'+esc(r.dialog_id||'')+'</td><td>'+esc(r.crm_entity||'')+'</td></tr>';
@@ -446,3 +471,25 @@ document.getElementById('ranges').addEventListener('click', function(e){
 });
 document.getElementById('pdfBtn').addEventListener('click', function(){ window.print(); });
 load(); setInterval(load, 15000);
+
+// Trae y pinta el intercambio completo de una conversación, debajo de la tabla.
+function abrirConversacion(dialogId){
+  var caja = document.getElementById('convdetalle');
+  caja.innerHTML = '<div class="sub" style="margin-top:12px">Cargando conversación…</div>';
+  fetch('/metrics/conversacion?dialog='+encodeURIComponent(dialogId)+(K?'&k='+encodeURIComponent(K):''))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var t = d.turnos || [];
+      if (!t.length) { caja.innerHTML = '<div class="sub" style="margin-top:12px">Sin turnos guardados para esta conversación.</div>'; return; }
+      caja.innerHTML = '<div class="sub" style="margin:14px 0 6px"><b>'+esc(dialogId)+'</b> · '+t.length+' turnos</div>' +
+        t.map(function(x){
+          return '<div style="margin:10px 0;padding:10px;border-left:3px solid var(--line, #ccc)">'+
+            '<div class="sub" style="margin-bottom:4px">'+new Date(x.ts).toLocaleString('es-CL')+'</div>'+
+            '<div style="margin-bottom:6px"><b>Cliente:</b> '+esc(x.mensaje||'(sin texto)')+'</div>'+
+            '<div><b>Bot:</b> '+esc(x.respuesta||'(sin respuesta)')+'</div>'+
+          '</div>';
+        }).join('');
+      caja.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    })
+    .catch(function(){ caja.innerHTML = '<div class="sub" style="margin-top:12px">No se pudo cargar la conversación.</div>'; });
+}

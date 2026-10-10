@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { snapshot } from '../obs/metrics';
-import { dbMetricsSummary, dbRecentAudit, dbEnabled, dbMarchaBlancaBot, dbPilotoProgresoReal, dbErroresRecientes } from '../store/db';
+import { dbMetricsSummary, dbRecentAudit, dbEnabled, dbMarchaBlancaBot, dbPilotoProgresoReal, dbErroresRecientes, dbConversaciones, dbConversacion } from '../store/db';
 import { kvKind } from '../store/kv';
 import { getState } from '../store';
 import { getUsuarios } from '../crm/directory';
@@ -64,11 +64,12 @@ export async function metricsSummary(req: Request, res: Response) {
   }
   const dialogosCombinados = dialogosPorPrograma ? [...new Set([...dialogosPorPrograma.values()].flat())] : undefined;
 
-  const [live, agg, recent, erroresRecientes, marchaBlancaBot, pilotoReal] = await Promise.all([
+  const [live, agg, recent, erroresRecientes, conversaciones, marchaBlancaBot, pilotoReal] = await Promise.all([
     snapshot(),
     dbMetricsSummary(range),
     dbRecentAudit(15),
     dbErroresRecientes(15),
+    dbConversaciones(30),
     dbMarchaBlancaBot('all', dialogosPorPrograma), // el scorecard del piloto siempre es "desde siempre" (no sigue el selector Hoy/7d/30d)
     dbPilotoProgresoReal(dialogosCombinados), // proyección vs. real del piloto (correo de lanzamiento) — también "desde siempre"
   ]);
@@ -162,6 +163,7 @@ export async function metricsSummary(req: Request, res: Response) {
     agg,
     recent,
     erroresRecientes, // fallas técnicas con motivo y etapa, para poder accionarlas desde el panel
+    conversaciones, // lista para poder LEER lo que el bot respondió (el detalle va en /metrics/conversacion)
     funnelLabels: config.funnelLabels,
     marchaBlanca,
     marchaBlancaStart: config.marchaBlancaStart,
@@ -195,3 +197,11 @@ export function dashboardPage(_req: Request, res: Response) {
 }
 
 const DASHBOARD_HTML = readFileSync(fileURLToPath(new URL('../../public/dashboard/index.html', import.meta.url)), 'utf8');
+
+/** El intercambio completo de una conversación. GET /metrics/conversacion?dialog=... */
+export async function conversacionDetalle(req: Request, res: Response) {
+  const dialogId = String(req.query.dialog ?? '').trim();
+  if (!dialogId) return res.status(400).json({ ok: false, error: 'Falta el parámetro dialog.' });
+  const turnos = await dbConversacion(dialogId);
+  return res.json({ ok: true, dialogId, turnos });
+}

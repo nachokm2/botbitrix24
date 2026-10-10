@@ -13,7 +13,7 @@ import { vapiEvents, voiceOutbound, verifyVapiSecret, whatsappInboundCall } from
 import { vapiChatCompletions } from './routes/vapiLlm';
 import { webchatMessage, webchatPage } from './routes/webchat';
 import { metaVerify, verifyMetaSignature, metaWebhook } from './routes/meta';
-import { dashboardPage, metricsSummary } from './routes/dashboard';
+import { dashboardPage, metricsSummary, conversacionDetalle } from './routes/dashboard';
 import { callsPage, callsData } from './routes/calls';
 import { initDb, dbRecentAudit, dbEnabled, startRetentionSweep } from './store/db';
 import { iniciarBarridoSeguimientos } from './ai/seguimiento';
@@ -103,6 +103,7 @@ app.use('/assets/email', express.static(fileURLToPath(new URL('../public/email',
 // Panel de métricas embebible en Bitrix24 (placement) + su API de datos.
 app.all('/app', oauthCodeOrNext, requireDashboardToken, dashboardPage); // Bitrix abre la página del placement (GET/POST con auth); con ?code= completa la instalación
 app.get('/metrics/summary', requireDashboardToken, metricsSummary);
+app.get('/metrics/conversacion', requireDashboardToken, conversacionDetalle); // intercambio completo de UN diálogo
 
 // Módulo de analítica de llamadas (telefonía Bitrix24): página embebible + su API de datos.
 app.all('/calls', requireDashboardToken, callsPage);

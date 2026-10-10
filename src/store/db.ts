@@ -166,6 +166,60 @@ export async function dbErroresRecientes(limit = 15): Promise<any[]> {
   }
 }
 
+/**
+ * Conversaciones recientes, para poder LEERLAS desde el panel. Antes no había forma: "Actividad
+ * reciente" muestra solo metadatos (tipo, diálogo, entidad) porque `detail` trae el texto y se
+ * excluyó a propósito. Pero sin leer lo que el bot respondió no se puede evaluar si lo hizo bien —
+ * y los dos problemas que encontramos en producción salieron justamente de leer conversaciones.
+ *
+ * Va detrás del token del panel, igual que el resto, y muestra lo mismo que esas personas ya ven en
+ * el chat de Bitrix24: no abre acceso nuevo, solo evita tener que buscarlo conversación por
+ * conversación.
+ */
+export async function dbConversaciones(limit = 30): Promise<any[]> {
+  if (!pool) return [];
+  try {
+    const r = await pool.query(
+      `SELECT dialog_id,
+              max(crm_entity) FILTER (WHERE crm_entity IS NOT NULL) AS crm_entity,
+              count(*)::int AS turnos,
+              min(ts) AS inicio,
+              max(ts) AS fin,
+              (array_agg(detail->>'message' ORDER BY ts DESC))[1] AS ultimo_mensaje
+       FROM audit_log
+       WHERE type='turn' AND dialog_id IS NOT NULL
+       GROUP BY dialog_id
+       ORDER BY max(ts) DESC
+       LIMIT $1`,
+      [limit],
+    );
+    return r.rows;
+  } catch (err) {
+    log.warn('dbConversaciones falló', { err: String(err) });
+    return [];
+  }
+}
+
+/** El intercambio completo de UNA conversación: cada turno con lo que dijo el cliente y lo que
+ *  respondió el bot, en orden cronológico. */
+export async function dbConversacion(dialogId: string, limit = 100): Promise<any[]> {
+  if (!pool || !dialogId) return [];
+  try {
+    const r = await pool.query(
+      `SELECT ts, crm_entity, detail->>'message' AS mensaje, detail->>'reply' AS respuesta
+       FROM audit_log
+       WHERE type='turn' AND dialog_id = $1
+       ORDER BY ts ASC
+       LIMIT $2`,
+      [dialogId, limit],
+    );
+    return r.rows;
+  } catch (err) {
+    log.warn('dbConversacion falló', { err: String(err), dialogId });
+    return [];
+  }
+}
+
 export async function dbRecentAudit(limit = 20): Promise<any[]> {
   if (!pool) return [];
   try {
