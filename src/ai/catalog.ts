@@ -138,7 +138,9 @@ export function buscarProgramas(filtros: {
   return PROGRAMAS.filter((p) => {
     const hay = strip(`${p.nombre} ${p.facultad} ${p.tipo}`);
     return (
-      (!tipo || p.tipo === tipo) &&
+      // strip() igual que los demás filtros: sin esto "Maestría" o "Magíster" (la grafía natural,
+      // con tilde y mayúscula) no coincidía con 'maestria'/'magister' y devolvía cero en silencio.
+      (!tipo || strip(p.tipo) === strip(tipo)) &&
       (!facultad || strip(p.facultad).includes(nf)) &&
       (!modalidad || strip(p.modalidad) === strip(modalidad)) &&
       needles.every((n) => hay.includes(n)) // todas las palabras clave deben aparecer

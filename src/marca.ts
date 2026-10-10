@@ -35,6 +35,18 @@ export type Marca = {
   /** ¿Pide antecedentes de matrícula (profesión, dirección, foto de cédula)? El campo de cédula del
    *  CRM es "Cedula de identidad CL" y el flujo es el de Postgrados; Carver es multipaís. */
   capturaDocumentos: boolean;
+  /** Valores válidos del filtro "tipo" de consultar_programas. DEBEN coincidir con los del catálogo
+   *  de la marca: el enum del esquema es lo único que el modelo ve, así que si ofrece un tipo que el
+   *  catálogo no usa, la búsqueda devuelve cero en silencio y el bot responde que no hay programas
+   *  (pasó en la primera prueba de Carver: el esquema solo ofrecía "magister" y el catálogo de
+   *  Carver usa "maestria"). */
+  tiposPrograma: string[];
+  /** Facultades para el filtro del mismo nombre. Vacío = la marca no clasifica por facultad y el
+   *  filtro NO se ofrece (Carver: sus 38 programas no tienen facultad). */
+  facultades: string[];
+  /** Descripción de consultar_programas: qué catálogo es. La genérica hablaba siempre de postgrados
+   *  de la Universidad Autónoma, lo que para otra marca es sencillamente falso. */
+  catalogoDescripcion: string;
 };
 
 const POSTGRADOS: Marca = {
@@ -50,6 +62,20 @@ const POSTGRADOS: Marca = {
   usaPlanillaComercial: true,
   tieneVoz: true,
   capturaDocumentos: true,
+  tiposPrograma: ['magister', 'diplomado', 'especialidad'],
+  facultades: [
+    'Administración y Negocios',
+    'Arquitectura, Construcción y Medio Ambiente',
+    'Ciencias de la Salud',
+    'Ciencias Sociales y Humanidades',
+    'Derecho',
+    'Educación',
+    'Ingeniería',
+    'Odontología',
+  ],
+  catalogoDescripcion:
+    'Consulta el catálogo oficial de programas de postgrado de la Universidad Autónoma de Chile ' +
+    '(magísteres, diplomados y especialidades médicas/odontológicas).',
 };
 
 const CARVER: Marca = {
@@ -65,6 +91,11 @@ const CARVER: Marca = {
   usaPlanillaComercial: false,
   tieneVoz: false,
   capturaDocumentos: false,
+  tiposPrograma: ['licenciatura', 'maestria', 'curso'],
+  facultades: [], // los 38 programas de Carver no están clasificados por facultad
+  catalogoDescripcion:
+    'Consulta el catálogo oficial de programas de Carver University: licenciaturas, maestrías y ' +
+    'cursos cortos (NOOCs y educación continua), todos 100% en línea con clases en vivo en español.',
 };
 
 const MARCAS: Record<MarcaKey, Marca> = { postgrados: POSTGRADOS, carver: CARVER };

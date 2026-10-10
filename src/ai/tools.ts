@@ -1,29 +1,27 @@
 // Definición de herramientas en formato Anthropic Messages API.
+import { marca } from '../marca';
+
+// El filtro por facultad solo se ofrece si la marca clasifica por facultad. Ofrecerlo con el enum de
+// otra marca hace que el modelo filtre por una facultad que ningún programa tiene, y la búsqueda
+// devuelve cero sin decir por qué.
+const FILTRO_FACULTAD = marca.facultades.length
+  ? { facultad: { type: 'string', enum: marca.facultades } }
+  : {};
+
 export const tools = [
   {
     name: 'consultar_programas',
     description:
-      'Consulta el catálogo oficial de programas de postgrado de la Universidad Autónoma de Chile ' +
-      '(magísteres, diplomados y especialidades médicas/odontológicas). Úsala SIEMPRE antes de informar ' +
+      `${marca.catalogoDescripcion} Úsala SIEMPRE antes de informar ` +
       'sobre programas; nunca inventes nombres, facultades, duraciones, modalidades ni URLs. Devuelve la ' +
       'URL oficial de cada programa.',
     input_schema: {
       type: 'object',
       properties: {
-        tipo: { type: 'string', enum: ['magister', 'diplomado', 'especialidad'] },
-        facultad: {
-          type: 'string',
-          enum: [
-            'Administración y Negocios',
-            'Arquitectura, Construcción y Medio Ambiente',
-            'Ciencias de la Salud',
-            'Ciencias Sociales y Humanidades',
-            'Derecho',
-            'Educación',
-            'Ingeniería',
-            'Odontología',
-          ],
-        },
+        // El enum sale de la marca: es lo ÚNICO que el modelo ve para elegir el tipo, así que si
+        // ofrece uno que el catálogo no usa la búsqueda devuelve cero en silencio.
+        tipo: { type: 'string', enum: marca.tiposPrograma },
+        ...FILTRO_FACULTAD,
         modalidad: { type: 'string', enum: ['online', 'presencial'] },
         texto: { type: 'string', description: 'Búsqueda libre por nombre o tema (ej. "MBA", "inteligencia artificial")' },
       },

@@ -15,6 +15,8 @@ const { getDetalle } = await import('../src/ai/detalles');
 const { SYSTEM_PROMPT } = await import('../src/ai/prompt');
 const { consultarProgramas } = await import('../src/core/catalogTool');
 const { WHATSAPP_PROFILE } = await import('../src/core/channel');
+const { tools } = await import('../src/ai/tools');
+const { buscarProgramas } = await import('../src/ai/catalog');
 
 test('marca=carver: identidad y oferta son las de Carver University, no las de Postgrados', () => {
   assert.equal(marca.key, 'carver');
@@ -55,4 +57,30 @@ test('marca=carver: el detalle de un programa trae requisitos y modalidad, pero 
   assert.match(String(d!.requisitos), /título profesional|cédula/i);
   assert.match(String(d!.modalidad), /en línea/i);
   assert.equal(d!.arancel, undefined, 'el precio queda fuera hasta que Carver confirme cuál rige');
+});
+
+// El esquema de consultar_programas es lo ÚNICO que el modelo ve para elegir el tipo. Estaba cableado
+// a Postgrados (enum magister/diplomado/especialidad) y Carver usa licenciatura/maestria/curso, así
+// que al preguntar "¿qué maestrías tienen?" el modelo mandaba el único valor parecido que el esquema
+// ofrecía —"magister"— y el catálogo devolvía CERO en silencio: el bot contestaba que no tenía
+// programas disponibles. Se detectó en la primera prueba real contra el servicio de Carver.
+test('marca=carver: cada tipo del esquema de consultar_programas existe de verdad en el catálogo', async () => {
+  const t: any = tools.find((x: any) => x.name === 'consultar_programas');
+  const tipos: string[] = t.input_schema.properties.tipo.enum;
+  assert.deepEqual(tipos, ['licenciatura', 'maestria', 'curso'], 'el enum es el de Carver, no el de Postgrados');
+  for (const tipo of tipos) {
+    assert.ok(buscarProgramas({ tipo }).length > 0, `el tipo "${tipo}" del esquema no devuelve ningún programa`);
+  }
+});
+
+test('marca=carver: no ofrece el filtro por facultad (sus programas no tienen facultad)', async () => {
+  const t: any = tools.find((x: any) => x.name === 'consultar_programas');
+  assert.ok(!('facultad' in t.input_schema.properties), 'ofrecerlo haría filtrar por facultades que ningún programa tiene');
+  assert.ok(/Carver University/.test(String(t.description)), 'la descripción nombra el catálogo correcto');
+});
+
+test('consultar_programas: el filtro de tipo tolera la grafía natural del modelo (tilde y mayúscula)', async () => {
+  // "Maestría" es como se escribe en español; sin normalizar no coincidía con 'maestria' y daba cero.
+  assert.equal(buscarProgramas({ tipo: 'Maestría' }).length, buscarProgramas({ tipo: 'maestria' }).length);
+  assert.ok(buscarProgramas({ tipo: 'MAESTRIA' }).length > 0);
 });
