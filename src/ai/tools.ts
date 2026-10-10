@@ -1,5 +1,6 @@
 // Definición de herramientas en formato Anthropic Messages API.
 import { marca } from '../marca';
+import { PROGRAMAS } from './catalog';
 
 // El filtro por facultad solo se ofrece si la marca clasifica por facultad. Ofrecerlo con el enum de
 // otra marca hace que el modelo filtre por una facultad que ningún programa tiene, y la búsqueda
@@ -7,6 +8,37 @@ import { marca } from '../marca';
 const FILTRO_FACULTAD = marca.facultades.length
   ? { facultad: { type: 'string', enum: marca.facultades } }
   : {};
+
+// La sede solo existe donde hay programas presenciales. Carver es 100% en línea en cinco países:
+// ofrecerle "Santiago" o "Temuco" lo llevaría a preguntarle a un cliente peruano por un campus chileno.
+// Las modalidades se DERIVAN del catálogo cargado, no se escriben a mano: estaban fijas en
+// ['online','presencial'] y eso fallaba por los dos lados. En Carver, donde los 38 programas son en
+// línea, el filtro invitaba a buscar "presencial" y devolver cero. En Postgrados dejaba fuera la
+// modalidad 'hibrida', que sí existe en el catálogo y no se podía filtrar. Con una sola modalidad el
+// filtro no se ofrece: no discrimina nada.
+const MODALIDADES = [...new Set(PROGRAMAS.map((p) => p.modalidad).filter(Boolean))].sort();
+const FILTRO_MODALIDAD = MODALIDADES.length > 1 ? { modalidad: { type: 'string', enum: MODALIDADES } } : {};
+
+const FILTRO_SEDE =
+  marca.key === 'carver'
+    ? {}
+    : {
+        sede: {
+          type: 'string',
+          enum: ['Santiago', 'Temuco'],
+          description:
+            'NO usar por defecto. Solo si la herramienta ya te indicó que el programa se imparte en varias sedes presenciales (nunca para programas online).',
+        },
+      };
+
+// Carver cotiza distinto: beca del 50% ofrecible de entrada y TRES formas de pago con precios fijos.
+const DESC_PRECIO_CARVER =
+  'Devuelve el precio de un programa de Carver: arancel de LISTA, la Beca George Washington Carver Grant (50%) ' +
+  'que puedes ofrecer directamente, y las TRES formas de pago (mensualidades, semestral y contado) con sus ' +
+  'totales. Los cursos cortos salen como gratis, con el costo del certificado. Úsala SIEMPRE que pregunten por ' +
+  'precio, "cuánto sale en total", becas, cuotas o financiamiento; nunca cotices de memoria ni con el arancel de ' +
+  'detalle_programa. Todos los programas son en línea: NO existe el concepto de sede. Si el programa no está ' +
+  'disponible (cupos completos u otro motivo), la herramienta te lo indica para que NO lo cotices.';
 
 export const tools = [
   {
@@ -22,7 +54,7 @@ export const tools = [
         // ofrece uno que el catálogo no usa la búsqueda devuelve cero en silencio.
         tipo: { type: 'string', enum: marca.tiposPrograma },
         ...FILTRO_FACULTAD,
-        modalidad: { type: 'string', enum: ['online', 'presencial'] },
+        ...FILTRO_MODALIDAD,
         texto: { type: 'string', description: 'Búsqueda libre por nombre o tema (ej. "MBA", "inteligencia artificial")' },
       },
       required: [],
@@ -46,7 +78,7 @@ export const tools = [
   },
   {
     name: 'consultar_condiciones_comerciales',
-    description:
+    description: marca.key === 'carver' ? DESC_PRECIO_CARVER :
       'Devuelve el precio de un programa: por DEFECTO el arancel de LISTA + matrícula + total de lista (lo que se ' +
       'entrega primero), y por separado el bloque "descuento" (descuento institucional disponible) que se revela ' +
       'SOLO si la persona pregunta explícitamente si hay descuentos/becas/promociones. Incluye las cuotas Toku. ' +
@@ -58,8 +90,8 @@ export const tools = [
     input_schema: {
       type: 'object',
       properties: {
-        programa: { type: 'string', description: 'Nombre del programa (ej. "Magíster en Marketing Digital").' },
-        sede: { type: 'string', enum: ['Santiago', 'Temuco'], description: 'NO usar por defecto. Solo si la herramienta ya te indicó que el programa se imparte en varias sedes presenciales (nunca para programas online).' },
+        programa: { type: 'string', description: `Nombre del programa (ej. "${marca.key === 'carver' ? 'Maestría en Inteligencia Artificial' : 'Magíster en Marketing Digital'}").` },
+        ...FILTRO_SEDE,
       },
       required: ['programa'],
     },
@@ -81,7 +113,10 @@ export const tools = [
           type: 'string',
           description: 'Teléfono de contacto que entregue el cliente; se agrega a su ficha (no reemplaza el de WhatsApp).',
         },
-        rut: { type: 'string' },
+        rut: {
+          type: 'string',
+          description: `Documento de identidad (${marca.etiquetaDocumento}) si el cliente lo entrega. Acepta el formato de su país; no insistas ni lo valides.`,
+        },
         profesion: { type: 'string', description: 'Profesión u ocupación del cliente, si la entrega (parte de los antecedentes para su postulación/matrícula).' },
         direccion: { type: 'string', description: 'Dirección del cliente, si la entrega (parte de los antecedentes para su postulación/matrícula).' },
         programa_interes: {

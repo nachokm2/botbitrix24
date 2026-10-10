@@ -56,3 +56,14 @@ test('precio: si el cliente llega con una tarjeta que YA muestra el descuento, e
   // Y la regla general sigue vigente para quien llega de cero
   assert.match(SYSTEM_PROMPT, /NO menciones el descuento por iniciativa propia/);
 });
+
+// El enum de modalidad estaba fijo en ['online','presencial'] y dejaba fuera 'hibrida', que sí
+// existe en el catálogo: esos programas no se podían filtrar. Ahora se deriva del catálogo.
+test('sin MARCA: el filtro de modalidad cubre TODAS las del catálogo, incluida hibrida', async () => {
+  const { tools } = await import('../src/ai/tools');
+  const { PROGRAMAS } = await import('../src/ai/catalog');
+  const t: any = (tools as any[]).find((x) => x.name === 'consultar_programas');
+  const delCatalogo = [...new Set(PROGRAMAS.map((p: any) => p.modalidad).filter(Boolean))].sort();
+  assert.deepEqual(t.input_schema.properties.modalidad.enum, delCatalogo);
+  assert.ok(delCatalogo.includes('hibrida'), 'la modalidad híbrida existe y debe poder filtrarse');
+});

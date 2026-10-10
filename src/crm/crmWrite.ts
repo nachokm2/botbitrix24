@@ -1,3 +1,4 @@
+import { marca } from '../marca';
 import { callBitrix, callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { log } from '../log';
@@ -158,7 +159,8 @@ export async function addNota(type: CrmEntity['type'], id: number, data: DatosCl
       data.apellido ? `Apellido: ${data.apellido}` : '',
       data.email ? `Email: ${data.email}` : '',
       data.telefono ? `Teléfono: ${data.telefono}` : '',
-      data.rut ? `RUT: ${data.rut}` : '',
+      // La etiqueta sale de la marca: "RUT" solo aplica en Chile y Carver atiende cinco países.
+      data.rut ? `${marca.etiquetaDocumento}: ${data.rut}` : '',
       data.profesion ? `Profesión: ${data.profesion}` : '',
       data.direccion ? `Dirección: ${data.direccion}` : '',
       data.comentario ? `Nota: ${data.comentario}` : '',

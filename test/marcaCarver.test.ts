@@ -253,3 +253,33 @@ test('marca=carver: el prompt no ofrece llamadas ni nombra solicitar_llamada', (
   assert.doesNotMatch(SYSTEM_PROMPT, /ni ofrezcas la llamada/);
   assert.match(SYSTEM_PROMPT, /NO ofrezcas llamarlo tú/, 'y sí debe decir explícitamente que no llama');
 });
+
+// El esquema de la herramienta de precios estaba cableado a Postgrados: hablaba de "arancel de lista
+// y bloque descuento" (la estructura de la otra marca) y ofrecía elegir sede entre Santiago y
+// Temuco. Carver es 100% en línea en cinco países: el bot podía preguntarle a un cliente peruano
+// por un campus chileno.
+test('marca=carver: la herramienta de precios no ofrece sede ni describe la estructura de Postgrados', async () => {
+  const t: any = tools.find((x: any) => x.name === 'consultar_condiciones_comerciales');
+  assert.ok(!('sede' in t.input_schema.properties), 'Carver no tiene sedes: es 100% en línea');
+  assert.match(t.description, /Beca George Washington Carver Grant/);
+  assert.match(t.description, /TRES formas de pago/);
+  assert.doesNotMatch(t.description, /bloque "descuento"/, 'esa es la estructura de Postgrados');
+  assert.doesNotMatch(JSON.stringify(t), /Magíster|Temuco|Santiago/);
+});
+
+// Los 38 programas de Carver son en línea: ofrecer el filtro de modalidad invitaba al modelo a
+// buscar "presencial" y recibir cero resultados. Las modalidades se derivan del catálogo real.
+test('marca=carver: no ofrece filtrar por modalidad porque todo es en línea', () => {
+  const t: any = tools.find((x: any) => x.name === 'consultar_programas');
+  assert.ok(!('modalidad' in t.input_schema.properties), 'con una sola modalidad el filtro no discrimina nada');
+  assert.equal(new Set(PROGRAMAS.map((p: any) => p.modalidad)).size, 1);
+});
+
+// "RUT" es el documento chileno y Carver atiende Chile, Perú, Ecuador, Colombia y República
+// Dominicana: pedirle el RUT a un cliente peruano no se entiende.
+test('marca=carver: el documento de identidad se pide como RUT/DNI, no solo RUT', () => {
+  assert.equal(marca.etiquetaDocumento, 'RUT/DNI');
+  const t: any = tools.find((x: any) => x.name === 'registrar_interes_crm');
+  assert.match(t.input_schema.properties.rut.description, /RUT\/DNI/);
+  assert.match(t.input_schema.properties.rut.description, /formato de su país/);
+});

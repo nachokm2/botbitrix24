@@ -54,6 +54,9 @@ export type Marca = {
    *  a seguir el caso. Si no hay un responsable resoluble (chat sin negociación todavía), cae al
    *  nombre del bot. Postgrados se presenta siempre como Sofía. */
   sePresentaComoAsesor: boolean;
+  /** Cómo se llama el documento de identidad para esta marca. Postgrados atiende Chile y pide RUT;
+   *  Carver atiende cinco países, donde ese documento se llama distinto en cada uno. */
+  etiquetaDocumento: string;
   /** ¿Expone los canales de webchat y redes (Instagram/Messenger) además de WhatsApp? Carver es
    *  SOLO WhatsApp: dejar vivos esos endpoints en su servicio significaba superficie pública sin uso
    *  y, peor, respondiendo con la identidad de Postgrados — sus prompts no están parametrizados por
@@ -82,6 +85,7 @@ const POSTGRADOS: Marca = {
   tieneVoz: true,
   capturaDocumentos: true,
   sePresentaComoAsesor: false,
+  etiquetaDocumento: 'RUT',
   otrosCanales: true,
   etiquetaPanel: 'Postgrados',
   tiposPrograma: ['magister', 'diplomado', 'especialidad'],
@@ -117,6 +121,7 @@ const CARVER: Marca = {
   tieneVoz: false,
   capturaDocumentos: false,
   sePresentaComoAsesor: true,
+  etiquetaDocumento: 'RUT/DNI',
   otrosCanales: false,
   etiquetaPanel: 'Carver',
   tiposPrograma: ['licenciatura', 'maestria', 'curso'],
