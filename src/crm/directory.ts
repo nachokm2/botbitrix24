@@ -121,27 +121,49 @@ export async function getDealAsesores(
 // por negociación porque getDealAsesores son DOS llamadas a Bitrix (crm.deal.get + user.get) y el
 // limitador las serializa: sin caché, cada turno de cada conversación pagaba esa latencia.
 const IDENTIDAD_TTL_MS = 5 * 60 * 1000;
-const identidadCache = new Map<number, { at: number; valor: IdentidadAsesor | null }>();
+const identidadCacheK = new Map<string, { at: number; valor: IdentidadAsesor | null }>();
 
 export type IdentidadAsesor = { nombre: string; email?: string; telefono?: string };
 
-/** Nombre, correo y teléfono del responsable de la negociación. null si no se puede resolver (sin
- *  deal, sin responsable, o un usuario que Bitrix no devuelve con nombre real). */
-export async function getIdentidadAsesor(dealId: number, auth: Auth): Promise<IdentidadAsesor | null> {
-  const previo = identidadCache.get(dealId);
+/** Nombre, correo y teléfono del responsable de una NEGOCIACIÓN, un LEAD o un CONTACTO — en ese orden
+ *  de preferencia. El lead importa: la mitad de las conversaciones nuevas de WhatsApp entran como
+ *  lead sin negociación todavía, y mirando solo deals el bot se quedaba sin asesor que adoptar y se
+ *  presentaba de forma genérica justamente en el primer contacto. null si no hay responsable
+ *  resoluble o Bitrix no devuelve un nombre real. */
+export async function getIdentidadAsesor(
+  entidades: { deal?: number; lead?: number; contact?: number },
+  auth: Auth,
+): Promise<IdentidadAsesor | null> {
+  const metodo = entidades.deal
+    ? (['crm.deal.get', entidades.deal] as const)
+    : entidades.lead
+      ? (['crm.lead.get', entidades.lead] as const)
+      : entidades.contact
+        ? (['crm.contact.get', entidades.contact] as const)
+        : null;
+  if (!metodo) return null;
+  const clave = `${metodo[0]}#${metodo[1]}`;
+  const previo = identidadCacheK.get(clave);
   if (previo && Date.now() - previo.at < IDENTIDAD_TTL_MS) return previo.valor;
+
   let valor: IdentidadAsesor | null = null;
   try {
-    const { responsable } = await getDealAsesores(dealId, auth);
-    // "Usuario 12345" es el relleno de getDealAsesores cuando Bitrix no devuelve el usuario: con eso
-    // el bot se presentaría como "Usuario 12345", que es peor que no presentarse con nombre.
-    if (responsable && !responsable.nombre.startsWith('Usuario ')) {
-      valor = { nombre: responsable.nombre, email: responsable.email, telefono: responsable.telefono };
+    const r = await callCrm<any>(metodo[0], { id: metodo[1] }, auth);
+    const asignado = Number(r?.ASSIGNED_BY_ID ?? r?.assignedById ?? 0);
+    if (!asignado) {
+      identidadCacheK.set(clave, { at: Date.now(), valor: null });
+      return null;
+    }
+    const [u] = await getUsuarios([asignado], auth);
+    // "Usuario 12345" es el relleno cuando Bitrix no devuelve el usuario: con eso el bot se
+    // presentaría como "Usuario 12345", que es peor que no presentarse con nombre.
+    if (u && !u.nombre.startsWith('Usuario ')) {
+      valor = { nombre: u.nombre, email: u.email, telefono: u.telefono };
     }
   } catch (e) {
-    log.warn('getIdentidadAsesor falló', { err: String(e), dealId });
+    log.warn('getIdentidadAsesor falló', { err: String(e), entidad: clave });
     return previo?.valor ?? null; // ante un fallo puntual, se prefiere la identidad anterior
   }
-  identidadCache.set(dealId, { at: Date.now(), valor });
+  identidadCacheK.set(clave, { at: Date.now(), valor });
   return valor;
 }

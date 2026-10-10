@@ -31,7 +31,7 @@ export async function registerBot(auth: Auth): Promise<number> {
       EVENT_WELCOME_MESSAGE: `${config.baseUrl}/events/bot/welcome`,
       EVENT_BOT_DELETE: `${config.baseUrl}/events/bot/delete`,
       PROPERTIES: {
-        NAME: marca.botNombre,
+        NAME: marca.botNombreRegistro,
         COLOR: 'AZURE',
         WORK_POSITION: marca.botCargo,
       },
@@ -52,7 +52,7 @@ export async function updateBot(auth: Auth, botId: number) {
       BOT_ID: botId,
       FIELDS: {
         PROPERTIES: {
-          NAME: marca.botNombre,
+          NAME: marca.botNombreRegistro,
           COLOR: 'AZURE',
           WORK_POSITION: marca.botCargo,
         },

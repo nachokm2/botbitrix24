@@ -10,8 +10,13 @@ export type MarcaKey = 'postgrados' | 'carver';
 
 export type Marca = {
   key: MarcaKey;
-  /** Nombre visible del bot en Open Lines (imbot.register PROPERTIES.NAME). */
+  /** Nombre con el que el bot HABLA (y con el que se presenta si no hay asesor que adoptar). */
   botNombre: string;
+  /** Nombre con el que queda REGISTRADO en Bitrix (imbot.register PROPERTIES.NAME). Se separa de
+   *  botNombre porque las dos marcas comparten portal y ambas llamaban a su bot "Sofía": en el
+   *  desplegable de configuración del canal aparecían dos entradas idénticas y elegir la equivocada
+   *  mandaba el canal de una marca al bot de la otra. */
+  botNombreRegistro: string;
   /** Cargo visible junto al nombre en el chat. */
   botCargo: string;
   /** Cómo se presenta en el prompt: "Eres {botNombre}, asesora comercial de {organizacion}." */
@@ -60,6 +65,7 @@ export type Marca = {
 const POSTGRADOS: Marca = {
   key: 'postgrados',
   botNombre: 'Sofía',
+  botNombreRegistro: 'Sofía · Postgrados UA',
   botCargo: 'Asesora de Admisión de Postgrados',
   organizacion: 'la Universidad Autónoma de Chile (unidad de Postgrados)',
   espanol: 'español de Chile',
@@ -91,6 +97,7 @@ const POSTGRADOS: Marca = {
 const CARVER: Marca = {
   key: 'carver',
   botNombre: 'Sofía',
+  botNombreRegistro: 'Sofía · Carver',
   botCargo: 'Asesora de Admisión de Carver University',
   organizacion: 'Carver University',
   espanol: 'español neutro latinoamericano (atiendes a Chile, Perú, Ecuador, Colombia y República Dominicana: no uses chilenismos ni modismos de un solo país)',

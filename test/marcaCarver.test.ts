@@ -220,3 +220,19 @@ test('marca=carver: ante una pregunta de acreditación no la confunde con la lic
   assert.match(SYSTEM_PROMPT, /NUNCA afirmes que el programa está acreditado/);
   assert.match(SYSTEM_PROMPT, /la licencia autoriza a operar, la acreditación certifica la calidad académica/);
 });
+
+// La primera conversación real de Carver llegó como lead SIN negociación: el bot no tenía asesor
+// que adoptar y se presentó como "el asistente virtual de Carver University", que es justo lo que
+// no debe decir. La regla tiene que valer siempre, no solo cuando hay asesor.
+test('marca=carver: nunca se presenta como bot ni asistente virtual, con o sin asesor', () => {
+  assert.match(SYSTEM_PROMPT, /NUNCA digas que eres un bot, un asistente virtual, una IA/);
+  assert.match(SYSTEM_PROMPT, /ni siquiera para aclarar un malentendido/);
+});
+
+// Pedido de Carver: cordial y formal, pero sin la rigidez de Postgrados. Y sin formato de informe:
+// la primera respuesta real salió con tablas y negritas, que en WhatsApp se leen mal.
+test('marca=carver: el tono es cordial y sin formato de informe', () => {
+  assert.match(SYSTEM_PROMPT, /sin rigidez ni solemnidad/);
+  assert.match(SYSTEM_PROMPT, /nada de negritas decorativas, tablas ni títulos/);
+  assert.doesNotMatch(SYSTEM_PROMPT, /nunca tuteas ni voseas/, 'esa rigidez es de Postgrados');
+});

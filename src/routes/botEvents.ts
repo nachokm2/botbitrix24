@@ -213,7 +213,9 @@ async function handle(req: Request) {
   // negociación, no como sí mismo. Se resuelve por turno (cacheado 5 min) porque el responsable
   // puede cambiar a mitad de la conversación — p. ej. cuando el reparto automático la asigna.
   const identidadAsesor =
-    marca.sePresentaComoAsesor && crmEntities?.deal ? await getIdentidadAsesor(crmEntities.deal, auth) : null;
+    marca.sePresentaComoAsesor && (crmEntities?.deal || crmEntities?.lead || crmEntities?.contact)
+      ? await getIdentidadAsesor(crmEntities, auth)
+      : null;
 
   const ctxTurno: AgentContext = {
     auth,
