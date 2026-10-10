@@ -44,6 +44,9 @@ export type Marca = {
   /** Facultades para el filtro del mismo nombre. Vacío = la marca no clasifica por facultad y el
    *  filtro NO se ofrece (Carver: sus 38 programas no tienen facultad). */
   facultades: string[];
+  /** Nombre corto para el ítem de menú del panel dentro de Bitrix24. Ambas marcas comparten portal,
+   *  así que el título no puede ser fijo o quedan dos entradas idénticas. */
+  etiquetaPanel: string;
   /** Descripción de consultar_programas: qué catálogo es. La genérica hablaba siempre de postgrados
    *  de la Universidad Autónoma, lo que para otra marca es sencillamente falso. */
   catalogoDescripcion: string;
@@ -62,6 +65,7 @@ const POSTGRADOS: Marca = {
   usaPlanillaComercial: true,
   tieneVoz: true,
   capturaDocumentos: true,
+  etiquetaPanel: 'Postgrados',
   tiposPrograma: ['magister', 'diplomado', 'especialidad'],
   facultades: [
     'Administración y Negocios',
@@ -91,6 +95,7 @@ const CARVER: Marca = {
   usaPlanillaComercial: false,
   tieneVoz: false,
   capturaDocumentos: false,
+  etiquetaPanel: 'Carver',
   tiposPrograma: ['licenciatura', 'maestria', 'curso'],
   facultades: [], // los 38 programas de Carver no están clasificados por facultad
   catalogoDescripcion:

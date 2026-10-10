@@ -1,5 +1,6 @@
 import { callBitrix } from './client';
 import { config } from '../config';
+import { marca } from '../marca';
 import { log } from '../log';
 import type { Auth } from '../store';
 
@@ -37,8 +38,11 @@ async function bindPage(
   }
 }
 
+// El título lleva la marca porque Postgrados y Carver conviven en el MISMO portal de Bitrix: con el
+// título fijo, instalar la segunda app dejaba dos ítems de menú llamados igual y no había forma de
+// saber cuál panel se estaba abriendo.
 export function bindDashboard(auth: Auth) {
-  return bindPage(auth, '/app', 'Agente Postgrados', 'Panel de métricas del asistente de IA');
+  return bindPage(auth, '/app', `Agente ${marca.etiquetaPanel}`, `Panel de métricas del asistente de IA · ${marca.organizacion}`);
 }
 
 export function bindCalls(auth: Auth) {

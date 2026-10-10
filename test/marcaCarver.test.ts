@@ -84,3 +84,11 @@ test('consultar_programas: el filtro de tipo tolera la grafía natural del model
   assert.equal(buscarProgramas({ tipo: 'Maestría' }).length, buscarProgramas({ tipo: 'maestria' }).length);
   assert.ok(buscarProgramas({ tipo: 'MAESTRIA' }).length > 0);
 });
+
+// Las dos marcas viven en el MISMO portal de Bitrix24, así que el ítem de menú del panel no puede
+// llamarse igual: al instalar la segunda app quedaban dos entradas "Agente Postgrados" y no había
+// forma de distinguir cuál panel abría cada una.
+test('marca=carver: el panel se registra con el nombre de la marca, no con el de Postgrados', async () => {
+  assert.equal(marca.etiquetaPanel, 'Carver');
+  assert.ok(!/Postgrados/.test(`Agente ${marca.etiquetaPanel}`), 'el título no puede decir Postgrados');
+});
