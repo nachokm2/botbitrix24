@@ -5,7 +5,7 @@ import { callBitrix, callWebhook } from '../bitrix/client';
 import { getDealAsesores } from '../crm/directory';
 import { bindDashboard, bindCalls } from '../bitrix/placement';
 import { syncCalls } from '../crm/callSync';
-import { dbEnabled } from '../store/db';
+import { dbEnabled, dbDialogosTodos, dbBorrarDialogos } from '../store/db';
 import { config } from '../config';
 import { log } from '../log';
 import type { BitrixCategory, BitrixCategoryListResponse, BitrixStatus, BitrixStatusListResponse } from '../bitrix/types';
@@ -225,4 +225,23 @@ export async function placementInfo(_req: Request, res: Response) {
     out.appError = String(e);
   }
   return res.json({ ok: true, ...out });
+}
+
+/** Lista los diálogos registrados (solo lectura). GET /setup/dialogos */
+export async function dialogosListar(_req: Request, res: Response) {
+  return res.json({ ok: true, dialogos: await dbDialogosTodos() });
+}
+
+/**
+ * Borra los diálogos indicados de la auditoría. GET /setup/dialogos/borrar?ids=a,b
+ * Irreversible, y por eso pide los ids uno por uno: sin comodines ni prefijos.
+ */
+export async function dialogosBorrar(req: Request, res: Response) {
+  const ids = String(req.query.ids ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (!ids.length) return res.status(400).json({ ok: false, error: 'Falta ids=dialogo1,dialogo2 (explícitos).' });
+  try {
+    return res.json({ ok: true, ...(await dbBorrarDialogos(ids)) });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e) });
+  }
 }

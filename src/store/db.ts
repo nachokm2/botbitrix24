@@ -1104,3 +1104,40 @@ export async function dbCampaignDashboard(programCode: string): Promise<Record<s
     return null;
   }
 }
+
+/** Todos los diálogos registrados, con su volumen y tipos de evento. Para distinguir conversaciones
+ *  reales de pruebas antes de borrar nada (ver dbBorrarDialogos). */
+export async function dbDialogosTodos(): Promise<any[]> {
+  if (!pool) return [];
+  try {
+    const r = await pool.query(
+      `SELECT dialog_id,
+              count(*)::int eventos,
+              count(*) FILTER (WHERE type='turn')::int turnos,
+              min(ts) inicio, max(ts) fin,
+              max(crm_entity) crm_entity,
+              (array_agg(detail->>'message' ORDER BY ts ASC) FILTER (WHERE type='turn'))[1] AS primer_mensaje
+       FROM audit_log WHERE dialog_id IS NOT NULL
+       GROUP BY dialog_id ORDER BY max(ts) DESC`,
+    );
+    return r.rows;
+  } catch (err) {
+    log.warn('dbDialogosTodos falló', { err: String(err) });
+    return [];
+  }
+}
+
+/**
+ * Borra TODOS los eventos de los diálogos indicados. Irreversible.
+ *
+ * Existe porque las conversaciones de prueba inflan las métricas del panel: con 4 conversaciones
+ * registradas y 3 de ellas pruebas, cualquier porcentaje que se calcule es ficción. Exige ids
+ * EXPLÍCITOS a propósito — nada de prefijos ni comodines — para que no se pueda vaciar la auditoría
+ * por accidente con un patrón más amplio de lo previsto.
+ */
+export async function dbBorrarDialogos(dialogIds: string[]): Promise<{ borrados: number; dialogos: string[] }> {
+  if (!pool || !dialogIds.length) return { borrados: 0, dialogos: [] };
+  const r = await pool.query(`DELETE FROM audit_log WHERE dialog_id = ANY($1::text[])`, [dialogIds]);
+  log.warn('audit_log: diálogos borrados a mano', { dialogos: dialogIds, filas: r.rowCount });
+  return { borrados: r.rowCount ?? 0, dialogos: dialogIds };
+}
