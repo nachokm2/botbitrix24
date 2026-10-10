@@ -167,3 +167,33 @@ export async function getIdentidadAsesor(
   identidadCacheK.set(clave, { at: Date.now(), valor });
   return valor;
 }
+
+/** Datos de contacto que el CRM YA tiene de esta persona. */
+export type DatosConocidos = { nombre?: string; email?: string; telefono?: string };
+
+const conocidosCache = new Map<number, { at: number; valor: DatosConocidos }>();
+
+/**
+ * Nombre, correo y teléfono que ya figuran en el CONTACTO de Bitrix.
+ *
+ * Sin esto el bot pedía el nombre en cada mensaje aunque el contacto existiera desde la campaña que
+ * originó la conversación. Un cliente real lo reclamó: "¿por qué me pides mi nombre si lo debes
+ * tener?" — y tenía razón. Preguntar lo que ya se sabe desgasta y resta credibilidad.
+ */
+export async function getDatosConocidos(contactId: number, auth: Auth): Promise<DatosConocidos> {
+  const previo = conocidosCache.get(contactId);
+  if (previo && Date.now() - previo.at < IDENTIDAD_TTL_MS) return previo.valor;
+  let valor: DatosConocidos = {};
+  try {
+    const c = await callCrm<any>('crm.contact.get', { id: contactId }, auth);
+    const nombre = [c?.NAME, c?.LAST_NAME].filter(Boolean).join(' ').trim();
+    const email = Array.isArray(c?.EMAIL) ? c.EMAIL[0]?.VALUE : undefined;
+    const telefono = Array.isArray(c?.PHONE) ? c.PHONE[0]?.VALUE : undefined;
+    valor = { nombre: nombre || undefined, email, telefono };
+  } catch (e) {
+    log.warn('getDatosConocidos falló', { err: String(e), contactId });
+    return previo?.valor ?? {};
+  }
+  conocidosCache.set(contactId, { at: Date.now(), valor });
+  return valor;
+}

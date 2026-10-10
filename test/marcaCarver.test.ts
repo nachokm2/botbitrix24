@@ -324,3 +324,27 @@ test('marca=carver: con pocos resultados no pide resumir (listarlos ahí sí ayu
 test('marca=carver: el prompt prohíbe enumerar catálogos completos', () => {
   assert.match(SYSTEM_PROMPT, /NO enumeres catálogos completos/);
 });
+
+// Un cliente real reclamó: "¿por qué me pides mi nombre si lo debes tener?". Tenía razón — su ficha
+// existía desde la campaña que originó la conversación, pero el bot nunca la miraba y lo pedía en
+// cada mensaje. Preguntar lo que ya se sabe desgasta y resta credibilidad.
+test('el bot no vuelve a pedir los datos que el CRM ya tiene', async () => {
+  const { bloqueDatosConocidos } = await import('../src/ai/agentLoop');
+  const b = bloqueDatosConocidos({ nombre: 'Andrea García', email: 'andrea@correo.cl' });
+  assert.match(b, /nombre: Andrea García/);
+  assert.match(b, /andrea@correo\.cl/);
+  assert.match(b, /NO se los vuelvas a pedir/);
+  assert.match(b, /pide ÚNICAMENTE los que falten/);
+  assert.equal(bloqueDatosConocidos({}), '', 'sin datos conocidos no agrega nada al prompt');
+});
+
+// La frase de reserva se usaba cuando el modelo no devolvía texto. Estaba cableada a Postgrados y
+// tuteaba: un cliente de Carver escribió "me interesa el MBA" y recibió "¿En qué puedo ayudarte con
+// nuestros postgrados?", perdiendo el hilo.
+test('marca=carver: la frase de reserva nombra a Carver y trata de usted', async () => {
+  const { textOf } = await import('../src/ai/agentLoop');
+  const t = (textOf as any)({ content: [] });
+  assert.match(t, /Carver University/);
+  assert.doesNotMatch(t, /postgrados/i);
+  assert.doesNotMatch(t, /ayudarte/, 'Carver trata de usted');
+});

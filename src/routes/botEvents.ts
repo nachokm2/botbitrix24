@@ -13,7 +13,7 @@ import { inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { resolveAllEntities, loadPriorContext, logConversationTurn } from '../crm/chat';
 import { primaryEntity } from '../crm/entities';
-import { esEmpleadoBitrix, getIdentidadAsesor } from '../crm/directory';
+import { esEmpleadoBitrix, getIdentidadAsesor, getDatosConocidos } from '../crm/directory';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
@@ -217,9 +217,14 @@ async function handle(req: Request) {
       ? await getIdentidadAsesor(crmEntities, auth)
       : null;
 
+  // Lo que el CRM ya sabe de la persona: evita pedirle el nombre que ya está en su ficha. Un cliente
+  // real lo reclamó ("¿por qué me pides mi nombre si lo debes tener?") y tenía razón.
+  const datosConocidos = crmEntities?.contact ? await getDatosConocidos(crmEntities.contact, auth) : null;
+
   const ctxTurno: AgentContext = {
     auth,
     identidadAsesor,
+    datosConocidos,
     conversationId: dialogId,
     chatId,
     botId,

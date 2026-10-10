@@ -1,5 +1,6 @@
 import { anthropic } from './client';
 import { tools } from './tools';
+import { marca } from '../marca';
 import { executeTool } from './toolRunner';
 import { getHistory, setHistory } from './memory';
 import type { AgentContext, ChannelProfile } from '../core/channel';
@@ -47,6 +48,23 @@ export function priorContextMessage(priorContext: string) {
  * en el historial, así que no se acumula ni se re-envía. El cacheo sigue funcionando: hay un prefijo
  * distinto por asesor, no por conversación.
  */
+/**
+ * Lo que el CRM YA sabe de la persona, para que el bot no lo pregunte de nuevo. Un cliente real
+ * reclamó que le pidieran el nombre en cada mensaje teniendo su ficha creada por la campaña que
+ * originó la conversación: preguntar lo que ya se sabe desgasta y resta credibilidad.
+ */
+export function bloqueDatosConocidos(d: { nombre?: string; email?: string; telefono?: string }): string {
+  const tiene = [d.nombre && `nombre: ${d.nombre}`, d.email && `correo: ${d.email}`, d.telefono && `teléfono: ${d.telefono}`].filter(Boolean);
+  if (!tiene.length) return '';
+  return (
+    `
+
+DATOS QUE EL CRM YA TIENE de esta persona — ${tiene.join(', ')}. ` +
+    'NO se los vuelvas a pedir: ya los tienes. Úsalos con naturalidad (puedes saludarla por su nombre) ' +
+    'y pide ÚNICAMENTE los que falten de la lista anterior. Si la persona te corrige alguno, regístralo con registrar_interes_crm.'
+  );
+}
+
 export function bloqueIdentidad(
   a: { nombre: string; email?: string; telefono?: string },
   esPrimerTurno: boolean,
@@ -131,7 +149,7 @@ export async function runConversation(
     messages.push({ role: 'assistant', content: resp.content });
 
     const toolUses = (resp.content as any[]).filter((b) => b.type === 'tool_use');
-    if (toolUses.length === 0) return { text: textOf(resp), messages };
+    if (toolUses.length === 0) return { text: textOf(resp, auditId), messages };
 
     // Ejecuta las tools del turno en paralelo, preservando el orden por tool_use_id.
     const results = await Promise.all(
@@ -197,7 +215,7 @@ export async function runConversationStream(
     messages.push({ role: 'assistant', content: resp.content });
 
     const toolUses = (resp.content as any[]).filter((b) => b.type === 'tool_use');
-    if (toolUses.length === 0) return { text: fullText || textOf(resp), messages };
+    if (toolUses.length === 0) return { text: fullText || textOf(resp, auditId), messages };
 
     // VOZ: el turno con herramienta queda MUDO mientras se ejecuta la tool + la segunda inferencia.
     // Si el modelo no dijo nada antes de llamarla, habla un relleno breve (al AZAR, sin repetir el
@@ -256,8 +274,10 @@ export async function runAgentTurn(
     const perfilDelTurno = ctx.identidadAsesor
       ? { ...profile, systemPrompt: profile.systemPrompt + bloqueIdentidad(ctx.identidadAsesor, history.length === 0) }
       : profile;
+    const extra = ctx.datosConocidos ? bloqueDatosConocidos(ctx.datosConocidos) : '';
+    const perfilFinal = extra ? { ...perfilDelTurno, systemPrompt: perfilDelTurno.systemPrompt + extra } : perfilDelTurno;
     const { text, messages: finalMsgs } = await runConversation(
-      { profile: perfilDelTurno, auditId: ctx.conversationId, crmEntity: ctx.crmEntity ?? null },
+      { profile: perfilFinal, auditId: ctx.conversationId, crmEntity: ctx.crmEntity ?? null },
       messages,
       exec,
     );
@@ -289,11 +309,26 @@ function sanitizeHistory(messages: any[]): any[] {
   });
 }
 
-function textOf(resp: any): string {
+/** El texto de la respuesta. Si el modelo no devolvió ninguno —pasa cuando termina en tool_use sin
+ *  acompañarlo de texto, o al cortarse por el tope de iteraciones— cae a una frase de reserva.
+ *
+ *  Esa frase estaba cableada como "¿En qué puedo ayudarte con nuestros postgrados?": nombraba la
+ *  marca equivocada y tuteaba. Un cliente de Carver escribió "me interesa el MBA" y recibió eso,
+ *  perdiendo el hilo. Ahora sale de la marca y además se AUDITA: un turno que cae acá es un turno
+ *  degradado y tiene que verse en el panel, no desaparecer en silencio. */
+export function textOf(resp: any, auditId?: string): string {
   const text = (resp.content as any[])
     .filter((b) => b.type === 'text')
     .map((b) => b.text)
     .join('\n')
     .trim();
-  return text || '¿En qué puedo ayudarte con nuestros postgrados?';
+  if (text) return text;
+  void audit({
+    type: 'error',
+    dialogId: auditId,
+    detail: { etapa: 'respuesta_vacia', err: 'el modelo no devolvió texto; se usó la frase de reserva' },
+  }).catch(() => {});
+  return marca.sePresentaComoAsesor
+    ? `¿En qué puedo ayudarle con los programas de ${marca.organizacion}?`
+    : '¿En qué puedo ayudarte con nuestros postgrados?';
 }
