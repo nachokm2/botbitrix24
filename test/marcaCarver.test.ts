@@ -387,9 +387,11 @@ test('marca=carver: conoce las redes oficiales y no inventa testimonios', () => 
 
 // Flywire es la plataforma de pagos de Carver — aparece además como etapa propia en sus dos embudos
 // de Bitrix ("Flywire invoice"). Nombrarla da confianza: no es una transferencia suelta.
-test('marca=carver: nombra Flywire como plataforma de pago, sin enviar el link ni confirmar pagos', () => {
+test('marca=carver: nombra Flywire pero NUNCA comparte su sitio ni un enlace de pago', () => {
   assert.match(SYSTEM_PROMPT, /FLYWIRE/);
-  assert.match(SYSTEM_PROMPT, /flywire\.com/);
-  assert.match(SYSTEM_PROMPT, /NO haces es enviar tú el link de pago/);
-  assert.match(SYSTEM_PROMPT, /ni confirmar, rechazar o consultar el estado de un pago/);
+  // El enlace de pago es PERSONAL de cada caso. Mandar la dirección general de Flywire induce a
+  // pagar por fuera del link que le corresponde, y eso es un problema difícil de deshacer.
+  assert.doesNotMatch(SYSTEM_PROMPT, /flywire\.com/, 'el sitio de Flywire no debe estar en el prompt');
+  assert.match(SYSTEM_PROMPT, /NUNCA compartas el sitio de Flywire ni ningún enlace de pago/);
+  assert.match(SYSTEM_PROMPT, /el único link válido es el que genera el asesor/);
 });
