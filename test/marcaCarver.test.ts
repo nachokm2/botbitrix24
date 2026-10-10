@@ -372,3 +372,15 @@ test('marca=carver: el prompt pone un tope a cuántas veces pide un dato', () =>
   assert.match(SYSTEM_PROMPT, /NUNCA cierres tus mensajes con la misma petición/);
   assert.match(SYSTEM_PROMPT, /si la persona te lo reprocha/);
 });
+
+// Un cliente preguntó por testimonios y por Instagram, y el bot respondió "no manejo las redes
+// sociales desde acá, pero es buena idea buscarlas": le pasó la tarea justo cuando pedía pruebas
+// para decidirse. Las redes salieron del sitio oficial de Carver.
+test('marca=carver: conoce las redes oficiales y no inventa testimonios', () => {
+  assert.match(SYSTEM_PROMPT, /instagram\.com\/carver\.university\.us/);
+  assert.match(SYSTEM_PROMPT, /youtube\.com\/@CarverUniversity/);
+  assert.match(SYSTEM_PROMPT, /linkedin\.com\/school\/carver-university-us/);
+  assert.match(SYSTEM_PROMPT, /facebook\.com\/carver\.university\.us/);
+  assert.match(SYSTEM_PROMPT, /NUNCA inventes un testimonio/);
+  assert.match(SYSTEM_PROMPT, /casos VERIFICABLES de egresados/);
+});
