@@ -302,3 +302,25 @@ test('marca=carver: el prompt no contradice la identidad de asesor ni la oferta 
   // 5. La beca de Carver se ofrece de entrada, no "solo si preguntan por descuentos".
   assert.match(SYSTEM_PROMPT, /beca institucional sí puedes ofrecerla de entrada/);
 });
+
+// Ante "¿qué maestrías tienen?" el bot listaba las 13 con enlace y emoji por cada una: un muro de
+// texto en WhatsApp. La nota de "afina la búsqueda" solo se disparaba pasando el límite de 20, así
+// que con 13 resultados no aparecía nunca.
+test('marca=carver: con muchos resultados la herramienta pide resumir por área, no enumerar', () => {
+  const r: any = consultarProgramas({ tipo: 'maestria' }, WHATSAPP_PROFILE.catalog.consultar);
+  assert.ok(r.total > 6, `esperaba varias maestrías, hay ${r.total}`);
+  assert.match(r.nota ?? '', /NO los enumeres todos ni pegues sus enlaces/);
+  assert.match(r.nota ?? '', /pregúntale cuál le interesa/);
+});
+
+test('marca=carver: con pocos resultados no pide resumir (listarlos ahí sí ayuda)', () => {
+  const r: any = consultarProgramas({ tipo: 'licenciatura' }, WHATSAPP_PROFILE.catalog.consultar);
+  // Hay 3 licenciaturas en el catálogo pero solo 1 se ofrece: las otras dos tienen cupos completos
+  // hasta marzo de 2027 y el catálogo no muestra lo que no se puede vender.
+  assert.equal(r.total, 1, 'solo Psicología está abierta; las otras dos tienen cupos completos');
+  assert.equal(r.nota, undefined, 'con una o dos opciones se enumeran sin problema');
+});
+
+test('marca=carver: el prompt prohíbe enumerar catálogos completos', () => {
+  assert.match(SYSTEM_PROMPT, /NO enumeres catálogos completos/);
+});

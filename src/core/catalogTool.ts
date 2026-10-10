@@ -38,7 +38,19 @@ export function consultarProgramas(input: any, p: ConsultarPresentation) {
   const programas = p.verbose
     ? shown
     : shown.map((x) => ({ nombre: x.nombre, tipo: x.tipo, facultad: x.facultad, modalidad: x.modalidad }));
-  const nota = all.length === 0 ? p.emptyNote : all.length > p.limit ? p.moreNote : undefined;
+  // Cuántos resultados se pueden ENUMERAR en un chat sin abrumar. La nota de "afina la búsqueda"
+  // solo se disparaba al superar el límite (20), así que con 13 maestrías no aparecía nunca y el bot
+  // las listaba todas, con enlace y emoji por cada una: un muro de texto en WhatsApp. El tope es del
+  // canal, no del catálogo — por eso va acá y no en el prompt, que el modelo puede ignorar.
+  const COMODO_PARA_LISTAR = 6;
+  const nota =
+    all.length === 0
+      ? p.emptyNote
+      : all.length > p.limit
+        ? p.moreNote
+        : all.length > COMODO_PARA_LISTAR
+          ? `Son ${all.length} programas: NO los enumeres todos ni pegues sus enlaces. Dile cuántos hay, menciona las ÁREAS o temas que cubren en una frase, y pregúntale cuál le interesa para profundizar en ese.`
+          : undefined;
 
   if (p.wrapOk) {
     return { ok: true, total: all.length, mostrando: Math.min(all.length, p.limit), programas, nota };
