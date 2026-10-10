@@ -247,11 +247,22 @@ test('barrerSeguimientosVencidos: si el envío del recordatorio FALLA, queda aud
   ]));
   zsets.set('seguimiento:due', new Map([['dlg-envio-falla', Date.now() - 1000]]));
 
+  // El barrido NO envía fuera de la ventana horaria permitida (9-21 en Chile), así que este test
+  // dependía de la hora real a la que se corriera: pasaba de día y fallaba de noche. En CI, que corre
+  // en UTC, eso significaba fallar entre las 00:00 y las 12:00 UTC sin que nada estuviera roto.
+  // Acá se abre la ventana a propósito: lo que se prueba es qué pasa cuando el ENVÍO falla, no el
+  // horario (eso ya lo cubren los tests de proximoHorarioPermitido).
+  const horaInicio = config.seguimientoHoraInicio;
+  const horaFin = config.seguimientoHoraFin;
+  (config as any).seguimientoHoraInicio = 0;
+  (config as any).seguimientoHoraFin = 24;
   fallarEnvio = true;
   try {
     await barrerSeguimientosVencidos();
   } finally {
     fallarEnvio = false;
+    (config as any).seguimientoHoraInicio = horaInicio;
+    (config as any).seguimientoHoraFin = horaFin;
   }
 
   const err = auditCalls.find((a) => a.type === 'error');
