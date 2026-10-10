@@ -67,3 +67,12 @@ test('sin MARCA: el filtro de modalidad cubre TODAS las del catálogo, incluida 
   assert.deepEqual(t.input_schema.properties.modalidad.enum, delCatalogo);
   assert.ok(delCatalogo.includes('hibrida'), 'la modalidad híbrida existe y debe poder filtrarse');
 });
+
+// Las correcciones del prompt de Carver NO deben tocar a Postgrados, que sí tiene voz, sí atiende
+// solo Chile y sí revela el descuento únicamente cuando preguntan.
+test('sin MARCA: conserva la regla antichilenismos, el aviso de asesor asignado y el descuento bajo demanda', async () => {
+  const { SYSTEM_PROMPT } = await import('../src/ai/prompt');
+  assert.match(SYSTEM_PROMPT, /cachai/);
+  assert.match(SYSTEM_PROMPT, /Su asesor asignado/);
+  assert.match(SYSTEM_PROMPT, /el descuento institucional vigente sí puedes informarlo/);
+});

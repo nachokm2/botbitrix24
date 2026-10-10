@@ -283,3 +283,22 @@ test('marca=carver: el documento de identidad se pide como RUT/DNI, no solo RUT'
   assert.match(t.input_schema.properties.rut.description, /RUT\/DNI/);
   assert.match(t.input_schema.properties.rut.description, /formato de su país/);
 });
+
+// Cuatro residuos del prompt de Postgrados que contradecían lo que Carver hace:
+test('marca=carver: el prompt no contradice la identidad de asesor ni la oferta multipaís', () => {
+  // 1. La lista de chilenismos no sirve para una marca que atiende cinco países.
+  assert.doesNotMatch(SYSTEM_PROMPT, /cachai|bacán|cómo estai/);
+  assert.match(SYSTEM_PROMPT, /jerga ni modismos propios de un solo país/);
+
+  // 2 y 3. El bot YA es el asesor: no puede ofrecer "que un asesor lo contacte" ni anunciar que
+  // "su asesor asignado" lo llamará, porque ese asesor es él mismo.
+  assert.doesNotMatch(SYSTEM_PROMPT, /ofrécele que un asesor lo contacte/);
+  assert.doesNotMatch(SYSTEM_PROMPT, /Su asesor asignado/);
+  assert.match(SYSTEM_PROMPT, /ese asesor eres tú/);
+
+  // 4. Carver no tiene llamadas, así que nadie puede haberlas rechazado.
+  assert.doesNotMatch(SYSTEM_PROMPT, /rechazado antes una llamada/);
+
+  // 5. La beca de Carver se ofrece de entrada, no "solo si preguntan por descuentos".
+  assert.match(SYSTEM_PROMPT, /beca institucional sí puedes ofrecerla de entrada/);
+});
