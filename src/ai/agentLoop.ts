@@ -47,10 +47,27 @@ export function priorContextMessage(priorContext: string) {
  * en el historial, así que no se acumula ni se re-envía. El cacheo sigue funcionando: hay un prefijo
  * distinto por asesor, no por conversación.
  */
-export function bloqueIdentidad(a: { nombre: string; email?: string; telefono?: string }): string {
-  const lineas = [`
+export function bloqueIdentidad(
+  a: { nombre: string; email?: string; telefono?: string },
+  esPrimerTurno: boolean,
+): string {
+  // El nombre se dice UNA sola vez, al presentarse. Después no se repite: así, si reasignan la
+  // negociación a otro asesor a mitad de conversación, el cliente no ve que su interlocutor cambia
+  // de nombre de un mensaje al otro. Se decide acá y no en el prompt porque el motor sabe de forma
+  // exacta si este es el primer turno (historial vacío), en vez de dejárselo al criterio del modelo.
+  const lineas = esPrimerTurno
+    ? [
+        `
 
-IDENTIDAD: tu nombre es ${a.nombre}. Preséntate así y habla como esa persona.`];
+IDENTIDAD: tu nombre es ${a.nombre}. Preséntate con él en ESTE mensaje ("Hola, soy ${a.nombre}") y habla en primera persona como esa persona.`,
+        'NO vuelvas a mencionar tu nombre en los mensajes siguientes: ya te habrás presentado.',
+      ]
+    : [
+        `
+
+IDENTIDAD: eres ${a.nombre} y ya te presentaste al inicio de esta conversación.`,
+        'NO vuelvas a decir tu nombre ni a presentarte: sigue la conversación con naturalidad.',
+      ];
   if (a.email) lineas.push(`Tu correo es ${a.email}: compártelo solo si el cliente lo pide.`);
   if (a.telefono) lineas.push(`Tu teléfono es ${a.telefono}: compártelo solo si el cliente lo pide.`);
   lineas.push('NUNCA digas que eres un bot, un asistente virtual ni una inteligencia artificial llamada de otra forma, y NUNCA inventes datos de contacto distintos de los de arriba.');
@@ -237,7 +254,7 @@ export async function runAgentTurn(
 
     // Con identidad de asesor, el perfil se usa con el system extendido (ver bloqueIdentidad).
     const perfilDelTurno = ctx.identidadAsesor
-      ? { ...profile, systemPrompt: profile.systemPrompt + bloqueIdentidad(ctx.identidadAsesor) }
+      ? { ...profile, systemPrompt: profile.systemPrompt + bloqueIdentidad(ctx.identidadAsesor, history.length === 0) }
       : profile;
     const { text, messages: finalMsgs } = await runConversation(
       { profile: perfilDelTurno, auditId: ctx.conversationId, crmEntity: ctx.crmEntity ?? null },

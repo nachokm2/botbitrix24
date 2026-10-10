@@ -127,7 +127,7 @@ test('marca=carver: sin configuración explícita NO hereda los programas piloto
 // el primer mensaje con la persona que después va a seguir su caso.
 test('marca=carver: el bloque de identidad hace que el bot hable como el asesor, con sus datos', async () => {
   const { bloqueIdentidad } = await import('../src/ai/agentLoop');
-  const b = bloqueIdentidad({ nombre: 'Gabriela García', email: 'gabriela@carver.university', telefono: '+56912345678' });
+  const b = bloqueIdentidad({ nombre: 'Gabriela García', email: 'gabriela@carver.university', telefono: '+56912345678' }, true);
 
   assert.match(b, /tu nombre es Gabriela García/);
   assert.match(b, /gabriela@carver\.university/);
@@ -136,9 +136,25 @@ test('marca=carver: el bloque de identidad hace que el bot hable como el asesor,
   assert.match(b, /NUNCA digas que eres un bot/);
 
   // Sin correo ni teléfono, no debe inventarlos ni dejar huecos.
-  const soloNombre = bloqueIdentidad({ nombre: 'Jefferson Dávila' });
+  const soloNombre = bloqueIdentidad({ nombre: 'Jefferson Dávila' }, true);
   assert.match(soloNombre, /tu nombre es Jefferson Dávila/);
   assert.doesNotMatch(soloNombre, /correo es|teléfono es/);
+});
+
+// El nombre se dice UNA vez, al presentarse. Si no, una reasignación a mitad de conversación hacía
+// que el cliente viera a su interlocutor cambiar de nombre de un mensaje al otro, sin explicación.
+test('marca=carver: el nombre solo se da al presentarse, no en los turnos siguientes', async () => {
+  const { bloqueIdentidad } = await import('../src/ai/agentLoop');
+  const asesor = { nombre: 'Gabriela García' };
+
+  const primero = bloqueIdentidad(asesor, true);
+  assert.match(primero, /Preséntate con él en ESTE mensaje/);
+  assert.match(primero, /NO vuelvas a mencionar tu nombre/);
+
+  const siguiente = bloqueIdentidad(asesor, false);
+  assert.match(siguiente, /ya te presentaste/);
+  assert.match(siguiente, /NO vuelvas a decir tu nombre/);
+  assert.doesNotMatch(siguiente, /Preséntate/, 'en un turno posterior no debe volver a presentarse');
 });
 
 test('marca=postgrados NO adopta el nombre del asesor: sigue presentándose como el bot', async () => {
