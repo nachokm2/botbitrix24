@@ -236,3 +236,20 @@ test('marca=carver: el tono es cordial y sin formato de informe', () => {
   assert.match(SYSTEM_PROMPT, /nada de negritas decorativas, tablas ni títulos/);
   assert.doesNotMatch(SYSTEM_PROMPT, /nunca tuteas ni voseas/, 'esa rigidez es de Postgrados');
 });
+
+// Carver es SOLO WhatsApp. Los endpoints de webchat, voz y redes no deben estar vivos en su
+// servicio: son superficie pública sin uso y, peor, responden con la identidad de Postgrados —
+// sus prompts no están parametrizados por marca y dicen "Universidad Autónoma de Chile".
+test('marca=carver: no expone los canales de webchat, voz ni redes', () => {
+  assert.equal(marca.otrosCanales, false);
+  assert.equal(marca.tieneVoz, false);
+});
+
+// Residuos del prompt de Postgrados: mencionaban "la llamada", "el punto 5" y hasta la herramienta
+// solicitar_llamada, que Carver NO lleva. Nombrar una herramienta inexistente invita a usarla.
+test('marca=carver: el prompt no ofrece llamadas ni nombra solicitar_llamada', () => {
+  assert.doesNotMatch(SYSTEM_PROMPT, /solicitar_llamada/, 'esa herramienta no está cargada en Carver');
+  assert.doesNotMatch(SYSTEM_PROMPT, /sin ofrecer antes una llamada/);
+  assert.doesNotMatch(SYSTEM_PROMPT, /ni ofrezcas la llamada/);
+  assert.match(SYSTEM_PROMPT, /NO ofrezcas llamarlo tú/, 'y sí debe decir explícitamente que no llama');
+});

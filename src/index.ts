@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import { fileURLToPath } from 'node:url';
 import { config } from './config';
+import { marca } from './marca';
 import { log } from './log';
 import { runWithRequestContext } from './obs/requestContext';
 import { installHandler, oauthCodeOrNext } from './routes/install';
@@ -162,27 +163,34 @@ app.use('/campaign', requireAdminToken);
 app.post('/campaign/enroll', campaignEnroll);
 app.get('/campaign/status', campaignStatus);
 
-// Fase 2: agente de voz con Vapi
-app.post('/vapi/events', verifyVapiSecret, vapiEvents); // webhook de Vapi (tool-calls, end-of-call-report)
-app.post('/voice/outbound', strictLimiter, verifyVapiSecret, voiceOutbound); // dispara una llamada saliente con Vapi
+// Canales ADEMÁS de WhatsApp: solo se registran si la marca los expone (ver marca.ts). Una marca de
+// un solo canal, como Carver, no debe tener vivos estos endpoints: son superficie pública sin uso y
+// responden con la identidad de Postgrados, porque sus prompts no están parametrizados por marca.
+if (marca.tieneVoz) {
+  // Fase 2: agente de voz con Vapi
+  app.post('/vapi/events', verifyVapiSecret, vapiEvents); // webhook de Vapi (tool-calls, end-of-call-report)
+  app.post('/voice/outbound', strictLimiter, verifyVapiSecret, voiceOutbound); // dispara una llamada saliente con Vapi
 // Callback de WhatsApp Calling: el SBC Asterisk detecta la entrante y golpea este endpoint (GET/POST con
 // ?secret=&from=) para que Sofía DEVUELVA la llamada por el trunk de WhatsApp (la entrante directa no se
 // puede atender por un límite de media de Vapi). Auth propia por secreto dedicado dentro del handler.
-app.get('/whatsapp/inbound-call', strictLimiter, whatsappInboundCall);
-app.post('/whatsapp/inbound-call', strictLimiter, whatsappInboundCall);
+  app.get('/whatsapp/inbound-call', strictLimiter, whatsappInboundCall);
+  app.post('/whatsapp/inbound-call', strictLimiter, whatsappInboundCall);
 // M2: modo Custom LLM (Vapi hace STT/TTS y delega el "cerebro" a nuestro motor, con el perfil de voz).
 // Vapi llama a {model.url}/chat/completions; aceptamos también /vapi/llm por conveniencia.
-app.post('/vapi/llm/chat/completions', strictLimiter, verifyVapiSecret, vapiChatCompletions);
-app.post('/vapi/llm', strictLimiter, verifyVapiSecret, vapiChatCompletions);
+  app.post('/vapi/llm/chat/completions', strictLimiter, verifyVapiSecret, vapiChatCompletions);
+  app.post('/vapi/llm', strictLimiter, verifyVapiSecret, vapiChatCompletions);
+}
 
-// M3: canal Web Chat — widget embebible + su API. Público (chat de sitio) con rate-limit estricto por IP.
-app.get('/webchat', webchatPage);
-app.post('/webchat/message', strictLimiter, requireAllowedOrigin, webchatMessage);
+if (marca.otrosCanales) {
+  // M3: canal Web Chat — widget embebible + su API. Público (chat de sitio) con rate-limit estricto por IP.
+  app.get('/webchat', webchatPage);
+  app.post('/webchat/message', strictLimiter, requireAllowedOrigin, webchatMessage);
 
-// M4: canales Instagram/Messenger (Meta Graph API). GET = handshake de verificación (sin rate-limit,
-// Meta lo llama una sola vez al suscribir). POST = webhook de mensajes, con verificación de firma.
-app.get('/webhooks/meta', metaVerify);
-app.post('/webhooks/meta', strictLimiter, verifyMetaSignature, metaWebhook);
+  // M4: canales Instagram/Messenger (Meta Graph API). GET = handshake de verificación (sin rate-limit,
+  // Meta lo llama una sola vez al suscribir). POST = webhook de mensajes, con verificación de firma.
+  app.get('/webhooks/meta', metaVerify);
+  app.post('/webhooks/meta', strictLimiter, verifyMetaSignature, metaWebhook);
+}
 
 // Inicializa Postgres (auditoría + espejo de llamadas) y arranca el scheduler de sync de llamadas.
 initDb()

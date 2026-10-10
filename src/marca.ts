@@ -54,6 +54,11 @@ export type Marca = {
    *  a seguir el caso. Si no hay un responsable resoluble (chat sin negociación todavía), cae al
    *  nombre del bot. Postgrados se presenta siempre como Sofía. */
   sePresentaComoAsesor: boolean;
+  /** ¿Expone los canales de webchat y redes (Instagram/Messenger) además de WhatsApp? Carver es
+   *  SOLO WhatsApp: dejar vivos esos endpoints en su servicio significaba superficie pública sin uso
+   *  y, peor, respondiendo con la identidad de Postgrados — sus prompts no están parametrizados por
+   *  marca y dicen "Universidad Autónoma de Chile". */
+  otrosCanales: boolean;
   /** Nombre corto para el ítem de menú del panel dentro de Bitrix24. Ambas marcas comparten portal,
    *  así que el título no puede ser fijo o quedan dos entradas idénticas. */
   etiquetaPanel: string;
@@ -77,6 +82,7 @@ const POSTGRADOS: Marca = {
   tieneVoz: true,
   capturaDocumentos: true,
   sePresentaComoAsesor: false,
+  otrosCanales: true,
   etiquetaPanel: 'Postgrados',
   tiposPrograma: ['magister', 'diplomado', 'especialidad'],
   facultades: [
@@ -111,6 +117,7 @@ const CARVER: Marca = {
   tieneVoz: false,
   capturaDocumentos: false,
   sePresentaComoAsesor: true,
+  otrosCanales: false,
   etiquetaPanel: 'Carver',
   tiposPrograma: ['licenciatura', 'maestria', 'curso'],
   facultades: [], // los 38 programas de Carver no están clasificados por facultad
