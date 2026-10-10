@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { marca } from './marca'; // marca.ts no importa nada: no hay ciclo
 
 // Mapa de etapas por embudo para el movimiento por score, ej:
 // {"1":{"alto":"C1:PREPARATION","medio":"C1:UC_JARL1O"},"3":{"alto":"C3:PREPAYMENT_INVOICE","medio":"C3:PREPARATION"}}
@@ -64,6 +65,7 @@ export type MarchaBlancaPrograma = {
 
 // Programas del piloto ("marcha blanca") a medir en el panel. Configurable por si cambian sin tocar
 // código; el default son los 2 programas confirmados para el piloto (ver conversación de lanzamiento).
+// marca.ts no importa nada: no hay ciclo.
 function parseMarchaBlancaProgramas(s?: string): MarchaBlancaPrograma[] {
   const def: MarchaBlancaPrograma[] = [
     {
@@ -88,10 +90,15 @@ function parseMarchaBlancaProgramas(s?: string): MarchaBlancaPrograma[] {
       categoryId: 1, // Diplomados
     },
   ];
-  if (!s) return def;
+  // Sin la variable, el default SOLO vale para Postgrados: son sus 2 diplomados piloto, con sus
+  // asesores y su embudo. Antes se aplicaba a cualquier marca, así que el panel de Carver mostraba
+  // la proyección del correo de lanzamiento de Postgrados y una tabla con "Intervención Terapéutica"
+  // e "Inteligencia Artificial" — programas que Carver no dicta.
+  if (!s) return marca.key === 'postgrados' ? def : [];
   try {
     const p = JSON.parse(s);
-    return Array.isArray(p) && p.length ? p : def;
+    // Un [] explícito significa "sin piloto" y debe respetarse; antes también caía al default.
+    return Array.isArray(p) ? p : def;
   } catch {
     return def;
   }

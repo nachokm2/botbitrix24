@@ -75,6 +75,16 @@ function barsRows(rows, labFn){ rows=rows||[]; if(!rows.length) return '<div cla
 
 function render(d){
   var live=d.live||{counters:{},llm:{}}, c=live.counters||{}, agg=d.agg;
+
+  // El panel lo comparten varias marcas (ver src/marca.ts). Lo que una institución no tiene no se
+  // muestra vacío: se oculta. Carver no tiene facultades, ni los 2 programas de la marcha blanca, ni
+  // la proyección del correo de lanzamiento — dejarlas visibles mostraba secciones en cero que
+  // parecían un bot sin resultados.
+  var marca = d.marca || {};
+  var mostrar = function(id, visible){ var el = document.getElementById(id); if (el) el.style.display = visible ? '' : 'none'; };
+  mostrar('secPiloto', !!marca.tienePiloto);
+  mostrar('secMarchaBlanca', !!marca.tienePiloto);
+  mostrar('secFacultad', marca.tieneFacultades !== false);
   var pick=function(a,b){ return (a!=null)?a:(b||0); };
   var conversaciones = agg? agg.conversaciones : pick(c.conversations);
   var mensajes = agg? agg.turnos : pick(c.inbound);
@@ -101,8 +111,8 @@ function render(d){
     kpi(etapas,'Etapas de deal movidas','Veces que el bot movió la etapa de un Deal en el CRM según el score del lead.','etapas') +
     kpi(scoreAvg,'Score promedio','Promedio de la nota 0-100 que un modelo de IA le asigna a cada conversación evaluada, estimando qué tan probable es que ese lead se matricule (interés claro, datos entregados, urgencia, tono). Esta nota también dispara mover de etapa, auto-llamar o auto-escalar.','score') +
     kpi(operador,'Intervención humana','Veces que un asesor/operador REAL escribió directamente en un chat de WhatsApp (no el bot; se verifica contra Bitrix que sea un empleado, no el cliente). Solo cuenta WhatsApp — por eso puede ser menor que "Escalamientos a asesor" (que suma todos los canales y no confirma que el asesor ya haya escrito), o mayor, si un asesor entra a conversar sin que el bot haya escalado antes.','operador') +
-    kpi(postulantesPiloto,'Postulantes (piloto)','Negociaciones de los 2 programas piloto que están HOY en la etapa "Postulantes" de Bitrix24 — el paso previo a la matrícula, al que el bot mueve cuando el score es alto y ya capturó nombre, correo y teléfono. Es una foto del momento: si la persona matricula, deja de contar acá y pasa a "Matrículas". Acumulado del piloto, NO cambia con el selector Hoy/7 días/30 días/Todo.','postulantes') +
-    kpi(matriculasPiloto,'Matrículas (piloto)','Matrículas reales entre las negociaciones con las que el bot conversó/escaló, de los 2 programas piloto combinados. Acumulado desde el inicio del piloto — NO cambia con el selector Hoy/7 días/30 días/Todo (ver detalle en "Piloto: proyección vs. real" y "Negociaciones que trabajó el bot").','matriculas') +
+    (marca.tienePiloto === false ? '' : kpi(postulantesPiloto,'Postulantes (piloto)','Negociaciones de los 2 programas piloto que están HOY en la etapa "Postulantes" de Bitrix24 — el paso previo a la matrícula, al que el bot mueve cuando el score es alto y ya capturó nombre, correo y teléfono. Es una foto del momento: si la persona matricula, deja de contar acá y pasa a "Matrículas". Acumulado del piloto, NO cambia con el selector Hoy/7 días/30 días/Todo.','postulantes')) +
+    (marca.tienePiloto === false ? '' : kpi(matriculasPiloto,'Matrículas (piloto)','Matrículas reales entre las negociaciones con las que el bot conversó/escaló, de los 2 programas piloto combinados. Acumulado desde el inicio del piloto — NO cambia con el selector Hoy/7 días/30 días/Todo (ver detalle en "Piloto: proyección vs. real" y "Negociaciones que trabajó el bot").','matriculas')) +
     kpi(errores,'Errores','Fallas técnicas del período: el bot no pudo responder, no pudo ENVIAR la respuesta (el cliente se queda esperando), o falló al guardar en el CRM. El detalle de cada una está más abajo, en "Fallas técnicas".','errores');
   animateKpis();
 

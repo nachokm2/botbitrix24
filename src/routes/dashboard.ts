@@ -8,6 +8,7 @@ import { getState } from '../store';
 import { getUsuarios } from '../crm/directory';
 import { bitrixMarchaBlancaScorecard, resolverDialogosPorProgramaPiloto, type ProgramaScorecard } from '../crm/marchaBlanca';
 import { config } from '../config';
+import { marca } from '../marca';
 
 const RANGES = ['today', '7d', '30d', 'all'];
 
@@ -140,6 +141,18 @@ export async function metricsSummary(req: Request, res: Response) {
 
   res.json({
     ok: true,
+    // Identidad y capacidades de la MARCA: el panel se arma con esto en vez de dar por hecho que
+    // siempre es Postgrados. Carver no tiene facultades, ni planilla comercial, ni la proyección del
+    // correo de lanzamiento, así que esas secciones no deben siquiera mostrarse.
+    marca: {
+      key: marca.key,
+      etiqueta: marca.etiquetaPanel,
+      organizacion: marca.organizacion,
+      tiposPrograma: marca.tiposPrograma,
+      tieneFacultades: marca.facultades.length > 0,
+      tienePiloto: config.marchaBlancaProgramas.length > 0,
+      cotiza: marca.cotiza,
+    },
     range,
     kv: kvKind,
     db: dbEnabled() ? 'postgres' : 'off',
@@ -154,7 +167,9 @@ export async function metricsSummary(req: Request, res: Response) {
     marchaBlancaStart: config.marchaBlancaStart,
     bitrixDomain: st.auth?.domain ?? null, // para armar el link directo a cada deal (ver "Deals escalados a asesor")
     piloto: {
-      proyeccion: PILOTO_PROYECCION,
+      // null para una marca sin piloto: la proyección son los números comprometidos en el correo de
+      // lanzamiento de la marcha blanca de Postgrados, no una referencia universal.
+      proyeccion: config.marchaBlancaProgramas.length ? PILOTO_PROYECCION : null,
       real: {
         ...pilotoReal,
         matriculas: matriculasReales,
@@ -171,7 +186,12 @@ export async function metricsSummary(req: Request, res: Response) {
 /** Página del panel (se embebe dentro de Bitrix24 vía placement, y también funciona standalone).
  *  El HTML/CSS/JS viven en archivos estáticos (public/dashboard/) — ver ALT-Baja-7 de la auditoría. */
 export function dashboardPage(_req: Request, res: Response) {
-  res.set('Content-Type', 'text/html; charset=utf-8').send(DASHBOARD_HTML);
+  // El título se inyecta acá y no en el HTML estático: el mismo archivo lo sirven las dos marcas.
+  const tipos = marca.tiposPrograma.map((t) => t.charAt(0).toUpperCase() + t.slice(1));
+  const html = DASHBOARD_HTML.replaceAll('{{PANEL_TITULO}}', `Agente ${marca.etiquetaPanel} — Panel`)
+    .replaceAll('{{PANEL_ORGANIZACION}}', marca.organizacion.replace(/^la /, ''))
+    .replaceAll('{{TIPOS_PROGRAMA}}', tipos.join(', '));
+  res.set('Content-Type', 'text/html; charset=utf-8').send(html);
 }
 
 const DASHBOARD_HTML = readFileSync(fileURLToPath(new URL('../../public/dashboard/index.html', import.meta.url)), 'utf8');

@@ -10,6 +10,7 @@ process.env.NODE_ENV = 'test';
 process.env.REDIS_URL = '';
 
 const { marca } = await import('../src/marca');
+const { config } = await import('../src/config');
 const { PROGRAMAS } = await import('../src/ai/catalog');
 const { getDetalle } = await import('../src/ai/detalles');
 const { SYSTEM_PROMPT } = await import('../src/ai/prompt');
@@ -91,4 +92,30 @@ test('consultar_programas: el filtro de tipo tolera la grafía natural del model
 test('marca=carver: el panel se registra con el nombre de la marca, no con el de Postgrados', async () => {
   assert.equal(marca.etiquetaPanel, 'Carver');
   assert.ok(!/Postgrados/.test(`Agente ${marca.etiquetaPanel}`), 'el título no puede decir Postgrados');
+});
+
+// El panel es el MISMO archivo HTML para las dos marcas. Estaba cableado a Postgrados: el título
+// decía "Agente de Postgrados — Panel" y el subtítulo "Universidad Autónoma de Chile", así que al
+// abrirlo desde Carver se veía la institución equivocada.
+test('marca=carver: el panel se sirve con el título y la organización de Carver', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const html = readFileSync(fileURLToPath(new URL('../public/dashboard/index.html', import.meta.url)), 'utf8');
+
+  // El HTML estático no puede nombrar una institución: se inyecta al servirlo.
+  assert.ok(!/Universidad Autónoma/.test(html), 'el HTML no debe traer la institución escrita');
+  assert.ok(html.includes('{{PANEL_TITULO}}') && html.includes('{{PANEL_ORGANIZACION}}'));
+  assert.ok(html.includes('{{TIPOS_PROGRAMA}}'), 'los tipos de programa también salen de la marca');
+
+  // Y las secciones que no aplican a toda marca tienen que poder ocultarse.
+  for (const id of ['secPiloto', 'secMarchaBlanca', 'secFacultad']) {
+    assert.ok(html.includes(`id="${id}"`), `falta el ancla ${id} para poder ocultar la sección`);
+  }
+});
+
+// Sin MARCHA_BLANCA_PROGRAMAS, la lista por defecto son los 2 diplomados piloto de Postgrados, con
+// sus asesores y su embudo. Se aplicaba a CUALQUIER marca, así que el panel de Carver mostraba la
+// proyección del correo de lanzamiento de Postgrados y una tabla con programas que Carver no dicta.
+test('marca=carver: sin configuración explícita NO hereda los programas piloto de Postgrados', async () => {
+  assert.equal(config.marchaBlancaProgramas.length, 0, 'una marca sin piloto propio no debe traer el de otra');
 });
