@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { snapshot } from '../obs/metrics';
-import { dbMetricsSummary, dbRecentAudit, dbEnabled, dbMarchaBlancaBot, dbPilotoProgresoReal, dbErroresRecientes, dbConversaciones, dbConversacion } from '../store/db';
+import { dbMetricsSummary, dbRecentAudit, dbEnabled, dbMarchaBlancaBot, dbPilotoProgresoReal, dbErroresRecientes, dbConversaciones, dbConversacion, dbTokensSumados } from '../store/db';
 import { kvKind } from '../store/kv';
 import { getState } from '../store';
 import { getUsuarios } from '../crm/directory';
@@ -64,12 +64,13 @@ export async function metricsSummary(req: Request, res: Response) {
   }
   const dialogosCombinados = dialogosPorPrograma ? [...new Set([...dialogosPorPrograma.values()].flat())] : undefined;
 
-  const [live, agg, recent, erroresRecientes, conversaciones, marchaBlancaBot, pilotoReal] = await Promise.all([
+  const [live, agg, recent, erroresRecientes, conversaciones, tokensPersistidos, marchaBlancaBot, pilotoReal] = await Promise.all([
     snapshot(),
     dbMetricsSummary(range),
     dbRecentAudit(15),
     dbErroresRecientes(15),
     dbConversaciones(30),
+    dbTokensSumados(range),
     dbMarchaBlancaBot('all', dialogosPorPrograma), // el scorecard del piloto siempre es "desde siempre" (no sigue el selector Hoy/7d/30d)
     dbPilotoProgresoReal(dialogosCombinados), // proyección vs. real del piloto (correo de lanzamiento) — también "desde siempre"
   ]);
@@ -133,8 +134,11 @@ export async function metricsSummary(req: Request, res: Response) {
     }
   }
 
-  const tin = Number(live.counters['tokens_in'] || 0);
-  const tout = Number(live.counters['tokens_out'] || 0);
+  // El consumo sale de Postgres, no del contador en memoria: ese se reiniciaba en cada despliegue y
+  // obligaba a extrapolar el costo del piloto desde una semana suelta. Se cae al contador en memoria
+  // solo si todavía no hay registros persistidos (instalaciones anteriores a esta medición).
+  const tin = tokensPersistidos ? tokensPersistidos.in : Number(live.counters['tokens_in'] || 0);
+  const tout = tokensPersistidos ? tokensPersistidos.out : Number(live.counters['tokens_out'] || 0);
   const cost =
     config.costInPerMtok > 0 || config.costOutPerMtok > 0
       ? Number(((tin / 1e6) * config.costInPerMtok + (tout / 1e6) * config.costOutPerMtok).toFixed(2))
@@ -159,7 +163,7 @@ export async function metricsSummary(req: Request, res: Response) {
     db: dbEnabled() ? 'postgres' : 'off',
     startedAt: live.startedAt,
     live: { counters: live.counters, llm: live.llm },
-    tokens: { in: tin, out: tout, costUsd: cost },
+    tokens: { in: tin, out: tout, costUsd: cost, persistido: Boolean(tokensPersistidos) },
     agg,
     recent,
     erroresRecientes, // fallas técnicas con motivo y etapa, para poder accionarlas desde el panel
@@ -180,6 +184,7 @@ export async function metricsSummary(req: Request, res: Response) {
         leadsAvanzando: avanzandoReales,
         costoUsdClaude: cost, // el único componente que el bot puede medir solo (los demás: ver factura/panel de uso de cada proveedor)
         costoUsdRailway: config.costoUsdRailway, // actualizado a mano (COSTO_USD_RAILWAY) desde Project → Usage en Railway
+        costoUsdRailwayFecha: config.costoUsdRailwayFecha, // de cuándo es ese número, para que no engañe al envejecer
       },
     },
   });

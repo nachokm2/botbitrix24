@@ -207,3 +207,45 @@ export async function asignarAsesorPorTurno(
     return false;
   }
 }
+
+/**
+ * Asigna la negociación a UN responsable fijo (config.derivarATodo), ignorando el reparto por turno.
+ *
+ * Es el modo "un solo punto de entrada": todas las derivaciones caen en la misma persona, que
+ * distribuye después. Se usa en Carver, donde además cubre un vacío — sin programas piloto
+ * configurados, asignarAsesorPorTurno devuelve false y las derivaciones POR SILENCIO no llegaban a
+ * nadie: el barrido las descartaba sin asignar ni auditar.
+ *
+ * Devuelve true solo si realmente asignó, para que el llamador distinga "se derivó" de "no aplicaba".
+ */
+export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth): Promise<boolean> {
+  const destino = config.derivarATodo;
+  if (!destino) return false;
+
+  let dealId = entities.deal;
+  if (!dealId && entities.contact) {
+    try {
+      const r = await callCrm<Array<{ ID: string }>>(
+        'crm.deal.list',
+        { filter: { CONTACT_ID: entities.contact }, select: ['ID'], order: { DATE_CREATE: 'DESC' } },
+        auth,
+      );
+      const hallado = Array.isArray(r) ? r[0] : undefined;
+      if (hallado?.ID) dealId = Number(hallado.ID);
+    } catch (e) {
+      log.warn('derivarAResponsableFijo: no se pudo buscar el deal del contacto', { err: String(e) });
+    }
+  }
+  if (!dealId) return false;
+
+  try {
+    const d: any = await callCrm('crm.deal.get', { id: dealId, select: ['ASSIGNED_BY_ID'] }, auth);
+    if (Number(d?.ASSIGNED_BY_ID ?? 0) === destino) return true; // ya es suyo: nada que hacer
+    await callCrm('crm.deal.update', { id: dealId, fields: { ASSIGNED_BY_ID: destino } }, auth);
+    log.info('derivarAResponsableFijo: negociación asignada', { dealId, destino });
+    return true;
+  } catch (e) {
+    log.warn('derivarAResponsableFijo: no se pudo asignar', { err: String(e), dealId, destino });
+    return false;
+  }
+}

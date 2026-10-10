@@ -9,7 +9,7 @@ import { config } from '../config';
 import { recordTokens, inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
-import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
+import { asignarAsesorPorTurno, derivarAResponsableFijo } from '../crm/asignacionAsesores';
 import { primaryEntity, type CrmEntities } from '../crm/entities';
 
 // Seguimiento automático (WhatsApp/Open Lines) en 3 etapas, si el bot respondió y el cliente quedó
@@ -266,7 +266,11 @@ export async function barrerTransferenciasVencidas(): Promise<void> {
       // no asignado antes) — antes se registraba igual aunque no aplicara (ej. sin deal todavía, o
       // programa fuera del piloto), inflando el conteo sin que pasara nada. Además, antes el audit
       // no dejaba `crmEntity` (top-level, la columna que cruza con el panel), quedaba siempre NULL.
-      const asignado = await asignarAsesorPorTurno(entities, auth, 'silencio');
+      // Con punto de entrada único, la derivación por silencio también va ahí. Sin esto, en una
+      // marca sin programas piloto configurados asignarAsesorPorTurno devolvía false y el caso se
+      // descartaba: nadie recibía al cliente que había quedado en silencio.
+      const asignado =
+        (await derivarAResponsableFijo(entities, auth)) || (await asignarAsesorPorTurno(entities, auth, 'silencio'));
       if (!asignado) continue;
       inc('seguimiento_transferencia');
       const entity = primaryEntity(entities);

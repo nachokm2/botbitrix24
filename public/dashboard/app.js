@@ -158,7 +158,11 @@ function render(d){
   // Máquina virtual GCP: sin VM encendida para las llamadas de WhatsApp, ese componente no aplica
   // (se sacó también del total proyectado — ver PILOTO_PROYECCION en routes/dashboard.ts).
   var costoClaudeTxt = real.costoUsdClaude!=null ? ('US$'+real.costoUsdClaude) : '—';
-  var costoRailwayTxt = real.costoUsdRailway!=null ? ('US$'+real.costoUsdRailway) : '—';
+  // Railway no expone el costo por API: ese número se carga a mano y envejece sin aviso (llegó a
+  // mostrar el de principios de septiembre durante más de un mes). Mostrar su fecha lo delata.
+  var costoRailwayTxt = real.costoUsdRailway!=null
+    ? ('US$'+real.costoUsdRailway + (real.costoUsdRailwayFecha ? ' <span class="muted">(al '+esc(real.costoUsdRailwayFecha)+')</span>' : ' <span class="muted">(cargado a mano, sin fecha)</span>'))
+    : '—';
   var sumaCostoReal = (real.costoUsdClaude||0) + (real.costoUsdRailway||0);
   var filasCosto = [
     { label:'Vapi (llamadas IA)', proy:'US$25–40', real:'—' },

@@ -1151,3 +1151,62 @@ export async function dbBorrarDialogos(dialogIds: string[]): Promise<{ borrados:
   log.warn('audit_log: diálogos borrados a mano', { dialogos: dialogIds, filas: r.rowCount });
   return { borrados: r.rowCount ?? 0, dialogos: dialogIds };
 }
+
+// ─────────────────────────── Tokens consumidos (persistentes) ───────────────────────────
+//
+// El contador de tokens vivía SOLO en memoria (obs/metrics), así que se reiniciaba en cada
+// despliegue. Para el informe del piloto hubo que extrapolar el costo desde una semana suelta: con
+// una docena de despliegues en un día, el número del panel no representaba nada.
+//
+// No se escribe una fila por llamada al modelo —serían miles— sino un acumulado cada minuto. En el
+// peor caso (caída justo antes de un volcado) se pierde hasta un minuto de consumo.
+let bufIn = 0;
+let bufOut = 0;
+let flushPendiente: NodeJS.Timeout | null = null;
+const FLUSH_MS = 60_000;
+
+async function volcarTokens(): Promise<void> {
+  flushPendiente = null;
+  const entrada = bufIn;
+  const salida = bufOut;
+  bufIn = 0;
+  bufOut = 0;
+  if (!pool || (entrada === 0 && salida === 0)) return;
+  try {
+    await pool.query(`INSERT INTO audit_log (type, detail) VALUES ('tokens', $1::jsonb)`, [
+      JSON.stringify({ in: entrada, out: salida }),
+    ]);
+  } catch (err) {
+    log.warn('dbAcumularTokens: no se pudo persistir el consumo', { err: String(err) });
+  }
+}
+
+/** Suma el consumo de una respuesta del modelo al acumulado que se persiste cada minuto. */
+export function dbAcumularTokens(usage: any): void {
+  if (!usage || !pool) return;
+  bufIn += Number(usage.input_tokens) || 0;
+  bufOut += Number(usage.output_tokens) || 0;
+  if (!flushPendiente) flushPendiente = setTimeout(() => void volcarTokens(), FLUSH_MS).unref?.() ?? setTimeout(() => void volcarTokens(), FLUSH_MS);
+}
+
+/** Tokens consumidos en el período, desde Postgres. null si no hay registros (p. ej. antes de que
+ *  esto existiera), para que el panel pueda caer al contador en memoria y no mostrar un cero falso. */
+export async function dbTokensSumados(range = 'all'): Promise<{ in: number; out: number } | null> {
+  if (!pool) return null;
+  const interval = range in RANGE_INTERVAL ? RANGE_INTERVAL[range] : null;
+  const W = interval ? `AND ts >= now() - interval '${interval}'` : '';
+  try {
+    const r = await pool.query(
+      `SELECT coalesce(sum((detail->>'in')::bigint), 0)::bigint entrada,
+              coalesce(sum((detail->>'out')::bigint), 0)::bigint salida,
+              count(*)::int filas
+       FROM audit_log WHERE type='tokens' ${W}`,
+    );
+    const f = r.rows[0];
+    if (!f || Number(f.filas) === 0) return null;
+    return { in: Number(f.entrada), out: Number(f.salida) };
+  } catch (err) {
+    log.warn('dbTokensSumados falló', { err: String(err) });
+    return null;
+  }
+}

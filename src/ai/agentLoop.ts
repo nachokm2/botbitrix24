@@ -1,6 +1,7 @@
 import { anthropic } from './client';
 import { tools } from './tools';
 import { marca } from '../marca';
+import { dbAcumularTokens } from '../store/db';
 import { executeTool } from './toolRunner';
 import { getHistory, setHistory } from './memory';
 import type { AgentContext, ChannelProfile } from '../core/channel';
@@ -144,6 +145,7 @@ export async function runConversation(
     });
     recordLlmLatency(Date.now() - t0);
     recordTokens((resp as any).usage);
+    dbAcumularTokens((resp as any).usage); // además del contador en memoria, que se pierde al desplegar
     inc('llm_calls');
 
     messages.push({ role: 'assistant', content: resp.content });
@@ -210,6 +212,7 @@ export async function runConversationStream(
     const resp = await stream.finalMessage();
     recordLlmLatency(Date.now() - t0);
     recordTokens((resp as any).usage);
+    dbAcumularTokens((resp as any).usage); // además del contador en memoria, que se pierde al desplegar
     inc('llm_calls');
 
     messages.push({ role: 'assistant', content: resp.content });

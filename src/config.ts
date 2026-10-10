@@ -227,6 +227,10 @@ export const config = {
     .split(',')
     .map((s) => Number(s.trim()))
     .filter((n) => Number.isFinite(n) && n > 0),
+  // Usuario de Bitrix al que se derivan TODAS las conversaciones, sin importar quién sea el
+  // responsable de la negociación (0 = desactivado, y rige el reparto normal). Se usa cuando una
+  // marca quiere un único punto de entrada humano: el bot le asigna el deal y le entrega el chat.
+  derivarATodo: Number(process.env.BITRIX_DERIVAR_A ?? 0) || 0,
   // IDs de usuario que NO son personas sino automatizaciones de Bitrix (robots/reglas). El caso real
   // es #45 "Resp. Autom.", que barre a RMKT las negociaciones que nadie tocó: movió 31 de las 36
   // derivaciones del piloto. Se usa para no contar ese barrido como "el asesor tomó el caso" en la
@@ -242,6 +246,11 @@ export const config = {
   // diferencia del de Claude, no hay API para leerlo solo: se actualiza a mano desde el panel de
   // uso de Railway (Project → Usage) cada vez que se quiera refrescar el reporte. Vacío = no mostrar.
   costoUsdRailway: process.env.COSTO_USD_RAILWAY ? Number(process.env.COSTO_USD_RAILWAY) : null,
+  // Fecha a la que corresponde ese gasto (YYYY-MM-DD). Railway no expone el costo por API, así que
+  // el número se carga a mano y envejece sin aviso: el panel mostró 0,71 de principios de septiembre
+  // durante más de un mes como si fuera el gasto actual. Mostrando la fecha, quien lo lee sabe qué
+  // tan viejo es.
+  costoUsdRailwayFecha: process.env.COSTO_USD_RAILWAY_FECHA ?? '',
 
   // ── Fase 2: Agente de voz (Vapi + Twilio + registro en telefonía Bitrix) ──
   // Vapi corre la conversación (STT/TTS/barge-in + Claude) y llama a nuestro backend por webhooks.

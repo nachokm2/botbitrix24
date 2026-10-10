@@ -3,7 +3,7 @@ import { buscarCondiciones } from '../core/condicionesComerciales';
 import type { AgentContext } from '../core/channel';
 import { actualizarDatosCliente, obtenerContextoLlamada } from '../crm/crmWrite';
 import { getDealAsesores } from '../crm/directory';
-import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
+import { asignarAsesorPorTurno, derivarAResponsableFijo } from '../crm/asignacionAsesores';
 import { generarBriefing } from './briefing';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { markHumanTakeover, getSession, saveSession } from '../session';
@@ -127,7 +127,12 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
         // no confía en la regla de "asesor por oferta" de Bitrix (no reasigna un deal que ya tiene
         // responsable; ver crm/asignacionAsesores.ts). Se ejecuta ANTES de leer el responsable más
         // abajo, para que el bot le diga al cliente el asesor recién asignado, no uno viejo.
-        if (ctx.crmEntities) await asignarAsesorPorTurno(ctx.crmEntities, ctx.auth);
+        if (ctx.crmEntities) {
+          // Con un punto de entrada único configurado, la negociación va a ESA persona y el reparto
+          // por turno no corre: son dos políticas que se excluyen.
+          const fijo = await derivarAResponsableFijo(ctx.crmEntities, ctx.auth);
+          if (!fijo) await asignarAsesorPorTurno(ctx.crmEntities, ctx.auth);
+        }
 
         // Genera (una vez) un resumen del lead para el asesor y lo deja en el CRM.
         const entityBrief = ctx.crmEntity ?? null;
