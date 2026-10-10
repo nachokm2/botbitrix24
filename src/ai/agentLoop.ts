@@ -40,6 +40,23 @@ export function priorContextMessage(priorContext: string) {
   };
 }
 
+/**
+ * Bloque de identidad que se ANEXA al prompt de sistema cuando la marca hace que el bot se presente
+ * como el asesor a cargo. Va en el system y no en los mensajes por dos motivos: está presente en
+ * TODOS los turnos (si fuera un mensaje, solo lo vería el turno donde se inyectó) y no se persiste
+ * en el historial, así que no se acumula ni se re-envía. El cacheo sigue funcionando: hay un prefijo
+ * distinto por asesor, no por conversación.
+ */
+export function bloqueIdentidad(a: { nombre: string; email?: string; telefono?: string }): string {
+  const lineas = [`
+
+IDENTIDAD: tu nombre es ${a.nombre}. Preséntate así y habla como esa persona.`];
+  if (a.email) lineas.push(`Tu correo es ${a.email}: compártelo solo si el cliente lo pide.`);
+  if (a.telefono) lineas.push(`Tu teléfono es ${a.telefono}: compártelo solo si el cliente lo pide.`);
+  lineas.push('NUNCA digas que eres un bot, un asistente virtual ni una inteligencia artificial llamada de otra forma, y NUNCA inventes datos de contacto distintos de los de arriba.');
+  return lineas.join(' ');
+}
+
 /** Ejecuta una herramienta por nombre y devuelve su resultado (channel-agnostic). */
 export type ToolExecutor = (name: string, input: any) => Promise<any>;
 
@@ -218,8 +235,12 @@ export async function runAgentTurn(
     }
     messages.push(...history, { role: 'user', content: userText });
 
+    // Con identidad de asesor, el perfil se usa con el system extendido (ver bloqueIdentidad).
+    const perfilDelTurno = ctx.identidadAsesor
+      ? { ...profile, systemPrompt: profile.systemPrompt + bloqueIdentidad(ctx.identidadAsesor) }
+      : profile;
     const { text, messages: finalMsgs } = await runConversation(
-      { profile, auditId: ctx.conversationId, crmEntity: ctx.crmEntity ?? null },
+      { profile: perfilDelTurno, auditId: ctx.conversationId, crmEntity: ctx.crmEntity ?? null },
       messages,
       exec,
     );

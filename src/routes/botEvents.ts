@@ -13,11 +13,12 @@ import { inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { resolveAllEntities, loadPriorContext, logConversationTurn } from '../crm/chat';
 import { primaryEntity } from '../crm/entities';
-import { esEmpleadoBitrix } from '../crm/directory';
+import { esEmpleadoBitrix, getIdentidadAsesor } from '../crm/directory';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
 import { WHATSAPP_PROFILE, type AgentContext } from '../core/channel';
+import { marca } from '../marca';
 import { extractIncomingMedia } from '../media/incoming';
 import { transcribeAudio } from '../ai/transcribe';
 import { programarSeguimiento, cancelarSeguimiento } from '../ai/seguimiento';
@@ -208,8 +209,15 @@ async function handle(req: Request) {
 
   // Agente real: motor conversacional único, con el perfil del canal WhatsApp (Open Lines).
   // turnContent (bloques con imagen) tiene prioridad; si no, el texto (incluye audios transcritos).
+  // Identidad del turno: con marca.sePresentaComoAsesor el bot habla como el asesor dueño de la
+  // negociación, no como sí mismo. Se resuelve por turno (cacheado 5 min) porque el responsable
+  // puede cambiar a mitad de la conversación — p. ej. cuando el reparto automático la asigna.
+  const identidadAsesor =
+    marca.sePresentaComoAsesor && crmEntities?.deal ? await getIdentidadAsesor(crmEntities.deal, auth) : null;
+
   const ctxTurno: AgentContext = {
     auth,
+    identidadAsesor,
     conversationId: dialogId,
     chatId,
     botId,

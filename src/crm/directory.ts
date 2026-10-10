@@ -116,3 +116,32 @@ export async function getDealAsesores(
     info,
   };
 }
+
+// Identidad del asesor para que el bot se presente como él (marca.sePresentaComoAsesor). Se cachea
+// por negociación porque getDealAsesores son DOS llamadas a Bitrix (crm.deal.get + user.get) y el
+// limitador las serializa: sin caché, cada turno de cada conversación pagaba esa latencia.
+const IDENTIDAD_TTL_MS = 5 * 60 * 1000;
+const identidadCache = new Map<number, { at: number; valor: IdentidadAsesor | null }>();
+
+export type IdentidadAsesor = { nombre: string; email?: string; telefono?: string };
+
+/** Nombre, correo y teléfono del responsable de la negociación. null si no se puede resolver (sin
+ *  deal, sin responsable, o un usuario que Bitrix no devuelve con nombre real). */
+export async function getIdentidadAsesor(dealId: number, auth: Auth): Promise<IdentidadAsesor | null> {
+  const previo = identidadCache.get(dealId);
+  if (previo && Date.now() - previo.at < IDENTIDAD_TTL_MS) return previo.valor;
+  let valor: IdentidadAsesor | null = null;
+  try {
+    const { responsable } = await getDealAsesores(dealId, auth);
+    // "Usuario 12345" es el relleno de getDealAsesores cuando Bitrix no devuelve el usuario: con eso
+    // el bot se presentaría como "Usuario 12345", que es peor que no presentarse con nombre.
+    if (responsable && !responsable.nombre.startsWith('Usuario ')) {
+      valor = { nombre: responsable.nombre, email: responsable.email, telefono: responsable.telefono };
+    }
+  } catch (e) {
+    log.warn('getIdentidadAsesor falló', { err: String(e), dealId });
+    return previo?.valor ?? null; // ante un fallo puntual, se prefiere la identidad anterior
+  }
+  identidadCache.set(dealId, { at: Date.now(), valor });
+  return valor;
+}

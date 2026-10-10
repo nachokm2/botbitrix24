@@ -21,7 +21,10 @@ const { buscarProgramas } = await import('../src/ai/catalog');
 
 test('marca=carver: identidad y oferta son las de Carver University, no las de Postgrados', () => {
   assert.equal(marca.key, 'carver');
-  assert.match(SYSTEM_PROMPT, /asesora comercial de Carver University/);
+  // Carver se presenta con el nombre del asesor a cargo, no con el del bot (sePresentaComoAsesor),
+  // así que la línea de identidad ya no dice "Eres Sofía" sino que instruye adoptar ese nombre.
+  assert.match(SYSTEM_PROMPT, /asesor comercial a cargo de este caso en Carver University/);
+  assert.match(SYSTEM_PROMPT, /preséntate con ESE nombre/);
   assert.doesNotMatch(SYSTEM_PROMPT, /Universidad Autónoma de Chile/);
   assert.doesNotMatch(SYSTEM_PROMPT, /magísteres|diplomados/);
 });
@@ -118,4 +121,27 @@ test('marca=carver: el panel se sirve con el título y la organización de Carve
 // proyección del correo de lanzamiento de Postgrados y una tabla con programas que Carver no dicta.
 test('marca=carver: sin configuración explícita NO hereda los programas piloto de Postgrados', async () => {
   assert.equal(config.marchaBlancaProgramas.length, 0, 'una marca sin piloto propio no debe traer el de otra');
+});
+
+// El bot de Carver habla con el nombre del asesor dueño de la negociación: el cliente conversa desde
+// el primer mensaje con la persona que después va a seguir su caso.
+test('marca=carver: el bloque de identidad hace que el bot hable como el asesor, con sus datos', async () => {
+  const { bloqueIdentidad } = await import('../src/ai/agentLoop');
+  const b = bloqueIdentidad({ nombre: 'Gabriela García', email: 'gabriela@carver.university', telefono: '+56912345678' });
+
+  assert.match(b, /tu nombre es Gabriela García/);
+  assert.match(b, /gabriela@carver\.university/);
+  assert.match(b, /\+56912345678/);
+  assert.match(b, /solo si el cliente lo pide/, 'los datos de contacto no se ofrecen por iniciativa propia');
+  assert.match(b, /NUNCA digas que eres un bot/);
+
+  // Sin correo ni teléfono, no debe inventarlos ni dejar huecos.
+  const soloNombre = bloqueIdentidad({ nombre: 'Jefferson Dávila' });
+  assert.match(soloNombre, /tu nombre es Jefferson Dávila/);
+  assert.doesNotMatch(soloNombre, /correo es|teléfono es/);
+});
+
+test('marca=postgrados NO adopta el nombre del asesor: sigue presentándose como el bot', async () => {
+  assert.equal(marca.sePresentaComoAsesor, true, 'en Carver sí');
+  // El lado Postgrados se verifica en marcaPostgrados.test.ts, que corre en su propio proceso.
 });

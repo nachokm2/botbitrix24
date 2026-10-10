@@ -52,6 +52,10 @@ export type AgentContext = {
   chatId?: string | number; // chat (Open Lines)
   botId?: number; // chat
   phone?: string; // voz
+  /** Identidad que el bot debe adoptar en ESTE turno: el asesor dueño de la negociación. Solo la
+   *  usan las marcas con sePresentaComoAsesor (ver marca.ts). Viaja por turno, no en el prompt fijo,
+   *  porque el asesor puede asignarse a mitad de la conversación. */
+  identidadAsesor?: { nombre: string; email?: string; telefono?: string } | null;
   /** Última imagen recibida EN ESTE TURNO (WhatsApp) — el modelo ya la "ve" vía visión; se deja acá
    *  para que una tool (registrar_documento_identidad) pueda subir los bytes reales al CRM cuando el
    *  modelo reconozca que es una cédula de identidad. Los tool-calls no pueden llevar binarios. */
