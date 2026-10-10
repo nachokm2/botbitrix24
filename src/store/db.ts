@@ -220,6 +220,16 @@ export async function dbConversacion(dialogId: string, limit = 100): Promise<any
   }
 }
 
+// Zona horaria con la que se AGRUPA el tiempo en el panel. Postgres corre en UTC, así que sin esto
+// una conversación de las 14:24 en Chile aparecía en la barra de las 17 del gráfico de horarios, y
+// lo ocurrido después de las 21 se contaba como del día siguiente. Misma zona que usa el seguimiento
+// automático (ai/seguimiento.ts) para decidir a qué hora puede escribirle a alguien.
+// Se valida porque se interpola en SQL: una zona IANA son letras, barras y guiones, nada más. Un
+// valor con comillas podría salirse de la cadena, aunque la variable la controle quien despliega.
+const TZ_PANEL = /^[A-Za-z0-9_\/+-]{1,64}$/.test(process.env.PANEL_TIMEZONE ?? '')
+  ? (process.env.PANEL_TIMEZONE as string)
+  : 'America/Santiago';
+
 export async function dbRecentAudit(limit = 20): Promise<any[]> {
   if (!pool) return [];
   try {
@@ -469,7 +479,7 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
       q(`SELECT round(avg((detail->>'score')::numeric))::int avg, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'score' IS NOT NULL ${W}`),
       q(`SELECT detail->>'intencion' k, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'intencion' IS NOT NULL ${W} GROUP BY 1`),
       q(`SELECT detail->>'sentimiento' k, count(*)::int c FROM audit_log WHERE type='lead_score' AND detail->>'sentimiento' IS NOT NULL ${W} GROUP BY 1`),
-      q(`SELECT to_char(date_trunc('day', ts),'YYYY-MM-DD') d, count(*)::int c FROM audit_log WHERE type='turn' AND ts >= now() - interval '7 days' GROUP BY 1 ORDER BY 1`),
+      q(`SELECT to_char(date_trunc('day', ts AT TIME ZONE '${TZ_PANEL}'),'YYYY-MM-DD') d, count(*)::int c FROM audit_log WHERE type='turn' AND ts >= now() - interval '7 days' GROUP BY 1 ORDER BY 1`),
       q(`SELECT detail->>'categoryId' cat, count(*)::int c, round(avg((detail->>'score')::numeric))::int avg
          FROM audit_log WHERE type='lead_score' AND detail->>'categoryId' IS NOT NULL ${W} GROUP BY 1 ORDER BY 2 DESC`),
       q(`SELECT detail->>'responsableId' id, count(*)::int c, count(DISTINCT dialog_id)::int convs, round(avg((detail->>'score')::numeric))::int avg
@@ -486,7 +496,7 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
       q(`SELECT (CASE WHEN s>=70 THEN 'alto' WHEN s>=40 THEN 'medio' ELSE 'bajo' END) b, count(*)::int c
          FROM (SELECT dialog_id, max((detail->>'score')::int) s FROM audit_log WHERE type='lead_score' AND detail->>'score' IS NOT NULL ${W} GROUP BY dialog_id) t GROUP BY 1`),
       // Horarios
-      q(`SELECT extract(hour from ts)::int h, count(*)::int c FROM audit_log WHERE type='turn' ${W} GROUP BY 1 ORDER BY 1`),
+      q(`SELECT extract(hour from ts AT TIME ZONE '${TZ_PANEL}')::int h, count(*)::int c FROM audit_log WHERE type='turn' ${W} GROUP BY 1 ORDER BY 1`),
       // Tiempos: respuesta del bot por WhatsApp (ms, instrumentado por turno)
       q(`SELECT round(avg((detail->>'responseMs')::numeric))::int avg, count(*)::int c
          FROM audit_log WHERE type='turn' AND detail->>'responseMs' IS NOT NULL ${W}`),
@@ -1066,7 +1076,7 @@ export async function dbCampaignDashboard(programCode: string): Promise<Record<s
       p.query(
         `SELECT count(*)::int total,
                 count(*) FILTER (WHERE answered)::int answered,
-                count(*) FILTER (WHERE created_at >= date_trunc('day', now()))::int hoy
+                count(*) FILTER (WHERE created_at AT TIME ZONE '${TZ_PANEL}' >= date_trunc('day', now() AT TIME ZONE '${TZ_PANEL}'))::int hoy
          FROM call_attempt WHERE program_code=$1`,
         [programCode],
       ),
