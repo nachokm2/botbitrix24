@@ -161,3 +161,21 @@ test('marca=postgrados NO adopta el nombre del asesor: sigue presentándose como
   assert.equal(marca.sePresentaComoAsesor, true, 'en Carver sí');
   // El lado Postgrados se verifica en marcaPostgrados.test.ts, que corre en su propio proceso.
 });
+
+// Conocimiento institucional sacado de conversaciones reales: son las preguntas que deciden la
+// compra (validez del título, acreditación, devoluciones) y antes el bot derivaba todas.
+test('marca=carver: el prompt trae el conocimiento institucional de las conversaciones reales', () => {
+  assert.match(SYSTEM_PROMPT, /Apostilla de La Haya/);
+  assert.match(SYSTEM_PROMPT, /licencia N\.º 12743/);
+  assert.match(SYSTEM_PROMPT, /USD 125/, 'el costo de titulación no está en el arancel');
+  assert.match(SYSTEM_PROMPT, /3 días hábiles/, 'la política de devolución debe ser textual');
+});
+
+// La clienta preguntó por ACREDITACIÓN y la asesora respondió con la LICENCIA, que es otra cosa: la
+// licencia autoriza a operar, la acreditación certifica calidad académica. Si el bot repite ese
+// encuadre, induce a error sobre una decisión de 4 años y varios miles de dólares.
+test('marca=carver: ante una pregunta de acreditación no la confunde con la licencia y deriva', () => {
+  assert.match(SYSTEM_PROMPT, /no la confundas con la licencia/i);
+  assert.match(SYSTEM_PROMPT, /NUNCA afirmes que el programa está acreditado/);
+  assert.match(SYSTEM_PROMPT, /la licencia autoriza a operar, la acreditación certifica la calidad académica/);
+});
