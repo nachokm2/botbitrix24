@@ -339,3 +339,58 @@ test('bitrixMarchaBlancaScorecard: sin derivaciones, el seguimiento queda vacío
   assert.equal(ia.seguimiento.atendidos, 0);
   assert.equal(ia.seguimiento.medianaSeg, null, 'sin casos no hay mediana que mostrar');
 });
+
+// Caso real del 2026-10-06: una persona movió 24 negociaciones derivadas a Remarketing de una vez,
+// 23 días después de la derivación. Contarlas como "el asesor tomó el caso" hacía saltar la columna
+// de 5 a 28 atendidos y reportar una mediana de 23 días — un número que se ve bien y no describe
+// nada. Un barrido se reconoce por su FORMA (misma persona, mismo día, mismo destino), no por el
+// nombre de la etapa: "No interesado" también es una etapa de cierre y ahí sí hubo decisión caso a caso.
+test('bitrixMarchaBlancaScorecard: un barrido manual en bloque NO cuenta como atención del asesor', async () => {
+  calls.length = 0;
+  const T0 = Date.parse('2026-09-10T12:00:00.000Z');
+  const mas = (h: number) => new Date(T0 + h * 3600_000).toISOString();
+  dealesPorId = {
+    // Cuatro movidas por la misma persona, el mismo día y a la misma etapa: barrido.
+    901: { STAGE_ID: 'C1:APOLOGY', MOVED_BY_ID: '555', MOVED_TIME: mas(550) },
+    902: { STAGE_ID: 'C1:APOLOGY', MOVED_BY_ID: '555', MOVED_TIME: mas(551) },
+    903: { STAGE_ID: 'C1:APOLOGY', MOVED_BY_ID: '555', MOVED_TIME: mas(552) },
+    904: { STAGE_ID: 'C1:APOLOGY', MOVED_BY_ID: '555', MOVED_TIME: mas(553) },
+    // Dos de un asesor real, el mismo día pero a etapas DISTINTAS: trabajo caso a caso.
+    905: { STAGE_ID: 'C1:WON', MOVED_BY_ID: '346393', MOVED_TIME: mas(4) },
+    906: { STAGE_ID: 'C1:LOSE', MOVED_BY_ID: '346393', MOVED_TIME: mas(6) },
+  };
+  const ts = new Date(T0).toISOString();
+  const botStats = new Map([
+    ['ia', {
+      escalados: [901, 902, 903, 904, 905, 906].map((dealId) => ({ dealId, motivo: 'silencio' as const, ts })),
+      dealsConversados: [],
+    }],
+  ]);
+
+  const out = await bitrixMarchaBlancaScorecard(botStats, auth);
+  const ia = out.find((p) => p.key === 'ia')!;
+
+  assert.equal(ia.seguimiento.derivados, 6);
+  assert.equal(ia.seguimiento.atendidos, 2, 'solo las dos del asesor que decidió caso por caso');
+  assert.equal(ia.seguimiento.barridos, 4, 'las cuatro del barrido quedan contadas aparte');
+  assert.equal(ia.seguimiento.medianaSeg, 6 * 3600, 'la mediana no se contamina con los 23 días del barrido');
+});
+
+test('bitrixMarchaBlancaScorecard: dos movimientos del mismo día al mismo destino todavía no son barrido', async () => {
+  calls.length = 0;
+  const T0 = Date.parse('2026-09-10T12:00:00.000Z');
+  const mas = (h: number) => new Date(T0 + h * 3600_000).toISOString();
+  dealesPorId = {
+    911: { STAGE_ID: 'C1:APOLOGY', MOVED_BY_ID: '555', MOVED_TIME: mas(3) },
+    912: { STAGE_ID: 'C1:APOLOGY', MOVED_BY_ID: '555', MOVED_TIME: mas(5) },
+  };
+  const ts = new Date(T0).toISOString();
+  const botStats = new Map([
+    ['ia', { escalados: [911, 912].map((dealId) => ({ dealId, motivo: 'explicito' as const, ts })), dealsConversados: [] }],
+  ]);
+
+  const out = await bitrixMarchaBlancaScorecard(botStats, auth);
+  const ia = out.find((p) => p.key === 'ia')!;
+  assert.equal(ia.seguimiento.atendidos, 2, 'cerrar dos casos en un día es trabajo normal, no un barrido');
+  assert.equal(ia.seguimiento.barridos, 0);
+});

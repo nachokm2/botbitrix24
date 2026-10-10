@@ -72,7 +72,7 @@ export type ProgramaScorecard = {
   /** Qué pasó DESPUÉS de derivar: de las negociaciones que el bot dejó en manos de un asesor
    *  (escalada explícita + envío por silencio), en cuántas un humano movió efectivamente la
    *  negociación en el CRM, y cuánto tardó (mediana). Ver seguimientoAsesor() más abajo. */
-  seguimiento: { derivados: number; atendidos: number; medianaSeg: number | null };
+  seguimiento: { derivados: number; atendidos: number; medianaSeg: number | null; barridos: number };
   escaladosDetalle: EscaladoDetalle[];
   negociacionesDetalle: NegociacionDetalle[];
 };
@@ -241,16 +241,47 @@ async function nombresDeEtapa(categoryId: number, auth: Auth): Promise<Map<strin
  * Se reporta MEDIANA, no promedio: con casos de 7 y 20 días el promedio deja de describir el caso
  * típico (promedio 1,4 d contra mediana 5,2 h sobre los mismos datos).
  */
+/** Cuántas negociaciones movidas por la MISMA persona, el MISMO día y a la MISMA etapa dejan de
+ *  parecer atención individual y pasan a ser un barrido. Tres ya es un patrón; un asesor que atiende
+ *  tres casos derivados el mismo día normalmente los deja en etapas distintas según cómo fue cada
+ *  conversación. */
+const BARRIDO_MINIMO = 3;
+
 function seguimientoAsesor(
   escalados: EscaladoRef[],
-  dealsPorId: Map<number, { MOVED_BY_ID?: string; MOVED_TIME?: string }>,
-): { derivados: number; atendidos: number; medianaSeg: number | null } {
+  dealsPorId: Map<number, { MOVED_BY_ID?: string; MOVED_TIME?: string; STAGE_ID?: string }>,
+): { derivados: number; atendidos: number; medianaSeg: number | null; barridos: number } {
   const automaticos = new Set(config.usuariosAutomaticos);
+
+  // Un barrido manual se reconoce por su forma, no por el nombre de la etapa: la misma persona,
+  // el mismo día, muchas negociaciones al mismo destino. Pasó el 2026-10-06, cuando alguien movió
+  // 24 casos derivados a Remarketing de una vez, 23 días después de la derivación. Contarlos como
+  // atención hacía saltar la columna de 5 a 28 y reportar una mediana de 23 días: un número que se
+  // ve bien y no describe nada. Mirar el nombre de la etapa no sirve — "No interesado" también es
+  // una etapa de cierre y ahí sí hubo un asesor decidiendo caso por caso.
+  const grupos = new Map<string, number[]>();
+  for (const e of escalados) {
+    const d = dealsPorId.get(e.dealId);
+    if (!d?.MOVED_TIME || !d.MOVED_BY_ID) continue;
+    const dia = String(d.MOVED_TIME).slice(0, 10);
+    const clave = `${d.MOVED_BY_ID}|${dia}|${d.STAGE_ID ?? ''}`;
+    grupos.set(clave, [...(grupos.get(clave) ?? []), e.dealId]);
+  }
+  const enBarrido = new Set<number>();
+  let barridos = 0;
+  for (const ids of grupos.values()) {
+    if (ids.length >= BARRIDO_MINIMO) {
+      barridos += ids.length;
+      for (const id of ids) enBarrido.add(id);
+    }
+  }
+
   const esperas: number[] = [];
   for (const e of escalados) {
     const d = dealsPorId.get(e.dealId);
     if (!d?.MOVED_TIME || !d.MOVED_BY_ID) continue;
-    if (automaticos.has(Number(d.MOVED_BY_ID))) continue; // el barrido a RMKT no es un asesor tomando el caso
+    if (automaticos.has(Number(d.MOVED_BY_ID))) continue; // el barrido automático a RMKT no es atención
+    if (enBarrido.has(e.dealId)) continue; // ni un barrido equivalente hecho a mano
     const movido = new Date(d.MOVED_TIME).getTime();
     const derivado = new Date(e.ts).getTime();
     if (!Number.isFinite(movido) || !Number.isFinite(derivado) || movido <= derivado) continue;
@@ -261,6 +292,7 @@ function seguimientoAsesor(
     derivados: escalados.length,
     atendidos: esperas.length,
     medianaSeg: esperas.length ? Math.round(esperas[Math.floor(esperas.length / 2)]) : null,
+    barridos, // cuántos quedaron fuera por haber sido movidos en bloque
   };
 }
 
@@ -466,7 +498,7 @@ export async function bitrixMarchaBlancaScorecard(
         dealsNuevos: 0,
         escaladosConDeal: 0,
         escaladosMatriculados: 0,
-        seguimiento: { derivados: 0, atendidos: 0, medianaSeg: null },
+        seguimiento: { derivados: 0, atendidos: 0, medianaSeg: null, barridos: 0 },
         escaladosDetalle: [],
         negociacionesDetalle: [],
       });

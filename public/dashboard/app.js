@@ -218,8 +218,11 @@ function render(d){
       // en el CRM, y cuánto tardó (mediana). Lo que NO aparece acá quedó esperando o se lo llevó el
       // barrido automático a RMKT — ver seguimientoAsesor() en crm/marchaBlanca.ts.
       var sg = c && c.seguimiento;
+      // Los movidos en bloque se muestran aparte en vez de ocultarse: que no cuenten como atención
+      // no significa que no hayan pasado, y saber cuántos fueron explica el resto del número.
       var seguimiento = sg && sg.derivados
         ? num(sg.atendidos)+' / '+num(sg.derivados)+(sg.medianaSeg!=null ? ' · '+fmtEspera(sg.medianaSeg) : '')
+          +(sg.barridos ? ' <span class="muted">('+num(sg.barridos)+' en bloque)</span>' : '')
         : '—';
       var escMatric = c ? num(c.escaladosMatriculados)+' / '+num(c.escaladosConDeal) : '—';
       return '<tr>'+
