@@ -384,3 +384,12 @@ test('marca=carver: conoce las redes oficiales y no inventa testimonios', () => 
   assert.match(SYSTEM_PROMPT, /NUNCA inventes un testimonio/);
   assert.match(SYSTEM_PROMPT, /casos VERIFICABLES de egresados/);
 });
+
+// Flywire es la plataforma de pagos de Carver — aparece además como etapa propia en sus dos embudos
+// de Bitrix ("Flywire invoice"). Nombrarla da confianza: no es una transferencia suelta.
+test('marca=carver: nombra Flywire como plataforma de pago, sin enviar el link ni confirmar pagos', () => {
+  assert.match(SYSTEM_PROMPT, /FLYWIRE/);
+  assert.match(SYSTEM_PROMPT, /flywire\.com/);
+  assert.match(SYSTEM_PROMPT, /NO haces es enviar tú el link de pago/);
+  assert.match(SYSTEM_PROMPT, /ni confirmar, rechazar o consultar el estado de un pago/);
+});
