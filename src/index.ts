@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { config } from './config';
 import { log } from './log';
 import { runWithRequestContext } from './obs/requestContext';
-import { installHandler } from './routes/install';
+import { installHandler, oauthCodeOrNext } from './routes/install';
 import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes/botEvents';
 import { registerBotManual, unregisterBotManual, updateBotManual, triggerBrochureManual, listDealFields, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, syncCallsManual } from './routes/setup';
 import { startCallSync } from './crm/callSync';
@@ -100,7 +100,7 @@ app.use('/assets/calls', express.static(fileURLToPath(new URL('../public/calls',
 app.use('/assets/email', express.static(fileURLToPath(new URL('../public/email', import.meta.url))));
 
 // Panel de métricas embebible en Bitrix24 (placement) + su API de datos.
-app.all('/app', requireDashboardToken, dashboardPage); // Bitrix abre la página del placement (GET/POST con auth)
+app.all('/app', oauthCodeOrNext, requireDashboardToken, dashboardPage); // Bitrix abre la página del placement (GET/POST con auth); con ?code= completa la instalación
 app.get('/metrics/summary', requireDashboardToken, metricsSummary);
 
 // Módulo de analítica de llamadas (telefonía Bitrix24): página embebible + su API de datos.

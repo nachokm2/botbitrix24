@@ -1,9 +1,11 @@
 import type { Request, Response } from 'express';
 import { extractAuth } from '../bitrix/auth';
+import { exchangeCode } from '../bitrix/refresh';
 import { registerBot } from '../bot/register';
 import { bindDashboard } from '../bitrix/placement';
 import { setAuth, setBotId, setAppToken } from '../store';
 import { config } from '../config';
+import { marca } from '../marca';
 import { log } from '../log';
 
 /**
@@ -11,7 +13,26 @@ import { log } from '../log';
  * Guarda el auth y registra el bot de Open Lines.
  */
 export async function installHandler(req: Request, res: Response) {
-  const auth = extractAuth(req);
+  let auth = extractAuth(req);
+
+  // Camino alternativo: Bitrix redirige acá con ?code= tras aprobar la autorización. Se usa cuando
+  // la instalación normal del app local no llega a ocurrir — en el portal de Carver, Bitrix
+  // respondía "Aplicación reinstalada" sin abrir nunca esta ruta (0 peticiones al servidor). Acá el
+  // navegador SÍ nos visita, con el código, y lo canjeamos por los tokens.
+  const code = typeof req.query?.code === 'string' ? req.query.code : '';
+  if (!auth && code) {
+    try {
+      // Bitrix IGNORA el redirect_uri que se le pase en /oauth/authorize y redirige siempre a la
+      // ruta del controlador del app (/app). El canje exige que el redirect_uri coincida con esa
+      // redirección real, así que se arma desde la ruta por la que entró la petición.
+      auth = await exchangeCode(code, `${config.baseUrl}${req.path}`);
+      log.info('install: auth obtenido por canje de código OAuth', { domain: auth.domain });
+    } catch (e) {
+      log.error('install: no se pudo canjear el código', { err: String(e) });
+      return res.status(400).send(page(`❌ No se pudo canjear el código de autorización:<br><code>${String(e)}</code>`));
+    }
+  }
+
   if (!auth || !auth.domain || !auth.access_token) {
     log.warn('install: sin auth válido', { bodyKeys: Object.keys(req.body ?? {}) });
     return res.status(400).send(page('❌ No se recibió auth de Bitrix24.'));
@@ -24,6 +45,7 @@ export async function installHandler(req: Request, res: Response) {
     return res.status(401).send(page('❌ application_token inválido.'));
   }
 
+  if (!auth.domain && typeof req.query?.domain === 'string') auth.domain = req.query.domain;
   await setAuth(auth);
   if (appToken) await setAppToken(appToken);
 
@@ -40,7 +62,9 @@ export async function installHandler(req: Request, res: Response) {
     return res.send(
       page(
         `✅ PoC instalado y finalizado. Bot de Open Lines registrado (BOT_ID=${botId}).<br>` +
-          `Panel de métricas: ${panel.ok ? '✅ agregado al menú («Agente Postgrados»)' : '⚠️ no se pudo enlazar (' + (panel.error ?? '') + ') — reintenta en /setup/bind-dashboard'}.<br><br>` +
+          // El nombre sale de la marca, igual que el del placement: estaba fijo en "Agente Postgrados"
+          // y en la instalación de Carver el mensaje decía un nombre distinto del que quedó en el menú.
+          `Panel de métricas: ${panel.ok ? `✅ agregado al menú («Agente ${marca.etiquetaPanel}»)` : '⚠️ no se pudo enlazar (' + (panel.error ?? '') + ') — reintenta en /setup/bind-dashboard'}.<br><br>` +
           `Ya puedes probar: inicia una conversación NUEVA en el canal y el bot debería responder.`,
         true,
       ),
@@ -62,4 +86,14 @@ function page(msg: string, finish = false) {
 ${msg}
 ${finish ? `<script>try{BX24.init(function(){BX24.installFinish();});}catch(e){console.error(e);}</script>` : ''}
 </body></html>`;
+}
+
+/**
+ * Middleware para la ruta del controlador (/app): si Bitrix redirigió ahí con ?code=, completa la
+ * instalación en vez de intentar abrir el panel. Sin esto, la autorización terminaba en un
+ * {"ok":false,"error":"unauthorized"} del guardia de token, con el código OAuth ya en la URL.
+ */
+export function oauthCodeOrNext(req: Request, res: Response, next: () => void) {
+  if (typeof req.query?.code === 'string' && req.query.code) return void installHandler(req, res);
+  next();
 }

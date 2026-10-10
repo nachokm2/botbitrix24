@@ -127,7 +127,12 @@ export interface VoximplantCall {
 export interface BitrixOAuthTokenResponse {
   access_token?: string;
   refresh_token?: string;
+  /** OJO: en el grant por código esto viene como "oauth.bitrix.info" (el servidor de OAuth), NO el
+   *  portal. El portal real está en client_endpoint/server_endpoint. */
   domain?: string;
+  /** "https://<portal>/rest/" — de acá sale el dominio al que hay que pegarle. */
+  client_endpoint?: string;
+  server_endpoint?: string;
   member_id?: string;
   expires?: string | number;
   error?: string;
