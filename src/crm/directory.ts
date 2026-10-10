@@ -197,3 +197,23 @@ export async function getDatosConocidos(contactId: number, auth: Auth): Promise<
   conocidosCache.set(contactId, { at: Date.now(), valor });
   return valor;
 }
+
+/** Igual que getDatosConocidos pero aceptando las entidades del chat: si no hay contacto vinculado
+ *  —pasa cuando el chat solo trae la negociación— lo busca a través de ella. Sin esto el bot se
+ *  quedaba sin los datos justo en las conversaciones que vienen de una campaña, que son las que SÍ
+ *  tienen ficha creada. */
+export async function getDatosConocidosDeEntidades(
+  entidades: { contact?: number; deal?: number },
+  auth: Auth,
+): Promise<DatosConocidos> {
+  if (entidades.contact) return getDatosConocidos(entidades.contact, auth);
+  if (!entidades.deal) return {};
+  try {
+    const d = await callCrm<any>('crm.deal.get', { id: entidades.deal }, auth);
+    const cid = Number(d?.CONTACT_ID ?? 0);
+    return cid > 0 ? getDatosConocidos(cid, auth) : {};
+  } catch (e) {
+    log.warn('getDatosConocidosDeEntidades: no se pudo resolver el contacto del deal', { err: String(e), deal: entidades.deal });
+    return {};
+  }
+}

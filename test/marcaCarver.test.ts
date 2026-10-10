@@ -348,3 +348,13 @@ test('marca=carver: la frase de reserva nombra a Carver y trata de usted', async
   assert.doesNotMatch(t, /postgrados/i);
   assert.doesNotMatch(t, /ayudarte/, 'Carver trata de usted');
 });
+
+// Conversación real: el bot cerró DIEZ mensajes seguidos pidiendo el nombre, incluso después de que
+// el cliente le reclamara por qué se lo pedía. El prompt lo empujaba a eso —"completa la captura
+// antes de derivar"— sin ningún tope.
+test('marca=carver: el prompt pone un tope a cuántas veces pide un dato', () => {
+  assert.match(SYSTEM_PROMPT, /COMO MÁXIMO dos veces/);
+  assert.match(SYSTEM_PROMPT, /deja de pedirlo y sigue atendiéndolo/);
+  assert.match(SYSTEM_PROMPT, /NUNCA cierres tus mensajes con la misma petición/);
+  assert.match(SYSTEM_PROMPT, /si la persona te lo reprocha/);
+});
