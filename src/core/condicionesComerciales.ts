@@ -1,3 +1,5 @@
+import { marca } from '../marca';
+import { buscarCondicionesCarver, matchProgramaCarver } from './condicionesCarver';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -103,6 +105,10 @@ export function matchPrograma(nombre: string): ProgramaComercial[] {
  *  SOLO recomiende lo que se puede cotizar y vender: excluye masivos/becas, en pausa, suspendidos, matrícula
  *  cerrada, nuevos sin precio, bloqueados y lo que no está en la planilla. Recibe el nombre del catálogo. */
 export function esProgramaCotizable(nombre: string): boolean {
+  // consultar_programas filtra el catálogo con esto (ver core/catalogTool.ts). Sin la rama de Carver,
+  // al activarle la planilla sus 38 programas se evaluaban contra la planilla de POSTGRADOS, donde
+  // ninguno existe, y el catálogo quedaba en cero: el bot decía no tener oferta.
+  if (marca.key === 'carver') return matchProgramaCarver(nombre).some((p) => p.cotizable);
   return matchPrograma(nombre).some((p) => p.cotizable);
 }
 
@@ -178,6 +184,9 @@ function cotizacion(p: ProgramaComercial) {
  * Sin `programa` → devuelve las reglas generales de financiamiento (Toku) para explicarlas.
  */
 export function buscarCondiciones(programa?: string, sede?: string) {
+  // Carver cotiza con su propia planilla y su propia estructura (tres formas de pago, beca del 50%,
+  // matrícula solo en mensualidades). Se delega acá para no duplicar la tool ni tocar a sus llamadores.
+  if (marca.key === 'carver') return buscarCondicionesCarver(programa);
   if (!programa || !programa.trim()) {
     return {
       encontrado: false as const,

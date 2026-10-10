@@ -44,15 +44,56 @@ test('marca=carver: consultar_programas DEVUELVE resultados (no filtra por la pl
   assert.ok(r.programas.some((p: any) => /Psicología/i.test(p.nombre)));
 });
 
-test('marca=carver: NO lleva la herramienta de precios (su planilla comercial no existe)', () => {
-  assert.ok(!WHATSAPP_PROFILE.toolNames.includes('consultar_condiciones_comerciales'));
+test('marca=carver: SÍ lleva la herramienta de precios (ya tiene planilla validada por la dirección)', () => {
+  assert.ok(WHATSAPP_PROFILE.toolNames.includes('consultar_condiciones_comerciales'));
   assert.ok(WHATSAPP_PROFILE.toolNames.includes('consultar_programas'));
   assert.ok(WHATSAPP_PROFILE.toolNames.includes('escalar_a_humano'));
 });
 
-test('marca=carver: el prompt prohíbe cotizar y manda derivar (el sitio publica 2 precios distintos)', () => {
-  assert.match(SYSTEM_PROMPT, /NUNCA entregues valores, aranceles/);
-  assert.doesNotMatch(SYSTEM_PROMPT, /consultar_condiciones_comerciales/);
+// Las reglas que más fácil se rompen al cotizar Carver: contado y semestral ya vienen con el
+// beneficio aplicado, así que restarles otro 50% da un precio que no existe; y son las únicas dos
+// formas de pago sin matrícula.
+test('marca=carver: el prompt cotiza con la planilla y protege las reglas de las formas de pago', () => {
+  assert.match(SYSTEM_PROMPT, /consultar_condiciones_comerciales/);
+  assert.match(SYSTEM_PROMPT, /NUNCA les restes otro 50%/);
+  assert.match(SYSTEM_PROMPT, /ÚNICA forma de pago que cobra matrícula/);
+  assert.match(SYSTEM_PROMPT, /CURSOS CORTOS: son GRATIS/);
+});
+
+// La cotización real, contra la planilla validada: los números deben calzar con los que la asesora
+// le dio a una clienta en la conversación que originó esta carga.
+test('marca=carver: cotiza Licenciatura en Psicología con las cifras de la planilla', async () => {
+  const { buscarCondicionesCarver } = await import('../src/core/condicionesCarver');
+  const r: any = buscarCondicionesCarver('Licenciatura en Psicología');
+
+  assert.equal(r.encontrado, true);
+  assert.equal(r.arancelLista, 8000);
+  assert.equal(r.beca.pct, 50);
+  assert.equal(r.beca.arancel, 4000);
+  assert.equal(r.formasDePago.mensualidades.cuotas, 40);
+  assert.equal(r.formasDePago.mensualidades.montoCuota, 100);
+  assert.equal(r.formasDePago.mensualidades.matricula, 50);
+  assert.equal(r.formasDePago.contado.porAnio, 585);
+  assert.equal(r.formasDePago.contado.total, 2340);
+  assert.equal(r.formasDePago.contado.matricula, 0, 'contado NO cobra matrícula');
+  assert.equal(r.costosAdicionales.titulacionUsd, 125);
+});
+
+test('marca=carver: los cursos cortos son gratis, con certificado de USD 20', async () => {
+  const { buscarCondicionesCarver } = await import('../src/core/condicionesCarver');
+  const r: any = buscarCondicionesCarver('Hacking ético');
+  assert.equal(r.gratis, true);
+  assert.equal(r.certificadoUsd, 20);
+  assert.doesNotMatch(JSON.stringify(r), /arancelLista/);
+});
+
+// Cupos completos: el bot no debe cotizarlo ni prometer cupo, aunque tenga el precio a mano.
+test('marca=carver: un programa con cupos completos no se cotiza', async () => {
+  const { buscarCondicionesCarver } = await import('../src/core/condicionesCarver');
+  const r: any = buscarCondicionesCarver('Licenciatura en Ingeniería Informática');
+  assert.equal(r.cotizable, false);
+  assert.match(r.nota, /NO lo cotices/);
+  assert.doesNotMatch(JSON.stringify(r), /8000/, 'no debe filtrarse el precio de un programa que no se vende');
 });
 
 test('marca=carver: el detalle de un programa trae requisitos y modalidad, pero NO precio', () => {

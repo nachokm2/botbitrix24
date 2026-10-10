@@ -97,8 +97,10 @@ const CARVER: Marca = {
   ofertaResumen:
     'Hay 3 licenciaturas, 13 maestrías y 22 cursos cortos (NOOCs y educación continua). TODOS los programas son 100% en línea, con clases en vivo en español, y los valores están en DÓLARES (USD). Usa "consultar_programas" para buscar/filtrar por tipo (licenciatura/maestria/curso) o tema.',
   catalogo: 'carver',
-  cotiza: false, // el sitio publica dos precios distintos por programa: no cotizar hasta que Carver confirme
-  usaPlanillaComercial: false,
+  // Los "dos precios" del sitio eran Regular vs Upgrade y las tres formas de pago. Con la planilla
+  // validada por la dirección (ver scripts/build-carver-precios.ts) ya hay una fuente única.
+  cotiza: true,
+  usaPlanillaComercial: true,
   tieneVoz: false,
   capturaDocumentos: false,
   sePresentaComoAsesor: true,

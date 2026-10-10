@@ -1,39 +1,39 @@
-﻿tipo;programa;arancel_usd;matricula_usd;descuento_pct;cuotas_n;cuota_usd;se_vende_hoy;notas
-licenciatura;Licenciatura en Administración de Empresas;;;;;;;
-licenciatura;Licenciatura en Ingeniería Informática;;;;;;;
-licenciatura;Licenciatura en Psicología;;;;;;;
-maestria;Maestría en Administración Pública;;;;;;;
-maestria;Maestría en Administración de Empresas MBA;;;;;;;
-maestria;Maestría en Arquitectura de Software;;;;;;;
-maestria;Maestría en Ciencias en Educación Virtual;;;;;;;
-maestria;Maestría en Educación en Salud y Simulación Clínica;;;;;;;
-maestria;Maestría en Ergonomía Ocupacional y Gestión;;;;;;;
-maestria;Maestría en Gestión Estratégica de Organizaciones de Salud;;;;;;;
-maestria;Maestría en Gestión de Seguridad y Salud Ocupacional;;;;;;;
-maestria;Maestría en Ingeniería;;;;;;;
-maestria;Maestría en Inteligencia Artificial;;;;;;;
-maestria;Maestría en Neurodivergencia;;;;;;;
-maestria;Maestría en Psicología;;;;;;;
-maestria;Maestría en Salud Mental;;;;;;;
-curso;Claves de la comunicación estratégica;;;;;;;
-curso;Curso de Educación Continua en Competencias Digitales para Educadores;;;;;;;
-curso;Curso de Educación Continua en Inteligencia Artificial Aplicada;;;;;;;
-curso;Diferentes modos de violencia en la pareja;;;;;;;
-curso;Diseño de sistemas seguros;;;;;;;
-curso;Envejecimiento y demencia;;;;;;;
-curso;Estrategia organizacional y talento humano;;;;;;;
-curso;Estrategias de responsabilidad social y desarrollo sostenible;;;;;;;
-curso;Finanzas y bienestar personal;;;;;;;
-curso;Funciones y módulos de Python;;;;;;;
-curso;Hacking ético;;;;;;;
-curso;IA: tendencias y futuro;;;;;;;
-curso;Intervención en la clínica de parejas;;;;;;;
-curso;Introducción a Python y conceptos básicos de programación;;;;;;;
-curso;Introducción a la formulación y evaluación de proyectos;;;;;;;
-curso;Introducción de la minería de datos y Machine Learning;;;;;;;
-curso;Negociación estratégica en las organizaciones;;;;;;;
-curso;Personal Branding;;;;;;;
-curso;Problemas ligados a la sexualidad y el encuentro con el otro;;;;;;;
-curso;Problemáticas de salud mental infanto-juvenil;;;;;;;
-curso;Transformación digital e IA;;;;;;;
-curso;Urgencias en salud mental;;;;;;;
+tipo;programa;arancel_usd;matricula_usd;descuento_pct;cuotas_n;cuota_usd;se_vende_hoy;notas
+licenciatura;Licenciatura en Administración de Empresas;8000;50;50;40;100;no;Arancel USD 8000 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 4000. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 410 por semestre (8 pagos). Contado: USD 585 por año durante 4 años. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento. Cupos completos. Esperar apertura de nuevos cupos en marzo de 2027.
+licenciatura;Licenciatura en Ingeniería Informática;8000;50;50;40;100;no;Arancel USD 8000 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 4000. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 410 por semestre (8 pagos). Contado: USD 585 por año durante 4 años. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento. Cupos completos. Esperar apertura de nuevos cupos en marzo de 2027.
+licenciatura;Licenciatura en Psicología;8000;50;50;40;100;si;Arancel USD 8000 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 4000. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 410 por semestre (8 pagos). Contado: USD 585 por año durante 4 años. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento.
+maestria;Maestría en Administración Pública;3600;50;50;12;150;si;Arancel USD 3600 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 1800. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 630 por semestre (2 pagos). Contado: USD 900 por todo el programa. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento.
+maestria;Maestría en Administración de Empresas MBA;4500;50;50;15;150;si;Arancel USD 4500 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 2250. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 786 por semestre (2 pagos). Contado: USD 1123 por todo el programa. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento.
+maestria;Maestría en Arquitectura de Software;3600;50;50;12;150;si;Arancel USD 3600 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 1800. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 630 por semestre (2 pagos). Contado: USD 900 por todo el programa. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento.
+maestria;Maestría en Ciencias en Educación Virtual;3600;50;50;12;150;no;Arancel USD 3600 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 1800. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 630 por semestre (2 pagos). Contado: USD 900 por todo el programa. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento. Cupos completos. Esperar apertura de nuevos cupos en marzo de 2027.
+maestria;Maestría en Educación en Salud y Simulación Clínica;3600;50;50;12;150;si;Arancel USD 3600 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 1800. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 630 por semestre (2 pagos). Contado: USD 900 por todo el programa. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento.
+maestria;Maestría en Ergonomía Ocupacional y Gestión;3600;50;50;12;150;si;Arancel USD 3600 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 1800. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 630 por semestre (2 pagos). Contado: USD 900 por todo el programa. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento.
+maestria;Maestría en Gestión Estratégica de Organizaciones de Salud;3600;50;50;12;150;no;Arancel USD 3600 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 1800. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 630 por semestre (2 pagos). Contado: USD 900 por todo el programa. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento. Cupos completos. Esperar apertura de nuevos cupos en marzo de 2027.
+maestria;Maestría en Gestión de Seguridad y Salud Ocupacional;3600;50;50;12;150;si;Arancel USD 3600 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 1800. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 630 por semestre (2 pagos). Contado: USD 900 por todo el programa. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento.
+maestria;Maestría en Ingeniería;3600;50;50;12;150;si;Arancel USD 3600 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 1800. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 630 por semestre (2 pagos). Contado: USD 900 por todo el programa. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento.
+maestria;Maestría en Inteligencia Artificial;3600;50;50;12;150;si;Arancel USD 3600 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 1800. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 630 por semestre (2 pagos). Contado: USD 900 por todo el programa. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento.
+maestria;Maestría en Neurodivergencia;3600;50;50;12;150;si;Arancel USD 3600 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 1800. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 630 por semestre (2 pagos). Contado: USD 900 por todo el programa. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento.
+maestria;Maestría en Psicología;3600;50;50;12;150;si;Arancel USD 3600 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 1800. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 630 por semestre (2 pagos). Contado: USD 900 por todo el programa. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento.
+maestria;Maestría en Salud Mental;3600;50;50;12;150;si;Arancel USD 3600 corresponde al precio lista total. Beca del 50% ofrecible directamente por el agente. Neto en mensualidades: USD 1800. Matrícula regular USD 150, con beneficio especial queda en USD 50. Se cobra adicional, solo en mensualidades. Pago semestral: USD 630 por semestre (2 pagos). Contado: USD 900 por todo el programa. Contado y semestral no tienen cobro de matrícula y son precios fijos: no aplicar otro 50% de descuento.
+curso;Claves de la comunicación estratégica;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Curso de Educación Continua en Competencias Digitales para Educadores;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Curso de Educación Continua en Inteligencia Artificial Aplicada;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Diferentes modos de violencia en la pareja;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Diseño de sistemas seguros;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Envejecimiento y demencia;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Estrategia organizacional y talento humano;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Estrategias de responsabilidad social y desarrollo sostenible;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Finanzas y bienestar personal;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Funciones y módulos de Python;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Hacking ético;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;IA: tendencias y futuro;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Intervención en la clínica de parejas;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Introducción a Python y conceptos básicos de programación;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Introducción a la formulación y evaluación de proyectos;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Introducción de la minería de datos y Machine Learning;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Negociación estratégica en las organizaciones;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Personal Branding;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Problemas ligados a la sexualidad y el encuentro con el otro;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Problemáticas de salud mental infanto-juvenil;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Transformación digital e IA;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.
+curso;Urgencias en salud mental;0;0;0;0;0;si;Puedes hacer el curso gratis. Si quieres el certificado, cuesta USD 20. Si eres estudiante de Carver, tanto el curso como el certificado son gratis.

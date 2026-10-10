@@ -1,0 +1,506 @@
+{
+ "_fuente": "data/carver/precios-carver.csv — planilla validada con la dirección de Carver",
+ "_generado": "scripts/build-carver-precios.ts — NO editar a mano; corregir el CSV y regenerar",
+ "programas": [
+  {
+   "nombre": "Licenciatura en Administración de Empresas",
+   "tipo": "licenciatura",
+   "arancelLista": 8000,
+   "becaPct": 50,
+   "arancelConBeca": 4000,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 40,
+    "monto": 100
+   },
+   "semestral": {
+    "n": 8,
+    "monto": 410
+   },
+   "contado": {
+    "total": 2340,
+    "porAnio": 585,
+    "anios": 4
+   },
+   "cotizable": false,
+   "motivoNoCotizable": "cupos completos"
+  },
+  {
+   "nombre": "Licenciatura en Ingeniería Informática",
+   "tipo": "licenciatura",
+   "arancelLista": 8000,
+   "becaPct": 50,
+   "arancelConBeca": 4000,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 40,
+    "monto": 100
+   },
+   "semestral": {
+    "n": 8,
+    "monto": 410
+   },
+   "contado": {
+    "total": 2340,
+    "porAnio": 585,
+    "anios": 4
+   },
+   "cotizable": false,
+   "motivoNoCotizable": "cupos completos"
+  },
+  {
+   "nombre": "Licenciatura en Psicología",
+   "tipo": "licenciatura",
+   "arancelLista": 8000,
+   "becaPct": 50,
+   "arancelConBeca": 4000,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 40,
+    "monto": 100
+   },
+   "semestral": {
+    "n": 8,
+    "monto": 410
+   },
+   "contado": {
+    "total": 2340,
+    "porAnio": 585,
+    "anios": 4
+   },
+   "cotizable": true
+  },
+  {
+   "nombre": "Maestría en Administración Pública",
+   "tipo": "maestria",
+   "arancelLista": 3600,
+   "becaPct": 50,
+   "arancelConBeca": 1800,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 12,
+    "monto": 150
+   },
+   "semestral": {
+    "n": 2,
+    "monto": 630
+   },
+   "contado": {
+    "total": 900
+   },
+   "cotizable": true
+  },
+  {
+   "nombre": "Maestría en Administración de Empresas MBA",
+   "tipo": "maestria",
+   "arancelLista": 4500,
+   "becaPct": 50,
+   "arancelConBeca": 2250,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 15,
+    "monto": 150
+   },
+   "semestral": {
+    "n": 2,
+    "monto": 786
+   },
+   "contado": {
+    "total": 1123
+   },
+   "cotizable": true
+  },
+  {
+   "nombre": "Maestría en Arquitectura de Software",
+   "tipo": "maestria",
+   "arancelLista": 3600,
+   "becaPct": 50,
+   "arancelConBeca": 1800,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 12,
+    "monto": 150
+   },
+   "semestral": {
+    "n": 2,
+    "monto": 630
+   },
+   "contado": {
+    "total": 900
+   },
+   "cotizable": true
+  },
+  {
+   "nombre": "Maestría en Ciencias en Educación Virtual",
+   "tipo": "maestria",
+   "arancelLista": 3600,
+   "becaPct": 50,
+   "arancelConBeca": 1800,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 12,
+    "monto": 150
+   },
+   "semestral": {
+    "n": 2,
+    "monto": 630
+   },
+   "contado": {
+    "total": 900
+   },
+   "cotizable": false,
+   "motivoNoCotizable": "cupos completos"
+  },
+  {
+   "nombre": "Maestría en Educación en Salud y Simulación Clínica",
+   "tipo": "maestria",
+   "arancelLista": 3600,
+   "becaPct": 50,
+   "arancelConBeca": 1800,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 12,
+    "monto": 150
+   },
+   "semestral": {
+    "n": 2,
+    "monto": 630
+   },
+   "contado": {
+    "total": 900
+   },
+   "cotizable": true
+  },
+  {
+   "nombre": "Maestría en Ergonomía Ocupacional y Gestión",
+   "tipo": "maestria",
+   "arancelLista": 3600,
+   "becaPct": 50,
+   "arancelConBeca": 1800,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 12,
+    "monto": 150
+   },
+   "semestral": {
+    "n": 2,
+    "monto": 630
+   },
+   "contado": {
+    "total": 900
+   },
+   "cotizable": true
+  },
+  {
+   "nombre": "Maestría en Gestión Estratégica de Organizaciones de Salud",
+   "tipo": "maestria",
+   "arancelLista": 3600,
+   "becaPct": 50,
+   "arancelConBeca": 1800,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 12,
+    "monto": 150
+   },
+   "semestral": {
+    "n": 2,
+    "monto": 630
+   },
+   "contado": {
+    "total": 900
+   },
+   "cotizable": false,
+   "motivoNoCotizable": "cupos completos"
+  },
+  {
+   "nombre": "Maestría en Gestión de Seguridad y Salud Ocupacional",
+   "tipo": "maestria",
+   "arancelLista": 3600,
+   "becaPct": 50,
+   "arancelConBeca": 1800,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 12,
+    "monto": 150
+   },
+   "semestral": {
+    "n": 2,
+    "monto": 630
+   },
+   "contado": {
+    "total": 900
+   },
+   "cotizable": true
+  },
+  {
+   "nombre": "Maestría en Ingeniería",
+   "tipo": "maestria",
+   "arancelLista": 3600,
+   "becaPct": 50,
+   "arancelConBeca": 1800,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 12,
+    "monto": 150
+   },
+   "semestral": {
+    "n": 2,
+    "monto": 630
+   },
+   "contado": {
+    "total": 900
+   },
+   "cotizable": true
+  },
+  {
+   "nombre": "Maestría en Inteligencia Artificial",
+   "tipo": "maestria",
+   "arancelLista": 3600,
+   "becaPct": 50,
+   "arancelConBeca": 1800,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 12,
+    "monto": 150
+   },
+   "semestral": {
+    "n": 2,
+    "monto": 630
+   },
+   "contado": {
+    "total": 900
+   },
+   "cotizable": true
+  },
+  {
+   "nombre": "Maestría en Neurodivergencia",
+   "tipo": "maestria",
+   "arancelLista": 3600,
+   "becaPct": 50,
+   "arancelConBeca": 1800,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 12,
+    "monto": 150
+   },
+   "semestral": {
+    "n": 2,
+    "monto": 630
+   },
+   "contado": {
+    "total": 900
+   },
+   "cotizable": true
+  },
+  {
+   "nombre": "Maestría en Psicología",
+   "tipo": "maestria",
+   "arancelLista": 3600,
+   "becaPct": 50,
+   "arancelConBeca": 1800,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 12,
+    "monto": 150
+   },
+   "semestral": {
+    "n": 2,
+    "monto": 630
+   },
+   "contado": {
+    "total": 900
+   },
+   "cotizable": true
+  },
+  {
+   "nombre": "Maestría en Salud Mental",
+   "tipo": "maestria",
+   "arancelLista": 3600,
+   "becaPct": 50,
+   "arancelConBeca": 1800,
+   "matricula": 50,
+   "matriculaRegular": 150,
+   "mensualidades": {
+    "n": 12,
+    "monto": 150
+   },
+   "semestral": {
+    "n": 2,
+    "monto": 630
+   },
+   "contado": {
+    "total": 900
+   },
+   "cotizable": true
+  },
+  {
+   "nombre": "Claves de la comunicación estratégica",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Curso de Educación Continua en Competencias Digitales para Educadores",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Curso de Educación Continua en Inteligencia Artificial Aplicada",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Diferentes modos de violencia en la pareja",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Diseño de sistemas seguros",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Envejecimiento y demencia",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Estrategia organizacional y talento humano",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Estrategias de responsabilidad social y desarrollo sostenible",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Finanzas y bienestar personal",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Funciones y módulos de Python",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Hacking ético",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "IA: tendencias y futuro",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Intervención en la clínica de parejas",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Introducción a Python y conceptos básicos de programación",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Introducción a la formulación y evaluación de proyectos",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Introducción de la minería de datos y Machine Learning",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Negociación estratégica en las organizaciones",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Personal Branding",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Problemas ligados a la sexualidad y el encuentro con el otro",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Problemáticas de salud mental infanto-juvenil",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Transformación digital e IA",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  },
+  {
+   "nombre": "Urgencias en salud mental",
+   "tipo": "curso",
+   "gratis": true,
+   "certificadoUsd": 20,
+   "cotizable": true
+  }
+ ]
+}
