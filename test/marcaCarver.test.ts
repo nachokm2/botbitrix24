@@ -87,13 +87,29 @@ test('marca=carver: los cursos cortos son gratis, con certificado de USD 20', as
   assert.doesNotMatch(JSON.stringify(r), /arancelLista/);
 });
 
-// Cupos completos: el bot no debe cotizarlo ni prometer cupo, aunque tenga el precio a mano.
-test('marca=carver: un programa con cupos completos no se cotiza', async () => {
+// Cupos completos: SÍ se cotiza, porque la persona necesita el valor para decidir si espera a marzo
+// de 2027. Lo que no se hace es prometer cupo ni fecha de inicio. Esconderlos hacía perder
+// interesados en los dos programas de mayor valor del catálogo (las licenciaturas de USD 8.000).
+test('marca=carver: un programa con cupos completos se cotiza, avisando que la matrícula reabre', async () => {
   const { buscarCondicionesCarver } = await import('../src/core/condicionesCarver');
   const r: any = buscarCondicionesCarver('Licenciatura en Ingeniería Informática');
-  assert.equal(r.cotizable, false);
-  assert.match(r.nota, /NO lo cotices/);
-  assert.doesNotMatch(JSON.stringify(r), /8000/, 'no debe filtrarse el precio de un programa que no se vende');
+  assert.equal(r.arancelLista, 8000, 'debe dar el valor para que pueda decidir');
+  assert.match(r.nota, /NO DISPONIBLE AHORA/);
+  assert.match(r.nota, /MARZO DE 2027/);
+  assert.match(r.nota, /Dilo CLARAMENTE antes del precio/, 'no debe parecer que puede inscribirse hoy');
+  assert.match(r.nota, /NO prometas cupo ni fecha de inicio/);
+});
+
+// Y aparecen en el catálogo, marcados: antes se filtraban y el bot decía que no existían.
+test('marca=carver: los programas con cupos completos aparecen en el catálogo, con su disponibilidad', () => {
+  const r: any = consultarProgramas({ tipo: 'licenciatura' }, WHATSAPP_PROFILE.catalog.consultar);
+  assert.equal(r.total, 3, 'las tres licenciaturas, no solo la que está abierta');
+  const cerrada = r.programas.find((p: any) => /Ingeniería Informática/.test(p.nombre));
+  assert.equal(cerrada.disponible, false);
+  assert.match(cerrada.disponibilidad, /MARZO DE 2027/);
+  assert.match(cerrada.disponibilidad, /No lo ofrezcas como opción actual/);
+  const abierta = r.programas.find((p: any) => /Psicología/.test(p.nombre));
+  assert.equal(abierta.disponibilidad, undefined, 'la que está abierta no lleva aviso');
 });
 
 test('marca=carver: el detalle de un programa trae requisitos y modalidad, pero NO precio', () => {
@@ -315,10 +331,8 @@ test('marca=carver: con muchos resultados la herramienta pide resumir por área,
 
 test('marca=carver: con pocos resultados no pide resumir (listarlos ahí sí ayuda)', () => {
   const r: any = consultarProgramas({ tipo: 'licenciatura' }, WHATSAPP_PROFILE.catalog.consultar);
-  // Hay 3 licenciaturas en el catálogo pero solo 1 se ofrece: las otras dos tienen cupos completos
-  // hasta marzo de 2027 y el catálogo no muestra lo que no se puede vender.
-  assert.equal(r.total, 1, 'solo Psicología está abierta; las otras dos tienen cupos completos');
-  assert.equal(r.nota, undefined, 'con una o dos opciones se enumeran sin problema');
+  assert.equal(r.total, 3, 'las tres licenciaturas se ofrecen; dos avisan que reabren en 2027');
+  assert.equal(r.nota, undefined, 'tres opciones se enumeran sin problema');
 });
 
 test('marca=carver: el prompt prohíbe enumerar catálogos completos', () => {

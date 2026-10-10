@@ -33,11 +33,28 @@ export function consultarProgramas(input: any, p: ConsultarPresentation) {
   // El filtro comercial solo aplica donde existe esa planilla (Postgrados). En otra marca dejaría
   // el catálogo en CERO: ninguno de sus programas figura en la planilla de Postgrados.
   const encontrados = retrieve(input ?? {});
-  const all = marca.usaPlanillaComercial ? encontrados.filter((x) => esProgramaCotizable(x.nombre)) : encontrados;
+  // Carver SÍ ofrece lo que tiene los cupos completos: son programas vigentes que reabren matrícula
+  // en marzo de 2027, y esconderlos hacía perder interesados en los dos de mayor valor del catálogo
+  // (las licenciaturas de USD 8.000). En vez de filtrarlos, se marcan: el bot los presenta y avisa
+  // desde cuándo se puede postular. En Postgrados el filtro se mantiene — ahí excluye otra cosa:
+  // becas no habilitadas, programas en pausa y suspendidos, que no corresponde ofrecer.
+  const marcarDisponibilidad = marca.key === 'carver';
+  const all = marca.usaPlanillaComercial && !marcarDisponibilidad
+    ? encontrados.filter((x) => esProgramaCotizable(x.nombre))
+    : encontrados;
   const shown = all.slice(0, p.limit);
+  const conEstado = (x: any) =>
+    marcarDisponibilidad && !esProgramaCotizable(x.nombre)
+      ? {
+          ...x,
+          disponible: false,
+          disponibilidad:
+            'NO disponible ahora: cupos completos. La matrícula reabre en MARZO DE 2027. No lo ofrezcas como opción actual ni lo recomiendes primero; menciónalo solo como alternativa para 2027 si la persona pregunta por él o si encaja con lo que busca, y registra su interés para avisarle cuando abra.',
+        }
+      : x;
   const programas = p.verbose
-    ? shown
-    : shown.map((x) => ({ nombre: x.nombre, tipo: x.tipo, facultad: x.facultad, modalidad: x.modalidad }));
+    ? shown.map(conEstado)
+    : shown.map((x) => conEstado({ nombre: x.nombre, tipo: x.tipo, facultad: x.facultad, modalidad: x.modalidad }));
   // Cuántos resultados se pueden ENUMERAR en un chat sin abrumar. La nota de "afina la búsqueda"
   // solo se disparaba al superar el límite (20), así que con 13 maestrías no aparecía nunca y el bot
   // las listaba todas, con enlace y emoji por cada una: un muro de texto en WhatsApp. El tope es del
@@ -49,7 +66,7 @@ export function consultarProgramas(input: any, p: ConsultarPresentation) {
       : all.length > p.limit
         ? p.moreNote
         : all.length > COMODO_PARA_LISTAR
-          ? `Son ${all.length} programas: NO los enumeres todos ni pegues sus enlaces. Dile cuántos hay, menciona las ÁREAS o temas que cubren en una frase, y pregúntale cuál le interesa para profundizar en ese.`
+          ? `Son ${all.length} programas: NO los enumeres todos ni pegues sus enlaces. Dile cuántos hay, menciona las ÁREAS o temas que cubren en una frase, y pregúntale cuál le interesa para profundizar en ese. Ofrece primero los que estén disponibles: los que traigan "disponible: false" solo se mencionan como alternativa para 2027.`
           : undefined;
 
   if (p.wrapOk) {

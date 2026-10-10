@@ -75,18 +75,21 @@ export function buscarCondicionesCarver(programa?: string) {
   }
   const p = matches[0];
 
-  if (!p.cotizable) {
+  // Con cupos completos SÍ se informa el valor: la persona necesita el precio para decidir si espera
+  // a marzo de 2027. Lo que no se hace es prometer cupo ni fecha de inicio. Antes se negaba a
+  // cotizar, y eso dejaba sin respuesta a quien preguntaba por los dos programas de mayor valor.
+  if (!p.cotizable && p.motivoNoCotizable !== 'cupos completos') {
     return {
       encontrado: true as const,
       programa: p.nombre,
       cotizable: false as const,
       motivo: p.motivoNoCotizable ?? 'no disponible',
-      nota:
-        p.motivoNoCotizable === 'cupos completos'
-          ? 'Este programa tiene los cupos completos y se espera apertura de nuevos cupos en marzo de 2027. NO lo cotices ni prometas cupo: registra el interés y ofrece avisarle cuando se habilite.'
-          : 'Este programa no está disponible para matrícula hoy. NO lo cotices: registra el interés y ofrece avisarle cuando se habilite.',
+      nota: 'Este programa no está disponible para matrícula hoy. NO lo cotices: registra el interés y ofrece avisarle cuando se habilite.',
     };
   }
+  const avisoCupos = !p.cotizable
+    ? 'NO DISPONIBLE AHORA: este programa tiene los cupos completos y la matrícula reabre en MARZO DE 2027. Dilo CLARAMENTE antes del precio, para que la persona no crea que puede inscribirse hoy. Puedes darle el valor y las formas de pago para que decida si quiere esperar, pero NO prometas cupo ni fecha de inicio, y registra su interés con registrar_interes_crm para avisarle cuando abra.'
+    : '';
 
   if (p.gratis) {
     return {
@@ -139,6 +142,6 @@ export function buscarCondicionesCarver(programa?: string) {
         : undefined,
     },
     costosAdicionales: COSTOS_ADICIONALES_CARVER,
-    nota: `La ${BECA_CARVER} (${p.becaPct}%) puedes ofrecerla directamente. Entrega las tres formas de pago cuando pregunten por el valor.`,
+    nota: `${avisoCupos ? avisoCupos + ' ' : ''}La ${BECA_CARVER} (${p.becaPct}%) puedes ofrecerla directamente. Entrega las tres formas de pago cuando pregunten por el valor.`,
   };
 }
