@@ -6,7 +6,7 @@ import { log } from './log';
 import { runWithRequestContext } from './obs/requestContext';
 import { installHandler, oauthCodeOrNext } from './routes/install';
 import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes/botEvents';
-import { registerBotManual, unregisterBotManual, updateBotManual, triggerBrochureManual, listDealFields, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, syncCallsManual } from './routes/setup';
+import { registerBotManual, unregisterBotManual, updateBotManual, triggerBrochureManual, listDealFields, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, syncCallsManual, placementInfo } from './routes/setup';
 import { startCallSync } from './crm/callSync';
 import { vapiEvents, voiceOutbound, verifyVapiSecret, whatsappInboundCall } from './routes/vapi';
 import { vapiChatCompletions } from './routes/vapiLlm';
@@ -150,6 +150,7 @@ app.get('/setup/deal-stages', listDealStages);
 app.get('/setup/deal-fields', listDealFields);
 app.get('/setup/deal-responsable', dealResponsable);
 app.get('/setup/bind-dashboard', bindDashboardManual);
+app.get('/setup/placement-info', placementInfo); // diagnóstico: qué ve Bitrix de esta app
 app.get('/setup/bind-calls', bindCallsManual);
 app.get('/setup/sync-calls', syncCallsManual);
 

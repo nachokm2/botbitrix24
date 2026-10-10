@@ -201,3 +201,28 @@ export async function unregisterBotManual(_req: Request, res: Response) {
     return res.status(500).json({ ok: false, error: String(e) });
   }
 }
+
+/**
+ * Diagnóstico del panel dentro de Bitrix24: qué placements tiene registrados ESTA app y si Bitrix la
+ * considera instalada. GET /setup/placement-info
+ *
+ * Existe porque el ítem de menú de Carver no aparecía y no había forma de saber si el placement
+ * estaba mal enlazado, mal nombrado, o si el problema era que Bitrix no da por instalada la app
+ * (su instalación nunca corrió: se resolvió por canje OAuth, ver routes/install.ts).
+ */
+export async function placementInfo(_req: Request, res: Response) {
+  const st = await getState();
+  if (!st.auth) return res.status(400).json({ ok: false, error: 'No hay auth. Instala el app primero.' });
+  const out: Record<string, unknown> = { dominio: st.auth.domain, botId: st.botId ?? null };
+  try {
+    out.placements = await callBitrix('placement.get', {}, st.auth);
+  } catch (e) {
+    out.placementsError = String(e);
+  }
+  try {
+    out.app = await callBitrix('app.info', {}, st.auth);
+  } catch (e) {
+    out.appError = String(e);
+  }
+  return res.json({ ok: true, ...out });
+}
