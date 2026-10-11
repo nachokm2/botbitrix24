@@ -132,6 +132,7 @@ export async function runConversation(
   const { profile, auditId, crmEntity } = opts;
   const system = profile.systemPrompt;
   const allowedTools = tools.filter((t) => profile.toolNames.includes(t.name));
+  let reintentoPorVacio = false;
 
   for (let step = 0; step < MAX_STEPS; step++) {
     const t0 = Date.now();
@@ -151,7 +152,25 @@ export async function runConversation(
     messages.push({ role: 'assistant', content: resp.content });
 
     const toolUses = (resp.content as any[]).filter((b) => b.type === 'tool_use');
-    if (toolUses.length === 0) return { text: textOf(resp, auditId), messages };
+    if (toolUses.length === 0) {
+      const texto = soloTexto(resp);
+      if (texto) return { text: texto, messages };
+      // Turno VACÍO: ni texto ni herramientas. Pasó dos veces en producción, las dos con un mensaje
+      // corto de interés ("Me interesa el MBA", "Me interesa la psicología") justo después de que el
+      // bot ya había explicado el programa — y el cliente recibía una frase genérica que perdía el
+      // hilo. Antes de caer a esa frase se le pide que responda: un reintento cuesta una llamada y
+      // recupera la conversación, mientras que la frase de reserva la rompe.
+      if (!reintentoPorVacio) {
+        reintentoPorVacio = true;
+        inc('respuesta_vacia_reintento');
+        messages.push({
+          role: 'user',
+          content: `${MARCA_REINTENTO} Tu respuesta anterior salió vacía. Responde al último mensaje del cliente de forma útil y concreta, retomando el hilo de la conversación. No vuelvas a saludar ni cambies de tema.`,
+        });
+        continue;
+      }
+      return { text: textOf(resp, auditId), messages };
+    }
 
     // Ejecuta las tools del turno en paralelo, preservando el orden por tool_use_id.
     const results = await Promise.all(
@@ -301,7 +320,9 @@ export async function runAgentTurn(
 /** Reemplaza los bloques de imagen (base64) de los mensajes del usuario por un marcador de texto,
  *  para no persistir binarios pesados en el historial (Redis) ni re-enviarlos en turnos futuros. */
 function sanitizeHistory(messages: any[]): any[] {
-  return messages.map((m) => {
+  return messages
+    .filter((m) => !(typeof m?.content === 'string' && m.content.startsWith(MARCA_REINTENTO)))
+    .map((m) => {
     if (m?.role !== 'user' || !Array.isArray(m.content)) return m;
     const hasImage = m.content.some((b: any) => b?.type === 'image');
     if (!hasImage) return m;
@@ -319,6 +340,19 @@ function sanitizeHistory(messages: any[]): any[] {
  *  marca equivocada y tuteaba. Un cliente de Carver escribió "me interesa el MBA" y recibió eso,
  *  perdiendo el hilo. Ahora sale de la marca y además se AUDITA: un turno que cae acá es un turno
  *  degradado y tiene que verse en el panel, no desaparecer en silencio. */
+/** Marca el empujón interno que se envía cuando el modelo devuelve un turno vacío. No es del
+ *  cliente ni debe persistirse: se filtra del historial en sanitizeHistory. */
+const MARCA_REINTENTO = '<<REINTENTO_INTERNO>>';
+
+/** Solo el texto de la respuesta, sin red de seguridad. Vacío = turno vacío del modelo. */
+function soloTexto(resp: any): string {
+  return (resp.content as any[])
+    .filter((b: any) => b.type === 'text')
+    .map((b: any) => b.text)
+    .join('\n')
+    .trim();
+}
+
 export function textOf(resp: any, auditId?: string): string {
   const text = (resp.content as any[])
     .filter((b) => b.type === 'text')

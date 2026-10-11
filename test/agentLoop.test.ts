@@ -103,3 +103,51 @@ test('runAgentTurn: el fallo queda AUDITADO (antes solo subía un contador en me
   assert.equal(err!.detail?.etapa, 'motor');
   assert.match(String(err!.detail?.err), /boom de la API/);
 });
+
+// Dos veces en producción el modelo devolvió un turno VACÍO —ni texto ni herramientas— ante un
+// mensaje corto de interés ("Me interesa el MBA", "Me interesa la psicología") justo después de
+// haber explicado el programa. El cliente recibía una frase genérica que perdía el hilo. Ahora se le
+// pide que responda antes de caer a esa frase: un reintento cuesta una llamada y recupera la
+// conversación, mientras que la frase de reserva la rompe.
+test('runAgentTurn: ante un turno vacío del modelo le pide que responda, en vez de soltar la frase de reserva', async () => {
+  const enviados: any[][] = [];
+  let paso = 0;
+  impl = async (args: any) => {
+    enviados.push([...args.messages]); // copia: el motor muta el mismo arreglo entre llamadas
+    paso++;
+    if (paso === 1) return { content: [], usage: {} }; // turno vacío
+    return textResp('Claro, le cuento sobre la Maestría en Psicología.');
+  };
+
+  const reply = await runAgentTurn({ ...ctx(), conversationId: 'al-vacio' }, 'Me interesa la psicología');
+
+  assert.equal(reply, 'Claro, le cuento sobre la Maestría en Psicología.');
+  assert.equal(paso, 2, 'exactamente un reintento, no más');
+  const empujon = String(enviados[1].at(-1)?.content ?? '');
+  assert.match(empujon, /salió vacía/, 'el empujón explica qué pasó');
+  assert.match(empujon, /No vuelvas a saludar ni cambies de tema/);
+
+  // El empujón es interno: no puede quedar en el historial ni reenviarse en los turnos siguientes.
+  const hist = await getHistory('al-vacio');
+  assert.ok(
+    !hist.some((m: any) => typeof m?.content === 'string' && m.content.includes('REINTENTO_INTERNO')),
+    'el empujón interno no debe persistirse',
+  );
+});
+
+test('runAgentTurn: si tras el reintento sigue vacío, recién ahí usa la frase de reserva', async () => {
+  let paso = 0;
+  impl = async () => {
+    paso++;
+    return { content: [], usage: {} };
+  };
+
+  const reply = await runAgentTurn({ ...ctx(), conversationId: 'al-vacio-2' }, 'hola');
+
+  assert.equal(paso, 2, 'reintenta una vez y se rinde');
+  assert.match(reply, /¿En qué puedo ayudar/, 'la frase de reserva sigue existiendo como último recurso');
+  assert.ok(
+    auditCalls.some((a) => a.type === 'error' && (a.detail as any)?.etapa === 'respuesta_vacia'),
+    'y queda auditada: el cliente recibió una respuesta inútil',
+  );
+});
