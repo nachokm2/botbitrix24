@@ -66,14 +66,21 @@ export async function enviarPlantillaWhatsApp(opts: {
     if (!url) return { ok: false, error: 'Falta WA_API_URL' };
     const headers = safeJson(process.env.WA_API_HEADERS) ?? { 'Content-Type': 'application/json' };
     const tpl = process.env.WA_API_BODY ?? '{"to":"{{to}}","template":"{{template}}","language":"{{lang}}","params":{{paramsJson}}}';
-    const body = tpl
-      .replace(/\{\{to\}\}/g, opts.phoneE164)
-      .replace(/\{\{template\}\}/g, opts.template)
-      .replace(/\{\{lang\}\}/g, opts.lang)
-      .replace(/\{\{paramsJson\}\}/g, JSON.stringify(opts.params))
-      .replace(/\{\{param0\}\}/g, opts.params[0] ?? '');
+    // Las mismas variables valen en la URL y en el cuerpo. Hace falta en la URL porque hay
+    // proveedores que llevan el destinatario en la ruta y no en el JSON — ChatApp, el que usa
+    // Carver, direcciona como /v1/licenses/<id>/messengers/caWhatsApp/chats/<teléfono>/messages.
+    const sustituir = (txt: string) =>
+      txt
+        .replace(/\{\{to\}\}/g, opts.phoneE164)
+        .replace(/\{\{toSinMas\}\}/g, opts.phoneE164.replace(/^\+/, '')) // varios proveedores no aceptan el "+"
+        .replace(/\{\{template\}\}/g, opts.template)
+        .replace(/\{\{lang\}\}/g, opts.lang)
+        .replace(/\{\{paramsJson\}\}/g, JSON.stringify(opts.params))
+        .replace(/\{\{param0\}\}/g, opts.params[0] ?? '')
+        .replace(/\{\{param1\}\}/g, opts.params[1] ?? '');
+    const body = sustituir(tpl);
     try {
-      const res = await fetch(url, { method: 'POST', headers, body });
+      const res = await fetch(sustituir(url), { method: 'POST', headers, body });
       const txt = await res.text();
       if (!res.ok) return { ok: false, error: `HTTP ${res.status}: ${txt.slice(0, 200)}` };
       return { ok: true };
