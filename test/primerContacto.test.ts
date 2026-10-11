@@ -88,6 +88,17 @@ test('aE164 respeta un número ya internacional', () => {
   assert.equal(aE164(''), null);
 });
 
+test('sin embudos configurados no filtra por embudo', async () => {
+  // Acá el 0 es un embudo VÁLIDO de Bitrix, así que no se puede descartar como en las otras listas
+  // de IDs. Con el filtro mal escrito, una variable sin definir dejaba [0] y la consulta pedía las
+  // negociaciones del embudo equivocado: en producción devolvía cero candidatos entre 21.955.
+  assert.deepEqual(config.primerContactoCategorias, []);
+  escenario();
+  await candidatosPrimerContacto(auth, 7);
+  const q = consultas.find((c) => c.method === 'crm.deal.list');
+  assert.equal(q.params.filter['@CATEGORY_ID'], undefined, 'sin configurar, no debe filtrar por embudo');
+});
+
 test('deja fuera a quien ya conversó con el bot y a quien no tiene teléfono', async () => {
   escenario();
   const c = await candidatosPrimerContacto(auth, 7);

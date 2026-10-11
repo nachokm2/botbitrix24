@@ -273,9 +273,14 @@ export const config = {
   primerContactoDias: Number(process.env.PRIMER_CONTACTO_DIAS ?? 7) || 7,
   primerContactoMaxDiario: Number(process.env.PRIMER_CONTACTO_MAX_DIARIO ?? 50) || 0,
   primerContactoPrefijoPais: process.env.PRIMER_CONTACTO_PREFIJO_PAIS ?? '+56',
+  // Ojo con el orden: acá el 0 es un embudo VÁLIDO de Bitrix, así que no se puede descartar como en
+  // las otras listas. Hay que quitar las cadenas vacías ANTES de convertir, o un valor sin definir
+  // deja [0] y el filtro termina pidiendo las negociaciones del embudo equivocado.
   primerContactoCategorias: (process.env.PRIMER_CONTACTO_CATEGORIAS ?? '')
     .split(',')
-    .map((x) => Number(x.trim()))
+    .map((x) => x.trim())
+    .filter((x) => x !== '')
+    .map(Number)
     .filter((n) => Number.isFinite(n) && n >= 0),
   // Precio Anthropic por millón de tokens (USD) para estimar costo en el panel (0 = no mostrar).
   costInPerMtok: Number(process.env.ANTHROPIC_COST_IN_PER_MTOK ?? 0),
