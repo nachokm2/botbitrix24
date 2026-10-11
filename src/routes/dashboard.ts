@@ -7,6 +7,7 @@ import { kvKind } from '../store/kv';
 import { getState } from '../store';
 import { getUsuarios } from '../crm/directory';
 import { bitrixMarchaBlancaScorecard, resolverDialogosPorProgramaPiloto, type ProgramaScorecard } from '../crm/marchaBlanca';
+import { vistaPorAsesor, type FilaAsesor } from '../crm/vistaAsesores';
 import { config } from '../config';
 import { marca } from '../marca';
 
@@ -42,6 +43,10 @@ const PILOTO_PROYECCION = {
 // crm.deal.list en lote, así que cachearla junto al scorecard evita duplicar esa llamada.
 let marchaBlancaCache: { at: number; data: ProgramaScorecard[]; dialogosPorPrograma: Map<string, string[]> } | null = null;
 const MARCHA_BLANCA_TTL_MS = 3 * 60 * 1000;
+
+// La vista por asesor también consulta Bitrix en lote (una página de crm.deal.list por cada 50
+// derivaciones), así que se cachea igual: el panel se refresca cada 15 s y esto cambia por hora.
+let asesoresCache: { at: number; range: string; data: FilaAsesor[] } | null = null;
 
 /** JSON con métricas de negocio (persistentes) + técnicas (en memoria) + actividad reciente. */
 export async function metricsSummary(req: Request, res: Response) {
@@ -137,6 +142,22 @@ export async function metricsSummary(req: Request, res: Response) {
     }
   }
 
+  // Vista por asesor: a quién le entregó el bot cada caso y qué hizo con él. Responde la pregunta
+  // que el agregado deja abierta — 4 de 38 derivaciones trabajadas no dice a quién hay que ayudar.
+  let asesores: FilaAsesor[] = [];
+  if (st.auth) {
+    if (asesoresCache && asesoresCache.range === range && Date.now() - asesoresCache.at < MARCHA_BLANCA_TTL_MS) {
+      asesores = asesoresCache.data;
+    } else {
+      try {
+        asesores = await vistaPorAsesor(st.auth, range);
+        asesoresCache = { at: Date.now(), range, data: asesores };
+      } catch {
+        asesores = asesoresCache?.range === range ? asesoresCache.data : [];
+      }
+    }
+  }
+
   // El consumo sale de Postgres, no del contador en memoria: ese se reiniciaba en cada despliegue y
   // obligaba a extrapolar el costo del piloto desde una semana suelta. Se cae al contador en memoria
   // solo si todavía no hay registros persistidos (instalaciones anteriores a esta medición).
@@ -168,6 +189,7 @@ export async function metricsSummary(req: Request, res: Response) {
     live: { counters: live.counters, llm: live.llm },
     tokens: { in: tin, out: tout, costUsd: cost, persistido: Boolean(tokensPersistidos) },
     agg,
+    asesores, // desglose por asesor: derivados / atendidos / pendientes (ver crm/vistaAsesores.ts)
     recent,
     erroresRecientes, // fallas técnicas con motivo y etapa, para poder accionarlas desde el panel
     // Lista para poder LEER lo que el bot respondió (el detalle va en /metrics/conversacion). Viaja

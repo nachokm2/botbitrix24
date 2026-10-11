@@ -188,6 +188,35 @@ function render(d){
     asEl.innerHTML=ases.map(function(x){ var nm=x.nombre||('Asesor '+x.id); var extra=(x.avg!=null)?(' · score prom '+x.avg):''; return barRow(nm+extra, x.convs||x.c, amax); }).join('');
   } else asEl.innerHTML='<span class="muted">Sin datos por asesor aún (se llena cuando el bot puntúe leads con deal asignado).</span>';
 
+  // Seguimiento por asesor: qué hizo cada persona con lo que el bot le entregó. El bloque de arriba
+  // ("Por asesor responsable") mide volumen de conversaciones; esto mide si el caso se trabajó.
+  var segAs = d.asesores || []; var segEl = document.getElementById('seguimientoasesor');
+  var segSec = document.getElementById('secSeguimientoAsesor');
+  if (segAs.length) {
+    if (segSec) segSec.style.display = '';
+    var scols = ['Asesor','Casos derivados','Los tomó','Sin tomar','Mediana hasta tomarlo','Última derivación'];
+    var sthead = '<thead><tr>'+scols.map(function(c){return '<th>'+esc(c)+'</th>';}).join('')+'</tr></thead>';
+    var stbody = '<tbody>'+segAs.map(function(a){
+      // Los pendientes se destacan en rojo: es la única columna sobre la que hay algo que hacer hoy.
+      var pend = a.pendientes>0 ? '<b style="color:#f04438">'+num(a.pendientes)+'</b>' : num(a.pendientes);
+      var ult = a.ultimaDerivacion ? new Date(a.ultimaDerivacion).toLocaleString('es-CL') : '—';
+      return '<tr>'+
+        '<td>'+esc(a.nombre)+'</td>'+
+        '<td>'+num(a.derivados)+'</td>'+
+        '<td>'+num(a.atendidos)+'</td>'+
+        '<td>'+pend+'</td>'+
+        '<td>'+fmtEspera(a.medianaSeg)+'</td>'+
+        '<td>'+esc(ult)+'</td>'+
+      '</tr>';
+    }).join('')+'</tbody>';
+    segEl.innerHTML = sthead+stbody;
+    var totD = segAs.reduce(function(x,a){return x+a.derivados;},0);
+    var totP = segAs.reduce(function(x,a){return x+a.pendientes;},0);
+    document.getElementById('seguimientoasesornota').textContent =
+      totP ? (totP+' de '+totD+' casos derivados siguen sin que nadie los trabaje en el CRM.')
+           : ('Los '+totD+' casos derivados fueron trabajados.');
+  } else if (segSec) segSec.style.display = 'none';
+
   // Conversión del bot
   var capt = agg? agg.capturaConvs : 0, escConv = agg? agg.escalConvs : 0;
   var captRate = conversaciones>0? Math.round(capt/conversaciones*100) : 0;

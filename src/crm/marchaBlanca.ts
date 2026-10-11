@@ -247,34 +247,42 @@ async function nombresDeEtapa(categoryId: number, auth: Auth): Promise<Map<strin
  *  conversación. */
 const BARRIDO_MINIMO = 3;
 
+export type MovimientoDeal = { MOVED_BY_ID?: string; MOVED_TIME?: string; STAGE_ID?: string };
+
+/**
+ * Devuelve los deals que NO deben contarse como atendidos porque se movieron en bloque.
+ *
+ * Un barrido manual se reconoce por su forma, no por el nombre de la etapa: la misma persona,
+ * el mismo día, muchas negociaciones al mismo destino. Pasó el 2026-10-06, cuando alguien movió
+ * 24 casos derivados a Remarketing de una vez, 23 días después de la derivación. Contarlos como
+ * atención hacía saltar la columna de 5 a 28 y reportar una mediana de 23 días: un número que se
+ * ve bien y no describe nada. Mirar el nombre de la etapa no sirve — "No interesado" también es
+ * una etapa de cierre y ahí sí hubo un asesor decidiendo caso por caso.
+ */
+export function detectarBarridosEnBloque(dealIds: number[], dealsPorId: Map<number, MovimientoDeal>): Set<number> {
+  const grupos = new Map<string, number[]>();
+  for (const dealId of dealIds) {
+    const d = dealsPorId.get(dealId);
+    if (!d?.MOVED_TIME || !d.MOVED_BY_ID) continue;
+    const dia = String(d.MOVED_TIME).slice(0, 10);
+    const clave = `${d.MOVED_BY_ID}|${dia}|${d.STAGE_ID ?? ''}`;
+    grupos.set(clave, [...(grupos.get(clave) ?? []), dealId]);
+  }
+  const enBarrido = new Set<number>();
+  for (const ids of grupos.values()) {
+    if (ids.length >= BARRIDO_MINIMO) for (const id of ids) enBarrido.add(id);
+  }
+  return enBarrido;
+}
+
 function seguimientoAsesor(
   escalados: EscaladoRef[],
   dealsPorId: Map<number, { MOVED_BY_ID?: string; MOVED_TIME?: string; STAGE_ID?: string }>,
 ): { derivados: number; atendidos: number; medianaSeg: number | null; barridos: number } {
   const automaticos = new Set(config.usuariosAutomaticos);
 
-  // Un barrido manual se reconoce por su forma, no por el nombre de la etapa: la misma persona,
-  // el mismo día, muchas negociaciones al mismo destino. Pasó el 2026-10-06, cuando alguien movió
-  // 24 casos derivados a Remarketing de una vez, 23 días después de la derivación. Contarlos como
-  // atención hacía saltar la columna de 5 a 28 y reportar una mediana de 23 días: un número que se
-  // ve bien y no describe nada. Mirar el nombre de la etapa no sirve — "No interesado" también es
-  // una etapa de cierre y ahí sí hubo un asesor decidiendo caso por caso.
-  const grupos = new Map<string, number[]>();
-  for (const e of escalados) {
-    const d = dealsPorId.get(e.dealId);
-    if (!d?.MOVED_TIME || !d.MOVED_BY_ID) continue;
-    const dia = String(d.MOVED_TIME).slice(0, 10);
-    const clave = `${d.MOVED_BY_ID}|${dia}|${d.STAGE_ID ?? ''}`;
-    grupos.set(clave, [...(grupos.get(clave) ?? []), e.dealId]);
-  }
-  const enBarrido = new Set<number>();
-  let barridos = 0;
-  for (const ids of grupos.values()) {
-    if (ids.length >= BARRIDO_MINIMO) {
-      barridos += ids.length;
-      for (const id of ids) enBarrido.add(id);
-    }
-  }
+  const enBarrido = detectarBarridosEnBloque(escalados.map((e) => e.dealId), dealsPorId);
+  const barridos = enBarrido.size;
 
   const esperas: number[] = [];
   for (const e of escalados) {

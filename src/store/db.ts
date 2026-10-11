@@ -1242,3 +1242,37 @@ export async function dbTokensSumados(range = 'all'): Promise<{ in: number; out:
     return null;
   }
 }
+
+/** Todas las derivaciones del bot a una persona, sin filtrar por programa: el deal, cuándo se derivó
+ *  y por qué vía. Es la base de la vista por asesor del panel (crm/vistaAsesores.ts), que a
+ *  diferencia de la marcha blanca no depende de que haya programas piloto configurados. */
+export async function dbDerivaciones(range = 'all'): Promise<Array<{ dealId: number; ts: string; dialogId: string | null; motivo: string }>> {
+  if (!pool) return [];
+  const interval = range in RANGE_INTERVAL ? RANGE_INTERVAL[range] : null;
+  const W = interval ? `AND ts >= now() - interval '${interval}'` : ''; // interval viene de whitelist
+  try {
+    const r = await pool.query(
+      `SELECT crm_entity,
+              min(ts) ts,
+              (array_agg(dialog_id ORDER BY ts))[1] dialog_id,
+              (array_agg(type ORDER BY ts))[1] motivo
+       FROM audit_log
+       WHERE (type='auto_escalation'
+              OR type='seguimiento_transferencia'
+              OR (type='tool_call' AND detail->>'name'='escalar_a_humano' AND detail->>'ok'='true'))
+         AND crm_entity LIKE 'deal#%' ${W}
+       GROUP BY crm_entity`,
+    );
+    return r.rows
+      .map((x: any) => ({
+        dealId: Number(String(x.crm_entity).slice(5)),
+        ts: x.ts,
+        dialogId: x.dialog_id ?? null,
+        motivo: x.motivo === 'seguimiento_transferencia' ? 'silencio' : x.motivo === 'auto_escalation' ? 'score' : 'pedido',
+      }))
+      .filter((x) => Number.isFinite(x.dealId) && x.dealId > 0);
+  } catch (err) {
+    log.warn('dbDerivaciones falló', { err: String(err) });
+    return [];
+  }
+}
