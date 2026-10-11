@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { equivalencias } from './tipoCambio';
 
 // Planilla comercial de Carver, validada con la dirección. La genera scripts/build-carver-precios.ts
 // desde data/carver/precios-carver.csv — ver ese script antes de tocar nada acá.
@@ -142,6 +143,19 @@ export function buscarCondicionesCarver(programa?: string) {
         : undefined,
     },
     costosAdicionales: COSTOS_ADICIONALES_CARVER,
+    // Equivalentes aproximados en la moneda de cada país. Una clienta colombiana preguntó por "la
+    // beca de 2 millones de pesos" y recibió solo dólares: la gente piensa en su moneda. Si las
+    // tasas no están disponibles viene null y el bot habla solo en dólares (ver core/tipoCambio.ts).
+    equivalencias: equivalencias({
+      arancelLista: p.arancelLista,
+      arancelConBeca: p.arancelConBeca,
+      matricula: p.matricula,
+      cuotaMensual: mens?.monto,
+      totalMensualidades: p.arancelConBeca,
+      pagoSemestral: p.semestral?.monto,
+      totalSemestral: p.semestral ? p.semestral.n * p.semestral.monto : undefined,
+      totalContado: p.contado?.total,
+    }),
     nota: `${avisoCupos ? avisoCupos + ' ' : ''}La ${BECA_CARVER} (${p.becaPct}%) puedes ofrecerla directamente. Entrega las tres formas de pago cuando pregunten por el valor.`,
   };
 }
