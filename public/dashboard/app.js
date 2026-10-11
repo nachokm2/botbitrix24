@@ -414,6 +414,18 @@ function render(d){
   // dicen cuántas hubo; esto deja leer qué se dijo. Se pide el detalle al abrir una, no de entrada:
   // traer el texto de todas en cada refresco sería mucho volumen para algo que se mira de a una.
   var convs = d.conversaciones || [];
+  // Enlace a la ficha de Bitrix según el tipo de entidad: los chats llegan vinculados a una
+  // negociación, a un lead o a un contacto, y cada uno tiene su propia ruta. Abre en pestaña nueva
+  // para no sacar el panel del iframe en el que vive.
+  var crmLink = function(entidad){
+    if (!entidad || !d.bitrixDomain) return esc(entidad || '—');
+    var partes = String(entidad).split('#');
+    var rutas = { deal: 'deal', lead: 'lead', contact: 'contact', company: 'company' };
+    var ruta = rutas[partes[0]];
+    if (!ruta || !partes[1]) return esc(entidad);
+    var url = 'https://'+d.bitrixDomain+'/crm/'+ruta+'/details/'+partes[1]+'/';
+    return '<a href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(entidad)+'</a>';
+  };
   var convEl = document.getElementById('conversaciones');
   // Decir cuántas se muestran Y cuántas hay: la sección decía "30 conversaciones" mientras la
   // tarjeta de arriba decía 66, y parecían datos en conflicto. Son los mismos, truncados.
@@ -429,7 +441,7 @@ function render(d){
       return '<tr class="convrow" data-dialog="'+esc(c.dialog_id)+'" style="cursor:pointer">'+
         '<td>'+new Date(c.fin).toLocaleString('es-CL')+'</td>'+
         '<td>'+num(c.turnos)+'</td>'+
-        '<td>'+esc(c.crm_entity||'—')+'</td>'+
+        '<td>'+crmLink(c.crm_entity)+'</td>'+
         '<td>'+esc(String(c.ultimo_mensaje||'').slice(0,80))+'</td>'+
       '</tr>';
     }).join('') + '</tbody>';
