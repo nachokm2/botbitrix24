@@ -4,6 +4,7 @@ import type { AgentContext } from '../core/channel';
 import { actualizarDatosCliente, obtenerContextoLlamada } from '../crm/crmWrite';
 import { getDealAsesores } from '../crm/directory';
 import { asignarAsesorPorTurno, derivarAResponsableFijo } from '../crm/asignacionAsesores';
+import { vigilarDerivacion } from '../crm/vigilanciaDerivaciones';
 import { generarBriefing } from './briefing';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { markHumanTakeover, getSession, saveSession } from '../session';
@@ -132,6 +133,9 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
           // por turno no corre: son dos políticas que se excluyen.
           const fijo = await derivarAResponsableFijo(ctx.crmEntities, ctx.auth);
           if (!fijo) await asignarAsesorPorTurno(ctx.crmEntities, ctx.auth);
+
+          // Arranca el reloj: si nadie trabaja esta negociación en las próximas horas, se le avisa.
+          if (ctx.crmEntities.deal) void vigilarDerivacion(ctx.crmEntities.deal, ctx.conversationId);
         }
 
         // Genera (una vez) un resumen del lead para el asesor y lo deja en el CRM.

@@ -239,6 +239,15 @@ export const config = {
     .split(',')
     .map((s) => Number(s.trim()))
     .filter((n) => Number.isFinite(n) && n > 0),
+  // Vigilancia de derivaciones: horas sin que nadie trabaje una negociación derivada antes de avisarle
+  // al responsable por notificación interna de Bitrix. En el piloto de Postgrados, 4 de 38 casos
+  // derivados fueron tomados por una persona; el resto lo barrió el robot a Remarketing sin que nadie
+  // se enterara. 0 = desactivado.
+  derivacionAlertaHoras: Number(process.env.DERIVACION_ALERTA_HORAS ?? 4) || 0,
+  // Segundo aviso, al supervisor, si pasadas estas horas desde la derivación el caso sigue sin tomar.
+  derivacionAlertaSupervisorHoras: Number(process.env.DERIVACION_ALERTA_SUPERVISOR_HORAS ?? 24) || 0,
+  // Usuario de Bitrix que recibe ese segundo aviso (0 = no escalar, solo se avisa al responsable).
+  derivacionSupervisorId: Number(process.env.BITRIX_SUPERVISOR_ID ?? 0) || 0,
   // Precio Anthropic por millón de tokens (USD) para estimar costo en el panel (0 = no mostrar).
   costInPerMtok: Number(process.env.ANTHROPIC_COST_IN_PER_MTOK ?? 0),
   costOutPerMtok: Number(process.env.ANTHROPIC_COST_OUT_PER_MTOK ?? 0),

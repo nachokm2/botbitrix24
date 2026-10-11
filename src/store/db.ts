@@ -229,6 +229,23 @@ export async function dbConversacion(dialogId: string, limit = 100): Promise<any
   }
 }
 
+/** ¿Escribió un empleado en ese chat después de cierto momento? Es la señal más directa de que una
+ *  persona tomó el caso: un asesor puede responder por WhatsApp sin tocar nunca la negociación.
+ *  La usa la vigilancia de derivaciones (crm/vigilanciaDerivaciones.ts). */
+export async function dbHuboOperadorDespuesDe(dialogId: string, desde: Date): Promise<boolean> {
+  if (!pool || !dialogId) return false;
+  try {
+    const r = await pool.query(
+      `SELECT 1 FROM audit_log WHERE type='operator_msg' AND dialog_id = $1 AND ts > $2 LIMIT 1`,
+      [dialogId, desde.toISOString()],
+    );
+    return r.rowCount! > 0;
+  } catch (err) {
+    log.warn('dbHuboOperadorDespuesDe falló', { err: String(err), dialogId });
+    return false;
+  }
+}
+
 // Zona horaria con la que se AGRUPA el tiempo en el panel. Postgres corre en UTC, así que sin esto
 // una conversación de las 14:24 en Chile aparecía en la barra de las 17 del gráfico de horarios, y
 // lo ocurrido después de las 21 se contaba como del día siguiente. Misma zona que usa el seguimiento

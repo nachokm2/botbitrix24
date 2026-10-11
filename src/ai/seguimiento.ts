@@ -10,6 +10,7 @@ import { recordTokens, inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
 import { asignarAsesorPorTurno, derivarAResponsableFijo } from '../crm/asignacionAsesores';
+import { vigilarDerivacion, barrerVigilanciaDerivaciones } from '../crm/vigilanciaDerivaciones';
 import { primaryEntity, type CrmEntities } from '../crm/entities';
 
 // Seguimiento automático (WhatsApp/Open Lines) en 3 etapas, si el bot respondió y el cliente quedó
@@ -280,6 +281,7 @@ export async function barrerTransferenciasVencidas(): Promise<void> {
         crmEntity: entity ? `${entity.type}#${entity.id}` : undefined,
         detail: { entities },
       });
+      if (entities.deal) void vigilarDerivacion(entities.deal, dialogId);
       log.info('seguimiento: derivado al asesor por falta de respuesta', { dialogId, entities });
     } catch (e) {
       // Si falla, el lead queda sin asesor asignado y sin tarea, y nadie se entera: el ZREM de más
@@ -297,11 +299,15 @@ let intervalo: ReturnType<typeof setInterval> | null = null;
  *  transferencia corren en el mismo tick. No-op sin Redis o con la regla desactivada
  *  (SEGUIMIENTO_HORAS=0), y no se vuelve a arrancar si ya está corriendo. */
 export function iniciarBarridoSeguimientos(): void {
-  if (!getRedisClient() || config.seguimientoHoras <= 0 || intervalo) return;
+  // La vigilancia de derivaciones vive en el mismo tick, pero es independiente del seguimiento al
+  // cliente: una marca puede querer avisarle al asesor sin perseguir al cliente.
+  if (!getRedisClient() || intervalo) return;
+  if (config.seguimientoHoras <= 0 && config.derivacionAlertaHoras <= 0) return;
   intervalo = setInterval(() => {
     barrerSeguimientosVencidos().catch((e) => log.warn('barrerSeguimientosVencidos (intervalo) falló', { err: String(e) }));
     barrerSegundosRecordatoriosVencidos().catch((e) => log.warn('barrerSegundosRecordatoriosVencidos (intervalo) falló', { err: String(e) }));
     barrerTransferenciasVencidas().catch((e) => log.warn('barrerTransferenciasVencidas (intervalo) falló', { err: String(e) }));
+    barrerVigilanciaDerivaciones().catch((e) => log.warn('barrerVigilanciaDerivaciones (intervalo) falló', { err: String(e) }));
   }, config.seguimientoIntervaloMin * 60_000);
   intervalo.unref();
   log.info('seguimiento: barrido activo', {
@@ -309,5 +315,6 @@ export function iniciarBarridoSeguimientos(): void {
     segundoHoras: config.seguimientoSegundoHoras,
     transferenciaHoras: config.seguimientoTransferenciaHoras,
     intervaloMin: config.seguimientoIntervaloMin,
+    derivacionAlertaHoras: config.derivacionAlertaHoras,
   });
 }
