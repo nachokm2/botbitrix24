@@ -14,6 +14,42 @@ import { once } from '../store/kv';
 import { config } from '../config';
 import { log } from '../log';
 
+/**
+ * Sigue el programa de interés REAL de la conversación y lo escribe en el CRM.
+ *
+ * El prompt ya pedía mantener el campo al día llamando a registrar_interes_crm con el programa
+ * nuevo, pero el modelo no siempre lo hacía: la ficha quedaba con el primer programa que se nombró
+ * aunque la conversación entera girara sobre otro, y el asesor recibía un caso mal etiquetado.
+ * Acá no depende de que lo recuerde: si pidió el detalle o el precio de un programa concreto, ESE
+ * es el programa de interés. Solo escribe cuando cambia, así que una persona que compara dos
+ * programas no genera una reescritura por turno.
+ */
+async function seguirProgramaDeInteres(resultado: any, ctx: AgentContext): Promise<void> {
+  const programa = typeof resultado?.programa === 'string'
+    ? resultado.programa
+    : typeof resultado?.detalle?.nombre === 'string'
+      ? resultado.detalle.nombre
+      : typeof resultado?.nombre === 'string'
+        ? resultado.nombre
+        : null;
+  // `ambiguo` significa que la herramienta pide precisar: todavía no hay un programa elegido.
+  if (!programa || resultado?.ambiguo) return;
+  // Solo actualiza una ficha que YA existe: consultar el catálogo no debe crear un lead. La ficha la
+  // crea la captura de datos (registrar_interes_crm), que es cuando la persona entrega algo suyo.
+  const e = ctx.crmEntities;
+  if (!e || !(e.deal || e.lead || e.contact)) return;
+  try {
+    const sess = await getSession(ctx.conversationId);
+    if (sess.programaCrm === programa) return;
+    sess.programaCrm = programa;
+    await saveSession(ctx.conversationId, sess);
+    await actualizarDatosCliente(ctx.crmEntities, ctx.chatId, { programa_interes: programa }, ctx.auth);
+    log.info('programa de interés actualizado desde la conversación', { dialogId: ctx.conversationId, programa });
+  } catch (e) {
+    log.warn('seguirProgramaDeInteres falló', { err: String(e), programa });
+  }
+}
+
 export async function executeTool(name: string, input: any, ctx: AgentContext): Promise<any> {
   const catalog = ctx.profile.catalog;
   try {
@@ -21,11 +57,17 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
       case 'consultar_programas':
         return consultarProgramas(input, catalog.consultar);
 
-      case 'detalle_programa':
-        return detallePrograma(input, catalog.detalle);
+      case 'detalle_programa': {
+        const r = detallePrograma(input, catalog.detalle);
+        void seguirProgramaDeInteres(r, ctx);
+        return r;
+      }
 
-      case 'consultar_condiciones_comerciales':
-        return buscarCondiciones(input?.programa, input?.sede);
+      case 'consultar_condiciones_comerciales': {
+        const r = buscarCondiciones(input?.programa, input?.sede);
+        void seguirProgramaDeInteres(r, ctx);
+        return r;
+      }
 
       case 'registrar_interes_crm': {
         const r = await actualizarDatosCliente(ctx.crmEntities, ctx.chatId, input ?? {}, ctx.auth);
