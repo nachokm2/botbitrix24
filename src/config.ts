@@ -277,6 +277,13 @@ export const config = {
   primerContactoPrefijoPais: process.env.PRIMER_CONTACTO_PREFIJO_PAIS ?? '+56',
   // Hora de Chile a la que sale la tanda diaria.
   primerContactoHora: Number(process.env.PRIMER_CONTACTO_HORA ?? 10),
+  // ChatApp: el proveedor por el que entra y sale el WhatsApp de Carver (conector WACA de Canales
+  // Abiertos). Un mensaje proactivo DEBE salir por el mismo número que escucha el bot; si sale por
+  // otro, la persona responde donde nadie la lee.
+  chatappEmail: process.env.CHATAPP_EMAIL ?? '',
+  chatappPassword: process.env.CHATAPP_PASSWORD ?? '',
+  chatappAppId: process.env.CHATAPP_APP_ID ?? '',
+  chatappLicenseId: Number(process.env.CHATAPP_LICENSE_ID ?? 0) || 0,
   // Prefijos de país a los que SÍ se puede escribir, separados por coma (ej. "+56,+57,+593").
   // Vacío = sin restricción. Existe porque el CRM trae números mal cargados: en la muestra de
   // Carver apareció un "+94859…" que es un chileno al que le falta el 56, y con ese prefijo el

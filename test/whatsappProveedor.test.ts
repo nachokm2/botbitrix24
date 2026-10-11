@@ -6,6 +6,9 @@ import assert from 'node:assert/strict';
 //   /v1/licenses/<licencia>/messengers/caWhatsApp/chats/<teléfono>/messages
 // Antes las variables solo se sustituían en el cuerpo, así que ese proveedor no era configurable.
 process.env.NODE_ENV = 'test';
+// template.ts importa el proveedor ChatApp, que a su vez usa store/kv: sin esto el test abre una
+// conexión real a Redis y el proceso nunca termina.
+process.env.REDIS_URL = '';
 
 const { enviarPlantillaWhatsApp } = await import('../src/whatsapp/template');
 

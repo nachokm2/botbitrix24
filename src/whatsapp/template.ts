@@ -1,10 +1,14 @@
+import { enviarPlantilla as enviarPlantillaChatApp } from './chatapp';
 import { log } from '../log';
 
 // ── Fase 5: envío de PLANTILLA oficial de WhatsApp (proactiva, fuera de la ventana de 24h) ──
 // Abstracción por proveedor (env WA_PROVIDER):
 //   - 'meta'   → Meta WhatsApp Cloud API (implementado; requiere WA_CLOUD_PHONE_NUMBER_ID + WA_CLOUD_TOKEN).
-//   - 'custom' → POST genérico configurable (para ChatApp u otro): WA_API_URL + WA_API_HEADERS (JSON) +
-//                WA_API_BODY (plantilla con {{to}} {{template}} {{lang}} {{param0}} {{paramsJson}}).
+//   - 'chatapp'→ ChatApp (el conector WACA por el que entra y sale el WhatsApp de Carver): necesita
+//                CHATAPP_EMAIL + CHATAPP_PASSWORD + CHATAPP_APP_ID + CHATAPP_LICENSE_ID. Acá
+//                `template` es el UUID de la plantilla en ChatApp, no su nombre en Meta.
+//   - 'custom' → POST genérico configurable: WA_API_URL + WA_API_HEADERS (JSON) + WA_API_BODY
+//                (plantilla con {{to}} {{toSinMas}} {{template}} {{lang}} {{param0}} {{paramsJson}}).
 //   - vacío    → desactivado (skip): los targets AGOTADO quedan sin WhatsApp (para trabajo manual).
 // Sin dependencias del CRM: solo hace la llamada al proveedor.
 
@@ -59,6 +63,12 @@ export async function enviarPlantillaWhatsApp(opts: {
     } catch (e) {
       return { ok: false, error: String(e) };
     }
+  }
+
+  if (provider === 'chatapp') {
+    // Acá `template` es el UUID de ChatApp, no el nombre de Meta (ver whatsapp/chatapp.ts).
+    const r = await enviarPlantillaChatApp({ phoneE164: opts.phoneE164, templateId: opts.template, params: opts.params });
+    return r.ok ? { ok: true, messageId: r.messageId } : { ok: false, error: r.error };
   }
 
   if (provider === 'custom') {
