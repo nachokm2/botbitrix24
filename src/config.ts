@@ -277,6 +277,15 @@ export const config = {
   primerContactoPrefijoPais: process.env.PRIMER_CONTACTO_PREFIJO_PAIS ?? '+56',
   // Hora de Chile a la que sale la tanda diaria.
   primerContactoHora: Number(process.env.PRIMER_CONTACTO_HORA ?? 10),
+  // Prefijos de país a los que SÍ se puede escribir, separados por coma (ej. "+56,+57,+593").
+  // Vacío = sin restricción. Existe porque el CRM trae números mal cargados: en la muestra de
+  // Carver apareció un "+94859…" que es un chileno al que le falta el 56, y con ese prefijo el
+  // mensaje habría salido a Sri Lanka — y se habría pagado. Un número fuera de la lista se descarta.
+  primerContactoPaises: (process.env.PRIMER_CONTACTO_PAISES ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter((x) => /^\+\d{1,4}$/.test(x))
+    .sort((a, b) => b.length - a.length), // más largo primero: +593 debe ganarle a +59
   // Ojo con el orden: acá el 0 es un embudo VÁLIDO de Bitrix, así que no se puede descartar como en
   // las otras listas. Hay que quitar las cadenas vacías ANTES de convertir, o un valor sin definir
   // deja [0] y el filtro termina pidiendo las negociaciones del embudo equivocado.

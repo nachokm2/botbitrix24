@@ -65,6 +65,12 @@ export function aE164(raw: string, prefijoPorDefecto = config.primerContactoPref
 
 const validoE164 = (e: string): string | null => (/^\+\d{8,15}$/.test(e) ? e : null);
 
+/** ¿El número cae en un país al que esta marca escribe? Sin lista configurada, pasa cualquiera. */
+export function paisPermitido(telefono: string): boolean {
+  if (!config.primerContactoPaises.length) return true;
+  return config.primerContactoPaises.some((p) => telefono.startsWith(p));
+}
+
 /** Negociaciones creadas en los últimos `dias` con las que el bot NUNCA conversó. */
 export async function candidatosPrimerContacto(auth: Auth, dias = 7, limite = 200): Promise<Candidato[]> {
   const desde = new Date(Date.now() - dias * 86400_000).toISOString().slice(0, 10);
@@ -101,6 +107,7 @@ export async function candidatosPrimerContacto(auth: Auth, dias = 7, limite = 20
 
   // Los teléfonos viven en el contacto, no en la negociación: se piden de a 50 en vez de uno por uno.
   const contactos = new Map<number, { nombre: string; telefono: string }>();
+  let descartadosPorPais = 0;
   const ids = [...new Set(pendientes.map((d) => Number(d.CONTACT_ID)))];
   for (let i = 0; i < ids.length; i += LOTE) {
     try {
@@ -111,7 +118,12 @@ export async function candidatosPrimerContacto(auth: Auth, dias = 7, limite = 20
       );
       for (const c of Array.isArray(filas) ? filas : []) {
         const tel = aE164(String(c.PHONE?.[0]?.VALUE ?? ''));
-        if (tel) contactos.set(Number(c.ID), { nombre: String(c.NAME ?? '').trim(), telefono: tel });
+        if (!tel) continue;
+        if (!paisPermitido(tel)) {
+          descartadosPorPais++;
+          continue;
+        }
+        contactos.set(Number(c.ID), { nombre: String(c.NAME ?? '').trim(), telefono: tel });
       }
     } catch (e) {
       log.warn('candidatosPrimerContacto: crm.contact.list falló', { err: String(e) });
@@ -121,6 +133,10 @@ export async function candidatosPrimerContacto(auth: Auth, dias = 7, limite = 20
   // Una persona, un mensaje: si llenó dos formularios tiene dos negociaciones, y se queda con la
   // más reciente (la lista ya viene ordenada por fecha descendente).
   const yaVisto = new Set<number>();
+  if (descartadosPorPais) {
+    log.info('primer contacto: números descartados por país fuera de la lista', { descartadosPorPais });
+  }
+
   return pendientes
     .filter((d) => {
       const id = Number(d.CONTACT_ID);

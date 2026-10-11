@@ -52,7 +52,7 @@ mock.module('../src/whatsapp/template.ts', {
 
 mock.module('../src/obs/audit.ts', { namedExports: { audit: async () => {} } });
 
-const { candidatosPrimerContacto, enviarPrimerContacto, correrPrimerContacto, aE164 } = await import(
+const { candidatosPrimerContacto, enviarPrimerContacto, correrPrimerContacto, aE164, paisPermitido } = await import(
   '../src/crm/primerContacto'
 );
 const { config } = await import('../src/config');
@@ -92,6 +92,34 @@ test('sin prefijo por defecto, un número ambiguo se descarta en vez de adivinar
   // le manda el mensaje a un chileno cualquiera. Perder el contacto es más barato que eso.
   assert.equal(aE164('3001234567', ''), null);
   assert.equal(aE164('+573001234567', ''), '+573001234567', 'uno internacional sigue pasando');
+});
+
+test('un número de un país fuera de la lista no se contacta', async () => {
+  // Caso real de la muestra de Carver: "+94859…" es un chileno al que le falta el 56. Con ese
+  // prefijo el mensaje sale a Sri Lanka, y se paga.
+  escenario();
+  config.primerContactoPaises = ['+593', '+57', '+56'];
+  contactos = [
+    { ID: '10', NAME: 'Camila', PHONE: [{ VALUE: '+56912345678' }] },
+    { ID: '40', NAME: 'María', PHONE: [{ VALUE: '+948591234' }] },
+  ];
+  deals = [
+    { ID: '11', CONTACT_ID: '10', TITLE: 'A', DATE_CREATE: '2026-10-10' },
+    { ID: '12', CONTACT_ID: '40', TITLE: 'B', DATE_CREATE: '2026-10-10' },
+  ];
+  conversados = [];
+  const c = await candidatosPrimerContacto(auth, 7);
+  assert.deepEqual(c.map((x) => x.contactId), [10]);
+  config.primerContactoPaises = [];
+});
+
+test('sin lista de países configurada no se filtra nada', () => {
+  config.primerContactoPaises = [];
+  assert.equal(paisPermitido('+948591234'), true);
+  config.primerContactoPaises = ['+56'];
+  assert.equal(paisPermitido('+948591234'), false);
+  assert.equal(paisPermitido('+56912345678'), true);
+  config.primerContactoPaises = [];
 });
 
 test('una persona con dos negociaciones recibe un solo mensaje', async () => {
