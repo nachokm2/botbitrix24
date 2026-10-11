@@ -104,7 +104,7 @@ function render(d){
   var postulantesPiloto = (d.piloto && d.piloto.real && d.piloto.real.postulantes) || 0;
 
   document.getElementById('kpis').innerHTML =
-    kpi(conversaciones,'Conversaciones','Diálogos distintos que el bot atendió en el período, en cualquier canal (WhatsApp, Web Chat, Instagram, Messenger).','conversaciones') +
+    kpi(conversaciones,'Conversaciones','Diálogos distintos donde el bot RESPONDIÓ al menos una vez, en el período y en cualquier canal habilitado. No cuenta los diálogos donde se mantuvo en silencio porque un asesor tomó la conversación antes: esos existen en el canal, pero no los atendió el bot. Es también el denominador de las tasas de captura y escalamiento.','conversaciones') +
     kpi(mensajes,'Mensajes','Turnos de conversación respondidos por el bot (una respuesta del bot = un mensaje).','mensajes') +
     kpi(escal,'Escalamientos a asesor','El BOT derivó la conversación porque el cliente lo pidió o el score lo disparó. NO incluye las derivaciones por falta de respuesta (silencio): esas aparecen en la tabla "Piloto: proyección vs. real", por eso ahí el número es mayor aunque cubra solo 2 programas. No confirma que un asesor ya haya respondido. Cuenta todos los canales.','escal') +
     kpi(consultas,'Consultas de programas','Veces que se usó la búsqueda de catálogo (consultar_programas) para encontrar o filtrar programas.','consultas') +

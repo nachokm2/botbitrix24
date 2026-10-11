@@ -478,7 +478,13 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
       respWhatsapp, convDurWhatsapp, callDur,
     ] = await Promise.all([
       q(`SELECT type, count(*)::int c FROM audit_log WHERE true ${W} GROUP BY type`),
-      q(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE dialog_id IS NOT NULL ${W}`),
+      // Diálogos que el bot ATENDIÓ: exige al menos un turno suyo. Antes contaba cualquier diálogo
+      // con actividad registrada, incluidos aquellos donde el bot se mantuvo en silencio porque un
+      // asesor escribió primero — y el tooltip de la tarjeta ya decía "que el bot atendió", así que
+      // la etiqueta era correcta y la consulta no la cumplía. Medido al corregirlo: 7 de 190 en
+      // Postgrados (3,7%) y 1 de 67 en Carver. También es el denominador de las tasas de captura y
+      // escalamiento, que quedan igual de bien medidas.
+      q(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE type='turn' AND dialog_id IS NOT NULL ${W}`),
       q(`SELECT detail->>'name' name, count(*)::int c FROM audit_log WHERE type='tool_call' ${W} GROUP BY 1`),
       // DISTINCT dialog_id: registrar_interes_crm se llama varias veces por conversación (una por
       // cada dato nuevo — nombre, email, teléfono, programa), así que contar filas infla el número
