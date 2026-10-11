@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import { listarPlantillas as listarPlantillasChatApp, enviarPlantilla as enviarPlantillaChatApp } from '../whatsapp/chatapp';
 import { getState, setBotId, EMPTY_AUTH } from '../store';
 import { registerBot, unregisterBot, updateBot } from '../bot/register';
 import { callBitrix, callWebhook } from '../bitrix/client';
@@ -244,4 +245,63 @@ export async function dialogosBorrar(req: Request, res: Response) {
   } catch (e) {
     return res.status(500).json({ ok: false, error: String(e) });
   }
+}
+
+/**
+ * Plantillas de WhatsApp disponibles en ChatApp, con su UUID. GET /setup/chatapp-plantillas
+ *
+ * Vive acá y no en un script porque las credenciales de ChatApp están en el servicio, no en la
+ * máquina de quien lo consulta: la comprobación tiene que correr donde está la configuración real.
+ * Sirve de paso para verificar que email/password/appId quedaron bien cargados.
+ */
+export async function chatappPlantillas(req: Request, res: Response) {
+  if (!config.chatappEmail || !config.chatappPassword || !config.chatappAppId) {
+    return res.status(400).json({
+      ok: false,
+      error: 'Faltan credenciales de ChatApp',
+      falta: {
+        CHATAPP_EMAIL: !config.chatappEmail,
+        CHATAPP_PASSWORD: !config.chatappPassword,
+        CHATAPP_APP_ID: !config.chatappAppId,
+      },
+    });
+  }
+  const licencia = Number(req.query.licencia ?? config.chatappLicenseId) || config.chatappLicenseId;
+  if (!licencia) return res.status(400).json({ ok: false, error: 'Falta CHATAPP_LICENSE_ID' });
+  try {
+    const items = await listarPlantillasChatApp(licencia);
+    return res.json({
+      ok: true,
+      licencia,
+      total: items.length,
+      aprobadas: items.filter((t) => t.status === 'APPROVED').length,
+      plantillas: items.map((t) => ({
+        id: t.id,
+        nombre: t.elementName,
+        idioma: t.languageCode,
+        estado: t.status,
+        tipo: t.templateType,
+        texto: String(t.data ?? '').replace(/\s+/g, ' ').slice(0, 200),
+      })),
+    });
+  } catch (e) {
+    return res.status(502).json({ ok: false, error: String(e).slice(0, 400) });
+  }
+}
+
+/**
+ * Envío de prueba de una plantilla a UN número. GET /setup/chatapp-prueba?tel=+569...&plantilla=<uuid>
+ *
+ * Es el paso previo a encender el primer contacto: ver el mensaje llegar antes de mandárselo a 50
+ * personas. Exige el teléfono y la plantilla de forma explícita — no toma nada del CRM, para que no
+ * pueda dispararse sobre una lista por accidente.
+ */
+export async function chatappPrueba(req: Request, res: Response) {
+  const tel = String(req.query.tel ?? '').trim();
+  const plantilla = String(req.query.plantilla ?? '').trim();
+  if (!/^\+\d{8,15}$/.test(tel)) return res.status(400).json({ ok: false, error: 'tel debe ser E.164, ej. +56912345678' });
+  if (!plantilla) return res.status(400).json({ ok: false, error: 'Falta plantilla (el UUID de ChatApp)' });
+  const params = String(req.query.params ?? '').split('|').filter(Boolean);
+  const r = await enviarPlantillaChatApp({ phoneE164: tel, templateId: plantilla, params });
+  return res.status(r.ok ? 200 : 502).json({ ...r, tel, plantilla, params });
 }
