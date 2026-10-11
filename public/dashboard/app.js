@@ -399,6 +399,46 @@ function render(d){
   var tmax=tkeys.length?Math.max.apply(null,tkeys.map(function(k){return tools[k];})):0;
   document.getElementById('tools').innerHTML = tkeys.length? tkeys.map(function(k){return barRow(LBL[k]||k, tools[k], tmax);}).join('') : '<div class="muted">Sin uso registrado aún.</div>';
 
+  // Enlace a la ficha de Bitrix según el tipo de entidad: los chats llegan vinculados a una
+  // negociación, a un lead o a un contacto, y cada uno tiene su propia ruta. Abre en pestaña nueva
+  // para no sacar el panel del iframe en el que vive.
+  var crmLink = function(entidad){
+    if (!entidad || !d.bitrixDomain) return esc(entidad || '—');
+    var partes = String(entidad).split('#');
+    var rutas = { deal: 'deal', lead: 'lead', contact: 'contact', company: 'company' };
+    var ruta = rutas[partes[0]];
+    if (!ruta || !partes[1]) return esc(entidad);
+    var url = 'https://'+d.bitrixDomain+'/crm/'+ruta+'/details/'+partes[1]+'/';
+    return '<a href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(entidad)+'</a>';
+  };
+
+  // Revisión de conversaciones: lo que la lectura nocturna marcó como digno de mirar. Los defectos
+  // del piloto se encontraron todos leyendo conversaciones a mano; nadie alcanza a leer 70 al día.
+  var hall = d.hallazgos || []; var hEl = document.getElementById('revision');
+  var hSec = document.getElementById('secRevision');
+  var ETIQ = {sin_respuesta:'Pregunta sin responder', dato_repetido:'Dato pedido de nuevo', info_dudosa:'Información dudosa',
+    interes_perdido:'Interés que se apagó', falla_tecnica:'Falla técnica', tono:'Tono'};
+  var COLOR = {alta:'#f04438', media:'#f79009', baja:'#98a2b3'};
+  if (hall.length) {
+    if (hSec) hSec.style.display = '';
+    var hcols = ['Cuándo','Qué pasó','Gravedad','Detalle','Conversación'];
+    var hthead = '<thead><tr>'+hcols.map(function(c){return '<th>'+esc(c)+'</th>';}).join('')+'</tr></thead>';
+    var htbody = '<tbody>'+hall.map(function(x){
+      var link = x.crmEntity ? crmLink(x.crmEntity) : esc(x.dialogId||'');
+      return '<tr>'+
+        '<td>'+esc(x.ts? new Date(x.ts).toLocaleString('es-CL') : '')+'</td>'+
+        '<td>'+esc(ETIQ[x.tipo]||x.tipo)+'</td>'+
+        '<td><span style="color:'+(COLOR[x.gravedad]||'#98a2b3')+'">'+esc(x.gravedad)+'</span></td>'+
+        '<td>'+esc(x.detalle)+'</td>'+
+        '<td>'+link+'</td>'+
+      '</tr>';
+    }).join('')+'</tbody>';
+    hEl.innerHTML = hthead+htbody;
+    var graves = hall.filter(function(x){return x.gravedad==='alta';}).length;
+    document.getElementById('revisionresumen').textContent =
+      hall.length+' hallazgo'+(hall.length===1?'':'s')+(graves? ' · '+graves+' grave'+(graves===1?'':'s') : '')+'.';
+  } else if (hSec) hSec.style.display = 'none';
+
   // Fallas técnicas: el detalle accionable de los errores. Una falla al ENVIAR deja a un cliente sin
   // respuesta, y sin esta tabla no había forma de enterarse (pasó con 3 clientes reales).
   var errs = d.erroresRecientes || [];
@@ -443,18 +483,6 @@ function render(d){
   // dicen cuántas hubo; esto deja leer qué se dijo. Se pide el detalle al abrir una, no de entrada:
   // traer el texto de todas en cada refresco sería mucho volumen para algo que se mira de a una.
   var convs = d.conversaciones || [];
-  // Enlace a la ficha de Bitrix según el tipo de entidad: los chats llegan vinculados a una
-  // negociación, a un lead o a un contacto, y cada uno tiene su propia ruta. Abre en pestaña nueva
-  // para no sacar el panel del iframe en el que vive.
-  var crmLink = function(entidad){
-    if (!entidad || !d.bitrixDomain) return esc(entidad || '—');
-    var partes = String(entidad).split('#');
-    var rutas = { deal: 'deal', lead: 'lead', contact: 'contact', company: 'company' };
-    var ruta = rutas[partes[0]];
-    if (!ruta || !partes[1]) return esc(entidad);
-    var url = 'https://'+d.bitrixDomain+'/crm/'+ruta+'/details/'+partes[1]+'/';
-    return '<a href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(entidad)+'</a>';
-  };
   var convEl = document.getElementById('conversaciones');
   // Decir cuántas se muestran Y cuántas hay: la sección decía "30 conversaciones" mientras la
   // tarjeta de arriba decía 66, y parecían datos en conflicto. Son los mismos, truncados.

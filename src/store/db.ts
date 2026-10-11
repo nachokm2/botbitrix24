@@ -1276,3 +1276,65 @@ export async function dbDerivaciones(range = 'all'): Promise<Array<{ dealId: num
     return [];
   }
 }
+
+/** Transcripciones de las conversaciones con actividad en las últimas `horas`, para la revisión
+ *  automática (ai/revisionDiaria.ts). Una fila por diálogo, con el diálogo completo ya armado. */
+export async function dbTranscripcionesRecientes(
+  horas = 24,
+  limite = 40,
+): Promise<Array<{ dialogId: string; crmEntity: string | null; turnos: number; fin: string; texto: string }>> {
+  if (!pool) return [];
+  const h = Math.max(1, Math.min(168, Math.round(horas))); // se interpola en SQL: se acota a un entero sano
+  try {
+    const r = await pool.query(
+      `SELECT dialog_id,
+              count(*)::int turnos,
+              max(ts) fin,
+              (array_agg(crm_entity) FILTER (WHERE crm_entity IS NOT NULL))[1] crm_entity,
+              string_agg(
+                'Cliente: ' || coalesce(detail->>'message','') || E'\nBot: ' || coalesce(detail->>'reply',''),
+                E'\n' ORDER BY ts
+              ) texto
+       FROM audit_log
+       WHERE type='turn' AND dialog_id IS NOT NULL AND ts >= now() - interval '${h} hours'
+       GROUP BY dialog_id
+       ORDER BY max(ts) DESC
+       LIMIT $1`,
+      [limite],
+    );
+    return r.rows.map((x: any) => ({
+      dialogId: x.dialog_id,
+      crmEntity: x.crm_entity ?? null,
+      turnos: x.turnos,
+      fin: x.fin,
+      texto: x.texto ?? '',
+    }));
+  } catch (err) {
+    log.warn('dbTranscripcionesRecientes falló', { err: String(err) });
+    return [];
+  }
+}
+
+/** Hallazgos de la revisión automática, para mostrarlos en el panel. */
+export async function dbHallazgosRecientes(limit = 30): Promise<any[]> {
+  if (!pool) return [];
+  try {
+    const r = await pool.query(
+      `SELECT ts, dialog_id, crm_entity, detail
+       FROM audit_log WHERE type='revision_hallazgo'
+       ORDER BY ts DESC LIMIT $1`,
+      [limit],
+    );
+    return r.rows.map((x: any) => ({
+      ts: x.ts,
+      dialogId: x.dialog_id,
+      crmEntity: x.crm_entity,
+      tipo: x.detail?.tipo ?? '',
+      gravedad: x.detail?.gravedad ?? '',
+      detalle: x.detail?.detalle ?? '',
+    }));
+  } catch (err) {
+    log.warn('dbHallazgosRecientes falló', { err: String(err) });
+    return [];
+  }
+}

@@ -248,6 +248,12 @@ export const config = {
   derivacionAlertaSupervisorHoras: Number(process.env.DERIVACION_ALERTA_SUPERVISOR_HORAS ?? 24) || 0,
   // Usuario de Bitrix que recibe ese segundo aviso (0 = no escalar, solo se avisa al responsable).
   derivacionSupervisorId: Number(process.env.BITRIX_SUPERVISOR_ID ?? 0) || 0,
+  // Revisión automática de las conversaciones del día (ai/revisionDiaria.ts): hora de Chile a la que
+  // corre. Todos los defectos del piloto se encontraron porque alguien leyó una conversación y notó
+  // algo raro; nadie lee 70 al día. -1 = desactivada.
+  revisionDiariaHora: process.env.REVISION_DIARIA_HORA ? Number(process.env.REVISION_DIARIA_HORA) : 22,
+  // Tope de conversaciones por revisión: acota el costo (son llamadas al clasificador) y el tiempo.
+  revisionMaxConversaciones: Number(process.env.REVISION_MAX_CONVERSACIONES ?? 40) || 40,
   // Precio Anthropic por millón de tokens (USD) para estimar costo en el panel (0 = no mostrar).
   costInPerMtok: Number(process.env.ANTHROPIC_COST_IN_PER_MTOK ?? 0),
   costOutPerMtok: Number(process.env.ANTHROPIC_COST_OUT_PER_MTOK ?? 0),

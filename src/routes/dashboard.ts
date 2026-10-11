@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { snapshot } from '../obs/metrics';
-import { dbMetricsSummary, dbRecentAudit, dbEnabled, dbMarchaBlancaBot, dbPilotoProgresoReal, dbErroresRecientes, dbConversaciones, dbConversacion, dbTokensSumados } from '../store/db';
+import { dbMetricsSummary, dbRecentAudit, dbEnabled, dbMarchaBlancaBot, dbPilotoProgresoReal, dbErroresRecientes, dbConversaciones, dbConversacion, dbTokensSumados, dbHallazgosRecientes } from '../store/db';
 import { kvKind } from '../store/kv';
 import { getState } from '../store';
 import { getUsuarios } from '../crm/directory';
@@ -69,7 +69,7 @@ export async function metricsSummary(req: Request, res: Response) {
   }
   const dialogosCombinados = dialogosPorPrograma ? [...new Set([...dialogosPorPrograma.values()].flat())] : undefined;
 
-  const [live, agg, recent, erroresRecientes, conversaciones, tokensPersistidos, marchaBlancaBot, pilotoReal] = await Promise.all([
+  const [live, agg, recent, erroresRecientes, conversaciones, tokensPersistidos, hallazgos, marchaBlancaBot, pilotoReal] = await Promise.all([
     snapshot(),
     dbMetricsSummary(range),
     dbRecentAudit(15),
@@ -79,6 +79,7 @@ export async function metricsSummary(req: Request, res: Response) {
     // de miles de filas vuelva el panel inusable.
     dbConversaciones(200, range),
     dbTokensSumados(range),
+    dbHallazgosRecientes(30), // revisión automática de conversaciones (ai/revisionDiaria.ts)
     dbMarchaBlancaBot('all', dialogosPorPrograma), // el scorecard del piloto siempre es "desde siempre" (no sigue el selector Hoy/7d/30d)
     dbPilotoProgresoReal(dialogosCombinados), // proyección vs. real del piloto (correo de lanzamiento) — también "desde siempre"
   ]);
@@ -191,6 +192,7 @@ export async function metricsSummary(req: Request, res: Response) {
     agg,
     asesores, // desglose por asesor: derivados / atendidos / pendientes (ver crm/vistaAsesores.ts)
     recent,
+    hallazgos, // lo que la revisión nocturna encontró en las conversaciones del día
     erroresRecientes, // fallas técnicas con motivo y etapa, para poder accionarlas desde el panel
     // Lista para poder LEER lo que el bot respondió (el detalle va en /metrics/conversacion). Viaja
     // con el TOTAL del rango para que la sección pueda decir "las 30 más recientes de 66" en vez de

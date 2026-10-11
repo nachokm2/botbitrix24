@@ -16,6 +16,7 @@ import { metaVerify, verifyMetaSignature, metaWebhook } from './routes/meta';
 import { dashboardPage, metricsSummary, conversacionDetalle } from './routes/dashboard';
 import { callsPage, callsData } from './routes/calls';
 import { initDb, dbRecentAudit, dbEnabled, startRetentionSweep } from './store/db';
+import { iniciarRevisionDiaria } from './ai/revisionDiaria';
 import { iniciarBarridoSeguimientos } from './ai/seguimiento';
 import { snapshot } from './obs/metrics';
 import { kvKind } from './store/kv';
@@ -201,6 +202,7 @@ initDb()
     startCallSync();
     startRetentionSweep();
     startCampaignScheduler(); // no-op si no hay programas activos (CAMPAIGN_<code>_ACTIVO=true)
+    iniciarRevisionDiaria(); // lee las conversaciones del día y deja hallazgos — necesita Postgres
   })
   .catch((e) => log.error('initDb error', { err: String(e) }));
 
