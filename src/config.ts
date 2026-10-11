@@ -277,6 +277,13 @@ export const config = {
   primerContactoPrefijoPais: process.env.PRIMER_CONTACTO_PREFIJO_PAIS ?? '+56',
   // Hora de Chile a la que sale la tanda diaria.
   primerContactoHora: Number(process.env.PRIMER_CONTACTO_HORA ?? 10),
+  // Orden de los parámetros de la plantilla, separados por coma. Tokens: nombre, asesor, programa,
+  // organizacion. Cada plantilla aprobada tiene su propio orden de {{n}}, así que esto es
+  // configuración: cambiar de plantilla no debería obligar a tocar el código.
+  primerContactoParams: (process.env.PRIMER_CONTACTO_PARAMS ?? 'nombre,programa')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean),
   // ChatApp: el proveedor por el que entra y sale el WhatsApp de Carver (conector WACA de Canales
   // Abiertos). Un mensaje proactivo DEBE salir por el mismo número que escucha el bot; si sale por
   // otro, la persona responde donde nadie la lee.

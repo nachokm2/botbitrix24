@@ -270,19 +270,29 @@ export async function chatappPlantillas(req: Request, res: Response) {
   if (!licencia) return res.status(400).json({ ok: false, error: 'Falta CHATAPP_LICENSE_ID' });
   try {
     const items = await listarPlantillasChatApp(licencia);
+    // ?nombre=<texto> filtra y devuelve el texto COMPLETO: con 74 plantillas el listado recortado
+    // sirve para buscar, pero para elegir una hay que leerla entera (y contar sus {{n}}).
+    const filtro = String(req.query.nombre ?? '').trim().toLowerCase();
+    const elegidas = filtro ? items.filter((t) => String(t.elementName ?? '').toLowerCase().includes(filtro)) : items;
     return res.json({
       ok: true,
       licencia,
       total: items.length,
       aprobadas: items.filter((t) => t.status === 'APPROVED').length,
-      plantillas: items.map((t) => ({
-        id: t.id,
-        nombre: t.elementName,
-        idioma: t.languageCode,
-        estado: t.status,
-        tipo: t.templateType,
-        texto: String(t.data ?? '').replace(/\s+/g, ' ').slice(0, 200),
-      })),
+      mostrando: elegidas.length,
+      plantillas: elegidas.map((t) => {
+        const texto = String(t.data ?? '');
+        return {
+          id: t.id,
+          nombre: t.elementName,
+          idioma: t.languageCode,
+          estado: t.status,
+          tipo: t.templateType,
+          // Cuántos {{n}} tiene: es lo que determina cuántos parámetros hay que mandarle.
+          variables: [...new Set(texto.match(/\{\{\d+\}\}/g) ?? [])].length,
+          texto: filtro ? texto : texto.replace(/\s+/g, ' ').slice(0, 200),
+        };
+      }),
     });
   } catch (e) {
     return res.status(502).json({ ok: false, error: String(e).slice(0, 400) });

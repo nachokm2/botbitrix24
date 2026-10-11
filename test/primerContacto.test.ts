@@ -52,7 +52,11 @@ mock.module('../src/whatsapp/template.ts', {
 
 mock.module('../src/obs/audit.ts', { namedExports: { audit: async () => {} } });
 
-const { candidatosPrimerContacto, enviarPrimerContacto, correrPrimerContacto, aE164, paisPermitido } = await import(
+mock.module('../src/crm/directory.ts', {
+  namedExports: { getUsuarios: async (ids: number[]) => ids.map((id) => ({ id, nombre: `Asesor ${id}` })) },
+});
+
+const { candidatosPrimerContacto, enviarPrimerContacto, correrPrimerContacto, aE164, paisPermitido, paramsDe } = await import(
   '../src/crm/primerContacto'
 );
 const { config } = await import('../src/config');
@@ -120,6 +124,33 @@ test('sin lista de países configurada no se filtra nada', () => {
   assert.equal(paisPermitido('+948591234'), false);
   assert.equal(paisPermitido('+56912345678'), true);
   config.primerContactoPaises = [];
+});
+
+test('los parámetros salen en el orden que pide la plantilla', () => {
+  // Una plantilla dice "Hola {{1}}, soy {{2}} de Carver, sobre {{3}}" y otra "Hola, soy {{1}},
+  // sobre {{2}}": el orden es configuración, no código.
+  const c: any = { nombre: 'Camila', programa: 'Maestría en Psicología', asesor: 'Ignacio Ribera' };
+  config.primerContactoParams = ['nombre', 'asesor', 'programa'];
+  assert.deepEqual(paramsDe(c), ['Camila', 'Ignacio Ribera', 'Maestría en Psicología']);
+  config.primerContactoParams = ['asesor', 'programa'];
+  assert.deepEqual(paramsDe(c), ['Ignacio Ribera', 'Maestría en Psicología']);
+  config.primerContactoParams = ['nombre', 'programa'];
+});
+
+test('sin nombre o sin asesor no manda un hueco vacío al cliente', () => {
+  config.primerContactoParams = ['nombre', 'asesor'];
+  const r = paramsDe({ nombre: '', asesor: '' } as any);
+  assert.equal(r[0], 'hola');
+  assert.ok(r[1].length > 0, 'cae al nombre de la marca en vez de dejarlo en blanco');
+  config.primerContactoParams = ['nombre', 'programa'];
+});
+
+test('toma el nombre del responsable de la negociación', async () => {
+  escenario();
+  deals = [{ ID: '11', CONTACT_ID: '10', TITLE: 'A', DATE_CREATE: '2026-10-10', ASSIGNED_BY_ID: '1313' }];
+  conversados = [];
+  const c = await candidatosPrimerContacto(auth, 7);
+  assert.equal(c[0].asesor, 'Asesor 1313');
 });
 
 test('una persona con dos negociaciones recibe un solo mensaje', async () => {

@@ -1,8 +1,10 @@
 import { callCrm } from '../bitrix/client';
 import { dbDialogosConDeal } from '../store/db';
+import { getUsuarios } from './directory';
 import { enviarPlantillaWhatsApp } from '../whatsapp/template';
 import { once, getRedisClient } from '../store/kv';
 import { config } from '../config';
+import { marca } from '../marca';
 import { audit } from '../obs/audit';
 import { horaEnChile } from '../ai/seguimiento';
 import { getState, type Auth } from '../store';
@@ -28,6 +30,9 @@ export type Candidato = {
   nombre: string;
   telefono: string;
   programa: string;
+  /** Responsable de la negociación: la plantilla suele firmarse con su nombre, y es quien de verdad
+   *  va a contestar si la persona responde. */
+  asesor: string;
   creado: string;
 };
 
@@ -84,7 +89,7 @@ export async function candidatosPrimerContacto(auth: Auth, dias = 7, limite = 20
         'crm.deal.list',
         {
           filter: filtro,
-          select: ['ID', 'CONTACT_ID', 'TITLE', 'DATE_CREATE', ...(config.ufPrograma ? [config.ufPrograma] : [])],
+          select: ['ID', 'CONTACT_ID', 'TITLE', 'DATE_CREATE', 'ASSIGNED_BY_ID', ...(config.ufPrograma ? [config.ufPrograma] : [])],
           order: { DATE_CREATE: 'DESC' },
           start,
         },
@@ -133,6 +138,18 @@ export async function candidatosPrimerContacto(auth: Auth, dias = 7, limite = 20
   // Una persona, un mensaje: si llenó dos formularios tiene dos negociaciones, y se queda con la
   // más reciente (la lista ya viene ordenada por fecha descendente).
   const yaVisto = new Set<number>();
+  // Nombre del responsable de cada negociación, para poder firmar la plantilla con quien de verdad
+  // va a contestar. Una sola llamada para todos, no una por negociación.
+  const nombresAsesor = new Map<number, string>();
+  const idsAsesor = [...new Set(pendientes.map((d) => Number(d.ASSIGNED_BY_ID ?? 0)).filter((n) => n > 0))];
+  if (idsAsesor.length) {
+    try {
+      for (const u of await getUsuarios(idsAsesor, auth)) nombresAsesor.set(u.id, u.nombre);
+    } catch (e) {
+      log.warn('candidatosPrimerContacto: no se pudieron resolver los asesores', { err: String(e) });
+    }
+  }
+
   if (descartadosPorPais) {
     log.info('primer contacto: números descartados por país fuera de la lista', { descartadosPorPais });
   }
@@ -153,10 +170,35 @@ export async function candidatosPrimerContacto(auth: Auth, dias = 7, limite = 20
         nombre: c.nombre,
         telefono: c.telefono,
         programa: String((config.ufPrograma && d[config.ufPrograma]) || d.TITLE || '').trim(),
+        asesor: nombresAsesor.get(Number(d.ASSIGNED_BY_ID ?? 0)) ?? '',
         creado: String(d.DATE_CREATE ?? ''),
       };
     })
     .filter((x): x is Candidato => x !== null);
+}
+
+/**
+ * Arma los parámetros en el orden que pide la plantilla elegida.
+ *
+ * Cada plantilla aprobada tiene su propia cantidad y orden de {{n}} —una dice "Hola {{1}}, soy {{2}}
+ * de Carver, sobre {{3}}" y otra "Hola, soy {{1}}, sobre {{2}}"—, así que el orden es configuración
+ * (PRIMER_CONTACTO_PARAMS) y no código. Un token desconocido va vacío antes que romper el envío.
+ */
+export function paramsDe(c: Candidato): string[] {
+  return config.primerContactoParams.map((token) => {
+    switch (token) {
+      case 'nombre':
+        return c.nombre || 'hola';
+      case 'programa':
+        return c.programa;
+      case 'asesor':
+        return c.asesor || marca.botNombre;
+      case 'organizacion':
+        return marca.organizacion;
+      default:
+        return '';
+    }
+  });
 }
 
 /** Intenta el primer contacto con UNA persona. Todas las puertas están cerradas por defecto. */
@@ -177,7 +219,7 @@ export async function enviarPrimerContacto(c: Candidato): Promise<{ enviado: boo
     phoneE164: c.telefono,
     template: config.primerContactoPlantilla,
     lang: config.primerContactoIdioma,
-    params: [c.nombre || 'hola', c.programa],
+    params: paramsDe(c),
   });
   await audit({
     type: 'primer_contacto',
