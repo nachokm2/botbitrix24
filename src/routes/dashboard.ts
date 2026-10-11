@@ -69,7 +69,10 @@ export async function metricsSummary(req: Request, res: Response) {
     dbMetricsSummary(range),
     dbRecentAudit(15),
     dbErroresRecientes(15),
-    dbConversaciones(30, range),
+    // 200 y no 30: con 30 la sección mostraba una fracción y la tarjeta el total, y parecían datos
+    // en conflicto. Al volumen actual (decenas por marca) entran todas; el tope evita que una tabla
+    // de miles de filas vuelva el panel inusable.
+    dbConversaciones(200, range),
     dbTokensSumados(range),
     dbMarchaBlancaBot('all', dialogosPorPrograma), // el scorecard del piloto siempre es "desde siempre" (no sigue el selector Hoy/7d/30d)
     dbPilotoProgresoReal(dialogosCombinados), // proyección vs. real del piloto (correo de lanzamiento) — también "desde siempre"
@@ -199,11 +202,19 @@ export async function metricsSummary(req: Request, res: Response) {
 export function dashboardPage(_req: Request, res: Response) {
   // El título se inyecta acá y no en el HTML estático: el mismo archivo lo sirven las dos marcas.
   const tipos = marca.tiposPrograma.map((t) => t.charAt(0).toUpperCase() + t.slice(1));
+  // Versión de los estáticos: sin esto, un cambio en app.js podía no verse hasta que el navegador
+  // decidiera revalidar — y dentro del iframe de Bitrix eso puede tardar. VERSION_ASSETS cambia en
+  // cada arranque del servicio, así que un despliegue basta para que el panel tome el archivo nuevo.
+  const v = VERSION_ASSETS;
   const html = DASHBOARD_HTML.replaceAll('{{PANEL_TITULO}}', `Agente ${marca.etiquetaPanel} — Panel`)
     .replaceAll('{{PANEL_ORGANIZACION}}', marca.organizacion.replace(/^la /, ''))
-    .replaceAll('{{TIPOS_PROGRAMA}}', tipos.join(', '));
+    .replaceAll('{{TIPOS_PROGRAMA}}', tipos.join(', '))
+    .replaceAll('/assets/dashboard/app.js', `/assets/dashboard/app.js?v=${v}`)
+    .replaceAll('/assets/dashboard/styles.css', `/assets/dashboard/styles.css?v=${v}`);
   res.set('Content-Type', 'text/html; charset=utf-8').send(html);
 }
+
+const VERSION_ASSETS = String(Date.now());
 
 const DASHBOARD_HTML = readFileSync(fileURLToPath(new URL('../../public/dashboard/index.html', import.meta.url)), 'utf8');
 
