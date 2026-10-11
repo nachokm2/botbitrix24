@@ -17,6 +17,7 @@ import { dashboardPage, metricsSummary, conversacionDetalle } from './routes/das
 import { callsPage, callsData } from './routes/calls';
 import { initDb, dbRecentAudit, dbEnabled, startRetentionSweep } from './store/db';
 import { iniciarRevisionDiaria } from './ai/revisionDiaria';
+import { iniciarResumenSemanal } from './ai/resumenSemanal';
 import { iniciarBarridoSeguimientos } from './ai/seguimiento';
 import { snapshot } from './obs/metrics';
 import { kvKind } from './store/kv';
@@ -203,6 +204,7 @@ initDb()
     startRetentionSweep();
     startCampaignScheduler(); // no-op si no hay programas activos (CAMPAIGN_<code>_ACTIVO=true)
     iniciarRevisionDiaria(); // lee las conversaciones del día y deja hallazgos — necesita Postgres
+    iniciarResumenSemanal(); // no-op sin RESUMEN_SEMANAL_USUARIOS
   })
   .catch((e) => log.error('initDb error', { err: String(e) }));
 

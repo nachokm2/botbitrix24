@@ -254,6 +254,15 @@ export const config = {
   revisionDiariaHora: process.env.REVISION_DIARIA_HORA ? Number(process.env.REVISION_DIARIA_HORA) : 22,
   // Tope de conversaciones por revisión: acota el costo (son llamadas al clasificador) y el tiempo.
   revisionMaxConversaciones: Number(process.env.REVISION_MAX_CONVERSACIONES ?? 40) || 40,
+  // Resumen semanal empujado a Bitrix (ai/resumenSemanal.ts). El panel existe y está completo, pero
+  // hay que acordarse de abrirlo: esto manda las cinco líneas que importan adonde la gente ya mira.
+  // Vacío = no se manda a nadie.
+  resumenSemanalDestinatarios: (process.env.RESUMEN_SEMANAL_USUARIOS ?? '')
+    .split(',')
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0),
+  resumenSemanalDia: Number(process.env.RESUMEN_SEMANAL_DIA ?? 1), // 0 = domingo, 1 = lunes
+  resumenSemanalHora: Number(process.env.RESUMEN_SEMANAL_HORA ?? 9), // hora de Chile
   // Precio Anthropic por millón de tokens (USD) para estimar costo en el panel (0 = no mostrar).
   costInPerMtok: Number(process.env.ANTHROPIC_COST_IN_PER_MTOK ?? 0),
   costOutPerMtok: Number(process.env.ANTHROPIC_COST_OUT_PER_MTOK ?? 0),
