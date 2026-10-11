@@ -12,6 +12,7 @@ import { once } from '../store/kv';
 import { inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { resolveAllEntities, loadPriorContext, logConversationTurn } from '../crm/chat';
+import { leerHistorialPrevio } from '../crm/historialChat';
 import { primaryEntity } from '../crm/entities';
 import { esEmpleadoBitrix, getIdentidadAsesor, getDatosConocidosDeEntidades } from '../crm/directory';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
@@ -202,7 +203,16 @@ async function handle(req: Request) {
   // Memoria entre sesiones: al iniciar una conversación nueva, carga notas previas del CRM.
   const esNueva = (await getHistory(dialogId)).length === 0;
   if (esNueva) inc('conversations');
-  const priorContext = esNueva && crmEntity ? await loadPriorContext(crmEntity, auth) : '';
+  // Dos memorias distintas, y hacían falta las dos: loadPriorContext son las notas que el propio bot
+  // dejó en el CRM en sesiones anteriores; el historial del chat es lo que se habló en ESTE chat
+  // antes de que el bot entrara — típicamente un asesor atendiendo a mano. Sin lo segundo, sumar el
+  // bot a una conversación en curso lo hacía arrancar en blanco y repetir lo ya preguntado.
+  const [priorContext, historialPrevio] = esNueva
+    ? await Promise.all([
+        crmEntity ? loadPriorContext(crmEntity, auth) : Promise.resolve(''),
+        leerHistorialPrevio(dialogId, sess.clientId, auth, msgId),
+      ])
+    : ['', null];
 
   // Indicador de "escribiendo..." mientras razona el agente (no crítico).
   await callBitrix('imbot.chat.sendTyping', { BOT_ID: botId, DIALOG_ID: dialogId }, auth).catch(() => {});
@@ -233,7 +243,7 @@ async function handle(req: Request) {
     profile: WHATSAPP_PROFILE,
     pendingImage,
   };
-  const reply = await runAgentTurn(ctxTurno, turnContent ?? turnText, priorContext);
+  const reply = await runAgentTurn(ctxTurno, turnContent ?? turnText, priorContext, undefined, historialPrevio);
 
   // Si el envío falla, el cliente se queda SIN respuesta: hay que dejar rastro accionable, no solo
   // un log. Antes esto no quedaba registrado en ninguna parte y 3 clientes reales quedaron sin
