@@ -80,12 +80,30 @@ function escenario() {
 }
 
 test('aE164 respeta un número ya internacional', () => {
-  // Carver atiende a varios países: forzar +56 mandaría el mensaje a un chileno que no es esa persona.
   assert.equal(aE164('+57 300 1234567'), '+573001234567');
   assert.equal(aE164('0057 300 1234567'), '+573001234567');
   assert.equal(aE164('912345678', '+56'), '+56912345678');
   assert.equal(aE164('123', '+56'), null);
   assert.equal(aE164(''), null);
+});
+
+test('sin prefijo por defecto, un número ambiguo se descarta en vez de adivinarle el país', () => {
+  // Los leads de Carver son 36% chilenos y 64% de otros países: asumir +56 en un número sin código
+  // le manda el mensaje a un chileno cualquiera. Perder el contacto es más barato que eso.
+  assert.equal(aE164('3001234567', ''), null);
+  assert.equal(aE164('+573001234567', ''), '+573001234567', 'uno internacional sigue pasando');
+});
+
+test('una persona con dos negociaciones recibe un solo mensaje', async () => {
+  escenario();
+  deals = [
+    { ID: '11', CONTACT_ID: '10', TITLE: 'Formulario A', DATE_CREATE: '2026-10-10' },
+    { ID: '12', CONTACT_ID: '10', TITLE: 'Formulario B', DATE_CREATE: '2026-10-09' },
+  ];
+  conversados = [];
+  const c = await candidatosPrimerContacto(auth, 7);
+  assert.equal(c.length, 1, 'dos formularios de la misma persona no son dos destinatarios');
+  assert.equal(c[0].dealId, 11, 'se queda con la negociación más reciente');
 });
 
 test('sin embudos configurados no filtra por embudo', async () => {

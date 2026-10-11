@@ -272,7 +272,11 @@ export const config = {
   primerContactoIdioma: process.env.PRIMER_CONTACTO_IDIOMA ?? 'es',
   primerContactoDias: Number(process.env.PRIMER_CONTACTO_DIAS ?? 7) || 7,
   primerContactoMaxDiario: Number(process.env.PRIMER_CONTACTO_MAX_DIARIO ?? 50) || 0,
+  // Prefijo que se asume para un número guardado SIN código de país. Vacío = descartarlo en vez de
+  // adivinar: en una marca internacional, asumir el país manda el mensaje a un desconocido.
   primerContactoPrefijoPais: process.env.PRIMER_CONTACTO_PREFIJO_PAIS ?? '+56',
+  // Hora de Chile a la que sale la tanda diaria.
+  primerContactoHora: Number(process.env.PRIMER_CONTACTO_HORA ?? 10),
   // Ojo con el orden: acá el 0 es un embudo VÁLIDO de Bitrix, así que no se puede descartar como en
   // las otras listas. Hay que quitar las cadenas vacías ANTES de convertir, o un valor sin definir
   // deja [0] y el filtro termina pidiendo las negociaciones del embudo equivocado.

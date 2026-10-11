@@ -5,7 +5,7 @@ import { once, getRedisClient } from '../store/kv';
 import { config } from '../config';
 import { audit } from '../obs/audit';
 import { horaEnChile } from '../ai/seguimiento';
-import type { Auth } from '../store';
+import { getState, type Auth } from '../store';
 import { log } from '../log';
 
 /**
@@ -40,17 +40,30 @@ export type Resumen = {
 };
 
 const LOTE = 50; // crm.*.list devuelve como máximo 50 filas por página
-const CLAVE_CONTACTADO = (dealId: number) => `primer-contacto:${dealId}`;
+// La marca de "ya se le escribió" va por CONTACTO, no por negociación: medido en Carver, 4.433
+// negociaciones de los últimos 30 días corresponden a 4.305 personas. Llevarla por negociación le
+// mandaba dos mensajes a quien llenó dos formularios.
+const CLAVE_CONTACTADO = (contactId: number) => `primer-contacto:contacto:${contactId}`;
 const CLAVE_CUPO_DIARIO = (dia: string) => `primer-contacto:dia:${dia}`;
 
-/** Normaliza a E.164. Un número ya internacional se respeta tal cual: Carver atiende a varios
- *  países y forzar +56 mandaría el mensaje a un número chileno que no es de esa persona. */
+/**
+ * Normaliza a E.164. Un número ya internacional se respeta tal cual.
+ *
+ * Con `prefijoPorDefecto` vacío, un número SIN prefijo se descarta en vez de adivinarle el país.
+ * Es lo correcto para una marca internacional: los leads de Carver son 36% chilenos, 31%
+ * colombianos, 12% ecuatorianos y 10% de EE.UU., así que asumir +56 le mandaría el mensaje a un
+ * chileno cualquiera que no tiene nada que ver. Perder un contacto ambiguo es más barato que eso.
+ */
 export function aE164(raw: string, prefijoPorDefecto = config.primerContactoPrefijoPais): string | null {
   const s = String(raw ?? '').replace(/[\s()\-.]/g, '');
   if (!s) return null;
-  const e = s.startsWith('+') ? s : s.startsWith('00') ? `+${s.slice(2)}` : `${prefijoPorDefecto}${s.replace(/^0+/, '')}`;
-  return /^\+\d{8,15}$/.test(e) ? e : null;
+  if (s.startsWith('00')) return validoE164(`+${s.slice(2)}`);
+  if (s.startsWith('+')) return validoE164(s);
+  if (!prefijoPorDefecto) return null; // sin país conocido no se arriesga un destinatario equivocado
+  return validoE164(`${prefijoPorDefecto}${s.replace(/^0+/, '')}`);
 }
+
+const validoE164 = (e: string): string | null => (/^\+\d{8,15}$/.test(e) ? e : null);
 
 /** Negociaciones creadas en los últimos `dias` con las que el bot NUNCA conversó. */
 export async function candidatosPrimerContacto(auth: Auth, dias = 7, limite = 200): Promise<Candidato[]> {
@@ -105,7 +118,16 @@ export async function candidatosPrimerContacto(auth: Auth, dias = 7, limite = 20
     }
   }
 
+  // Una persona, un mensaje: si llenó dos formularios tiene dos negociaciones, y se queda con la
+  // más reciente (la lista ya viene ordenada por fecha descendente).
+  const yaVisto = new Set<number>();
   return pendientes
+    .filter((d) => {
+      const id = Number(d.CONTACT_ID);
+      if (yaVisto.has(id)) return false;
+      yaVisto.add(id);
+      return true;
+    })
     .map((d): Candidato | null => {
       const c = contactos.get(Number(d.CONTACT_ID));
       if (!c) return null; // sin teléfono utilizable no hay a quién escribirle
@@ -132,7 +154,7 @@ export async function enviarPrimerContacto(c: Candidato): Promise<{ enviado: boo
     return { enviado: false, motivo: 'fuera_de_horario' };
   }
   // Una sola vez por negociación, para siempre: insistir a quien nunca contestó es spam.
-  if (!(await once(CLAVE_CONTACTADO(c.dealId), 365 * 24 * 3600))) return { enviado: false, motivo: 'ya_contactado' };
+  if (!(await once(CLAVE_CONTACTADO(c.contactId), 365 * 24 * 3600))) return { enviado: false, motivo: 'ya_contactado' };
   if (!(await dentroDelCupoDiario())) return { enviado: false, motivo: 'tope_diario' };
 
   const r = await enviarPlantillaWhatsApp({
@@ -188,4 +210,44 @@ export async function correrPrimerContacto(auth: Auth, opts: { dias?: number; si
   }
   log.info('primer contacto: corrida terminada', resumen as any);
   return resumen;
+}
+
+let intervalo: ReturnType<typeof setInterval> | null = null;
+const CHEQUEO_MIN = 30;
+
+/**
+ * Corre el primer contacto una vez al día, a la hora configurada (hora de Chile).
+ *
+ * No arranca si no está activo: así el servicio no gasta llamadas a Bitrix revisando candidatos a
+ * los que nunca les va a escribir. Encenderlo es cambiar PRIMER_CONTACTO_ACTIVO y reiniciar.
+ */
+export function iniciarPrimerContacto(): void {
+  if (!config.primerContactoActivo || intervalo) return;
+  if (!config.primerContactoPlantilla) {
+    log.warn('primer contacto: activo pero SIN plantilla configurada; no se arranca');
+    return;
+  }
+  const tick = async () => {
+    try {
+      if (horaEnChile(new Date()) !== config.primerContactoHora) return;
+      // Una marca por día en Redis: con dos réplicas o un reinicio dentro de la misma hora, la
+      // tanda saldría dos veces y el tope diario no alcanzaría a contenerla.
+      const dia = new Date().toISOString().slice(0, 10);
+      if (!(await once(`primer-contacto:corrida:${dia}`, 36 * 3600))) return;
+      const st = await getState();
+      if (!st.auth) return log.warn('primer contacto: sin auth de Bitrix');
+      await correrPrimerContacto(st.auth);
+    } catch (e) {
+      log.warn('primer contacto: la corrida diaria falló', { err: String(e) });
+    }
+  };
+  intervalo = setInterval(() => void tick(), CHEQUEO_MIN * 60_000);
+  intervalo.unref();
+  log.info('primer contacto activo', {
+    hora: config.primerContactoHora,
+    maxDiario: config.primerContactoMaxDiario,
+    dias: config.primerContactoDias,
+    embudos: config.primerContactoCategorias,
+    plantilla: config.primerContactoPlantilla,
+  });
 }
