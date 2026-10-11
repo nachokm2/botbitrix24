@@ -11,6 +11,7 @@
     "smoke:bitrix": "tsx scripts/smoke-bitrix.ts",
     "typecheck": "tsc --noEmit",
     "regresion": "tsx scripts/regresion.ts",
+    "primer-contacto": "tsx scripts/primer-contacto.ts",
     "test": "node --experimental-test-module-mocks --import tsx --test \"test/*.test.ts\""
   },
   "dependencies": {

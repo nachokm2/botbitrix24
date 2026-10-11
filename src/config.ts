@@ -263,6 +263,20 @@ export const config = {
     .filter((n) => Number.isFinite(n) && n > 0),
   resumenSemanalDia: Number(process.env.RESUMEN_SEMANAL_DIA ?? 1), // 0 = domingo, 1 = lunes
   resumenSemanalHora: Number(process.env.RESUMEN_SEMANAL_HORA ?? 9), // hora de Chile
+  // Primer contacto con los leads que entraron y nunca escribieron (crm/primerContacto.ts). En el
+  // piloto entraron ~800 y el bot conversó con 81: los otros dejaron sus datos y nadie volvió a
+  // hablarles. APAGADO por defecto y a propósito: escribir primero necesita plantilla aprobada por
+  // Meta, una decisión de volumen y claridad sobre el consentimiento con que se recogieron los datos.
+  primerContactoActivo: (process.env.PRIMER_CONTACTO_ACTIVO ?? '').toLowerCase() === 'true',
+  primerContactoPlantilla: process.env.PRIMER_CONTACTO_PLANTILLA ?? '',
+  primerContactoIdioma: process.env.PRIMER_CONTACTO_IDIOMA ?? 'es',
+  primerContactoDias: Number(process.env.PRIMER_CONTACTO_DIAS ?? 7) || 7,
+  primerContactoMaxDiario: Number(process.env.PRIMER_CONTACTO_MAX_DIARIO ?? 50) || 0,
+  primerContactoPrefijoPais: process.env.PRIMER_CONTACTO_PREFIJO_PAIS ?? '+56',
+  primerContactoCategorias: (process.env.PRIMER_CONTACTO_CATEGORIAS ?? '')
+    .split(',')
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isFinite(n) && n >= 0),
   // Precio Anthropic por millón de tokens (USD) para estimar costo en el panel (0 = no mostrar).
   costInPerMtok: Number(process.env.ANTHROPIC_COST_IN_PER_MTOK ?? 0),
   costOutPerMtok: Number(process.env.ANTHROPIC_COST_OUT_PER_MTOK ?? 0),
