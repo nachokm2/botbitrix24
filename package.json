@@ -10,6 +10,7 @@
     "smoke:anthropic": "tsx scripts/smoke-anthropic.ts",
     "smoke:bitrix": "tsx scripts/smoke-bitrix.ts",
     "typecheck": "tsc --noEmit",
+    "regresion": "tsx scripts/regresion.ts",
     "test": "node --experimental-test-module-mocks --import tsx --test \"test/*.test.ts\""
   },
   "dependencies": {
