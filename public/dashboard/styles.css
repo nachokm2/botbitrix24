@@ -31,6 +31,27 @@ h1::after{content:'';display:block;width:46px;height:3px;margin-top:7px;border-r
 .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:720px){.row{grid-template-columns:1fr}}
 
+/* Teléfono. El panel se abre desde la app de Bitrix24 y desde el navegador del móvil, y las tablas
+   anchas (conversaciones, negociaciones) obligaban a desplazar en dos ejes. Acá se aprieta el
+   espaciado, se achica la tipografía y se deja que las celdas largas corten línea en vez de empujar
+   la tabla a lo ancho. Las tarjetas ya se reacomodan solas por el auto-fit del grid. */
+@media(max-width:560px){
+  .wrap{padding:12px}
+  h1{font-size:18px}
+  .grid{grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px}
+  .card{padding:11px;border-radius:12px}
+  .card:hover{transform:none}            /* el hover no aporta en táctil y produce saltos */
+  .kpi .v{font-size:24px}
+  .sec{margin-top:18px}
+  table{font-size:11px}
+  th,td{padding:6px 5px}
+  td{word-break:break-word}
+  /* La última columna suele ser texto largo (el mensaje del cliente): que no estire la tabla. */
+  td:last-child{max-width:40vw}
+  .bar .lab{width:84px;font-size:11px}
+  .days{gap:4px}
+}
+
 .bar{display:flex;align-items:center;gap:8px;margin:7px 0}
 .bar .lab{width:120px;color:var(--muted);font-size:12px;text-align:right}
 .bar .track{flex:1;background:#eef1f5;border-radius:6px;height:14px;overflow:hidden}
