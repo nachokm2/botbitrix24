@@ -69,7 +69,7 @@ export async function metricsSummary(req: Request, res: Response) {
     dbMetricsSummary(range),
     dbRecentAudit(15),
     dbErroresRecientes(15),
-    dbConversaciones(30),
+    dbConversaciones(30, range),
     dbTokensSumados(range),
     dbMarchaBlancaBot('all', dialogosPorPrograma), // el scorecard del piloto siempre es "desde siempre" (no sigue el selector Hoy/7d/30d)
     dbPilotoProgresoReal(dialogosCombinados), // proyección vs. real del piloto (correo de lanzamiento) — también "desde siempre"
@@ -167,7 +167,11 @@ export async function metricsSummary(req: Request, res: Response) {
     agg,
     recent,
     erroresRecientes, // fallas técnicas con motivo y etapa, para poder accionarlas desde el panel
-    conversaciones, // lista para poder LEER lo que el bot respondió (el detalle va en /metrics/conversacion)
+    // Lista para poder LEER lo que el bot respondió (el detalle va en /metrics/conversacion). Viaja
+    // con el TOTAL del rango para que la sección pueda decir "las 30 más recientes de 66" en vez de
+    // aparentar que son todas.
+    conversaciones: conversaciones.filas,
+    conversacionesTotal: conversaciones.total,
     funnelLabels: config.funnelLabels,
     marchaBlanca,
     marchaBlancaStart: config.marchaBlancaStart,

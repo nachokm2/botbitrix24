@@ -415,9 +415,14 @@ function render(d){
   // traer el texto de todas en cada refresco sería mucho volumen para algo que se mira de a una.
   var convs = d.conversaciones || [];
   var convEl = document.getElementById('conversaciones');
+  // Decir cuántas se muestran Y cuántas hay: la sección decía "30 conversaciones" mientras la
+  // tarjeta de arriba decía 66, y parecían datos en conflicto. Son los mismos, truncados.
+  var convTotal = d.conversacionesTotal != null ? d.conversacionesTotal : convs.length;
   document.getElementById('convresumen').textContent = convs.length
-    ? convs.length + ' conversaciones · haz clic en una para leer el intercambio completo'
-    : 'Todavía no hay conversaciones registradas.';
+    ? (convTotal > convs.length
+        ? 'Las ' + num(convs.length) + ' más recientes de ' + num(convTotal) + ' con respuesta del bot · haz clic en una para leer el intercambio completo'
+        : num(convs.length) + ' conversaciones con respuesta del bot · haz clic en una para leer el intercambio completo')
+    : 'Todavía no hay conversaciones registradas en este período.';
   if (convs.length) {
     var cabecera = '<thead><tr><th>Última actividad</th><th>Turnos</th><th>CRM</th><th>Último mensaje del cliente</th></tr></thead>';
     convEl.innerHTML = cabecera + '<tbody>' + convs.map(function(c){

@@ -176,9 +176,18 @@ export async function dbErroresRecientes(limit = 15): Promise<any[]> {
  * el chat de Bitrix24: no abre acceso nuevo, solo evita tener que buscarlo conversación por
  * conversación.
  */
-export async function dbConversaciones(limit = 30): Promise<any[]> {
-  if (!pool) return [];
+export async function dbConversaciones(limit = 30, range = 'all'): Promise<{ total: number; filas: any[] }> {
+  if (!pool) return { total: 0, filas: [] };
+  // Respeta el selector de rango del panel: antes devolvía siempre las últimas de SIEMPRE, así que
+  // con "Hoy" seleccionado podía listar conversaciones de otro día. Y devuelve el TOTAL del rango,
+  // no solo las que caben: la sección decía "30 conversaciones" mientras la tarjeta de arriba decía
+  // 66, como si fueran datos distintos — eran las mismas, truncadas sin avisar.
+  const interval = range in RANGE_INTERVAL ? RANGE_INTERVAL[range] : null;
+  const W = interval ? `AND ts >= now() - interval '${interval}'` : '';
   try {
+    const t = await pool.query(
+      `SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE type='turn' AND dialog_id IS NOT NULL ${W}`,
+    );
     const r = await pool.query(
       `SELECT dialog_id,
               max(crm_entity) FILTER (WHERE crm_entity IS NOT NULL) AS crm_entity,
@@ -187,16 +196,16 @@ export async function dbConversaciones(limit = 30): Promise<any[]> {
               max(ts) AS fin,
               (array_agg(detail->>'message' ORDER BY ts DESC))[1] AS ultimo_mensaje
        FROM audit_log
-       WHERE type='turn' AND dialog_id IS NOT NULL
+       WHERE type='turn' AND dialog_id IS NOT NULL ${W}
        GROUP BY dialog_id
        ORDER BY max(ts) DESC
        LIMIT $1`,
       [limit],
     );
-    return r.rows;
+    return { total: t.rows[0]?.c ?? 0, filas: r.rows };
   } catch (err) {
     log.warn('dbConversaciones falló', { err: String(err) });
-    return [];
+    return { total: 0, filas: [] };
   }
 }
 
