@@ -40,7 +40,7 @@ async function main() {
     console.log('Embudos considerados: todos (PRIMER_CONTACTO_CATEGORIAS sin definir)');
   }
   console.log(`Envío real: ${config.primerContactoActivo ? 'ACTIVO' : 'apagado (PRIMER_CONTACTO_ACTIVO)'}`);
-  console.log(`Plantilla: ${config.primerContactoPlantilla || '(ninguna configurada)'}`);
+  console.log(`Plantilla(s): ${config.primerContactoPlantillas.join(', ') || '(ninguna configurada)'}`);
   console.log(`Tope diario: ${config.primerContactoMaxDiario}`);
 
   if (r.muestra.length) {

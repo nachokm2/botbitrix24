@@ -1353,3 +1353,42 @@ export async function dbMinutosDesdeUltimoTurno(): Promise<number | null> {
     return null;
   }
 }
+
+/**
+ * Resultado del primer contacto: de los mensajes enviados, a cuántos contestaron.
+ *
+ * La respuesta se mide como una conversación del bot con ESA negociación posterior al envío. Es el
+ * único número del caso de negocio que no conocíamos: todo lo demás (costo por país, volumen) es
+ * calculable de antemano, pero cuánta gente responde no lo sabe nadie hasta probarlo.
+ */
+export async function dbResultadoPrimerContacto(
+  horasVentana = 48,
+): Promise<Array<{ plantilla: string; enviados: number; respondieron: number }>> {
+  if (!pool) return [];
+  const h = Math.max(1, Math.min(720, Math.round(horasVentana)));
+  try {
+    const r = await pool.query(
+      `WITH envios AS (
+         SELECT crm_entity, min(ts) enviado_en, coalesce(detail->>'plantilla','(sin registrar)') plantilla
+         FROM audit_log
+         WHERE type='primer_contacto' AND detail->>'ok'='true' AND crm_entity IS NOT NULL
+         GROUP BY crm_entity, coalesce(detail->>'plantilla','(sin registrar)')
+       )
+       SELECT e.plantilla,
+              count(*)::int enviados,
+              count(*) FILTER (WHERE EXISTS (
+                SELECT 1 FROM audit_log t
+                WHERE t.type='turn' AND t.crm_entity = e.crm_entity
+                  AND t.ts > e.enviado_en
+                  AND t.ts <= e.enviado_en + interval '${h} hours'
+              ))::int respondieron
+       FROM envios e
+       GROUP BY e.plantilla
+       ORDER BY enviados DESC`,
+    );
+    return r.rows.map((x: any) => ({ plantilla: x.plantilla, enviados: x.enviados, respondieron: x.respondieron }));
+  } catch (err) {
+    log.warn('dbResultadoPrimerContacto falló', { err: String(err) });
+    return [];
+  }
+}

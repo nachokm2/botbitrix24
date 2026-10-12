@@ -68,7 +68,7 @@ mock.module('../src/crm/directory.ts', {
   namedExports: { getUsuarios: async (ids: number[]) => ids.map((id) => ({ id, nombre: `Asesor ${id}` })) },
 });
 
-const { candidatosPrimerContacto, enviarPrimerContacto, correrPrimerContacto, aE164, paisPermitido, paramsDe } = await import(
+const { candidatosPrimerContacto, enviarPrimerContacto, correrPrimerContacto, aE164, paisPermitido, paramsDe, plantillaPara } = await import(
   '../src/crm/primerContacto'
 );
 const { config } = await import('../src/config');
@@ -91,7 +91,7 @@ function escenario() {
     { ID: '30', NAME: 'Ana', PHONE: [] }, // sin teléfono: no hay a quién escribirle
   ];
   config.primerContactoActivo = false;
-  config.primerContactoPlantilla = '';
+  config.primerContactoPlantillas = [];
   config.primerContactoMaxDiario = 50;
 }
 
@@ -165,6 +165,22 @@ test('toma el nombre del responsable de la negociación', async () => {
   assert.equal(c[0].asesor, 'Asesor 1313');
 });
 
+test('con una sola plantilla no hay reparto', () => {
+  config.primerContactoPlantillas = ['uuid-a'];
+  assert.equal(plantillaPara({ contactId: 10 }), 'uuid-a');
+  assert.equal(plantillaPara({ contactId: 11 }), 'uuid-a');
+});
+
+test('con dos plantillas reparte de forma estable por contacto', () => {
+  // Estable y no al azar: la misma persona siempre cae en la misma variante, y dos corridas del
+  // mismo día no mezclan resultados.
+  config.primerContactoPlantillas = ['uuid-a', 'uuid-b'];
+  assert.equal(plantillaPara({ contactId: 10 }), 'uuid-a');
+  assert.equal(plantillaPara({ contactId: 11 }), 'uuid-b');
+  assert.equal(plantillaPara({ contactId: 10 }), 'uuid-a', 'no cambia entre llamadas');
+  config.primerContactoPlantillas = ['primer_contacto_v1'];
+});
+
 test('una persona con dos negociaciones recibe un solo mensaje', async () => {
   escenario();
   deals = [
@@ -225,7 +241,7 @@ test('encendido pero sin plantilla tampoco envía', async () => {
 test('con todo configurado envía una vez y nunca más a la misma negociación', async () => {
   escenario();
   config.primerContactoActivo = true;
-  config.primerContactoPlantilla = 'primer_contacto_v1';
+  config.primerContactoPlantillas = ['primer_contacto_v1'];
   // El horario permitido se fija acá para que la prueba no dependa de la hora a la que corra.
   config.seguimientoHoraInicio = 0;
   config.seguimientoHoraFin = 24;
@@ -244,7 +260,7 @@ test('con todo configurado envía una vez y nunca más a la misma negociación',
 test('fuera del horario permitido no escribe', async () => {
   escenario();
   config.primerContactoActivo = true;
-  config.primerContactoPlantilla = 'p';
+  config.primerContactoPlantillas = ['p'];
   config.seguimientoHoraInicio = 23;
   config.seguimientoHoraFin = 24; // ventana de una hora: prácticamente siempre está fuera
   const r = await enviarPrimerContacto({
@@ -256,7 +272,7 @@ test('fuera del horario permitido no escribe', async () => {
 test('simular recorre todo sin enviar nada', async () => {
   escenario();
   config.primerContactoActivo = true;
-  config.primerContactoPlantilla = 'p';
+  config.primerContactoPlantillas = ['p'];
   const r = await correrPrimerContacto(auth, { dias: 7, simular: true });
   assert.equal(r.candidatos, 1);
   assert.equal(r.enviados, 0);

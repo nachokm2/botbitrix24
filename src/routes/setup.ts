@@ -8,6 +8,7 @@ import { bindDashboard, bindCalls } from '../bitrix/placement';
 import { syncCalls } from '../crm/callSync';
 import { dbEnabled, dbDialogosTodos, dbBorrarDialogos } from '../store/db';
 import { config } from '../config';
+import { dbResultadoPrimerContacto } from '../store/db';
 import { log } from '../log';
 import type { BitrixCategory, BitrixCategoryListResponse, BitrixStatus, BitrixStatusListResponse } from '../bitrix/types';
 
@@ -314,4 +315,29 @@ export async function chatappPrueba(req: Request, res: Response) {
   const params = String(req.query.params ?? '').split('|').filter(Boolean);
   const r = await enviarPlantillaChatApp({ phoneE164: tel, templateId: plantilla, params });
   return res.status(r.ok ? 200 : 502).json({ ...r, tel, plantilla, params });
+}
+
+/**
+ * Resultado del primer contacto. GET /setup/primer-contacto-resultado?horas=48
+ *
+ * De los mensajes enviados, a cuántos contestaron, separado por plantilla. Es el número que decide
+ * si la prueba de 50 diarios se escala o se apaga: todo lo demás del caso de negocio (costo por
+ * país, volumen) se calcula de antemano, pero la tasa de respuesta no la sabe nadie hasta probarla.
+ */
+export async function primerContactoResultado(req: Request, res: Response) {
+  const horas = Math.max(1, Math.min(720, Number(req.query.horas ?? 48) || 48));
+  const filas = await dbResultadoPrimerContacto(horas);
+  const enviados = filas.reduce((n, f) => n + f.enviados, 0);
+  const respondieron = filas.reduce((n, f) => n + f.respondieron, 0);
+  return res.json({
+    ok: true,
+    ventanaHoras: horas,
+    enviados,
+    respondieron,
+    tasaRespuesta: enviados ? Math.round((respondieron / enviados) * 100) : null,
+    porPlantilla: filas.map((f) => ({
+      ...f,
+      tasa: f.enviados ? Math.round((f.respondieron / f.enviados) * 100) : null,
+    })),
+  });
 }

@@ -276,7 +276,13 @@ export const config = {
   // hablarles. APAGADO por defecto y a propósito: escribir primero necesita plantilla aprobada por
   // Meta, una decisión de volumen y claridad sobre el consentimiento con que se recogieron los datos.
   primerContactoActivo: (process.env.PRIMER_CONTACTO_ACTIVO ?? '').toLowerCase() === 'true',
-  primerContactoPlantilla: process.env.PRIMER_CONTACTO_PLANTILLA ?? '',
+  // Una o varias plantillas separadas por coma. Con varias se reparten entre los destinatarios para
+  // comparar cuál obtiene más respuestas — el único número del caso de negocio que no se puede
+  // calcular de antemano. Se mantiene el nombre en singular por compatibilidad.
+  primerContactoPlantillas: (process.env.PRIMER_CONTACTO_PLANTILLA ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean),
   primerContactoIdioma: process.env.PRIMER_CONTACTO_IDIOMA ?? 'es',
   primerContactoDias: Number(process.env.PRIMER_CONTACTO_DIAS ?? 7) || 7,
   primerContactoMaxDiario: Number(process.env.PRIMER_CONTACTO_MAX_DIARIO ?? 50) || 0,

@@ -186,6 +186,18 @@ export async function candidatosPrimerContacto(auth: Auth, dias = 7, limite = 20
 }
 
 /**
+ * Con más de una plantilla configurada, reparte entre ellas para poder comparar cuál funciona.
+ *
+ * El reparto va por contacto y no al azar: así una misma persona siempre caería en la misma
+ * variante, y dos corridas del mismo día no mezclan resultados. Con una sola plantilla configurada
+ * no hay reparto y se usa esa.
+ */
+export function plantillaPara(c: Pick<Candidato, 'contactId'>): string {
+  const lista = config.primerContactoPlantillas;
+  return lista[c.contactId % lista.length] ?? lista[0];
+}
+
+/**
  * Arma los parámetros en el orden que pide la plantilla elegida.
  *
  * Cada plantilla aprobada tiene su propia cantidad y orden de {{n}} —una dice "Hola {{1}}, soy {{2}}
@@ -212,7 +224,7 @@ export function paramsDe(c: Candidato): string[] {
 /** Intenta el primer contacto con UNA persona. Todas las puertas están cerradas por defecto. */
 export async function enviarPrimerContacto(c: Candidato): Promise<{ enviado: boolean; motivo?: MotivoDescarte }> {
   if (!config.primerContactoActivo) return { enviado: false, motivo: 'desactivado' };
-  if (!config.primerContactoPlantilla) return { enviado: false, motivo: 'sin_plantilla' };
+  if (!config.primerContactoPlantillas.length) return { enviado: false, motivo: 'sin_plantilla' };
 
   // Escribir primero a las 3 de la mañana es peor que no escribir: mismo horario que el seguimiento.
   const hora = horaEnChile(new Date());
@@ -227,16 +239,18 @@ export async function enviarPrimerContacto(c: Candidato): Promise<{ enviado: boo
   if (!(await once(CLAVE_CONTACTADO(c.contactId), 365 * 24 * 3600))) return { enviado: false, motivo: 'ya_contactado' };
   if (!(await dentroDelCupoDiario())) return { enviado: false, motivo: 'tope_diario' };
 
+  const plantilla = plantillaPara(c);
   const r = await enviarPlantillaWhatsApp({
     phoneE164: c.telefono,
-    template: config.primerContactoPlantilla,
+    template: plantilla,
     lang: config.primerContactoIdioma,
     params: paramsDe(c),
   });
+  // La plantilla queda en la auditoría: sin eso no se puede comparar cuál funciona mejor.
   await audit({
     type: 'primer_contacto',
     crmEntity: `deal#${c.dealId}`,
-    detail: { ok: r.ok, error: r.ok ? undefined : r.error, programa: c.programa },
+    detail: { ok: r.ok, error: r.ok ? undefined : r.error, programa: c.programa, plantilla },
   });
   if (!r.ok) {
     log.warn('primer contacto falló', { dealId: c.dealId, err: r.error });
@@ -293,7 +307,7 @@ const CHEQUEO_MIN = 30;
  */
 export function iniciarPrimerContacto(): void {
   if (!config.primerContactoActivo || intervalo) return;
-  if (!config.primerContactoPlantilla) {
+  if (!config.primerContactoPlantillas.length) {
     log.warn('primer contacto: activo pero SIN plantilla configurada; no se arranca');
     return;
   }
@@ -318,6 +332,6 @@ export function iniciarPrimerContacto(): void {
     maxDiario: config.primerContactoMaxDiario,
     dias: config.primerContactoDias,
     embudos: config.primerContactoCategorias,
-    plantilla: config.primerContactoPlantilla,
+    plantillas: config.primerContactoPlantillas,
   });
 }
