@@ -21,6 +21,7 @@ import { iniciarResumenSemanal } from './ai/resumenSemanal';
 import { iniciarVigilanciaCanal } from './ai/vigilanciaCanal';
 import { iniciarVigilanciaSalud } from './bitrix/salud';
 import { iniciarPrimerContacto } from './crm/primerContacto';
+import { iniciarReactivacion } from './crm/reactivacion';
 import { iniciarBarridoSeguimientos } from './ai/seguimiento';
 import { snapshot } from './obs/metrics';
 import { kvKind } from './store/kv';
@@ -214,6 +215,7 @@ initDb()
     iniciarVigilanciaCanal(); // avisa si deja de entrar conversación (necesita Postgres)
     iniciarVigilanciaSalud(); // avisa si el OAuth o el webhook dejan de funcionar
     iniciarPrimerContacto(); // no-op salvo PRIMER_CONTACTO_ACTIVO=true con plantilla
+    iniciarReactivacion(); // no-op salvo REACTIVACION_ACTIVA=true con plantilla
   })
   .catch((e) => log.error('initDb error', { err: String(e) }));
 

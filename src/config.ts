@@ -291,6 +291,18 @@ export const config = {
   primerContactoPrefijoPais: process.env.PRIMER_CONTACTO_PREFIJO_PAIS ?? '+56',
   // Hora de Chile a la que sale la tanda diaria.
   primerContactoHora: Number(process.env.PRIMER_CONTACTO_HORA ?? 10),
+  // Reactivación de conversaciones frías: gente que SÍ habló con el bot y se apagó. Pasadas las 24
+  // horas de la última interacción WhatsApp no deja texto libre, así que necesita plantilla igual
+  // que el primer contacto. Apagada por defecto, por los mismos motivos.
+  reactivacionActiva: (process.env.REACTIVACION_ACTIVA ?? '').toLowerCase() === 'true',
+  reactivacionPlantillas: (process.env.REACTIVACION_PLANTILLA ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean),
+  reactivacionDiasMin: Number(process.env.REACTIVACION_DIAS_MIN ?? 3) || 3,
+  reactivacionDiasMax: Number(process.env.REACTIVACION_DIAS_MAX ?? 45) || 45,
+  reactivacionMaxDiario: Number(process.env.REACTIVACION_MAX_DIARIO ?? 30) || 0,
+  reactivacionHora: Number(process.env.REACTIVACION_HORA ?? 11),
   // Orden de los parámetros de la plantilla, separados por coma. Tokens: nombre, asesor, programa,
   // organizacion. Cada plantilla aprobada tiene su propio orden de {{n}}, así que esto es
   // configuración: cambiar de plantilla no debería obligar a tocar el código.

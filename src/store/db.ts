@@ -1392,3 +1392,48 @@ export async function dbResultadoPrimerContacto(
     return [];
   }
 }
+
+/**
+ * Conversaciones que el bot atendió, se enfriaron y ya no se pueden retomar con texto libre.
+ *
+ * El seguimiento automático solo alcanza dentro de las 24 horas de la última interacción; pasado
+ * eso WhatsApp exige plantilla. Esta gente es el público más barato de recuperar: ya habló, ya
+ * mostró interés y ya dejó datos — a diferencia del primer contacto, donde nadie dijo nada todavía.
+ */
+export async function dbConversacionesFrias(
+  diasMin = 3,
+  diasMax = 45,
+  limite = 100,
+): Promise<Array<{ dialogId: string; dealId: number; ultimoTurno: string; turnos: number }>> {
+  if (!pool) return [];
+  const min = Math.max(1, Math.min(365, Math.round(diasMin)));
+  const max = Math.max(min + 1, Math.min(365, Math.round(diasMax)));
+  try {
+    const r = await pool.query(
+      `SELECT dialog_id,
+              (array_agg(crm_entity) FILTER (WHERE crm_entity LIKE 'deal#%'))[1] ent,
+              max(ts) ultimo,
+              count(*)::int turnos
+       FROM audit_log
+       WHERE type='turn' AND dialog_id IS NOT NULL
+       GROUP BY dialog_id
+       HAVING max(ts) < now() - interval '${min} days'
+          AND max(ts) > now() - interval '${max} days'
+       ORDER BY max(ts) DESC
+       LIMIT $1`,
+      [limite],
+    );
+    return r.rows
+      .filter((x: any) => x.ent)
+      .map((x: any) => ({
+        dialogId: x.dialog_id,
+        dealId: Number(String(x.ent).slice(5)),
+        ultimoTurno: x.ultimo,
+        turnos: x.turnos,
+      }))
+      .filter((x) => Number.isFinite(x.dealId) && x.dealId > 0);
+  } catch (err) {
+    log.warn('dbConversacionesFrias falló', { err: String(err) });
+    return [];
+  }
+}
