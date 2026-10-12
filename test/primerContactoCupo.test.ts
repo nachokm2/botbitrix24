@@ -51,6 +51,18 @@ mock.module('../src/whatsapp/template.ts', {
 
 mock.module('../src/obs/audit.ts', { namedExports: { audit: async () => {} } });
 
+// La exclusión es fail-closed: sin Redis responde que TODOS están excluidos, que es lo correcto en
+// producción (sin registro de bajas no se escribe) pero bloquearía estas pruebas. Se mockea para
+// poder probar el envío; la exclusión tiene su propio archivo de pruebas.
+mock.module('../src/crm/exclusion.ts', {
+  namedExports: {
+    estaExcluido: async () => false,
+    excluir: async () => {},
+    pideNoMolestar: () => false,
+  },
+});
+
+
 const { correrPrimerContacto } = await import('../src/crm/primerContacto');
 const { config } = await import('../src/config');
 
