@@ -14,6 +14,7 @@ import { audit } from '../obs/audit';
 import { resolveAllEntities, loadPriorContext, logConversationTurn } from '../crm/chat';
 import { leerHistorialPrevio } from '../crm/historialChat';
 import { pideNoMolestar, excluir } from '../crm/exclusion';
+import { aplicaCopiloto, entregarBorrador } from '../ai/copiloto';
 import { primaryEntity } from '../crm/entities';
 import { esEmpleadoBitrix, getIdentidadAsesor, getDatosConocidosDeEntidades } from '../crm/directory';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
@@ -256,6 +257,24 @@ async function handle(req: Request) {
   // Si el envío falla, el cliente se queda SIN respuesta: hay que dejar rastro accionable, no solo
   // un log. Antes esto no quedaba registrado en ninguna parte y 3 clientes reales quedaron sin
   // contestación sin que nadie se enterara (ver fix 748885f).
+  // Modo copiloto: el borrador va al asesor y el cliente NO recibe nada automático. Si el borrador
+  // no se puede entregar, se responde normalmente: dejar al cliente sin respuesta sería peor que
+  // saltarse el modo, y el asesor ya tiene el caso en su panel igual.
+  if (await aplicaCopiloto(crmEntities, auth)) {
+    const r = await entregarBorrador({ respuesta: reply, mensajeCliente: turnText, dialogId, crmEntities, auth });
+    if (r.entregado) {
+      inc('copiloto_borrador');
+      await audit({
+        type: 'turn',
+        dialogId,
+        crmEntity: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : undefined,
+        detail: { message: turnText, reply, copiloto: true, ms: Date.now() - t0 },
+      });
+      return;
+    }
+    log.warn('copiloto: sin poder entregar el borrador; se responde al cliente como siempre', { dialogId, motivo: r.motivo });
+  }
+
   try {
     await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: dialogId, MESSAGE: reply }, auth);
   } catch (e) {

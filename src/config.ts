@@ -259,6 +259,19 @@ export const config = {
   // Umbrales del repunte de fallas de envío. Con poco volumen no significan nada: 1 de 1 es ruido.
   enviosTasaFallaAlerta: Number(process.env.ENVIOS_TASA_FALLA_ALERTA ?? 25) || 25,
   enviosMinimoParaAlertar: Number(process.env.ENVIOS_MINIMO_ALERTA ?? 10) || 10,
+  // Modo copiloto: el bot redacta y el asesor envía. El cliente no recibe nada automático. Ataca el
+  // problema de las derivaciones sin tomar por el lado contrario: en vez de pedirle trabajo al
+  // asesor, entregárselo medio hecho. Apagado por defecto — cambia el comportamiento visible.
+  copilotoActivo: (process.env.COPILOTO_ACTIVO ?? '').toLowerCase() === 'true',
+  // Embudos donde aplica. Vacío = todos (con COPILOTO_ACTIVO=true).
+  copilotoCategorias: (process.env.COPILOTO_CATEGORIAS ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter((x) => x !== '')
+    .map(Number)
+    .filter((n) => Number.isFinite(n) && n >= 0),
+  // A quién van los borradores. 0 = al responsable de cada negociación.
+  copilotoDestino: Number(process.env.COPILOTO_DESTINO ?? 0) || 0,
   // Hasta cuándo se consideran vigentes los precios y condiciones (YYYY-MM-DD). Pasada esa fecha el
   // bot sigue cotizando pero entrega el valor como referencia y ofrece confirmarlo. Vacío = sin
   // caducidad, que es el comportamiento anterior. Se actualiza cada vez que la dirección revalida.
