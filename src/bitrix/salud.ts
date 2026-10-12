@@ -1,5 +1,6 @@
 import { callBitrix, callCrm } from './client';
 import { getState } from '../store';
+import { dbEnviosRecientes } from '../store/db';
 import { once } from '../store/kv';
 import { config } from '../config';
 import { marca } from '../marca';
@@ -25,11 +26,24 @@ import { log } from '../log';
 export type Salud = {
   oauth: 'ok' | 'roto' | 'sin_token';
   webhook: 'ok' | 'roto' | 'no_configurado';
+  /** Envíos proactivos de las últimas 24 h. Es lo más cerca de la "salud del número" a la que se
+   *  puede llegar: Meta no expone la calificación de calidad a través de ChatApp, pero cuando un
+   *  número empieza a ser limitado —o una plantilla deja de estar aprobada— lo que se ve es que los
+   *  envíos fallan. */
+  envios: { total: number; fallidos: number; tasaFalla: number; errores: string[] };
   detalle?: string;
 };
 
 export async function revisarSalud(): Promise<Salud> {
-  const out: Salud = { oauth: 'sin_token', webhook: 'no_configurado' };
+  const envios = await dbEnviosRecientes(24);
+  const out: Salud = {
+    oauth: 'sin_token',
+    webhook: 'no_configurado',
+    envios: {
+      ...envios,
+      tasaFalla: envios.total ? Math.round((envios.fallidos / envios.total) * 100) : 0,
+    },
+  };
   const st = await getState();
 
   if (st.auth?.access_token) {
@@ -58,7 +72,10 @@ export async function revisarSalud(): Promise<Salud> {
 /** Revisa y avisa si algo está roto. Un aviso por día: el problema dura hasta que alguien lo toca. */
 export async function revisarSaludYAvisar(): Promise<Salud & { aviso: boolean }> {
   const salud = await revisarSalud();
-  const roto = salud.oauth === 'roto' || salud.webhook === 'roto';
+  // Un repunte de fallas solo significa algo con volumen: 1 de 1 es ruido, 20 de 40 es un problema.
+  const enviosEnProblemas =
+    salud.envios.total >= config.enviosMinimoParaAlertar && salud.envios.tasaFalla >= config.enviosTasaFallaAlerta;
+  const roto = salud.oauth === 'roto' || salud.webhook === 'roto' || enviosEnProblemas;
   if (!roto) return { ...salud, aviso: false };
 
   await audit({ type: 'integracion_rota', detail: salud });

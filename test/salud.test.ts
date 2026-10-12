@@ -45,8 +45,10 @@ mock.module('../src/store.ts', {
   },
 });
 
+let envios = { total: 0, fallidos: 0, errores: [] as string[] };
 mock.module('../src/store/db.ts', {
   namedExports: {
+    dbEnviosRecientes: async () => envios,
     dbMinutosDesdeUltimoTurno: async () => 10,
     dbInsertAudit: async () => {},
     dbHuboOperadorDespuesDe: async () => false,
@@ -64,7 +66,10 @@ function reset() {
   fallaOauth = false;
   fallaWebhook = false;
   hayAuth = true;
+  envios = { total: 0, fallidos: 0, errores: [] };
   config.derivacionSupervisorId = 1313;
+  config.enviosTasaFallaAlerta = 25;
+  config.enviosMinimoParaAlertar = 10;
 }
 
 test('con los dos caminos sanos no avisa', async () => {
@@ -120,4 +125,37 @@ test('deja registro en auditoría aunque no haya a quién avisarle', async () =>
   const r = await revisarSaludYAvisar();
   assert.equal(r.aviso, false);
   assert.ok(auditCalls.some((a) => a.type === 'integracion_rota'), 'el problema no se pierde');
+});
+
+test('un repunte de fallas de envío también cuenta como problema', async () => {
+  // Es lo más cerca de la "salud del número" que se puede medir: Meta no expone la calificación de
+  // calidad a través de ChatApp, pero cuando limita un número lo que se ve es que los envíos fallan.
+  reset();
+  envios = { total: 40, fallidos: 20, errores: ['422: template not approved'] };
+  const r = await revisarSaludYAvisar();
+  assert.equal(r.envios.tasaFalla, 50);
+  // Se afirma sobre la auditoría y no sobre la notificación: el aviso sale una vez al día y la
+  // marca puede venir gastada por otra prueba, que es el comportamiento buscado.
+  const a = auditCalls.find((x) => x.type === 'integracion_rota');
+  assert.ok(a, 'debe quedar registrado como problema');
+  assert.equal(a.detail.envios.fallidos, 20);
+  // Si además alcanzó a notificar, el texto tiene que explicar qué mirar.
+  if (notificaciones.length) {
+    assert.match(notificaciones[0].MESSAGE, /20 de 40/);
+    assert.match(notificaciones[0].MESSAGE, /template not approved/);
+  }
+});
+
+test('pocas fallas con poco volumen no alarman: 1 de 1 es ruido', async () => {
+  reset();
+  envios = { total: 2, fallidos: 2, errores: ['error puntual'] };
+  const r = await revisarSaludYAvisar();
+  assert.equal(r.envios.tasaFalla, 100);
+  assert.equal(r.aviso, false, 'sin volumen el porcentaje no significa nada');
+});
+
+test('sin envíos en el período la tasa es 0, no indefinida', async () => {
+  reset();
+  const r = await revisarSalud();
+  assert.equal(r.envios.tasaFalla, 0);
 });

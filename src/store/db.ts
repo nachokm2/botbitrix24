@@ -1437,3 +1437,31 @@ export async function dbConversacionesFrias(
     return [];
   }
 }
+
+/**
+ * Cómo vienen saliendo los envíos proactivos (primer contacto y reactivación) en las últimas horas.
+ *
+ * Es lo más cerca que se puede estar de la "salud del número" sin acceso al WhatsApp Manager: Meta
+ * no nos expone la calificación de calidad a través de ChatApp, pero cuando un número empieza a ser
+ * limitado, o una plantilla deja de estar aprobada, lo que se ve es que los envíos fallan. Un
+ * repunte de errores es el síntoma observable de ese problema.
+ */
+export async function dbEnviosRecientes(horas = 24): Promise<{ total: number; fallidos: number; errores: string[] }> {
+  const vacio = { total: 0, fallidos: 0, errores: [] as string[] };
+  if (!pool) return vacio;
+  const h = Math.max(1, Math.min(168, Math.round(horas)));
+  try {
+    const r = await pool.query(
+      `SELECT count(*)::int total,
+              count(*) FILTER (WHERE detail->>'ok' = 'false')::int fallidos,
+              (array_agg(DISTINCT left(detail->>'error', 120)) FILTER (WHERE detail->>'error' IS NOT NULL))[1:3] errores
+       FROM audit_log
+       WHERE type IN ('primer_contacto','reactivacion') AND ts >= now() - interval '${h} hours'`,
+    );
+    const f = r.rows[0] ?? {};
+    return { total: f.total ?? 0, fallidos: f.fallidos ?? 0, errores: (f.errores ?? []).filter(Boolean) };
+  } catch (err) {
+    log.warn('dbEnviosRecientes falló', { err: String(err) });
+    return vacio;
+  }
+}
