@@ -3,6 +3,7 @@ import { tools } from './tools';
 import { marca } from '../marca';
 import { dbAcumularTokens } from '../store/db';
 import { executeTool } from './toolRunner';
+import { detectarIdioma, bloqueIdioma } from './idioma';
 import { getHistory, setHistory } from './memory';
 import type { AgentContext, ChannelProfile } from '../core/channel';
 import { inc, recordLlmLatency, recordTokens } from '../obs/metrics';
@@ -317,7 +318,12 @@ export async function runAgentTurn(
       ? { ...profile, systemPrompt: profile.systemPrompt + bloqueIdentidad(ctx.identidadAsesor, history.length === 0) }
       : profile;
     const extra = ctx.datosConocidos ? bloqueDatosConocidos(ctx.datosConocidos) : '';
-    const perfilFinal = extra ? { ...perfilDelTurno, systemPrompt: perfilDelTurno.systemPrompt + extra } : perfilDelTurno;
+    // Idioma del turno: se mira SOLO el mensaje actual, y la instrucción va al system del turno. Si
+    // la persona vuelve al español en el siguiente mensaje, desaparece sola.
+    const idioma = typeof userText === 'string' ? detectarIdioma(userText) : 'es';
+    const extraIdioma = bloqueIdioma(idioma);
+    const sumado = extra + extraIdioma;
+    const perfilFinal = sumado ? { ...perfilDelTurno, systemPrompt: perfilDelTurno.systemPrompt + sumado } : perfilDelTurno;
     const { text, messages: finalMsgs } = await runConversation(
       { profile: perfilFinal, auditId: ctx.conversationId, crmEntity: ctx.crmEntity ?? null },
       messages,
