@@ -19,6 +19,7 @@ import { initDb, dbRecentAudit, dbEnabled, startRetentionSweep } from './store/d
 import { iniciarRevisionDiaria } from './ai/revisionDiaria';
 import { iniciarResumenSemanal } from './ai/resumenSemanal';
 import { iniciarVigilanciaCanal } from './ai/vigilanciaCanal';
+import { iniciarVigilanciaSalud } from './bitrix/salud';
 import { iniciarPrimerContacto } from './crm/primerContacto';
 import { iniciarBarridoSeguimientos } from './ai/seguimiento';
 import { snapshot } from './obs/metrics';
@@ -210,6 +211,7 @@ initDb()
     iniciarRevisionDiaria(); // lee las conversaciones del día y deja hallazgos — necesita Postgres
     iniciarResumenSemanal(); // no-op sin RESUMEN_SEMANAL_USUARIOS
     iniciarVigilanciaCanal(); // avisa si deja de entrar conversación (necesita Postgres)
+    iniciarVigilanciaSalud(); // avisa si el OAuth o el webhook dejan de funcionar
     iniciarPrimerContacto(); // no-op salvo PRIMER_CONTACTO_ACTIVO=true con plantilla
   })
   .catch((e) => log.error('initDb error', { err: String(e) }));

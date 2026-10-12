@@ -252,6 +252,10 @@ export const config = {
   // Postgrados estuvo cinco días mudo sin que nadie lo notara: no falló el código ni el servidor,
   // dejó de entregar el canal de WhatsApp, y por eso nada de lo que vigilábamos se quejó. 0 = off.
   canalSilencioHoras: Number(process.env.CANAL_SILENCIO_HORAS ?? 6) || 0,
+  // Comprobación horaria de que los DOS caminos hacia Bitrix siguen vivos (webhook y OAuth). El
+  // OAuth de Postgrados llevaba días sin poder renovarse y nada lo decía: las conversaciones
+  // andaban, pero todo lo proactivo fallaba en silencio.
+  vigilarSalud: (process.env.VIGILAR_SALUD ?? 'true').toLowerCase() !== 'false',
   // Revisión automática de las conversaciones del día (ai/revisionDiaria.ts): hora de Chile a la que
   // corre. Todos los defectos del piloto se encontraron porque alguien leyó una conversación y notó
   // algo raro; nadie lee 70 al día. -1 = desactivada.
