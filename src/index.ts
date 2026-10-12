@@ -7,7 +7,7 @@ import { log } from './log';
 import { runWithRequestContext } from './obs/requestContext';
 import { installHandler, oauthCodeOrNext } from './routes/install';
 import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes/botEvents';
-import { registerBotManual, unregisterBotManual, updateBotManual, triggerBrochureManual, listDealFields, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, syncCallsManual, placementInfo, dialogosListar, dialogosBorrar, chatappPlantillas, chatappPrueba, primerContactoResultado } from './routes/setup';
+import { registerBotManual, unregisterBotManual, updateBotManual, triggerBrochureManual, listDealFields, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, syncCallsManual, placementInfo, dialogosListar, dialogosBorrar, chatappPlantillas, chatappPrueba, primerContactoResultado, calidadDatos } from './routes/setup';
 import { startCallSync } from './crm/callSync';
 import { vapiEvents, voiceOutbound, verifyVapiSecret, whatsappInboundCall } from './routes/vapi';
 import { vapiChatCompletions } from './routes/vapiLlm';
@@ -164,6 +164,7 @@ app.get('/setup/dialogos/borrar', dialogosBorrar); // borra los indicados (irrev
 app.get('/setup/chatapp-plantillas', chatappPlantillas); // qué plantillas hay y con qué UUID
 app.get('/setup/chatapp-prueba', chatappPrueba); // envío de prueba a UN número, antes de encender
 app.get('/setup/primer-contacto-resultado', primerContactoResultado); // cuántos contestaron, por plantilla
+app.get('/setup/calidad-datos', calidadDatos); // teléfonos y fichas defectuosas, que ahora cuestan dinero
 app.get('/setup/bind-calls', bindCallsManual);
 app.get('/setup/sync-calls', syncCallsManual);
 

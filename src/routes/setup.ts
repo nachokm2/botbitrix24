@@ -9,6 +9,7 @@ import { syncCalls } from '../crm/callSync';
 import { dbEnabled, dbDialogosTodos, dbBorrarDialogos } from '../store/db';
 import { config } from '../config';
 import { dbResultadoPrimerContacto } from '../store/db';
+import { informeCalidadDatos } from '../crm/calidadDatos';
 import { log } from '../log';
 import type { BitrixCategory, BitrixCategoryListResponse, BitrixStatus, BitrixStatusListResponse } from '../bitrix/types';
 
@@ -340,4 +341,18 @@ export async function primerContactoResultado(req: Request, res: Response) {
       tasa: f.enviados ? Math.round((f.respondieron / f.enviados) * 100) : null,
     })),
   });
+}
+
+/**
+ * Calidad de los datos del CRM. GET /setup/calidad-datos?dias=7
+ *
+ * Solo lectura: informa, no corrige. Arreglar datos del CRM a ciegas es peor que convivir con ellos.
+ */
+export async function calidadDatos(req: Request, res: Response) {
+  const st = await getState();
+  if (!st.auth && !config.bitrixWebhookUrl) return res.status(400).json({ ok: false, error: 'Sin acceso a Bitrix' });
+  const dias = Math.max(1, Math.min(90, Number(req.query.dias ?? 7) || 7));
+  const informe = await informeCalidadDatos(st.auth ?? ({} as any), dias);
+  const total = Object.values(informe.problemas).reduce((a, b) => a + b, 0);
+  return res.json({ ok: true, dias, ...informe, totalProblemas: total });
 }

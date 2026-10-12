@@ -1,5 +1,6 @@
 import { consultarProgramas, detallePrograma } from '../core/catalogTool';
 import { buscarCondiciones } from '../core/condicionesComerciales';
+import { conAvisoDeVigencia } from '../core/vigencia';
 import type { AgentContext } from '../core/channel';
 import { actualizarDatosCliente, obtenerContextoLlamada } from '../crm/crmWrite';
 import { getDealAsesores } from '../crm/directory';
@@ -66,7 +67,9 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
       case 'consultar_condiciones_comerciales': {
         const r = buscarCondiciones(input?.programa, input?.sede);
         void seguirProgramaDeInteres(r, ctx);
-        return r;
+        // Si la planilla ya caducó, el precio sale igual pero marcado como referencia (ver
+        // core/vigencia.ts): el bot no puede saber que cambió, pero sí puede dejar de afirmarlo.
+        return conAvisoDeVigencia(r as Record<string, any>);
       }
 
       case 'registrar_interes_crm': {

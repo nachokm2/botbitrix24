@@ -256,6 +256,10 @@ export const config = {
   // OAuth de Postgrados llevaba días sin poder renovarse y nada lo decía: las conversaciones
   // andaban, pero todo lo proactivo fallaba en silencio.
   vigilarSalud: (process.env.VIGILAR_SALUD ?? 'true').toLowerCase() !== 'false',
+  // Hasta cuándo se consideran vigentes los precios y condiciones (YYYY-MM-DD). Pasada esa fecha el
+  // bot sigue cotizando pero entrega el valor como referencia y ofrece confirmarlo. Vacío = sin
+  // caducidad, que es el comportamiento anterior. Se actualiza cada vez que la dirección revalida.
+  condicionesVigenciaHasta: process.env.CONDICIONES_VIGENCIA_HASTA ?? '',
   // Revisión automática de las conversaciones del día (ai/revisionDiaria.ts): hora de Chile a la que
   // corre. Todos los defectos del piloto se encontraron porque alguien leyó una conversación y notó
   // algo raro; nadie lee 70 al día. -1 = desactivada.
