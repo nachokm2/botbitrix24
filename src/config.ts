@@ -248,6 +248,10 @@ export const config = {
   derivacionAlertaSupervisorHoras: Number(process.env.DERIVACION_ALERTA_SUPERVISOR_HORAS ?? 24) || 0,
   // Usuario de Bitrix que recibe ese segundo aviso (0 = no escalar, solo se avisa al responsable).
   derivacionSupervisorId: Number(process.env.BITRIX_SUPERVISOR_ID ?? 0) || 0,
+  // Horas sin recibir UN SOLO mensaje, en horario hábil, antes de dar la alarma. El bot de
+  // Postgrados estuvo cinco días mudo sin que nadie lo notara: no falló el código ni el servidor,
+  // dejó de entregar el canal de WhatsApp, y por eso nada de lo que vigilábamos se quejó. 0 = off.
+  canalSilencioHoras: Number(process.env.CANAL_SILENCIO_HORAS ?? 6) || 0,
   // Revisión automática de las conversaciones del día (ai/revisionDiaria.ts): hora de Chile a la que
   // corre. Todos los defectos del piloto se encontraron porque alguien leyó una conversación y notó
   // algo raro; nadie lee 70 al día. -1 = desactivada.

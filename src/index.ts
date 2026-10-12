@@ -18,6 +18,7 @@ import { callsPage, callsData } from './routes/calls';
 import { initDb, dbRecentAudit, dbEnabled, startRetentionSweep } from './store/db';
 import { iniciarRevisionDiaria } from './ai/revisionDiaria';
 import { iniciarResumenSemanal } from './ai/resumenSemanal';
+import { iniciarVigilanciaCanal } from './ai/vigilanciaCanal';
 import { iniciarPrimerContacto } from './crm/primerContacto';
 import { iniciarBarridoSeguimientos } from './ai/seguimiento';
 import { snapshot } from './obs/metrics';
@@ -208,6 +209,7 @@ initDb()
     startCampaignScheduler(); // no-op si no hay programas activos (CAMPAIGN_<code>_ACTIVO=true)
     iniciarRevisionDiaria(); // lee las conversaciones del día y deja hallazgos — necesita Postgres
     iniciarResumenSemanal(); // no-op sin RESUMEN_SEMANAL_USUARIOS
+    iniciarVigilanciaCanal(); // avisa si deja de entrar conversación (necesita Postgres)
     iniciarPrimerContacto(); // no-op salvo PRIMER_CONTACTO_ACTIVO=true con plantilla
   })
   .catch((e) => log.error('initDb error', { err: String(e) }));

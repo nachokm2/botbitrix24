@@ -1338,3 +1338,18 @@ export async function dbHallazgosRecientes(limit = 30): Promise<any[]> {
     return [];
   }
 }
+
+/** Cuándo entró el último mensaje de un cliente, en minutos. null si no hay base o nunca hubo uno.
+ *  Es la señal de vida del canal: la usa la alarma de silencio (ai/vigilanciaCanal.ts). */
+export async function dbMinutosDesdeUltimoTurno(): Promise<number | null> {
+  if (!pool) return null;
+  try {
+    const r = await pool.query(`SELECT max(ts) ultimo FROM audit_log WHERE type='turn'`);
+    const ultimo = r.rows[0]?.ultimo;
+    if (!ultimo) return null;
+    return Math.round((Date.now() - new Date(ultimo).getTime()) / 60000);
+  } catch (err) {
+    log.warn('dbMinutosDesdeUltimoTurno falló', { err: String(err) });
+    return null;
+  }
+}
