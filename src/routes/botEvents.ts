@@ -13,6 +13,7 @@ import { inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { resolveAllEntities, loadPriorContext, logConversationTurn } from '../crm/chat';
 import { leerHistorialPrevio } from '../crm/historialChat';
+import { pideNoMolestar, excluir } from '../crm/exclusion';
 import { primaryEntity } from '../crm/entities';
 import { esEmpleadoBitrix, getIdentidadAsesor, getDatosConocidosDeEntidades } from '../crm/directory';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
@@ -226,6 +227,13 @@ async function handle(req: Request) {
     marca.sePresentaComoAsesor && (crmEntities?.deal || crmEntities?.lead || crmEntities?.contact)
       ? await getIdentidadAsesor(crmEntities, auth)
       : null;
+
+  // Si pide explícitamente que no le escribamos más, queda registrado ANTES de contestar. No corta
+  // esta conversación —el cliente la abrió y merece respuesta—, pero lo deja fuera de todo envío
+  // proactivo futuro. Poder escribir primero obliga a respetar al que dice que no.
+  if (turnText && pideNoMolestar(turnText)) {
+    void excluir({ contactId: crmEntities?.contact, dialogId, motivo: 'pedido_del_cliente' });
+  }
 
   // Lo que el CRM ya sabe de la persona: evita pedirle el nombre que ya está en su ficha. Un cliente
   // real lo reclamó ("¿por qué me pides mi nombre si lo debes tener?") y tenía razón.

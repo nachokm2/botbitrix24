@@ -1,6 +1,7 @@
 import { callCrm } from '../bitrix/client';
 import { dbDialogosConDeal } from '../store/db';
 import { getUsuarios } from './directory';
+import { estaExcluido } from './exclusion';
 import { enviarPlantillaWhatsApp } from '../whatsapp/template';
 import { once, getRedisClient } from '../store/kv';
 import { config } from '../config';
@@ -36,7 +37,14 @@ export type Candidato = {
   creado: string;
 };
 
-export type MotivoDescarte = 'desactivado' | 'sin_plantilla' | 'fuera_de_horario' | 'ya_contactado' | 'tope_diario' | 'error_envio';
+export type MotivoDescarte =
+  | 'desactivado'
+  | 'sin_plantilla'
+  | 'fuera_de_horario'
+  | 'ya_contactado'
+  | 'excluido'
+  | 'tope_diario'
+  | 'error_envio';
 export type Resumen = {
   candidatos: number;
   enviados: number;
@@ -212,6 +220,10 @@ export async function enviarPrimerContacto(c: Candidato): Promise<{ enviado: boo
     return { enviado: false, motivo: 'fuera_de_horario' };
   }
   // Una sola vez por negociación, para siempre: insistir a quien nunca contestó es spam.
+  // Quien pidió no ser contactado no recibe nada, pase lo que pase con el resto de las reglas.
+  if (await estaExcluido({ telefono: c.telefono, contactId: c.contactId })) {
+    return { enviado: false, motivo: 'excluido' };
+  }
   if (!(await once(CLAVE_CONTACTADO(c.contactId), 365 * 24 * 3600))) return { enviado: false, motivo: 'ya_contactado' };
   if (!(await dentroDelCupoDiario())) return { enviado: false, motivo: 'tope_diario' };
 
