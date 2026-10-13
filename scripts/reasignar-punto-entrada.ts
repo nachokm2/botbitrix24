@@ -1,8 +1,9 @@
 /**
  * Devuelve a su asesor anterior las negociaciones que el punto de entrada único acumuló.
  *
- *   npm run reasignar                    → SIMULACIÓN: muestra qué haría, sin escribir
- *   npm run reasignar -- --ejecutar      → escribe en el CRM
+ *   npm run reasignar                                  → SIMULACIÓN, solo las inequívocas
+ *   npm run reasignar -- --ejecutar                    → escribe en el CRM
+ *   npm run reasignar -- --criterio=ultimo --ejecutar  → incluye las ambiguas, al último que la tocó
  *
  * Contexto: con BITRIX_DERIVAR_A configurado, el bot reasigna a esa persona toda negociación que
  * toca. En Carver eso dejó 165 negociaciones en manos de una sola, quitándoselas a los asesores que
@@ -28,6 +29,19 @@ const LOTE = 50;
 
 async function main() {
   const ejecutar = process.argv.includes('--ejecutar');
+  // Criterio para las negociaciones con VARIOS responsables humanos:
+  //   (sin bandera)        se dejan fuera — elegir sería adivinar
+  //   --criterio=ultimo    van al humano de la actividad más reciente
+  // Se midió antes de ofrecerlo: de 65 ambiguas, solo 3 tenían un responsable a la vez dominante y
+  // último, así que ningún criterio automático "acierta solo". Éste es una decisión de negocio
+  // —quien la tocó al final es quien la tiene fresca—, no una deducción.
+  const criterioUltimo = process.argv.includes('--criterio=ultimo');
+  // Días sin trabajar NINGUNA negociación tras los cuales alguien deja de ser destino válido.
+  // Estar "activo" en Bitrix no basta: apareció una asesora marcada como activa cuya última
+  // actividad era de hacía 70 días, y se habría llevado 38 negociaciones a un buzón donde nadie
+  // mira. 0 = sin filtro.
+  const maxDiasArg = process.argv.find((a) => a.startsWith('--max-dias-inactivo='));
+  const maxDiasInactivo = maxDiasArg ? Number(maxDiasArg.split('=')[1]) || 0 : 0;
   const destino = config.derivarATodo;
   const categorias = config.embudosPropios;
   if (!destino) return fallar('BITRIX_DERIVAR_A no está configurado: no hay punto de entrada que revertir.');
@@ -85,15 +99,57 @@ async function main() {
     }
   }
 
-  const inequivocas: Array<{ dealId: number; asesor: number; titulo: string; stage: string }> = [];
+  // Quién sigue trabajando ahí. Un asesor dado de baja no puede recibir nada: la negociación caería
+  // en un buzón muerto, peor que dejarla donde está. Caso real: el criterio "último que la tocó"
+  // mandaba 46 de 67 a una persona que ya no está en la empresa desde septiembre.
+  const candidatos = [...new Set([...porDeal.values()].flat())];
+  const inactivos = new Set<number>();
+  for (let i = 0; i < candidatos.length; i += LOTE) {
+    try {
+      for (const u of await getUsuarios(candidatos.slice(i, i + LOTE), auth)) {
+        if (u.activo === false) inactivos.add(u.id);
+      }
+    } catch {
+      /* sin poder comprobarlo se sigue: el riesgo es menor que no reasignar nada */
+    }
+  }
+  if (inactivos.size) console.log(`  (${inactivos.size} asesores dados de baja quedan fuera como destino)`);
+
+  // Y los que siguen de alta pero hace mucho no trabajan una negociación.
+  if (maxDiasInactivo > 0) {
+    const dormidos: string[] = [];
+    for (const id of candidatos) {
+      if (inactivos.has(id)) continue;
+      try {
+        const r: any = await callCrm(
+          'crm.activity.list',
+          { filter: { OWNER_TYPE_ID: 2, RESPONSIBLE_ID: id }, select: ['CREATED'], order: { CREATED: 'DESC' }, start: 0 },
+          auth,
+        );
+        const ultima = (Array.isArray(r) ? r : [])[0]?.CREATED;
+        const dias = ultima ? Math.round((Date.now() - new Date(ultima).getTime()) / 86400_000) : 9999;
+        if (dias > maxDiasInactivo) {
+          inactivos.add(id);
+          dormidos.push(`#${id} (${dias} días)`);
+        }
+      } catch {
+        /* si no se puede comprobar, se deja pasar: no inventar una baja */
+      }
+    }
+    if (dormidos.length) console.log(`  (sin actividad hace más de ${maxDiasInactivo} días, quedan fuera: ${dormidos.join(', ')})`);
+  }
+
+  const inequivocas: Array<{ dealId: number; asesor: number; titulo: string; stage: string; ambigua?: boolean }> = [];
   const ambiguas: number[] = [];
   const huerfanas: number[] = [];
   for (const d of deals) {
-    const resp = porDeal.get(Number(d.ID)) ?? [];
+    const resp = (porDeal.get(Number(d.ID)) ?? []).filter((r) => !inactivos.has(r)); // cronológico
     const distintos = [...new Set(resp)];
+    const base = { dealId: Number(d.ID), titulo: String(d.TITLE ?? '').slice(0, 50), stage: String(d.STAGE_ID ?? '') };
     if (!distintos.length) huerfanas.push(Number(d.ID));
-    else if (distintos.length > 1) ambiguas.push(Number(d.ID));
-    else inequivocas.push({ dealId: Number(d.ID), asesor: distintos[0], titulo: String(d.TITLE ?? '').slice(0, 50), stage: String(d.STAGE_ID ?? '') });
+    else if (distintos.length === 1) inequivocas.push({ ...base, asesor: distintos[0] });
+    else if (criterioUltimo) inequivocas.push({ ...base, asesor: resp[resp.length - 1], ambigua: true });
+    else ambiguas.push(Number(d.ID));
   }
 
   const nombres = new Map<number, string>();
@@ -108,7 +164,8 @@ async function main() {
 
   console.log(`\nEmbudos ${categorias.join(', ')} · punto de entrada #${destino}`);
   console.log(`  total en su poder:        ${deals.length}`);
-  console.log(`  inequívocas (se tocan):   ${inequivocas.length}`);
+  const porUltimo = inequivocas.filter((f) => f.ambigua).length;
+  console.log(`  se tocan:                 ${inequivocas.length}${porUltimo ? ` (${inequivocas.length - porUltimo} con un único responsable + ${porUltimo} por "último que la tocó")` : ''}`);
   console.log(`  ambiguas (NO se tocan):   ${ambiguas.length}`);
   console.log(`  sin asesor previo:        ${huerfanas.length}\n`);
 
