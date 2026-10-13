@@ -154,7 +154,13 @@ export async function metricsSummary(req: Request, res: Response) {
         const ids = agg.porAsesor.map((r: any) => Number(r.id)).filter((n: number) => n > 0);
         const usuarios = await getUsuarios(ids, st.auth);
         const byId = new Map(usuarios.map((u) => [u.id, u.nombre]));
-        agg.porAsesor = agg.porAsesor.map((r: any) => ({ ...r, nombre: byId.get(Number(r.id)) ?? `Asesor ${r.id}` }));
+        // Los asesores dados de baja salen del desglose: ya no trabajan ahí, así que su fila no
+        // representa trabajo que alguien pueda retomar — solo ensucia la lectura. Es un criterio
+        // que se mantiene solo: cuando alguien se va, desaparece del panel sin tocar configuración.
+        const deBaja = new Set(usuarios.filter((u) => u.activo === false).map((u) => u.id));
+        agg.porAsesor = agg.porAsesor
+          .filter((r: any) => !deBaja.has(Number(r.id)))
+          .map((r: any) => ({ ...r, nombre: byId.get(Number(r.id)) ?? `Asesor ${r.id}` }));
       } catch {
         /* deja los IDs si no se pueden resolver nombres */
       }
