@@ -129,6 +129,24 @@ export async function metricsSummary(req: Request, res: Response) {
     bot: marchaBlancaBot.find((b) => b.key === prog.key) ?? null,
   }));
 
+  // "Por embudo" solo muestra los embudos de esta marca. Los dos bots comparten portal, así que en
+  // el panel de Carver aparecían Diplomados, Magísteres e IPG — embudos de Postgrados con los que
+  // el bot se topó. Lo ajeno no se oculta en silencio: se agrupa en una fila, porque que aparezca
+  // es señal de que el bot está tocando conversaciones de otra marca.
+  if (agg?.porEmbudo?.length && config.embudosPropios.length) {
+    const propios = agg.porEmbudo.filter((r: any) => config.embudosPropios.includes(Number(r.cat)));
+    const ajenos = agg.porEmbudo.filter((r: any) => !config.embudosPropios.includes(Number(r.cat)));
+    if (ajenos.length) {
+      propios.push({
+        cat: 'ajenos',
+        c: ajenos.reduce((n: number, r: any) => n + Number(r.c ?? 0), 0),
+        avg: null,
+        ajenos: ajenos.length,
+      });
+    }
+    agg.porEmbudo = propios;
+  }
+
   // Resuelve el nombre de cada asesor responsable (por su ASSIGNED_BY_ID) para el desglose "Por asesor".
   if (agg?.porAsesor?.length) {
     if (st.auth) {

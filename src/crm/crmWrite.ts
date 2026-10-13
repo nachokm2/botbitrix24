@@ -1,4 +1,6 @@
 import { marca } from '../marca';
+import { esEmbudoPropio } from './embudos';
+import { audit } from '../obs/audit';
 import { callBitrix, callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { log } from '../log';
@@ -404,7 +406,15 @@ export async function actualizarDatosCliente(
   }
 
   // DEAL: título + campo UF "Programa de interés" + nota.
-  if (e.deal) {
+  // Solo si la negociación es de un embudo de esta marca. Bitrix enlaza el chat a la ficha que la
+  // persona ya tuviera, y sin este límite una conversación de Carver renombraba una negociación de
+  // Postgrados con un programa de Carver (caso real: deal#3160607, embudo Triple Certificación).
+  // El CONTACTO sí se actualiza siempre: el nombre y el correo de una persona son suyos, no del
+  // embudo, y tenerlos al día no le quita el lead a nadie.
+  if (e.deal && !(await esEmbudoPropio(e.deal, auth))) {
+    log.info('actualizarDatosCliente: la negociación es de otro embudo; no se modifica', { dealId: e.deal });
+    await audit({ type: 'deal_ajeno_no_modificado', crmEntity: `deal#${e.deal}`, detail: { programa: data.programa_interes } }).catch(() => {});
+  } else if (e.deal) {
     const fields: any = {};
     let brochureNuevo = false;
     if (data.programa_interes) {

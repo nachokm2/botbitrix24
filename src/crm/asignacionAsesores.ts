@@ -1,4 +1,5 @@
 import { callCrm } from '../bitrix/client';
+import { esEmbudoPropio, filtroEmbudosPropios } from './embudos';
 import { config, type MarchaBlancaPrograma } from '../config';
 import { getRedisClient, once } from '../store/kv';
 import { log } from '../log';
@@ -75,9 +76,16 @@ export async function asignarAsesorPorTurno(
   let dealId = entities.deal;
   if (!dealId && entities.contact) {
     try {
+      // El filtro de embudo es imprescindible acá: sin él se tomaba la negociación MÁS RECIENTE del
+      // contacto, de cualquier embudo, y una conversación de Carver terminaba reasignando un lead
+      // de Postgrados que no tenía nada que ver.
       const r = await callCrm<Array<{ ID: string }>>(
         'crm.deal.list',
-        { filter: { CONTACT_ID: entities.contact }, select: ['ID'], order: { DATE_CREATE: 'DESC' } },
+        {
+          filter: { CONTACT_ID: entities.contact, ...filtroEmbudosPropios() },
+          select: ['ID'],
+          order: { DATE_CREATE: 'DESC' },
+        },
         auth,
       );
       const found = Array.isArray(r) ? r[0] : undefined;
@@ -237,6 +245,11 @@ export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth)
     }
   }
   if (!dealId) return false;
+  // Una negociación de otro embudo no se toca, aunque Bitrix haya enlazado el chat a ella.
+  if (!(await esEmbudoPropio(dealId, auth))) {
+    log.info('derivarAResponsableFijo: la negociación es de otro embudo; no se reasigna', { dealId });
+    return false;
+  }
 
   try {
     const d: any = await callCrm('crm.deal.get', { id: dealId, select: ['ASSIGNED_BY_ID'] }, auth);

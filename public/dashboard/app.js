@@ -179,7 +179,13 @@ function render(d){
   // Por embudo
   var emb=(agg&&agg.porEmbudo)||[]; var labels=d.funnelLabels||{}; var embEl=document.getElementById('embudo');
   if(emb.length){ var emax=Math.max.apply(null,emb.map(function(x){return x.c;}))||1;
-    embEl.innerHTML=emb.map(function(x){ var name=labels[x.cat]||('Embudo '+x.cat); var extra=(x.avg!=null)?(' · score prom '+x.avg):''; return barRow(name+extra, x.c, emax); }).join('');
+    embEl.innerHTML=emb.map(function(x){
+      // La fila "ajenos" agrupa embudos de otra marca con los que el bot se topó: no es un embudo,
+      // es un aviso de que está tocando conversaciones que no le corresponden.
+      if (x.cat==='ajenos') return barRow('Otros embudos ('+x.ajenos+') · revisar', x.c, emax, '#f79009');
+      var name=labels[x.cat]||('Embudo '+x.cat); var extra=(x.avg!=null)?(' · score prom '+x.avg):'';
+      return barRow(name+extra, x.c, emax);
+    }).join('');
   } else embEl.innerHTML='<span class="muted">Sin evaluaciones por embudo aún (se llena cuando el bot puntúe leads con deal).</span>';
 
   // Por asesor responsable

@@ -231,6 +231,22 @@ export const config = {
   // responsable de la negociación (0 = desactivado, y rige el reparto normal). Se usa cuando una
   // marca quiere un único punto de entrada humano: el bot le asigna el deal y le entrega el chat.
   derivarATodo: Number(process.env.BITRIX_DERIVAR_A ?? 0) || 0,
+  // Embudos que le PERTENECEN a esta marca. Fuera de ellos el bot conversa pero no escribe: no
+  // reasigna, no renombra y no toca el programa.
+  //
+  // Hizo falta porque los dos bots viven en el mismo portal. Una persona que ya tenía negociación en
+  // un embudo de Postgrados le escribió al WhatsApp de Carver, Bitrix enlazó el chat a ESA
+  // negociación, y el bot de Carver la renombró con un programa de Carver y se la reasignó a su
+  // punto de entrada único — se la quitó al asesor de Postgrados que la tenía. Medido: 11
+  // negociaciones de 5 embudos ajenos en manos del responsable de Carver.
+  //
+  // Vacío = todos los embudos son propios, que es el comportamiento anterior.
+  embudosPropios: (process.env.BITRIX_EMBUDOS_PROPIOS ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter((x) => x !== '')
+    .map(Number)
+    .filter((n) => Number.isFinite(n) && n >= 0),
   // IDs de usuario que NO son personas sino automatizaciones de Bitrix (robots/reglas). El caso real
   // es #45 "Resp. Autom.", que barre a RMKT las negociaciones que nadie tocó: movió 31 de las 36
   // derivaciones del piloto. Se usa para no contar ese barrido como "el asesor tomó el caso" en la
