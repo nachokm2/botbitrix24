@@ -486,6 +486,10 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
   const p = pool;
   const interval = range in RANGE_INTERVAL ? RANGE_INTERVAL[range] : '7 days';
   const W = interval ? `AND ts >= now() - interval '${interval}'` : ''; // interval viene de whitelist
+  // Embudos propios de la marca. Se interpola en SQL, así que se fuerza a enteros: config ya los
+  // valida, y este segundo filtro evita que un valor raro llegue a la consulta.
+  const propios = config.embudosPropios.filter((n) => Number.isInteger(n) && n >= 0);
+  const EMB = propios.length ? `AND detail->>'categoryId' IN (${propios.map((n) => `'${n}'`).join(',')})` : '';
   const q = (sql: string) => p.query(sql);
   try {
     const PROG = `coalesce(nullif(detail->'input'->>'nombre',''), detail->'input'->>'url')`;
@@ -514,8 +518,11 @@ export async function dbMetricsSummary(range = '7d'): Promise<Record<string, any
       q(`SELECT to_char(date_trunc('day', ts AT TIME ZONE '${TZ_PANEL}'),'YYYY-MM-DD') d, count(*)::int c FROM audit_log WHERE type='turn' AND ts >= now() - interval '7 days' GROUP BY 1 ORDER BY 1`),
       q(`SELECT detail->>'categoryId' cat, count(*)::int c, round(avg((detail->>'score')::numeric))::int avg
          FROM audit_log WHERE type='lead_score' AND detail->>'categoryId' IS NOT NULL ${W} GROUP BY 1 ORDER BY 2 DESC`),
+      // El desglose por asesor se limita a los embudos de la marca. Sin esto aparecían asesores de
+      // Postgrados en el panel de Carver: los dos bots comparten portal, el bot evalúa cualquier
+      // conversación que le llega, y el responsable de esa negociación puede ser de otro equipo.
       q(`SELECT detail->>'responsableId' id, count(*)::int c, count(DISTINCT dialog_id)::int convs, round(avg((detail->>'score')::numeric))::int avg
-         FROM audit_log WHERE type='lead_score' AND detail->>'responsableId' IS NOT NULL AND detail->>'responsableId' NOT IN ('-1','0') ${W} GROUP BY 1 ORDER BY 3 DESC LIMIT 25`),
+         FROM audit_log WHERE type='lead_score' AND detail->>'responsableId' IS NOT NULL AND detail->>'responsableId' NOT IN ('-1','0') ${EMB} ${W} GROUP BY 1 ORDER BY 3 DESC LIMIT 25`),
       // Demanda de programas
       q(`SELECT ${PROG} k, count(*)::int c FROM audit_log WHERE type='tool_call' AND detail->>'name'='detalle_programa' AND ${PROG} IS NOT NULL ${W} GROUP BY 1 ORDER BY 2 DESC LIMIT 10`),
       q(`SELECT detail->'input'->>'programa_interes' k, count(*)::int c FROM audit_log WHERE type='tool_call' AND detail->>'name'='registrar_interes_crm' AND detail->'input'->>'programa_interes' IS NOT NULL ${W} GROUP BY 1 ORDER BY 2 DESC LIMIT 10`),
