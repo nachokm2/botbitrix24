@@ -2,6 +2,7 @@ import Bottleneck from 'bottleneck';
 import { config } from '../config';
 import type { Auth } from '../store';
 import { refreshAuth } from './refresh';
+import { marcarSinAcceso } from '../store';
 
 // Throttle = leaky bucket de Bitrix (2 req/s, ráfaga 50, 2 concurrentes) en planes no-Enterprise.
 const limiter = new Bottleneck({
@@ -70,6 +71,12 @@ async function doCall(
     if (expired && !retried && auth.refresh_token) {
       const fresh = await refreshAuth(auth); // renueva on-demand y persiste (single-flight)
       return doCall(method, params, fresh, true, qlRetry);
+    }
+    // El token guardado pertenece a un usuario sin la aplicación concedida: no sirve para los
+    // métodos del bot y hay que descartarlo, o los recordatorios seguirán fallando con el mismo
+    // error hasta que alguien lo note a mano. El próximo evento de alguien con acceso lo reemplaza.
+    if (err === 'user_access_error' && auth.user_id) {
+      void marcarSinAcceso(auth.user_id).catch(() => {});
     }
     if (err === 'QUERY_LIMIT_EXCEEDED' && qlRetry < 2) {
       await new Promise((r) => setTimeout(r, 1000 * 2 ** qlRetry));

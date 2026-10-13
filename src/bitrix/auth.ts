@@ -28,6 +28,7 @@ export function extractAuth(req: Request): Auth | null {
       domain: b.auth.domain || hostFrom(b.auth.client_endpoint) || hostFrom(b.auth.server_endpoint),
       member_id: b.auth.member_id,
       expires: b.auth.expires ? Number(b.auth.expires) : undefined,
+      user_id: b.auth.user_id ? Number(b.auth.user_id) : undefined,
     };
   }
 
