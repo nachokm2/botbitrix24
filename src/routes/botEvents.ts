@@ -79,7 +79,6 @@ async function handle(req: Request) {
   log.info('INBOUND bot message', { event: body.event, dialogId, chatId, entity, fromUserId, botId, msgLen: message?.length ?? 0 });
 
   if (!auth) return log.warn('botMessage: sin auth en el evento');
-  void setAuth(auth).catch(() => {}); // mantiene el token fresco en KV para /setup y scripts
   if (!dialogId) return log.warn('botMessage: sin DIALOG_ID', { params });
   if (!botId) return log.warn('botMessage: sin BOT_ID — define BITRIX_BOT_ID en Railway (701561)');
 
@@ -128,6 +127,13 @@ async function handle(req: Request) {
   if (sess.humanTookOver) {
     return log.info('botMessage: sesión atendida por humano; bot en silencio', { dialogId });
   }
+
+  // Recién acá se persiste el token, con el evento ya identificado como mensaje de un CLIENTE.
+  // Antes se guardaba el de cualquier evento, incluidos los que dispara un asesor al escribir en el
+  // chat: ese token es SUYO y, si no tiene concedida la aplicación, no sirve para imbot.message.add.
+  // Todo lo proactivo salía con él y Bitrix lo rechazaba, mientras las respuestas en vivo seguían
+  // bien porque usan el token del propio evento. Costó 11 recordatorios en Carver.
+  void setAuth(auth).catch(() => {}); // mantiene el token fresco en KV para /setup y scripts
   // El estado de arriba vive 6 h; el traspaso, toda la sesión de Open Lines. Sin esto el bot volvía a
   // contestar —hablando como el asesor— en chats que ya atendía una persona (piloto de Carver).
   if (marca.traspasoPorSesion) {
