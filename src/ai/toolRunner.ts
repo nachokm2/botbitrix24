@@ -8,10 +8,17 @@ import { asignarAsesorPorTurno, derivarAResponsableFijo } from '../crm/asignacio
 import { vigilarDerivacion } from '../crm/vigilanciaDerivaciones';
 import { generarBriefing } from './briefing';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
-import { markHumanTakeover, getSession, saveSession } from '../session';
+import { markHumanTakeover, getSession, saveSession, marcarTraspaso } from '../session';
 import { cancelarSeguimiento } from './seguimiento';
 import { callBitrix, callCrm } from '../bitrix/client';
-import { once } from '../store/kv';
+import { once, getJson, setJson } from '../store/kv';
+import { marca } from '../marca';
+import { preguntaPorCostosAdicionales } from '../core/guardRespuesta';
+import { obtenerBrochure } from '../core/brochures';
+import { consultarInformacionInstitucional, INSTRUCCION_SIN_DATO } from '../core/conocimientoComercial';
+import { consultarEstadoEstudiante, crearTareaAdvisor } from '../crm/estudiantes';
+import { getDealInfo } from '../crm/directory';
+import { audit } from '../obs/audit';
 import { config } from '../config';
 import { log } from '../log';
 
@@ -33,8 +40,9 @@ async function seguirProgramaDeInteres(resultado: any, ctx: AgentContext): Promi
       : typeof resultado?.nombre === 'string'
         ? resultado.nombre
         : null;
-  // `ambiguo` significa que la herramienta pide precisar: todavía no hay un programa elegido.
-  if (!programa || resultado?.ambiguo) return;
+  // `ambiguo` significa que la herramienta pide precisar: todavía no hay un programa elegido. Y un
+  // programa fuera de la oferta autorizada (un NOOC) no se registra como interés comercial.
+  if (!programa || resultado?.ambiguo || resultado?.ok === false || resultado?.comercializable === false) return;
   // Solo actualiza una ficha que YA existe: consultar el catálogo no debe crear un lead. La ficha la
   // crea la captura de datos (registrar_interes_crm), que es cuando la persona entrega algo suyo.
   const e = ctx.crmEntities;
@@ -51,6 +59,11 @@ async function seguirProgramaDeInteres(resultado: any, ctx: AgentContext): Promi
   }
 }
 
+const ESTUDIANTE_KEY = (dialogId: string) => `estudiante:${dialogId}`;
+// Canal oficial de Carver para consultas administrativas, tomado del conocimiento institucional ya
+// validado en el prompt (core/promptObjeciones.ts).
+const CONTACTO_GENERAL = 'admission@carver.university / +1 (321) 300-1034';
+
 export async function executeTool(name: string, input: any, ctx: AgentContext): Promise<any> {
   const catalog = ctx.profile.catalog;
   try {
@@ -65,7 +78,11 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
       }
 
       case 'consultar_condiciones_comerciales': {
-        const r = buscarCondiciones(input?.programa, input?.sede);
+        // Los costos fuera del arancel (titulación, inscripción, retiro) solo viajan si el cliente los
+        // preguntó explícitamente: lo decide el código con su mensaje, no el modelo (hallazgo 5).
+        const r = buscarCondiciones(input?.programa, input?.sede, {
+          incluirCostosAdicionales: preguntaPorCostosAdicionales(ctx.ultimoMensajeCliente ?? ''),
+        });
         void seguirProgramaDeInteres(r, ctx);
         // Si la planilla ya caducó, el precio sale igual pero marcado como referencia (ver
         // core/vigencia.ts): el bot no puede saber que cambió, pero sí puede dejar de afirmarlo.
@@ -74,7 +91,18 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
 
       case 'registrar_interes_crm': {
         const r = await actualizarDatosCliente(ctx.crmEntities, ctx.chatId, input ?? {}, ctx.auth);
-        if (!r.ok) return { ok: false, error: r.error };
+        if (!r.ok) {
+          // Bitrix no respondió: el bot no puede decir que el dato "quedó registrado" (escenario de
+          // la auditoría de Carver con el CRM caído). La regla además se impone en el guardián.
+          return marca.guardRespuesta
+            ? {
+                ok: false,
+                error: r.error,
+                mensaje:
+                  'No se pudo guardar en el CRM en este momento. NO digas que quedó registrado ni que lo contactarán: sigue atendiendo con normalidad y no vuelvas a pedir el dato que ya te dio.',
+              }
+            : { ok: false, error: r.error };
+        }
         log.info('tool registrar_interes_crm', { actualizado: r.actualizado });
         return { ok: true, actualizado: r.actualizado };
       }
@@ -158,7 +186,95 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
         };
       }
 
+      case 'obtener_brochure': {
+        const r = await obtenerBrochure({ programa: input?.programa });
+        await audit({
+          type: 'brochure',
+          dialogId: ctx.conversationId,
+          detail: r.ok ? { programa: r.programa, formato: r.formato } : { programa: r.programa, motivo: r.motivo },
+        }).catch(() => {});
+        if (r.ok) {
+          return {
+            ok: true,
+            programa: r.programa,
+            url: r.url,
+            formato: r.formato,
+            nota:
+              r.formato === 'pdf'
+                ? 'Brochure oficial en PDF, verificado ahora. Compártelo tal cual, en una línea aparte.'
+                : 'Brochure oficial en PDF, verificado ahora: el enlace abre el documento en el navegador, donde se puede ver y descargar. Compártelo tal cual, en una línea aparte, y no prometas que llega como archivo adjunto.',
+          };
+        }
+        return {
+          ok: false,
+          programa: r.programa,
+          motivo: r.motivo,
+          nota:
+            r.motivo === 'programa_no_comercializable'
+              ? 'Ese programa no forma parte de la oferta de este canal: no hay brochure que entregar. Ofrece las licenciaturas y maestrías relacionadas.'
+              : 'No pude verificar el brochure en este momento. NO compartas ningún enlace (ni el de la ficha). Dile que se lo harás llegar por este medio, y registra la solicitud con registrar_interes_crm (comentario: "Solicitó el brochure de <programa>").',
+        };
+      }
+
+      case 'consultar_estado_estudiante': {
+        const r = await consultarEstadoEstudiante(ctx.crmEntities ?? {}, ctx.auth);
+        if (r.ok && r.matriculado) {
+          // Se recuerda para que una derivación posterior vaya a SU Advisor y no al flujo comercial.
+          await setJson(ESTUDIANTE_KEY(ctx.conversationId), { dealId: r.dealId, advisorId: r.advisor?.id ?? null }, 7 * 24 * 3600);
+          return {
+            ...r,
+            contactoGeneral: CONTACTO_GENERAL,
+            nota: r.advisor
+              ? `Es estudiante. NO le ofrezcas programas ni le pidas datos de contacto. Dale el nombre y el correo de su Advisor (${r.advisor.nombre}, ${r.advisor.email}) para su inconveniente y ofrécele avisarle tú: si acepta, usa escalar_a_humano con tipo "soporte_estudiante".`
+              : 'Es estudiante, pero no se pudo verificar quién es su Advisor: NO inventes un nombre ni un correo. Indícale el canal oficial (contactoGeneral) y deriva con escalar_a_humano con tipo "soporte_estudiante".',
+          };
+        }
+        if (r.ok) {
+          return {
+            ...r,
+            contactoGeneral: CONTACTO_GENERAL,
+            nota: 'No figura como estudiante matriculado en el CRM. No lo contradigas: si insiste en que es estudiante, indícale el canal oficial (contactoGeneral) y ofrece derivar.',
+          };
+        }
+        return {
+          ...r,
+          contactoGeneral: CONTACTO_GENERAL,
+          nota: 'No se pudo consultar el CRM ahora. No afirmes nada sobre su matrícula: indícale el canal oficial (contactoGeneral) y ofrece derivar.',
+        };
+      }
+
+      case 'consultar_informacion_institucional': {
+        let asesorId: number | null = null;
+        if (input?.tema === 'enlace_postulacion' && ctx.crmEntities?.deal) {
+          asesorId = (await getDealInfo(ctx.crmEntities.deal, ctx.auth)).responsableId;
+        }
+        const r = consultarInformacionInstitucional(String(input?.tema ?? ''), { asesorId });
+        await audit({
+          type: 'conocimiento',
+          dialogId: ctx.conversationId,
+          detail: { tema: input?.tema, disponible: r.ok ? r.disponible : false, motivo: r.ok && !r.disponible ? r.motivo : undefined },
+        }).catch(() => {});
+        return r.ok ? r : { ...r, instruccion: INSTRUCCION_SIN_DATO };
+      }
+
       case 'escalar_a_humano': {
+        // Estudiante matriculado: va a SU Advisor con una tarea. No se toca la negociación comercial,
+        // no se reasigna nada y el bot sigue disponible (no se entrega la sesión a la cola de ventas).
+        if (input?.tipo === 'soporte_estudiante' && marca.soporteEstudiantes) {
+          const est = await getJson<{ dealId: number | null; advisorId: number | null }>(ESTUDIANTE_KEY(ctx.conversationId));
+          const avisada =
+            est?.dealId && est.advisorId ? await crearTareaAdvisor(est.dealId, est.advisorId, String(input?.motivo ?? ''), ctx.auth) : false;
+          log.info('tool escalar_a_humano (soporte estudiante)', { dialogId: ctx.conversationId, avisada });
+          return {
+            ok: true,
+            escalado: true,
+            tipo: 'soporte_estudiante',
+            mensaje: avisada
+              ? 'Su Advisor quedó avisada con una tarea. Confírmaselo en primera persona y con calidez, sin prometer plazos.'
+              : `No hay una Advisor verificada a la que avisar: indícale el canal oficial ${CONTACTO_GENERAL}, sin prometer plazos.`,
+          };
+        }
+
         // La sesión NO se transfiere acá: se marca para que el adaptador la entregue al operador
         // DESPUÉS de enviar la respuesta. Transferirla ahora hacía que Bitrix rechazara el mensaje
         // del bot ("CANCELED No puede enviar mensajes al chat especificado"), así que el cliente que
@@ -167,6 +283,8 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
         // era el correcto: primero el mensaje, después la transferencia.
         if (ctx.chatId) ctx.transferirAOperador = true;
         await markHumanTakeover(ctx.conversationId); // tras escalar, el bot deja de responder en esa sesión
+        // ...y no solo durante las 6 h de su estado en memoria: por toda la sesión de Open Lines.
+        if (marca.traspasoPorSesion) await marcarTraspaso(ctx.conversationId, ctx.sesionOpenLines ?? null, 'escalado');
         void cancelarSeguimiento(ctx.conversationId); // ya hay un asesor a cargo: no le manda seguimiento
 
         // Si es uno de los 2 programas piloto: asigna por turno (Norte/Sur) + tarea de seguimiento —
@@ -205,6 +323,18 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
           }
         }
         log.info('tool escalar_a_humano', { motivo: input?.motivo, chatId: ctx.chatId, asesor });
+        // El bot que habla COMO el asesor no puede anunciar que "el asesor X lo contactará": ese
+        // asesor es él mismo. Pasó en el piloto ("confírmelo con Ignacio", dicho por "Ignacio").
+        if (marca.sePresentaComoAsesor && ctx.identidadAsesor) {
+          return {
+            ok: true,
+            escalado: true,
+            asesor: null,
+            mensaje:
+              'Conversación derivada para seguimiento. Tú eres su asesor: confírmale en primera persona que quedas a cargo ' +
+              '("quedo atento", "le hago seguimiento"). No nombres a otra persona ni hables de ti en tercera persona.',
+          };
+        }
         return {
           ok: true,
           escalado: true,

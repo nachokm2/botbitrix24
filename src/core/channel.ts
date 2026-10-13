@@ -68,6 +68,12 @@ export type AgentContext = {
    *  queda sin ninguna respuesta (pasaba en el 100% de los escalamientos explícitos). El adaptador
    *  del canal es quien ejecuta la transferencia al final del turno (ver routes/botEvents.ts). */
   transferirAOperador?: boolean;
+  /** Texto del cliente en ESTE turno. Lo usan las reglas que dependen de lo que preguntó (p. ej. el
+   *  fee de titulación solo se informa si lo pregunta explícitamente; ver core/guardRespuesta.ts). */
+  ultimoMensajeCliente?: string;
+  /** Sesión de Open Lines del turno (ver session.ts:sesionOpenLines), para recordar un traspaso a una
+   *  persona mientras dure esa sesión. */
+  sesionOpenLines?: string | null;
 };
 
 // Prompt de voz (M2, Custom LLM): réplica exacta del prompt "Sofía" que vivía en el dashboard de
@@ -183,6 +189,9 @@ const TOOLS_WHATSAPP = [
   'registrar_interes_crm',
   ...(marca.capturaDocumentos ? ['registrar_documento_identidad'] : []),
   ...(marca.tieneVoz ? ['solicitar_llamada'] : []),
+  ...(marca.brochureVerificado ? ['obtener_brochure'] : []),
+  ...(marca.soporteEstudiantes ? ['consultar_estado_estudiante'] : []),
+  ...(marca.baseConocimiento ? ['consultar_informacion_institucional'] : []),
   'escalar_a_humano',
 ];
 

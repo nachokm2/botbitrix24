@@ -8,6 +8,9 @@ import assert from 'node:assert/strict';
 // permitido: el recordatorio se disparó a las 2am (respuesta a las 10:59pm + 3h).
 process.env.NODE_ENV = 'test';
 process.env.BITRIX_UF_PROGRAMA = 'UF_CRM_PROGRAMA_TEST';
+// El último recordatorio se configura explícitamente: sin la variable, Postgrados lo tiene apagado
+// (nunca llegó a enviarse por el vencimiento del historial, ver config.ts y ai/seguimiento.ts).
+process.env.SEGUIMIENTO_SEGUNDO_HORAS = '10';
 
 type Call = { method: string; params: any };
 const calls: Call[] = [];

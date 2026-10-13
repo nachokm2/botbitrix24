@@ -1,4 +1,4 @@
-import { anthropic } from './client';
+import { anthropic, CLASSIFIER } from './client';
 import { tools } from './tools';
 import { marca } from '../marca';
 import { dbAcumularTokens } from '../store/db';
@@ -10,6 +10,8 @@ import { inc, recordLlmLatency, recordTokens } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
 import type { CrmEntity } from '../crm/entities';
+import { guardarRespuesta, urlsEn } from '../core/guardRespuesta';
+import { URLS_OFICIALES_CARVER } from '../core/promptObjeciones';
 
 const MAX_STEPS = 5; // guardrail anti-bucle
 
@@ -72,6 +74,7 @@ export function historialPrevioMessage(h: { instruccion: string; transcripcion: 
  * originó la conversación: preguntar lo que ya se sabe desgasta y resta credibilidad.
  */
 export function bloqueDatosConocidos(d: { nombre?: string; email?: string; telefono?: string }): string {
+  if (marca.sePresentaComoAsesor) return bloqueDatosConocidosConfirmar(d);
   const tiene = [d.nombre && `nombre: ${d.nombre}`, d.email && `correo: ${d.email}`, d.telefono && `teléfono: ${d.telefono}`].filter(Boolean);
   if (!tiene.length) return '';
   return (
@@ -80,6 +83,45 @@ export function bloqueDatosConocidos(d: { nombre?: string; email?: string; telef
 DATOS QUE EL CRM YA TIENE de esta persona — ${tiene.join(', ')}. ` +
     'NO se los vuelvas a pedir: ya los tienes. Úsalos con naturalidad (puedes saludarla por su nombre) ' +
     'y pide ÚNICAMENTE los que falten de la lista anterior. Si la persona te corrige alguno, regístralo con registrar_interes_crm.'
+  );
+}
+
+/** Correo con la parte local oculta: "a***@gmail.com". */
+export function enmascararEmail(email: string): string {
+  const [local, dominio] = String(email).split('@');
+  if (!dominio) return '***';
+  return `${local.slice(0, 1)}***@${dominio}`;
+}
+
+/** Teléfono reducido a sus últimos 4 dígitos: "terminado en 4321". */
+export function enmascararTelefono(tel: string): string {
+  const d = String(tel).replace(/\D/g, '');
+  return d.length >= 4 ? `terminado en ${d.slice(-4)}` : '***';
+}
+
+/**
+ * Variante de Carver (hallazgo 4): CONFIRMAR lo que ya se sabe en vez de volver a pedirlo, y resolver
+ * las contradicciones a favor de lo que dice la persona ahora. Los datos van enmascarados: si Bitrix
+ * enlazó el chat a la ficha equivocada (pasa en números compartidos), el bot no le recita a un
+ * tercero el correo de otra persona.
+ */
+function bloqueDatosConocidosConfirmar(d: { nombre?: string; email?: string; telefono?: string }): string {
+  const tiene = [
+    d.nombre && `nombre: ${d.nombre}`,
+    d.email && `correo: ${enmascararEmail(d.email)}`,
+    d.telefono && `teléfono: ${enmascararTelefono(d.telefono)}`,
+  ].filter(Boolean);
+  if (!tiene.length) return '';
+  return (
+    `
+
+DATOS QUE EL CRM YA TIENE de esta persona — ${tiene.join(', ')}. ` +
+    'NO se los vuelvas a pedir: úsalos. Si tienes una razón concreta para dudar de que sigan vigentes, CONFÍRMALO en una sola ' +
+    'pregunta y una sola vez en toda la conversación ("¿Le sigo escribiendo al correo que termina en @gmail.com?"), nunca lo pidas desde cero. ' +
+    'La confirmación NUNCA retrasa una derivación: si pide que la contacten, quiere matricularse o pide hablar con alguien, deriva DE INMEDIATO con lo que ya tienes. ' +
+    'El número de WhatsApp desde el que escribe ya es un teléfono de contacto: no se lo pidas. ' +
+    'Si la persona entrega un dato DISTINTO al del CRM, el que da ahora es el vigente: regístralo con registrar_interes_crm ' +
+    'y no vuelvas a usar el anterior. Puedes saludarla por su nombre.'
   );
 }
 
@@ -104,6 +146,18 @@ IDENTIDAD: tu nombre es ${a.nombre}. Preséntate con él en ESTE mensaje ("Hola,
 IDENTIDAD: eres ${a.nombre} y ya te presentaste al inicio de esta conversación.`,
         'NO vuelvas a decir tu nombre ni a presentarte: sigue la conversación con naturalidad.',
       ];
+  // Pasó en el piloto: el bot hablaba como "Ignacio" y en el mismo chat decía "confírmelo con
+  // Ignacio, quien está a cargo de su caso". El nombre puede aparecer en mensajes anteriores escritos
+  // por esa persona: sigue siendo uno mismo.
+  lineas.push(
+    `Si en la conversación aparece ${a.nombre} como si fuera otra persona, eres tú: nunca hables de ${a.nombre} en tercera persona ni le digas al cliente que lo consulte "con ${a.nombre.split(' ')[0]}".`,
+  );
+  // Y esta regla manda sobre las demás instrucciones: el prompt general dice en varios lugares "ofrece
+  // derivar a un asesor" o "eso lo confirma un asesor", y hablando COMO el asesor eso suena a que hay
+  // otro. Pasó en la regresión de referencia ("tendría que confirmarle un asesor", dicho por el asesor).
+  lineas.push(
+    'Esta regla manda sobre cualquier otra instrucción: donde se diga "derivar a un asesor", "que lo confirme un asesor" o "un asesor lo contactará", ese asesor eres TÚ. Nunca le digas al cliente que "un asesor" u "otro asesor" le confirmará o lo contactará: di en primera persona que lo vas a confirmar con el área que corresponda (académica, admisiones o finanzas) y que le respondes por acá.',
+  );
   if (a.email) lineas.push(`Tu correo es ${a.email}: compártelo solo si el cliente lo pide.`);
   if (a.telefono) lineas.push(`Tu teléfono es ${a.telefono}: compártelo solo si el cliente lo pide.`);
   lineas.push('NUNCA digas que eres un bot, un asistente virtual ni una inteligencia artificial llamada de otra forma, y NUNCA inventes datos de contacto distintos de los de arriba.');
@@ -206,7 +260,14 @@ export async function runConversation(
     messages.push({ role: 'user', content: results });
   }
 
-  return { text: 'Permíteme derivarte con un asesor para ayudarte mejor 🙌', messages };
+  // Tope de iteraciones. En Carver la frase de siempre anunciaba una derivación que nunca ocurría
+  // (no se llamó a escalar_a_humano) y tuteaba: ahí se pide precisar, sin prometer nada.
+  return {
+    text: marca.sePresentaComoAsesor
+      ? 'Para responderle con precisión, ¿me confirma qué es lo que más le interesa saber?'
+      : 'Permíteme derivarte con un asesor para ayudarte mejor 🙌',
+    messages,
+  };
 }
 
 /**
@@ -324,23 +385,170 @@ export async function runAgentTurn(
     const extraIdioma = bloqueIdioma(idioma);
     const sumado = extra + extraIdioma;
     const perfilFinal = sumado ? { ...perfilDelTurno, systemPrompt: perfilDelTurno.systemPrompt + sumado } : perfilDelTurno;
+    const inicioTurno = messages.length;
     const { text, messages: finalMsgs } = await runConversation(
       { profile: perfilFinal, auditId: ctx.conversationId, crmEntity: ctx.crmEntity ?? null },
       messages,
       exec,
     );
+    // Reglas comerciales impuestas en código sobre el texto final (ver core/guardRespuesta.ts). Lo
+    // que se guarda en el historial es lo que de verdad se envía: si no, el modelo "recordaría" haber
+    // dicho algo que el cliente nunca leyó.
+    const enviado = marca.guardRespuesta
+      ? await aplicarGuardian(text, {
+          dialogId: ctx.conversationId,
+          mensajeCliente: textoDelUsuario(userText),
+          history,
+          mensajesDelTurno: finalMsgs.slice(inicioTurno),
+        })
+      : text;
+    if (enviado !== text) reemplazarUltimaRespuesta(finalMsgs, enviado);
     // No persistimos imágenes (base64) en el historial: se reemplazan por un marcador de texto para
     // no inflar Redis ni re-enviarlas en cada turno (el modelo ya las "vio" en este turno).
     await setHistory(ctx.conversationId, sanitizeHistory(finalMsgs));
-    return text;
+    return enviado;
   } catch (e) {
     inc('errors');
     // Además del contador en memoria (que se pierde en cada deploy), deja la falla en la auditoría:
     // el cliente recibió una disculpa genérica en vez de una respuesta real, y eso debe verse.
     void audit({ type: 'error', dialogId: ctx.conversationId, detail: { etapa: 'motor', err: String(e) } });
     log.error('agentLoop error', { err: String(e) });
-    return 'Disculpa, tuve un inconveniente técnico. ¿Puedes repetir tu consulta?';
+    // Carver trata de "usted" en todo momento, también al disculparse.
+    return marca.sePresentaComoAsesor
+      ? 'Disculpe, tuve un inconveniente técnico. ¿Podría repetirme su consulta?'
+      : 'Disculpa, tuve un inconveniente técnico. ¿Puedes repetir tu consulta?';
   }
+}
+
+/** Texto plano del mensaje del cliente (puede venir como bloques con imagen). */
+function textoDelUsuario(userText: string | any[]): string {
+  if (typeof userText === 'string') return userText;
+  return (userText ?? [])
+    .filter((b: any) => b?.type === 'text')
+    .map((b: any) => b.text)
+    .join(' ');
+}
+
+/** Textos que el bot ya envió en esta conversación, del más antiguo al más reciente. */
+function respuestasPreviasDe(history: any[]): string[] {
+  return history
+    .filter((m) => m?.role === 'assistant')
+    .map((m) =>
+      typeof m.content === 'string'
+        ? m.content
+        : Array.isArray(m.content)
+          ? m.content.filter((b: any) => b?.type === 'text').map((b: any) => b.text).join(' ')
+          : '',
+    )
+    .filter((t) => t.trim());
+}
+
+/** Enlaces que alguna herramienta devolvió en los mensajes dados: los únicos verificados para compartir. */
+function urlsDeHerramientas(mensajesDelTurno: any[]): string[] {
+  const out: string[] = [];
+  for (const m of mensajesDelTurno) {
+    if (m?.role !== 'user' || !Array.isArray(m.content)) continue;
+    for (const b of m.content) if (b?.type === 'tool_result') out.push(...urlsEn(b.content));
+  }
+  return out;
+}
+
+/** ¿Alguna escritura al CRM (registro o derivación) devolvió ok=false en este turno? */
+function escrituraCrmFallida(mensajesDelTurno: any[]): boolean {
+  const ids = new Set<string>();
+  for (const m of mensajesDelTurno) {
+    if (m?.role !== 'assistant' || !Array.isArray(m.content)) continue;
+    for (const b of m.content) {
+      if (b?.type === 'tool_use' && (b.name === 'registrar_interes_crm' || b.name === 'escalar_a_humano')) ids.add(b.id);
+    }
+  }
+  for (const m of mensajesDelTurno) {
+    if (m?.role !== 'user' || !Array.isArray(m.content)) continue;
+    for (const b of m.content) {
+      if (b?.type !== 'tool_result' || !ids.has(b.tool_use_id)) continue;
+      try {
+        if (JSON.parse(String(b.content))?.ok === false) return true;
+      } catch {
+        // contenido no JSON: no se puede afirmar que falló
+      }
+    }
+  }
+  return false;
+}
+
+function reemplazarUltimaRespuesta(mensajes: any[], texto: string): void {
+  for (let i = mensajes.length - 1; i >= 0; i--) {
+    if (mensajes[i]?.role === 'assistant') {
+      mensajes[i] = { role: 'assistant', content: [{ type: 'text', text: texto }] };
+      return;
+    }
+  }
+}
+
+/** Montos y enlaces de un texto: lo que una versión condensada está obligada a conservar. */
+export function datosDuros(texto: string): string[] {
+  const montos = (texto.match(/(usd|us\$|\$)\s?\d[\d.,]*/gi) ?? []).map((x) => x.replace(/\s+/g, '').replace(/[.,]$/, '').toLowerCase());
+  return [...montos, ...urlsEn(texto)];
+}
+
+async function aplicarGuardian(
+  texto: string,
+  t: { dialogId: string; mensajeCliente: string; history: any[]; mensajesDelTurno: any[] },
+): Promise<string> {
+  const ctxGuard = {
+    mensajeCliente: t.mensajeCliente,
+    respuestasPrevias: respuestasPreviasDe(t.history),
+    // Enlaces que devolvió una herramienta en esta conversación (este turno o uno anterior): reenviar
+    // un brochure ya verificado es legítimo. Lo que se bloquea es lo que no vino de ninguna.
+    urlsPermitidas: [...URLS_OFICIALES_CARVER, ...urlsDeHerramientas([...t.history, ...t.mensajesDelTurno])],
+    maxCaracteres: marca.maxCaracteresRespuesta || Number.MAX_SAFE_INTEGER,
+    crmFallo: escrituraCrmFallida(t.mensajesDelTurno),
+  };
+  const r = guardarRespuesta(texto, ctxGuard);
+  let final = r.texto;
+  const cambios = [...r.cambios];
+
+  // Un mensaje de dos pantallas en WhatsApp no se lee (hallazgo 11). Se condensa UNA vez con el
+  // modelo rápido y solo se acepta si conserva todos los montos y enlaces: si se pierde un dato, se
+  // prefiere el mensaje largo a uno corto e incompleto.
+  if (r.excedeLargo) {
+    try {
+      const resp = await anthropic.messages.create({
+        model: CLASSIFIER,
+        max_tokens: 500,
+        temperature: 0,
+        system:
+          `Eres editor de mensajes de WhatsApp de un asesor de admisión que trata de "usted". Reescribe el mensaje en ` +
+          `MÁXIMO ${marca.maxCaracteresRespuesta} caracteres. Conserva EXACTAMENTE todas las cifras y montos, los nombres de ` +
+          `programas, los enlaces y los correos. Quita lo accesorio y lo repetido, sin agregar información nueva. Una sola ` +
+          `pregunta al final como máximo. Sin negritas ni títulos. Devuelve SOLO el mensaje.`,
+        messages: [{ role: 'user', content: final }],
+      });
+      recordTokens((resp as any).usage);
+      const condensado = soloTexto(resp);
+      const duros = datosDuros(condensado);
+      const conserva = datosDuros(final).every((d) => duros.includes(d));
+      if (condensado && condensado.length < final.length && conserva) {
+        final = guardarRespuesta(condensado, { ...ctxGuard, maxCaracteres: Number.MAX_SAFE_INTEGER }).texto;
+        cambios.push('condensado');
+      } else {
+        cambios.push('condensado_descartado');
+      }
+    } catch (e) {
+      log.warn('guardián: no se pudo condensar la respuesta', { err: String(e) });
+      cambios.push('condensado_fallido');
+    }
+  }
+
+  if (cambios.length) {
+    for (const c of cambios) inc(`guard:${c}`);
+    void audit({
+      type: 'guard_respuesta',
+      dialogId: t.dialogId,
+      detail: { cambios, largoOriginal: texto.length, largoFinal: final.length },
+    }).catch(() => {});
+  }
+  return final || texto;
 }
 
 /** Reemplaza los bloques de imagen (base64) de los mensajes del usuario por un marcador de texto,

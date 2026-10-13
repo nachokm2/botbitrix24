@@ -7,7 +7,7 @@ import { log } from '../log';
 import { runAgentTurn } from '../ai/agentLoop';
 import { procesarScoring } from '../ai/scoring';
 import { getHistory } from '../ai/memory';
-import { getSession, saveSession } from '../session';
+import { getSession, saveSession, sesionOpenLines, traspasoVigente, marcarTraspaso } from '../session';
 import { once } from '../store/kv';
 import { inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
@@ -24,7 +24,7 @@ import { WHATSAPP_PROFILE, type AgentContext } from '../core/channel';
 import { marca } from '../marca';
 import { extractIncomingMedia } from '../media/incoming';
 import { transcribeAudio } from '../ai/transcribe';
-import { programarSeguimiento, cancelarSeguimiento } from '../ai/seguimiento';
+import { programarSeguimiento, cancelarSeguimiento, registrarRespuestaASeguimiento } from '../ai/seguimiento';
 import { getRequestContext, runWithRequestContext } from '../obs/requestContext';
 
 // Backpressure: el semáforo acota los turnos concurrentes POR INSTANCIA (decisión deliberada: la
@@ -89,6 +89,9 @@ async function handle(req: Request) {
     return log.info('botMessage: evento duplicado ignorado', { msgId });
   }
 
+  // Sesión de Open Lines del mensaje: un traspaso a una persona vale mientras dure ESTA sesión.
+  const sesion = sesionOpenLines(params.CHAT_ENTITY_DATA_1 ?? params?.CHAT?.CHAT_ENTITY_DATA_1);
+
   // ── El bot solo responde al CLIENTE; si interviene un operador, se calla (humano a cargo) ──
   const fromUser = String(fromUserId ?? '');
   const sess = await getSession(dialogId);
@@ -113,6 +116,7 @@ async function handle(req: Request) {
   if (sess.clientId && fromUser && fromUser !== sess.clientId) {
     sess.humanTookOver = true; // mensaje de un operador u otro usuario
     await saveSession(dialogId, sess);
+    if (marca.traspasoPorSesion) await marcarTraspaso(dialogId, sesion, 'operador');
     inc('operator_msg');
     void audit({ type: 'operator_msg', dialogId, detail: { fromUser } });
     void cancelarSeguimiento(dialogId); // un humano tomó la conversación: el bot no le manda seguimiento
@@ -124,9 +128,22 @@ async function handle(req: Request) {
   if (sess.humanTookOver) {
     return log.info('botMessage: sesión atendida por humano; bot en silencio', { dialogId });
   }
+  // El estado de arriba vive 6 h; el traspaso, toda la sesión de Open Lines. Sin esto el bot volvía a
+  // contestar —hablando como el asesor— en chats que ya atendía una persona (piloto de Carver).
+  if (marca.traspasoPorSesion) {
+    const t = await traspasoVigente(dialogId, sesion);
+    if (t) {
+      inc('bot_en_silencio_traspaso');
+      void audit({ type: 'bot_en_silencio', dialogId, detail: { motivo: t.motivo, sesion } });
+      return log.info('botMessage: la sesión ya fue traspasada a una persona; bot en silencio', { dialogId, sesion, motivo: t.motivo });
+    }
+  }
   if (sessChanged) await saveSession(dialogId, sess);
 
   inc('inbound');
+  // Si lo último que recibió fue un recordatorio, este mensaje lo RESPONDE: es lo que separa un
+  // contacto efectivo de un mensaje enviado (ver ai/seguimiento.ts).
+  void registrarRespuestaASeguimiento(dialogId);
 
   // ── Media entrante (audio/imagen) por WhatsApp ──────────────────────────────────────────────
   // Antes se descartaba todo lo que no fuera texto. Ahora: los audios se transcriben (Deepgram) y
@@ -251,6 +268,8 @@ async function handle(req: Request) {
     crmEntities,
     profile: WHATSAPP_PROFILE,
     pendingImage,
+    ultimoMensajeCliente: turnText,
+    sesionOpenLines: sesion,
   };
   const reply = await runAgentTurn(ctxTurno, turnContent ?? turnText, priorContext, undefined, historialPrevio);
 
@@ -300,10 +319,12 @@ async function handle(req: Request) {
       await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: chatId }, auth);
       log.info('sesión entregada al operador tras responder', { dialogId, chatId });
     } catch (e) {
+      // "Operator is not a bot": la sesión ya la atiende una persona. El bot igual queda en silencio
+      // (escalar_a_humano ya lo marcó); se deja constancia de por qué no hubo traspaso.
       log.warn('no se pudo entregar la sesión al operador', { err: String(e), dialogId, chatId });
     }
   }
-  void programarSeguimiento(dialogId, crmEntities); // si el cliente no vuelve a escribir: recordatorio y, si sigue en silencio, transferencia al asesor (ver ai/seguimiento.ts)
+  void programarSeguimiento(dialogId, crmEntities, sesion); // si el cliente no vuelve a escribir: recordatorio y, si sigue en silencio, transferencia al asesor (ver ai/seguimiento.ts)
 
   // Auditoría del turno (compliance) — independiente del CRM.
   await audit({
@@ -321,7 +342,7 @@ async function handle(req: Request) {
   }
 
   // Lead scoring en segundo plano (Haiku): puntúa, mueve etapa del deal y auto-escala si el score es alto.
-  void procesarScoring({ dialogId, chatId, botId, crmEntities, auth }).catch((e) =>
+  void procesarScoring({ dialogId, chatId, botId, crmEntities, auth, sesionOpenLines: sesion }).catch((e) =>
     log.warn('procesarScoring falló', { err: String(e) }),
   );
 }

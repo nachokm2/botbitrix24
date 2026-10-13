@@ -33,12 +33,73 @@ const FILTRO_SEDE =
 
 // Carver cotiza distinto: beca del 50% ofrecible de entrada y TRES formas de pago con precios fijos.
 const DESC_PRECIO_CARVER =
-  'Devuelve el precio de un programa de Carver: arancel de LISTA, la Beca George Washington Carver Grant (50%) ' +
-  'que puedes ofrecer directamente, y las TRES formas de pago (mensualidades, semestral y contado) con sus ' +
-  'totales. Los cursos cortos salen como gratis, con el costo del certificado. Úsala SIEMPRE que pregunten por ' +
-  'precio, "cuánto sale en total", becas, cuotas o financiamiento; nunca cotices de memoria ni con el arancel de ' +
-  'detalle_programa. Todos los programas son en línea: NO existe el concepto de sede. Si el programa no está ' +
-  'disponible (cupos completos u otro motivo), la herramienta te lo indica para que NO lo cotices.';
+  'Devuelve el precio de una licenciatura o maestría de Carver: arancel de LISTA, la Beca George Washington ' +
+  'Carver Grant (50%) que puedes ofrecer directamente, y las TRES formas de pago (mensualidades, semestral y ' +
+  'contado) con sus totales. Úsala SIEMPRE que pregunten por precio, becas, cuotas o financiamiento; nunca ' +
+  'cotices de memoria ni con el arancel de detalle_programa. Todos los programas son en línea: NO existe el ' +
+  'concepto de sede. Los costos que no están en el arancel (titulación, inscripción, retiro) solo vienen ' +
+  'cuando la persona los preguntó explícitamente. Si el programa no está disponible (cupos completos u otro ' +
+  'motivo) o no se comercializa por este canal, la herramienta te lo indica para que NO lo cotices.';
+
+// Herramientas que solo existen donde la marca las habilita (ver core/channel.ts:TOOLS_WHATSAPP). Se
+// arman aparte para no alterar en nada el esquema que ve el modelo de Postgrados.
+const TOOLS_CARVER = [
+  {
+    name: 'obtener_brochure',
+    description:
+      'Devuelve el enlace VERIFICADO del brochure oficial (PDF) de una licenciatura o maestría: comprueba en el ' +
+      'momento que el enlace funciona y que corresponde al programa pedido. Úsala SIEMPRE que la persona pida el ' +
+      'brochure, folleto, programa completo, malla o información "en PDF". Comparte ÚNICAMENTE el enlace que ' +
+      'devuelve esta herramienta en este mismo turno, tal cual y en una línea aparte. Si devuelve ok=false, NO ' +
+      'compartas ningún enlace: sigue la instrucción que trae.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        programa: { type: 'string', description: 'Nombre exacto del programa (de consultar_programas).' },
+      },
+      required: ['programa'],
+    },
+  },
+  {
+    name: 'consultar_estado_estudiante',
+    description:
+      'Verifica en el CRM si la persona de ESTE chat es estudiante matriculado y, si se puede verificar, quién es ' +
+      'su Advisor (nombre y correo institucional). Úsala cuando la persona diga ser estudiante o alumno y tenga ' +
+      'un inconveniente (plataforma, clases, notas, certificados, pagos de cuotas). No recibe parámetros: solo ' +
+      'consulta la ficha de quien escribe.',
+    input_schema: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'consultar_informacion_institucional',
+    description:
+      'Información institucional VERIFICADA de Carver: calendario de ingresos por ciclo, argumentos de venta, ' +
+      'enlace oficial de postulación de su asesor, y proceso de admisión y matrícula. Úsala ANTES de responder ' +
+      'sobre fechas de inicio, cómo postular o los pasos de admisión. Si devuelve disponible=false, NO tienes ' +
+      'el dato: no lo inventes y sigue la instrucción que trae.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        tema: {
+          type: 'string',
+          enum: ['calendario_ingresos', 'argumentos_venta', 'enlace_postulacion', 'proceso_admision'],
+        },
+      },
+      required: ['tema'],
+    },
+  },
+] as const;
+
+// escalar_a_humano distingue la derivación de un estudiante (va a su Advisor) solo donde existe ese flujo.
+const ESCALAR_PROPIEDADES = marca.soporteEstudiantes
+  ? {
+      motivo: { type: 'string' },
+      tipo: {
+        type: 'string',
+        enum: ['comercial', 'soporte_estudiante'],
+        description: 'soporte_estudiante si es un estudiante matriculado con un inconveniente; comercial en los demás casos.',
+      },
+    }
+  : { motivo: { type: 'string' } };
 
 export const tools = [
   {
@@ -169,9 +230,7 @@ export const tools = [
       'o si la consulta excede tu alcance (precios, becas, fechas que no tienes).',
     input_schema: {
       type: 'object',
-      properties: {
-        motivo: { type: 'string' },
-      },
+      properties: ESCALAR_PROPIEDADES,
       required: ['motivo'],
     },
   },
@@ -259,4 +318,5 @@ export const tools = [
       required: ['cuando'],
     },
   },
+  ...(marca.key === 'carver' ? TOOLS_CARVER : []),
 ] as const;

@@ -104,6 +104,19 @@ function parseMarchaBlancaProgramas(s?: string): MarchaBlancaPrograma[] {
   }
 }
 
+/** Lista de números desde una variable de entorno; sin la variable, el default de la marca. */
+function listaNumeros(valor: string | undefined, def: number[]): number[] {
+  if (valor === undefined || valor.trim() === '') return def;
+  return valor
+    .split(',')
+    .map((x) => x.trim())
+    .filter((x) => x !== '')
+    .map(Number)
+    .filter((n) => Number.isFinite(n) && n >= 0);
+}
+
+const esCarver = marca.key === 'carver';
+
 export const config = {
   port: Number(process.env.PORT ?? 3000),
   /** URL pública del app (Railway o túnel), sin slash final. */
@@ -199,7 +212,21 @@ export const config = {
   // SEGUNDO (y último) recordatorio por IA, si tras el primero el cliente sigue sin responder —
   // medido desde la misma última respuesta del bot, así que debe ser mayor que SEGUIMIENTO_HORAS.
   // 0 = desactivado (solo un recordatorio).
-  seguimientoSegundoHoras: Number(process.env.SEGUIMIENTO_SEGUNDO_HORAS ?? 10),
+  //
+  // Este recordatorio NUNCA se envió hasta octubre de 2026: el historial de la conversación expira a
+  // las 6 h y el segundo recordatorio vence a las 10, así que siempre encontraba el historial vacío y
+  // se descartaba en silencio (ver ai/seguimiento.ts). Al corregirlo, Postgrados —que no define la
+  // variable— empezaría a recibir un mensaje que jamás recibió; por eso su default pasa a 0 y solo
+  // quien lo configura explícitamente (Carver: 10) lo envía.
+  seguimientoSegundoHoras: Number(process.env.SEGUIMIENTO_SEGUNDO_HORAS ?? (marca.key === 'postgrados' ? 0 : 10)),
+  // Tope de recordatorios proactivos por conversación en 24 h, sumando todas las etapas. Cada
+  // respuesta del bot rearma la secuencia; sin tope, alguien que contesta y se calla varias veces en
+  // el día recibe un recordatorio por cada silencio.
+  seguimientoMaxPorDia: Number(process.env.SEGUIMIENTO_MAX_POR_DIA ?? (marca.key === 'carver' ? 2 : 0)) || 0,
+  // Generar el recordatorio desde una instantánea de la conversación cuando la memoria del chat ya
+  // venció (6 h). Sin ella se pierden el segundo recordatorio y los que el horario corre a la mañana
+  // siguiente. Activa en Carver; en Postgrados queda como estaba salvo que se active.
+  seguimientoInstantanea: (process.env.SEGUIMIENTO_INSTANTANEA ?? (marca.key === 'carver' ? 'true' : 'false')).toLowerCase() === 'true',
   // Si tras el recordatorio el cliente SIGUE sin responder hasta esta cantidad de horas (desde la
   // misma última respuesta del bot), se deriva el lead al asesor por turno (ver
   // crm/asignacionAsesores.ts) — no urgente, solo para contacto temprano. 0 = desactivado.
@@ -247,6 +274,28 @@ export const config = {
     .filter((x) => x !== '')
     .map(Number)
     .filter((n) => Number.isFinite(n) && n >= 0),
+  // EQUIPO de la marca: quiénes pueden recibir una negociación, una tarea o prestarle su nombre al bot.
+  // Un asesor activo NO basta: en Carver el bot dejaba tareas y se presentaba con el nombre de
+  // ejecutivos de otros equipos (Postgrados, IPG) cuando Bitrix enlazaba el chat a una ficha suya.
+  // Departamentos verificados en Bitrix el 2026-10-13: 193 "Carver", 509 "Carver V1", 511 "Carver V2".
+  // Vacíos = sin restricción por equipo (Postgrados, comportamiento anterior).
+  equipoDepartamentos: listaNumeros(process.env.BITRIX_EQUIPO_DEPARTAMENTOS, esCarver ? [193, 509, 511] : []),
+  // Personas del equipo que no están en esos departamentos. El punto de entrada (BITRIX_DERIVAR_A)
+  // siempre cuenta como del equipo.
+  equipoUsuarios: listaNumeros(process.env.BITRIX_EQUIPO_USUARIOS, []),
+  // Leer nombre/correo/teléfono ya registrados en un LEAD (no solo en el contacto) para no volver a
+  // pedirlos (hallazgo 4). Activo en Carver; Postgrados queda como estaba salvo que se active.
+  datosConocidosDesdeLead: (process.env.DATOS_CONOCIDOS_DESDE_LEAD ?? (esCarver ? 'true' : 'false')).toLowerCase() === 'true',
+  // ESTUDIANTES MATRICULADOS (hallazgo 10). Embudo donde cada estudiante tiene su negociación con su
+  // Advisor como responsable: 107 "Advisor Carver" (verificado en Bitrix el 2026-10-13).
+  estudiantesCategorias: listaNumeros(process.env.BITRIX_ESTUDIANTES_CATEGORIAS, esCarver ? [107] : []),
+  // Etapas que significan "matriculado" en los embudos comerciales.
+  etapasMatriculado: (process.env.BITRIX_ETAPAS_MATRICULADO ?? (esCarver ? 'C73:WON,C135:WON' : ''))
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean),
+  // Dominio del correo institucional: el correo de un Advisor solo se entrega si es de este dominio.
+  dominioCorreoOficial: (process.env.DOMINIO_CORREO_OFICIAL ?? (esCarver ? 'carver.university' : '')).trim().toLowerCase(),
   // IDs de usuario que NO son personas sino automatizaciones de Bitrix (robots/reglas). El caso real
   // es #45 "Resp. Autom.", que barre a RMKT las negociaciones que nadie tocó: movió 31 de las 36
   // derivaciones del piloto. Se usa para no contar ese barrido como "el asesor tomó el caso" en la

@@ -4,10 +4,18 @@ import { callCrm } from '../bitrix/client';
 import { recordTokens, inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
+import { marca } from '../marca';
 import type { Auth } from '../store';
 import type { CrmEntity } from '../crm/entities';
 
-const BRIEFING_SYSTEM = `Preparas un RESUMEN BREVE para un asesor comercial de postgrados de la Universidad Autónoma de Chile que va a retomar la conversación con un lead. A partir de la conversación entrega, en español, viñetas cortas y accionables:
+// La organización sale de la marca: el resumen que recibían los asesores de Carver decía ser para
+// "un asesor de postgrados de la Universidad Autónoma de Chile" (en Postgrados el texto queda igual).
+const DESTINATARIO =
+  marca.key === 'postgrados'
+    ? 'un asesor comercial de postgrados de la Universidad Autónoma de Chile'
+    : `un asesor comercial de ${marca.organizacion}`;
+
+const BRIEFING_SYSTEM = `Preparas un RESUMEN BREVE para ${DESTINATARIO} que va a retomar la conversación con un lead. A partir de la conversación entrega, en español, viñetas cortas y accionables:
 - Programa/área de interés (si se mencionó).
 - Datos de contacto entregados (nombre, email, teléfono) o "no entregó".
 - Nivel de interés y señales de decisión/urgencia.

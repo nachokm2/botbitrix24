@@ -40,6 +40,8 @@ export interface BitrixUser {
   ACTIVE?: boolean;
   /** Celular personal del usuario — se usa como teléfono/WhatsApp del asesor en correos automáticos. */
   PERSONAL_MOBILE?: string;
+  /** Departamentos de la estructura de la empresa a los que pertenece. */
+  UF_DEPARTMENT?: Array<string | number> | string | number;
 }
 
 /** imopenlines.dialog.get / payload de instalación: trae la vinculación CRM del chat. */

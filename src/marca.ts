@@ -68,6 +68,32 @@ export type Marca = {
   /** Descripción de consultar_programas: qué catálogo es. La genérica hablaba siempre de postgrados
    *  de la Universidad Autónoma, lo que para otra marca es sencillamente falso. */
   catalogoDescripcion: string;
+  /** Con sePresentaComoAsesor: cómo se presenta el bot cuando NO hay un asesor válido que adoptar.
+   *  Es institucional a propósito: un nombre de persona inventado ("Sofía") era una tercera identidad
+   *  que convivía con la del asesor y con la del nombre registrado del bot. */
+  presentacionSinAsesor: string;
+  /** Tipos de programa que se OFRECEN y cotizan. Vacío = todos los del catálogo. El catálogo puede
+   *  tener más (información histórica), pero lo que no esté acá no se vende (ver core/oferta.ts). */
+  tiposComercializables: string[];
+  /** Reglas de la respuesta impuestas en código antes de enviarla (ver core/guardRespuesta.ts). */
+  guardRespuesta: boolean;
+  /** Largo a partir del cual una respuesta se condensa antes de enviarla (0 = no se condensa). */
+  maxCaracteresRespuesta: number;
+  /** Tras derivar a una persona, el bot calla durante TODA esa sesión de Open Lines, no solo durante
+   *  las 6 h que dura su estado en memoria (ver session.ts:traspasoVigente). */
+  traspasoPorSesion: boolean;
+  /** ¿Atiende a estudiantes matriculados con su Advisor (ver crm/estudiantes.ts)? */
+  soporteEstudiantes: boolean;
+  /** ¿Entrega brochures solo verificados, con la herramienta obtener_brochure (ver core/brochures.ts)? */
+  brochureVerificado: boolean;
+  /** ¿Tiene base de conocimiento comercial verificable (ver core/conocimientoComercial.ts)? */
+  baseConocimiento: boolean;
+};
+
+/** Valor de una variable de entorno, o el default si no está definida o está vacía. */
+const env = (k: string, def: string) => {
+  const v = process.env[k];
+  return v !== undefined && v.trim() !== '' ? v.trim() : def;
 };
 
 const POSTGRADOS: Marca = {
@@ -102,17 +128,40 @@ const POSTGRADOS: Marca = {
   catalogoDescripcion:
     'Consulta el catálogo oficial de programas de postgrado de la Universidad Autónoma de Chile ' +
     '(magísteres, diplomados y especialidades médicas/odontológicas).',
+  // Todo lo que sigue deja a Postgrados exactamente como estaba: las reglas nuevas nacieron de la
+  // auditoría del piloto de Carver y se activan solo ahí.
+  presentacionSinAsesor: 'Sofía',
+  tiposComercializables: [],
+  guardRespuesta: false,
+  maxCaracteresRespuesta: 0,
+  traspasoPorSesion: false,
+  soporteEstudiantes: false,
+  brochureVerificado: false,
+  baseConocimiento: false,
 };
+
+// Identidad de Carver, UNIFICADA (hallazgo 1 de la auditoría del piloto). Convivían tres:
+//  - el nombre registrado del bot, "Sofía · Carver", que es lo que ven el cliente y el equipo en el chat;
+//  - el asesor dueño de la negociación, con cuyo nombre el bot se presenta ("Hola, soy Ignacio");
+//  - "Sofía" a secas, cuando no había asesor que adoptar.
+// Un cliente le escribió "Gracias, Sofía" a un bot que en el mensaje anterior había firmado como
+// Ignacio y que en el siguiente le dijo "confírmelo con Ignacio". La identidad oficial de Carver es
+// la del asesor a cargo; cuando no lo hay, la institución. Ninguna persona inventada.
+// Los textos son configurables sin tocar código; el nombre registrado se aplica en Bitrix con
+// GET /setup/update-bot (imbot.update), que es un paso operativo aparte.
+const CARVER_INSTITUCION = env('CARVER_NOMBRE_INSTITUCIONAL', 'Carver University');
 
 const CARVER: Marca = {
   key: 'carver',
-  botNombre: 'Sofía',
-  botNombreRegistro: 'Sofía · Carver',
-  botCargo: 'Asesora de Admisión de Carver University',
+  botNombre: CARVER_INSTITUCION,
+  botNombreRegistro: env('BOT_NOMBRE_REGISTRO', CARVER_INSTITUCION),
+  botCargo: env('BOT_CARGO', `Admisiones · ${CARVER_INSTITUCION}`),
   organizacion: 'Carver University',
   espanol: 'español neutro latinoamericano (atiendes a Chile, Perú, Ecuador, Colombia y República Dominicana: no uses chilenismos ni modismos de un solo país)',
+  // Solo licenciaturas y maestrías: los NOOCs y cursos de educación continua siguen en el catálogo
+  // (información histórica) pero NO se comercializan por este canal (ver core/oferta.ts).
   ofertaResumen:
-    'Hay 3 licenciaturas, 13 maestrías y 22 cursos cortos (NOOCs y educación continua). TODOS los programas son 100% en línea, con clases en vivo en español, y los valores están en DÓLARES (USD). Usa "consultar_programas" para buscar/filtrar por tipo (licenciatura/maestria/curso) o tema.',
+    'La oferta que atiendes son 3 licenciaturas y 13 maestrías, TODAS 100% en línea, con clases en vivo en español; los valores están en DÓLARES (USD). Usa "consultar_programas" para buscar por tipo (licenciatura/maestria) o tema. Los cursos cortos (NOOCs y educación continua) NO forman parte de la oferta que atiendes: no los ofrezcas.',
   catalogo: 'carver',
   // Los "dos precios" del sitio eran Regular vs Upgrade y las tres formas de pago. Con la planilla
   // validada por la dirección (ver scripts/build-carver-precios.ts) ya hay una fuente única.
@@ -124,11 +173,21 @@ const CARVER: Marca = {
   etiquetaDocumento: 'RUT/DNI',
   otrosCanales: false,
   etiquetaPanel: 'Carver',
-  tiposPrograma: ['licenciatura', 'maestria', 'curso'],
+  // El enum del esquema es lo único que el modelo ve para elegir el tipo: si incluyera "curso", el
+  // bot podría buscar (y ofrecer) NOOCs.
+  tiposPrograma: ['licenciatura', 'maestria'],
   facultades: [], // los 38 programas de Carver no están clasificados por facultad
   catalogoDescripcion:
-    'Consulta el catálogo oficial de programas de Carver University: licenciaturas, maestrías y ' +
-    'cursos cortos (NOOCs y educación continua), todos 100% en línea con clases en vivo en español.',
+    'Consulta el catálogo oficial de programas de Carver University que se ofrecen por este canal: ' +
+    'licenciaturas y maestrías, todas 100% en línea con clases en vivo en español.',
+  presentacionSinAsesor: env('CARVER_PRESENTACION_SIN_ASESOR', `el equipo de admisiones de ${CARVER_INSTITUCION}`),
+  tiposComercializables: ['licenciatura', 'maestria'],
+  guardRespuesta: true,
+  maxCaracteresRespuesta: Number(env('MAX_CARACTERES_RESPUESTA', '750')) || 0,
+  traspasoPorSesion: true,
+  soporteEstudiantes: true,
+  brochureVerificado: true,
+  baseConocimiento: true,
 };
 
 const MARCAS: Record<MarcaKey, Marca> = { postgrados: POSTGRADOS, carver: CARVER };

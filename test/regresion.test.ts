@@ -178,3 +178,63 @@ test('cada caso dice de qué conversación real salió', () => {
     assert.ok(c.comprobaciones.length > 0);
   }
 });
+
+test('no_afirma_registro_fallido también atrapa el futuro ("quedará registrado")', async () => {
+  const r = await ejecutarCaso(
+    caso([{ tipo: 'no_afirma_registro_fallido' }]),
+    bot([
+      {
+        respuesta: 'Perfecto, su correo quedará registrado para darle seguimiento.',
+        tools: [{ name: 'registrar_interes_crm', input: {}, resultado: { ok: false, error: 'BITRIX_NO_DISPONIBLE' } }],
+      },
+    ]),
+  );
+  assert.equal(r.ok, false);
+});
+
+test('fee_solo_si_preguntan, no_ofrece_nooc y brochure_verificado detectan los defectos del piloto de Carver', async () => {
+  const fee = await ejecutarCaso(caso([{ tipo: 'fee_solo_si_preguntan' }], ['¿Cuánto cuesta?']), bot([{ respuesta: 'Contado USD 900. Titulación USD 125 al finalizar.' }]));
+  assert.equal(fee.ok, false);
+  const feePedido = await ejecutarCaso(caso([{ tipo: 'fee_solo_si_preguntan' }], ['¿Y la titulación?']), bot([{ respuesta: 'La titulación cuesta USD 125.' }]));
+  assert.equal(feePedido.ok, true, 'ante la pregunta explícita sí corresponde');
+  const nooc = await ejecutarCaso(caso([{ tipo: 'no_ofrece_nooc' }]), bot([{ respuesta: 'Tenemos cursos cortos gratis, el certificado cuesta USD 20.' }]));
+  assert.equal(nooc.ok, false);
+  const declina = await ejecutarCaso(caso([{ tipo: 'no_ofrece_nooc' }]), bot([{ respuesta: 'Los cursos gratuitos no forman parte de la oferta de este canal.' }]));
+  assert.equal(declina.ok, true, 'declinar no es ofrecer');
+  const brochure = await ejecutarCaso(
+    caso([{ tipo: 'brochure_verificado' }]),
+    bot([{ respuesta: 'Aquí tiene el brochure: https://uachile.bitrix24.es/doc/x', tools: [{ name: 'detalle_programa' }] }]),
+  );
+  assert.equal(brochure.ok, false, 'un enlace del catálogo sin verificar no vale');
+  const verificado = await ejecutarCaso(
+    caso([{ tipo: 'brochure_verificado' }]),
+    bot([
+      {
+        respuesta: 'Aquí tiene el brochure: https://uachile.bitrix24.es/doc/x',
+        tools: [{ name: 'obtener_brochure', resultado: { ok: true, url: 'https://uachile.bitrix24.es/doc/x' } }],
+      },
+    ]),
+  );
+  assert.equal(verificado.ok, true);
+});
+
+test('identidad_coherente: siendo el asesor, remitir a "un asesor" es incoherente (caso R09)', async () => {
+  const r = await ejecutarCaso(
+    caso([{ tipo: 'identidad_coherente', nombre: 'Ignacio Ribera' }]),
+    bot([{ respuesta: 'Para descuentos por dos maestrías, eso es algo que tendría que confirmarle un asesor.' }]),
+  );
+  assert.equal(r.ok, false);
+  const bien = await ejecutarCaso(
+    caso([{ tipo: 'identidad_coherente', nombre: 'Ignacio Ribera' }]),
+    bot([{ respuesta: 'Lo confirmo con el área de admisiones y le respondo por acá.' }]),
+  );
+  assert.equal(bien.ok, true, bien.fallas.join('; '));
+});
+
+test('no_afirma_registro_fallido atrapa "Quedé con sus datos anotados"', async () => {
+  const r = await ejecutarCaso(
+    caso([{ tipo: 'no_afirma_registro_fallido' }]),
+    bot([{ respuesta: 'Quedé con sus datos anotados para darle seguimiento.', tools: [{ name: 'registrar_interes_crm', resultado: { ok: false } }] }]),
+  );
+  assert.equal(r.ok, false);
+});

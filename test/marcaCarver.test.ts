@@ -57,7 +57,11 @@ test('marca=carver: el prompt cotiza con la planilla y protege las reglas de las
   assert.match(SYSTEM_PROMPT, /consultar_condiciones_comerciales/);
   assert.match(SYSTEM_PROMPT, /NUNCA les restes otro 50%/);
   assert.match(SYSTEM_PROMPT, /ÚNICA forma de pago que cobra matrícula/);
-  assert.match(SYSTEM_PROMPT, /CURSOS CORTOS: son GRATIS/);
+  // Hallazgo 6 (auditoría oct-2026): los NOOCs dejaron de ofrecerse como "cursos gratis".
+  assert.match(SYSTEM_PROMPT, /CURSOS CORTOS \(NOOCs y educación continua\): NO forman parte de la oferta/);
+  assert.doesNotMatch(SYSTEM_PROMPT, /CURSOS CORTOS: son GRATIS/);
+  // Hallazgo 5: los costos fuera del arancel ya no se mencionan "si preguntan por el total".
+  assert.match(SYSTEM_PROMPT, /NO los menciones por iniciativa propia/);
 });
 
 // La cotización real, contra la planilla validada: los números deben calzar con los que la asesora
@@ -76,15 +80,19 @@ test('marca=carver: cotiza Licenciatura en Psicología con las cifras de la plan
   assert.equal(r.formasDePago.contado.porAnio, 585);
   assert.equal(r.formasDePago.contado.total, 2340);
   assert.equal(r.formasDePago.contado.matricula, 0, 'contado NO cobra matrícula');
-  assert.equal(r.costosAdicionales.titulacionUsd, 125);
+  // Hallazgo 5: sin pregunta explícita, la cotización no trae los costos fuera del arancel.
+  assert.equal(r.costosAdicionales, undefined, 'el fee de titulación no viaja en una cotización normal');
+  const conCostos: any = buscarCondicionesCarver('Licenciatura en Psicología', { incluirCostosAdicionales: true });
+  assert.equal(conCostos.costosAdicionales.titulacionUsd, 125, 'ante la pregunta explícita, la cifra es la validada');
 });
 
-test('marca=carver: los cursos cortos son gratis, con certificado de USD 20', async () => {
+test('marca=carver: un NOOC no se cotiza (ni el certificado): no forma parte de la oferta', async () => {
+  // Hallazgo 6. Antes devolvía "gratis, certificado USD 20" y el bot lo ofrecía.
   const { buscarCondicionesCarver } = await import('../src/core/condicionesCarver');
   const r: any = buscarCondicionesCarver('Hacking ético');
-  assert.equal(r.gratis, true);
-  assert.equal(r.certificadoUsd, 20);
-  assert.doesNotMatch(JSON.stringify(r), /arancelLista/);
+  assert.equal(r.comercializable, false);
+  assert.equal(r.gratis, undefined);
+  assert.doesNotMatch(JSON.stringify(r), /certificado|arancelLista/i);
 });
 
 // Cupos completos: SÍ se cotiza, porque la persona necesita el valor para decidir si espera a marzo
@@ -128,7 +136,8 @@ test('marca=carver: el detalle de un programa trae requisitos y modalidad, pero 
 test('marca=carver: cada tipo del esquema de consultar_programas existe de verdad en el catálogo', async () => {
   const t: any = tools.find((x: any) => x.name === 'consultar_programas');
   const tipos: string[] = t.input_schema.properties.tipo.enum;
-  assert.deepEqual(tipos, ['licenciatura', 'maestria', 'curso'], 'el enum es el de Carver, no el de Postgrados');
+  // Sin "curso": lo que el esquema no ofrece, el modelo no lo puede buscar ni ofrecer (hallazgo 6).
+  assert.deepEqual(tipos, ['licenciatura', 'maestria'], 'el enum es el de la oferta comercial de Carver');
   for (const tipo of tipos) {
     assert.ok(buscarProgramas({ tipo }).length > 0, `el tipo "${tipo}" del esquema no devuelve ningún programa`);
   }
@@ -344,11 +353,17 @@ test('marca=carver: el prompt prohíbe enumerar catálogos completos', () => {
 // cada mensaje. Preguntar lo que ya se sabe desgasta y resta credibilidad.
 test('el bot no vuelve a pedir los datos que el CRM ya tiene', async () => {
   const { bloqueDatosConocidos } = await import('../src/ai/agentLoop');
-  const b = bloqueDatosConocidos({ nombre: 'Andrea García', email: 'andrea@correo.cl' });
+  const b = bloqueDatosConocidos({ nombre: 'Andrea García', email: 'andrea@correo.cl', telefono: '+56 9 8765 4321' });
   assert.match(b, /nombre: Andrea García/);
-  assert.match(b, /andrea@correo\.cl/);
+  // Hallazgo 4: se confirma, no se vuelve a pedir; y va enmascarado por si el chat quedó enlazado a
+  // la ficha de otra persona.
+  assert.match(b, /a\*\*\*@correo\.cl/);
+  assert.doesNotMatch(b, /andrea@correo\.cl/, 'el correo completo no se recita');
+  assert.match(b, /terminado en 4321/);
   assert.match(b, /NO se los vuelvas a pedir/);
-  assert.match(b, /pide ÚNICAMENTE los que falten/);
+  assert.match(b, /CONFÍRMALO en una sola/);
+  assert.match(b, /NUNCA retrasa una derivación/, 'confirmar no puede demorar a quien pidió que lo contacten (regresión R06)');
+  assert.match(b, /el que da ahora es el vigente/, 'la contradicción se resuelve a favor del dato nuevo');
   assert.equal(bloqueDatosConocidos({}), '', 'sin datos conocidos no agrega nada al prompt');
 });
 

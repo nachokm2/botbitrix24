@@ -1,0 +1,56 @@
+{
+  "_descripcion": "Base de conocimiento comercial de Carver University que el bot puede consultar con la herramienta consultar_informacion_institucional. Solo se entrega lo que tenga estado 'validado', esté vigente y no se contradiga. Lo demás se trata como dato faltante: el bot NO lo inventa y ofrece que el asesor lo confirme.",
+  "_comoActualizar": "Completar 'entradas' con los campos obligatorios del tema, indicar 'fuente' (documento o persona que lo entrega), 'responsable' (quién lo mantiene), 'vigenteHasta' (YYYY-MM-DD) y 'actualizado' (YYYY-MM-DD), y recién entonces cambiar 'estado' a 'validado'. Validar con: npx tsx scripts/verificar-conocimiento.ts",
+  "temas": {
+    "calendario_ingresos": {
+      "titulo": "Calendario de ingresos por ciclo",
+      "estado": "pendiente",
+      "fuente": null,
+      "responsable": null,
+      "vigenteHasta": null,
+      "actualizado": null,
+      "formato": "Una entrada por ciclo y programa (o 'todos').",
+      "camposObligatorios": ["ciclo", "programa", "inicioClases", "cierrePostulacion"],
+      "entradas": []
+    },
+    "argumentos_venta": {
+      "titulo": "Argumentos de venta y atributos de Carver",
+      "estado": "en_uso_sin_validacion_formal",
+      "fuente": "Conversaciones reales de asesoras con clientes, transcritas al prompt (src/core/promptObjeciones.ts, bloque CONOCIMIENTO_CARVER). No hay un documento institucional que los respalde.",
+      "responsable": null,
+      "vigenteHasta": null,
+      "actualizado": "2026-10-13",
+      "formato": "Un argumento por entrada.",
+      "camposObligatorios": ["argumento", "detalle"],
+      "entradas": [
+        { "argumento": "Licencia para operar", "detalle": "Opera bajo licencia del Florida Department of Education, Commission for Independent Education (CIE), licencia N.º 12743. No es acreditación." },
+        { "argumento": "Títulos apostillados", "detalle": "Título y registro de calificaciones con Apostilla de La Haya, en digital; en físico a pedido." },
+        { "argumento": "Modalidad", "detalle": "100% en línea, con clases en vivo en español." },
+        { "argumento": "Acompañamiento", "detalle": "Asesor académico, clases con docentes y biblioteca disponible 24/7." },
+        { "argumento": "Beca", "detalle": "Beca George Washington Carver Grant del 50% en licenciaturas y maestrías (planilla comercial validada)." }
+      ]
+    },
+    "enlace_postulacion": {
+      "titulo": "Enlace oficial de postulación del agente de ventas",
+      "estado": "pendiente",
+      "fuente": null,
+      "responsable": null,
+      "vigenteHasta": null,
+      "actualizado": null,
+      "formato": "Una entrada por asesor de ventas (ID de usuario de Bitrix24) con su enlace oficial de postulación.",
+      "camposObligatorios": ["asesorId", "asesor", "url"],
+      "entradas": []
+    },
+    "proceso_admision": {
+      "titulo": "Proceso de admisión y matrícula",
+      "estado": "pendiente",
+      "fuente": null,
+      "responsable": null,
+      "vigenteHasta": null,
+      "actualizado": null,
+      "formato": "Un paso por entrada, en orden.",
+      "camposObligatorios": ["paso", "descripcion"],
+      "entradas": []
+    }
+  }
+}

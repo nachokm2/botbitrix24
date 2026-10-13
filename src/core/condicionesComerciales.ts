@@ -183,10 +183,10 @@ function cotizacion(p: ProgramaComercial) {
  * Si el programa no cotiza (PAUSA/SUSPENDIDO/nuevo/bloqueado) → devuelve el motivo y guion de derivación.
  * Sin `programa` → devuelve las reglas generales de financiamiento (Toku) para explicarlas.
  */
-export function buscarCondiciones(programa?: string, sede?: string) {
+export function buscarCondiciones(programa?: string, sede?: string, opts: { incluirCostosAdicionales?: boolean } = {}) {
   // Carver cotiza con su propia planilla y su propia estructura (tres formas de pago, beca del 50%,
   // matrícula solo en mensualidades). Se delega acá para no duplicar la tool ni tocar a sus llamadores.
-  if (marca.key === 'carver') return buscarCondicionesCarver(programa);
+  if (marca.key === 'carver') return buscarCondicionesCarver(programa, opts);
   if (!programa || !programa.trim()) {
     return {
       encontrado: false as const,

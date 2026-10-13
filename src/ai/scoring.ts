@@ -15,6 +15,10 @@ import { primaryEntity, type CrmEntities } from '../crm/entities';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { generarBriefing } from './briefing';
 import { callBitrix } from '../bitrix/client';
+import { marca } from '../marca';
+import { once } from '../store/kv';
+import { marcarTraspaso } from '../session';
+import { derivarAResponsableFijo } from '../crm/asignacionAsesores';
 import { config } from '../config';
 import { inc, recordTokens } from '../obs/metrics';
 import { audit } from '../obs/audit';
@@ -27,9 +31,15 @@ export type ScoringCtx = {
   botId: number;
   crmEntities: CrmEntities;
   auth: Auth;
+  /** Sesión de Open Lines del turno, para recordar el traspaso mientras dure (ver session.ts). */
+  sesionOpenLines?: string | null;
 };
 
-const SCORING_SYSTEM = `Eres un evaluador de leads comerciales para programas de postgrado de la Universidad Autónoma de Chile.
+// La organización sale de la marca: el evaluador de Carver se presentaba como de la Universidad
+// Autónoma de Chile (en Postgrados el texto queda igual).
+const ORGANIZACION_SCORING =
+  marca.key === 'postgrados' ? 'programas de postgrado de la Universidad Autónoma de Chile' : `programas de ${marca.organizacion}`;
+const SCORING_SYSTEM = `Eres un evaluador de leads comerciales para ${ORGANIZACION_SCORING}.
 Analiza la conversación y devuelve SOLO un JSON (sin texto adicional, sin markdown) con esta forma exacta:
 {"score": <entero 0-100>, "intencion": "alta|media|baja", "sentimiento": "positivo|neutral|negativo", "justificacion": "<1 frase>"}
 El "score" estima la calidad/probabilidad de matrícula del lead. Considera: claridad del interés en un programa concreto,
@@ -151,7 +161,7 @@ export function autoEscalarPorScore(opts: {
  * según el puntaje y auto-escala a un asesor si el score es alto.
  */
 export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
-  const { dialogId, chatId, botId, crmEntities, auth } = ctx;
+  const { dialogId, chatId, botId, crmEntities, auth, sesionOpenLines } = ctx;
   const history = await getHistory(dialogId);
   const evalData = await evaluarLead(history);
   if (!evalData) return;
@@ -246,21 +256,40 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
       humanTookOver: sess.humanTookOver,
       chatId,
     }) &&
-    !(await capturaDeDatosEnCurso(crmEntities, auth))
+    !(await capturaDeDatosEnCurso(crmEntities, auth)) &&
+    // UNA vez por conversación, aunque el traspaso falle o el estado en memoria venza (6 h). Antes la
+    // marca se guardaba solo si el traspaso funcionaba: cuando Bitrix lo rechazaba ("Operator is not
+    // a bot", porque ya atendía una persona), el mensaje fijo se repetía en cada turno con score
+    // alto — cuatro veces en una misma conversación del piloto de Carver (hallazgo 11).
+    (await once(`autoescalado:${dialogId}`, 7 * 24 * 3600))
   ) {
+    sess.escalatedByScore = true;
     try {
-      await callBitrix(
-        'imbot.message.add',
-        {
-          BOT_ID: botId,
-          DIALOG_ID: dialogId,
-          MESSAGE: 'Por tu interés, te conecto con un asesor que resolverá tus dudas y te guiará en la postulación. 🙌',
-        },
-        auth,
-      );
-      await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: chatId }, auth);
-      sess.escalatedByScore = true;
+      if (marca.sePresentaComoAsesor) {
+        // El bot habla COMO el asesor: anunciar "te conecto con un asesor" contradice su identidad (y
+        // tuteaba). Se deriva sin anunciarlo, por el mismo camino que una derivación explícita.
+        await derivarAResponsableFijo(crmEntities, auth);
+      } else {
+        await callBitrix(
+          'imbot.message.add',
+          {
+            BOT_ID: botId,
+            DIALOG_ID: dialogId,
+            MESSAGE: 'Por tu interés, te conecto con un asesor que resolverá tus dudas y te guiará en la postulación. 🙌',
+          },
+          auth,
+        );
+      }
+      try {
+        await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: chatId }, auth);
+      } catch (e) {
+        // "Operator is not a bot": la sesión ya la atiende una persona. No es una falla del traspaso:
+        // es la confirmación de que el bot no debe seguir hablando en esta sesión.
+        if (!/not a bot/i.test(String(e))) throw e;
+        log.info('auto-escalación: la sesión ya la atiende una persona', { dialogId });
+      }
       sess.humanTookOver = true; // el bot deja de responder; atiende el asesor
+      if (marca.traspasoPorSesion) await marcarTraspaso(dialogId, sesionOpenLines ?? null, 'auto_escalado');
 
       // Resumen del lead para el asesor (una sola vez).
       if (!sess.briefingDone) {

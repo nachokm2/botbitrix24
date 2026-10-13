@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { equivalencias } from './tipoCambio';
+import { esTipoComercializable, MENSAJE_NO_COMERCIALIZABLE } from './oferta';
 
 // Planilla comercial de Carver, validada con la dirección. La genera scripts/build-carver-precios.ts
 // desde data/carver/precios-carver.csv — ver ese script antes de tocar nada acá.
@@ -52,17 +53,27 @@ export function matchProgramaCarver(nombre: string): ProgramaCarver[] {
   return palabras.length ? DATA.programas.filter((p) => palabras.every((w) => norm(p.nombre).includes(w))) : [];
 }
 
-/** Condiciones comerciales de UN programa de Carver, en cifras y no en prosa. */
-export function buscarCondicionesCarver(programa?: string) {
+/** Condiciones comerciales de UN programa de Carver, en cifras y no en prosa.
+ *
+ *  `incluirCostosAdicionales` lo decide el código según lo que preguntó el cliente (ver
+ *  core/guardRespuesta.ts:preguntaPorCostosAdicionales), no el modelo. Antes los costos que no están
+ *  en el arancel venían en TODA cotización, y el modelo terminaba nombrando el fee de titulación
+ *  (USD 125) en cada respuesta de precio aunque nadie lo hubiera preguntado (hallazgo 5). */
+export function buscarCondicionesCarver(programa?: string, opts: { incluirCostosAdicionales?: boolean } = {}) {
   if (!programa || !programa.trim()) {
     return {
       encontrado: false as const,
       general: true as const,
       moneda: 'USD',
-      nota: 'Para dar el valor exacto necesito el programa. Los cursos cortos son gratis (certificado USD 20); las licenciaturas y maestrías tienen beca del 50% y tres formas de pago.',
+      nota: 'Para dar el valor exacto necesito el programa. Las licenciaturas y maestrías tienen beca del 50% y tres formas de pago.',
     };
   }
-  const matches = matchProgramaCarver(programa);
+  // Fuera de la oferta autorizada (NOOCs y cursos): no se cotiza, ni siquiera el certificado.
+  const todos = matchProgramaCarver(programa);
+  const matches = todos.filter((p) => esTipoComercializable(p.tipo));
+  if (todos.length > 0 && matches.length === 0) {
+    return { encontrado: true as const, programa: todos[0].nombre, comercializable: false as const, nota: MENSAJE_NO_COMERCIALIZABLE };
+  }
   if (matches.length === 0) {
     return { encontrado: false as const, mensaje: 'No encuentro ese programa en la planilla de Carver. Ofrece derivar a un asesor.' };
   }
@@ -142,7 +153,14 @@ export function buscarCondicionesCarver(programa?: string) {
           }
         : undefined,
     },
-    costosAdicionales: COSTOS_ADICIONALES_CARVER,
+    // Solo si la persona preguntó explícitamente por costos fuera del arancel (titulación, total…).
+    ...(opts.incluirCostosAdicionales
+      ? {
+          costosAdicionales: COSTOS_ADICIONALES_CARVER,
+          nota_costos:
+            'La persona preguntó por costos fuera del arancel: responde SOLO lo que preguntó (si fue la titulación, solo la titulación).',
+        }
+      : {}),
     // Equivalentes aproximados en la moneda de cada país. Una clienta colombiana preguntó por "la
     // beca de 2 millones de pesos" y recibió solo dólares: la gente piensa en su moneda. Si las
     // tasas no están disponibles viene null y el bot habla solo en dólares (ver core/tipoCambio.ts).

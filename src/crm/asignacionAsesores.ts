@@ -1,6 +1,7 @@
 import { callCrm } from '../bitrix/client';
 import { esEmbudoPropio, filtroEmbudosPropios } from './embudos';
 import { getUsuarios } from './directory';
+import { perteneceAlEquipo } from './equipo';
 import { audit } from '../obs/audit';
 import { config, type MarchaBlancaPrograma } from '../config';
 import { getRedisClient, once } from '../store/kv';
@@ -237,7 +238,9 @@ export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth)
     try {
       const r = await callCrm<Array<{ ID: string }>>(
         'crm.deal.list',
-        { filter: { CONTACT_ID: entities.contact }, select: ['ID'], order: { DATE_CREATE: 'DESC' } },
+        // Solo negociaciones de los embudos propios: sin el filtro se tomaba la más reciente de
+        // CUALQUIER embudo, se descubría que era ajena y la derivación terminaba en nada, en silencio.
+        { filter: { CONTACT_ID: entities.contact, ...filtroEmbudosPropios() }, select: ['ID'], order: { DATE_CREATE: 'DESC' } },
         auth,
       );
       const hallado = Array.isArray(r) ? r[0] : undefined;
@@ -256,30 +259,64 @@ export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth)
   try {
     const d: any = await callCrm('crm.deal.get', { id: dealId, select: ['ASSIGNED_BY_ID', 'TITLE'] }, auth);
     const actual = Number(d?.ASSIGNED_BY_ID ?? 0);
+    const titulo = String(d?.TITLE ?? '');
     if (actual === destino) {
-      await crearTareaSeguimiento(dealId, destino, String(d?.TITLE ?? ''), auth);
+      await crearTareaSeguimiento(dealId, destino, titulo, auth);
+      await auditarDerivacion(dealId, 'tarea_al_punto_de_entrada', { asesor: destino });
       return true;
     }
 
     // Si ya hay un asesor de verdad a cargo, NO se le quita el lead: se le avisa con una tarea.
     // Quitárselo dejaba el embudo entero en manos del punto de entrada —165 negociaciones en una
     // sola persona— y le borraba el trabajo al que venía siguiendo el caso.
-    if (await esAsesorVigente(actual, auth)) {
-      await crearTareaSeguimiento(dealId, actual, String(d?.TITLE ?? ''), auth);
+    const vigencia = await vigenciaDelAsesor(actual, auth);
+    if (vigencia === 'vigente') {
+      await crearTareaSeguimiento(dealId, actual, titulo, auth);
+      await auditarDerivacion(dealId, 'tarea_al_asesor_vigente', { asesor: actual });
       log.info('derivarAResponsableFijo: la negociación ya tiene asesor; se le creó tarea en vez de reasignar', { dealId, asesor: actual });
       return true;
     }
 
-    // Sin asesor real (responsable por defecto, robot o alguien dado de baja): ahí sí entra el
-    // punto de entrada único, que para eso existe.
+    // Sin asesor que pueda atenderla (responsable por defecto, robot, alguien dado de baja o de OTRO
+    // equipo): ahí sí entra el punto de entrada único, que para eso existe. Solo se toca ESTA
+    // negociación, la que el cliente está conversando ahora: nada histórico se reasigna en bloque.
     await callCrm('crm.deal.update', { id: dealId, fields: { ASSIGNED_BY_ID: destino } }, auth);
-    await crearTareaSeguimiento(dealId, destino, String(d?.TITLE ?? ''), auth);
-    log.info('derivarAResponsableFijo: negociación sin asesor; asignada al punto de entrada', { dealId, destino, antes: actual });
+    await crearTareaSeguimiento(dealId, destino, titulo, auth);
+    // Trazabilidad en la propia ficha: quién la tenía y por qué cambió, para poder revertirlo.
+    await callCrm(
+      'crm.timeline.comment.add',
+      {
+        fields: {
+          ENTITY_ID: dealId,
+          ENTITY_TYPE: 'deal',
+          COMMENT:
+            `🔁 El asistente asignó esta negociación al punto de entrada (usuario ${destino}) al derivarla. ` +
+            `Responsable anterior: usuario ${actual || 'ninguno'} (${MOTIVO_TEXTO[vigencia]}).`,
+        },
+      },
+      auth,
+    ).catch((e) => log.warn('derivarAResponsableFijo: no se pudo dejar la nota de reasignación', { err: String(e), dealId }));
+    await auditarDerivacion(dealId, 'asignada_al_punto_de_entrada', { asesor: destino, antes: actual, motivo: vigencia });
+    log.info('derivarAResponsableFijo: negociación sin asesor válido; asignada al punto de entrada', { dealId, destino, antes: actual, motivo: vigencia });
     return true;
   } catch (e) {
     log.warn('derivarAResponsableFijo: no se pudo derivar', { err: String(e), dealId, destino });
     return false;
   }
+}
+
+type Vigencia = 'vigente' | 'sin_responsable' | 'automatico' | 'por_defecto' | 'inactivo' | 'otro_equipo';
+const MOTIVO_TEXTO: Record<Vigencia, string> = {
+  vigente: 'asesor vigente',
+  sin_responsable: 'sin responsable',
+  automatico: 'era una automatización, no una persona',
+  por_defecto: 'era el responsable por defecto del embudo',
+  inactivo: 'usuario dado de baja',
+  otro_equipo: 'no pertenece al equipo de esta marca',
+};
+
+async function auditarDerivacion(dealId: number, decision: string, detail: Record<string, unknown>): Promise<void> {
+  await audit({ type: 'derivacion', crmEntity: `deal#${dealId}`, detail: { decision, ...detail } }).catch(() => {});
 }
 
 /**
@@ -290,16 +327,20 @@ export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth)
  * nadie mira. Medido al limpiar Carver: 8 de los asesores que figuraban en el historial estaban
  * dados de baja, uno de ellos con 46 negociaciones.
  */
-async function esAsesorVigente(userId: number, auth: Auth): Promise<boolean> {
-  if (!userId) return false;
-  if (config.usuariosAutomaticos.includes(userId)) return false;
-  if (config.responsablesPorDefecto.includes(userId)) return false;
+async function vigenciaDelAsesor(userId: number, auth: Auth): Promise<Vigencia> {
+  if (!userId) return 'sin_responsable';
+  if (config.usuariosAutomaticos.includes(userId)) return 'automatico';
+  if (config.responsablesPorDefecto.includes(userId)) return 'por_defecto';
   try {
     const [u] = await getUsuarios([userId], auth);
-    return u?.activo !== false;
+    if (u?.activo === false) return 'inactivo';
+    // Activo pero de otro equipo: el portal es compartido, y una ficha enlazada al chat puede estar a
+    // cargo de un ejecutivo de Postgrados o IPG (hallazgo 9). Ese caso no es suyo.
+    if (u && !perteneceAlEquipo(u)) return 'otro_equipo';
+    return 'vigente';
   } catch {
     // Ante la duda se lo deja a quien lo tiene: equivocarse hacia "no tocar" es reversible.
-    return true;
+    return 'vigente';
   }
 }
 

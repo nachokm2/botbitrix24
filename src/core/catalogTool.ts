@@ -2,6 +2,8 @@ import { retrieve } from './retrieval';
 import { esProgramaCotizable } from './condicionesComerciales';
 import { getDetalle } from '../ai/detalles';
 import { marca } from '../marca';
+import { PROGRAMAS } from '../ai/catalog';
+import { esTipoComercializable, MENSAJE_NO_COMERCIALIZABLE } from './oferta';
 
 // Núcleo compartido de las herramientas de catálogo (M1 + M5). La BÚSQUEDA (retrieve, ver retrieval.ts)
 // y el DETALLE (getDetalle) son funciones compartidas; lo que estaba DUPLICADO —y divergía— era el "shaping"
@@ -32,7 +34,9 @@ export function consultarProgramas(input: any, p: ConsultarPresentation) {
   // cerrada, nuevos sin precio, bloqueados y lo que no está en la planilla comercial.
   // El filtro comercial solo aplica donde existe esa planilla (Postgrados). En otra marca dejaría
   // el catálogo en CERO: ninguno de sus programas figura en la planilla de Postgrados.
-  const encontrados = retrieve(input ?? {});
+  // Solo la oferta comercial autorizada: en Carver, los NOOCs y cursos de educación continua siguen
+  // en el catálogo (historia) pero no se ofrecen (hallazgo 6, ver core/oferta.ts).
+  const encontrados = retrieve(input ?? {}).filter((x) => esTipoComercializable(x.tipo));
   // Carver SÍ ofrece lo que tiene los cupos completos: son programas vigentes que reabren matrícula
   // en marzo de 2027, y esconderlos hacía perder interesados en los dos de mayor valor del catálogo
   // (las licenciaturas de USD 8.000). En vez de filtrarlos, se marcan: el bot los presenta y avisa
@@ -82,9 +86,18 @@ const NOTA_PRECIO =
   'Para arancel, matrícula, descuento, total o cuotas usa consultar_condiciones_comerciales (trae el precio ' +
   'con descuento real). No cotices con estos datos: el arancel de lista quedó fuera a propósito.';
 
+const NOTA_BROCHURE =
+  'Si piden el brochure o el programa en PDF, usa obtener_brochure: es la única fuente de enlaces de brochure.';
+
 /** detalle_programa unificado: busca el detalle y lo presenta completo (chat) o reducido para voz. Sin precio. */
 export function detallePrograma(input: any, shape: DetalleShape) {
   const d = getDetalle({ url: input?.url, nombre: input?.nombre });
+
+  // Un programa fuera de la oferta autorizada no se detalla: detallarlo es empezar a venderlo.
+  const tipo = d ? PROGRAMAS.find((p) => p.url === d.url || p.nombre === d.nombre)?.tipo : undefined;
+  if (d && tipo && !esTipoComercializable(tipo)) {
+    return { ok: false, error: 'NO_COMERCIALIZABLE', programa: d.nombre, mensaje: MENSAJE_NO_COMERCIALIZABLE };
+  }
 
   if (shape === 'full') {
     if (!d) {
@@ -98,6 +111,12 @@ export function detallePrograma(input: any, shape: DetalleShape) {
     const detalleSinPrecio: Record<string, unknown> = { ...d };
     delete detalleSinPrecio.arancel; // el precio va por consultar_condiciones_comerciales
     delete detalleSinPrecio.matricula;
+    if (marca.brochureVerificado) {
+      // El enlace del catálogo se entregaba tal cual, sin comprobar nada (hallazgo 2). El brochure
+      // sale solo de obtener_brochure, que lo verifica antes.
+      delete detalleSinPrecio.brochureUrl;
+      return { ok: true, detalle: detalleSinPrecio, nota_precio: NOTA_PRECIO, nota_brochure: NOTA_BROCHURE };
+    }
     return { ok: true, detalle: detalleSinPrecio, nota_precio: NOTA_PRECIO };
   }
 

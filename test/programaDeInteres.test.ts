@@ -30,6 +30,9 @@ mock.module('../src/session.ts', {
       sesiones.set(id, s);
     },
     markHumanTakeover: async () => {},
+    marcarTraspaso: async () => {},
+    traspasoVigente: async () => null,
+    sesionOpenLines: () => null,
   },
 });
 

@@ -1,11 +1,21 @@
 import { callCrm } from '../bitrix/client';
+import { config } from '../config';
+import { esAsesorValido } from './equipo';
 import { log } from '../log';
 import type { Auth } from '../store';
 import type { BitrixDeal, BitrixUser } from '../bitrix/types';
 
 // Directorio CRM: lectura de negociaciones (deal) y resolución de usuarios/asesores de Bitrix.
 
-export type Responsable = { id: number; nombre: string; email?: string; telefono?: string; activo?: boolean };
+export type Responsable = {
+  id: number;
+  nombre: string;
+  email?: string;
+  telefono?: string;
+  activo?: boolean;
+  /** Departamentos de la estructura de Bitrix (UF_DEPARTMENT): define a qué equipo pertenece. */
+  departamentos?: number[];
+};
 
 export type DealInfo = {
   categoryId: number | null;
@@ -67,7 +77,14 @@ export async function getUsuarios(ids: number[], auth: Auth): Promise<Responsabl
       if (u && (u.NAME || u.LAST_NAME || u.EMAIL)) {
         const nombre = [u.NAME, u.LAST_NAME].filter(Boolean).join(' ').trim() || String(u.EMAIL) || `Usuario ${id}`;
         const email = Array.isArray(u.EMAIL) ? u.EMAIL?.[0]?.VALUE : u.EMAIL;
-        out.push({ id, nombre, email, telefono: u.PERSONAL_MOBILE || undefined, activo: u.ACTIVE !== false });
+        out.push({
+          id,
+          nombre,
+          email,
+          telefono: u.PERSONAL_MOBILE || undefined,
+          activo: u.ACTIVE !== false,
+          departamentos: toIdArray(u.UF_DEPARTMENT),
+        });
       } else {
         out.push({ id, nombre: `Usuario ${id}` });
       }
@@ -149,15 +166,25 @@ export async function getIdentidadAsesor(
   let valor: IdentidadAsesor | null = null;
   try {
     const r = await callCrm<any>(metodo[0], { id: metodo[1] }, auth);
+    // Una negociación de OTRO embudo (otra marca del mismo portal) no presta su responsable: el bot
+    // de Carver se presentaba con el nombre de un ejecutivo de Postgrados cuando Bitrix enlazaba el
+    // chat a una ficha vieja de esa persona.
+    const categoria = r?.CATEGORY_ID ?? r?.categoryId;
+    const embudoAjeno =
+      metodo[0] === 'crm.deal.get' &&
+      config.embudosPropios.length > 0 &&
+      !config.embudosPropios.includes(Number(categoria ?? -1));
     const asignado = Number(r?.ASSIGNED_BY_ID ?? r?.assignedById ?? 0);
-    if (!asignado) {
+    if (!asignado || embudoAjeno) {
       identidadCacheK.set(clave, { at: Date.now(), valor: null });
       return null;
     }
     const [u] = await getUsuarios([asignado], auth);
     // "Usuario 12345" es el relleno cuando Bitrix no devuelve el usuario: con eso el bot se
-    // presentaría como "Usuario 12345", que es peor que no presentarse con nombre.
-    if (u && !u.nombre.startsWith('Usuario ')) {
+    // presentaría como "Usuario 12345", que es peor que no presentarse con nombre. Y solo se adopta
+    // a quien de verdad puede atender: persona activa del equipo de la marca, no un robot ni el
+    // responsable por defecto del embudo (ver crm/equipo.ts).
+    if (u && !u.nombre.startsWith('Usuario ') && esAsesorValido(u)) {
       valor = { nombre: u.nombre, email: u.email, telefono: u.telefono };
     }
   } catch (e) {
@@ -198,15 +225,40 @@ export async function getDatosConocidos(contactId: number, auth: Auth): Promise<
   return valor;
 }
 
+const conocidosLeadCache = new Map<number, { at: number; valor: DatosConocidos }>();
+
+/** Nombre, correo y teléfono que ya figuran en un LEAD. */
+async function getDatosConocidosLead(leadId: number, auth: Auth): Promise<DatosConocidos> {
+  const previo = conocidosLeadCache.get(leadId);
+  if (previo && Date.now() - previo.at < IDENTIDAD_TTL_MS) return previo.valor;
+  let valor: DatosConocidos = {};
+  try {
+    const l = await callCrm<any>('crm.lead.get', { id: leadId }, auth);
+    const nombre = [l?.NAME, l?.LAST_NAME].filter(Boolean).join(' ').trim();
+    const email = Array.isArray(l?.EMAIL) ? l.EMAIL[0]?.VALUE : undefined;
+    const telefono = Array.isArray(l?.PHONE) ? l.PHONE[0]?.VALUE : undefined;
+    valor = { nombre: nombre || undefined, email, telefono };
+  } catch (e) {
+    log.warn('getDatosConocidosLead falló', { err: String(e), leadId });
+    return previo?.valor ?? {};
+  }
+  conocidosLeadCache.set(leadId, { at: Date.now(), valor });
+  return valor;
+}
+
 /** Igual que getDatosConocidos pero aceptando las entidades del chat: si no hay contacto vinculado
  *  —pasa cuando el chat solo trae la negociación— lo busca a través de ella. Sin esto el bot se
  *  quedaba sin los datos justo en las conversaciones que vienen de una campaña, que son las que SÍ
  *  tienen ficha creada. */
 export async function getDatosConocidosDeEntidades(
-  entidades: { contact?: number; deal?: number },
+  entidades: { contact?: number; deal?: number; lead?: number },
   auth: Auth,
 ): Promise<DatosConocidos> {
   if (entidades.contact) return getDatosConocidos(entidades.contact, auth);
+  // Un chat nuevo de WhatsApp suele entrar como LEAD sin contacto: el lead ya trae el teléfono de
+  // WhatsApp (y a veces nombre y correo de un formulario). Sin leerlo, el bot volvía a pedir datos
+  // que la ficha ya tenía.
+  if (!entidades.deal && entidades.lead && config.datosConocidosDesdeLead) return getDatosConocidosLead(entidades.lead, auth);
   if (!entidades.deal) return {};
   try {
     const d = await callCrm<any>('crm.deal.get', { id: entidades.deal }, auth);
