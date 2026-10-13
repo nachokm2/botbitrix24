@@ -68,7 +68,7 @@ test('cuenta derivados, tomados y pendientes por asesor', async () => {
     { dealId: 2, derivadoHace: 10, asignado: 100 }, // nunca tocado
     { dealId: 3, derivadoHace: 10, asignado: 200, movidoPor: 200, movidoHace: 4 }, // tomado a las 6 h
   ]);
-  const filas = await vistaPorAsesor(auth);
+  const { filas } = await vistaPorAsesor(auth);
 
   const a100 = filas.find((f) => f.id === 100)!;
   assert.equal(a100.derivados, 2);
@@ -88,14 +88,14 @@ test('ordena primero a quien tiene más casos sin trabajar', async () => {
     { dealId: 2, derivadoHace: 5, asignado: 200 },
     { dealId: 3, derivadoHace: 5, asignado: 200 },
   ]);
-  const filas = await vistaPorAsesor(auth);
+  const { filas } = await vistaPorAsesor(auth);
   assert.equal(filas[0].id, 200, 'la fila accionable va arriba');
 });
 
 test('el robot que barre a Remarketing no cuenta como que el asesor lo tomó', async () => {
   const robot = config.usuariosAutomaticos[0];
   escenario([{ dealId: 1, derivadoHace: 10, asignado: 100, movidoPor: robot, movidoHace: 2 }]);
-  const filas = await vistaPorAsesor(auth);
+  const { filas } = await vistaPorAsesor(auth);
   assert.equal(filas[0].atendidos, 0);
   assert.equal(filas[0].pendientes, 1);
 });
@@ -108,7 +108,7 @@ test('un movimiento en bloque tampoco cuenta como atención', async () => {
     { dealId: 2, derivadoHace: 100, asignado: 100, movidoPor: 777, movidoHace: 1, stage: 'C1:RMKT' },
     { dealId: 3, derivadoHace: 100, asignado: 100, movidoPor: 777, movidoHace: 1, stage: 'C1:RMKT' },
   ]);
-  const filas = await vistaPorAsesor(auth);
+  const { filas } = await vistaPorAsesor(auth);
   assert.equal(filas[0].atendidos, 0);
   assert.equal(filas[0].pendientes, 3);
 });
@@ -118,20 +118,20 @@ test('dos casos movidos el mismo día SÍ cuentan: no alcanza para ser un barrid
     { dealId: 1, derivadoHace: 10, asignado: 100, movidoPor: 100, movidoHace: 1, stage: 'C1:WON' },
     { dealId: 2, derivadoHace: 10, asignado: 100, movidoPor: 100, movidoHace: 1, stage: 'C1:WON' },
   ]);
-  const filas = await vistaPorAsesor(auth);
+  const { filas } = await vistaPorAsesor(auth);
   assert.equal(filas[0].atendidos, 2);
 });
 
 test('un movimiento anterior a la derivación no cuenta como respuesta a ella', async () => {
   escenario([{ dealId: 1, derivadoHace: 2, asignado: 100, movidoPor: 100, movidoHace: 20 }]);
-  const filas = await vistaPorAsesor(auth);
+  const { filas } = await vistaPorAsesor(auth);
   assert.equal(filas[0].atendidos, 0);
 });
 
 test('pide las negociaciones de a 50: una sola página perdía el resto', async () => {
   const filas = Array.from({ length: 120 }, (_, i) => ({ dealId: i + 1, derivadoHace: 5, asignado: 100 }));
   escenario(filas);
-  const r = await vistaPorAsesor(auth);
+  const { filas: r } = await vistaPorAsesor(auth);
   assert.equal(lotes.length, 3, '120 derivaciones = 3 páginas');
   assert.ok(lotes.every((l) => l.length <= 50));
   assert.equal(r[0].derivados, 120, 'ninguna se pierde');
@@ -139,5 +139,20 @@ test('pide las negociaciones de a 50: una sola página perdía el resto', async 
 
 test('sin derivaciones no inventa filas', async () => {
   escenario([]);
-  assert.deepEqual(await vistaPorAsesor(auth), []);
+  assert.deepEqual((await vistaPorAsesor(auth)).filas, []);
+});
+
+test('informa por qué llegó cada caso: es lo que explica el total', async () => {
+  // El total de esta tabla no coincide con la tarjeta "Escalamientos a asesor" porque ahí no entran
+  // las derivaciones por silencio. Sin el desglose, parecen dos números en conflicto.
+  escenario([
+    { dealId: 1, derivadoHace: 5, asignado: 100 },
+    { dealId: 2, derivadoHace: 5, asignado: 100 },
+    { dealId: 3, derivadoHace: 5, asignado: 200 },
+  ]);
+  derivaciones[0].motivo = 'pedido';
+  derivaciones[1].motivo = 'silencio';
+  derivaciones[2].motivo = 'silencio';
+  const { porMotivo } = await vistaPorAsesor(auth);
+  assert.deepEqual(porMotivo, { pedido: 1, silencio: 2 });
 });

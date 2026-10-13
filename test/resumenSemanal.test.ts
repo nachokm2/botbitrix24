@@ -23,7 +23,7 @@ mock.module('../src/store/db.ts', {
 });
 
 let asesores: any[] = [];
-mock.module('../src/crm/vistaAsesores.ts', { namedExports: { vistaPorAsesor: async () => asesores } });
+mock.module('../src/crm/vistaAsesores.ts', { namedExports: { vistaPorAsesor: async () => ({ filas: asesores, porMotivo: {} }) } });
 
 const notificaciones: any[] = [];
 mock.module('../src/bitrix/client.ts', {

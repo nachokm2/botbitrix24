@@ -27,9 +27,19 @@ export type FilaAsesor = {
 
 const LOTE = 50; // crm.deal.list devuelve como máximo 50 filas por página
 
-export async function vistaPorAsesor(auth: Auth, range = 'all'): Promise<FilaAsesor[]> {
+/** Filas por asesor + por qué llegó cada caso. El desglose por motivo existe porque el número de
+ *  esta tabla NO coincide con el de la tarjeta "Escalamientos a asesor", y la diferencia tiene
+ *  nombre: esa tarjeta cuenta solo lo que el bot derivó a propósito (el cliente lo pidió o lo
+ *  disparó el score) y acá entran además las derivaciones por falta de respuesta. Sin decirlo, dos
+ *  números que no cuadran parecen un error. */
+export type VistaAsesores = { filas: FilaAsesor[]; porMotivo: Record<string, number> };
+
+export async function vistaPorAsesor(auth: Auth, range = 'all'): Promise<VistaAsesores> {
+  const vacio: VistaAsesores = { filas: [], porMotivo: {} };
   const derivaciones = await dbDerivaciones(range);
-  if (!derivaciones.length) return [];
+  if (!derivaciones.length) return vacio;
+  const porMotivo: Record<string, number> = {};
+  for (const d of derivaciones) porMotivo[d.motivo] = (porMotivo[d.motivo] ?? 0) + 1;
 
   // Un deal puede aparecer una sola vez (la consulta ya agrupa por entidad), así que el set de IDs
   // es el de derivaciones. Se piden de a 50: pedirlos todos juntos devuelve solo la primera página
@@ -51,7 +61,7 @@ export async function vistaPorAsesor(auth: Auth, range = 'all'): Promise<FilaAse
       log.warn('vistaPorAsesor: crm.deal.list falló para un lote', { err: String(e) });
     }
   }
-  if (!dealsPorId.size) return [];
+  if (!dealsPorId.size) return vacio;
 
   const automaticos = new Set(config.usuariosAutomaticos);
   const enBarrido = detectarBarridosEnBloque(ids, dealsPorId);
@@ -85,7 +95,7 @@ export async function vistaPorAsesor(auth: Auth, range = 'all'): Promise<FilaAse
 
     porAsesor.set(asesor, acum);
   }
-  if (!porAsesor.size) return [];
+  if (!porAsesor.size) return { filas: [], porMotivo };
 
   const nombres = new Map<number, string>();
   try {
@@ -94,7 +104,7 @@ export async function vistaPorAsesor(auth: Auth, range = 'all'): Promise<FilaAse
     log.warn('vistaPorAsesor: no se pudieron resolver los nombres', { err: String(e) });
   }
 
-  return [...porAsesor.entries()]
+  const filas = [...porAsesor.entries()]
     .map(([id, a]): FilaAsesor => {
       const esperas = a.esperas.sort((x, y) => x - y);
       return {
@@ -109,4 +119,5 @@ export async function vistaPorAsesor(auth: Auth, range = 'all'): Promise<FilaAse
     })
     // Primero quien tiene más casos sin trabajar: es la fila sobre la que hay algo que hacer.
     .sort((x, y) => y.pendientes - x.pendientes || y.derivados - x.derivados);
+  return { filas, porMotivo };
 }

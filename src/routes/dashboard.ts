@@ -7,7 +7,7 @@ import { kvKind } from '../store/kv';
 import { getState } from '../store';
 import { getUsuarios } from '../crm/directory';
 import { bitrixMarchaBlancaScorecard, resolverDialogosPorProgramaPiloto, type ProgramaScorecard } from '../crm/marchaBlanca';
-import { vistaPorAsesor, type FilaAsesor } from '../crm/vistaAsesores';
+import { vistaPorAsesor, type VistaAsesores } from '../crm/vistaAsesores';
 import { config } from '../config';
 import { marca } from '../marca';
 
@@ -46,7 +46,7 @@ const MARCHA_BLANCA_TTL_MS = 3 * 60 * 1000;
 
 // La vista por asesor también consulta Bitrix en lote (una página de crm.deal.list por cada 50
 // derivaciones), así que se cachea igual: el panel se refresca cada 15 s y esto cambia por hora.
-let asesoresCache: { at: number; range: string; data: FilaAsesor[] } | null = null;
+let asesoresCache: { at: number; range: string; data: VistaAsesores } | null = null;
 
 /** JSON con métricas de negocio (persistentes) + técnicas (en memoria) + actividad reciente. */
 export async function metricsSummary(req: Request, res: Response) {
@@ -169,7 +169,7 @@ export async function metricsSummary(req: Request, res: Response) {
 
   // Vista por asesor: a quién le entregó el bot cada caso y qué hizo con él. Responde la pregunta
   // que el agregado deja abierta — 4 de 38 derivaciones trabajadas no dice a quién hay que ayudar.
-  let asesores: FilaAsesor[] = [];
+  let asesores: VistaAsesores = { filas: [], porMotivo: {} };
   if (st.auth) {
     if (asesoresCache && asesoresCache.range === range && Date.now() - asesoresCache.at < MARCHA_BLANCA_TTL_MS) {
       asesores = asesoresCache.data;
@@ -178,7 +178,7 @@ export async function metricsSummary(req: Request, res: Response) {
         asesores = await vistaPorAsesor(st.auth, range);
         asesoresCache = { at: Date.now(), range, data: asesores };
       } catch {
-        asesores = asesoresCache?.range === range ? asesoresCache.data : [];
+        asesores = asesoresCache?.range === range ? asesoresCache.data : { filas: [], porMotivo: {} };
       }
     }
   }

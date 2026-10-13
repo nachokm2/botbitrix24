@@ -196,7 +196,7 @@ function render(d){
 
   // Seguimiento por asesor: qué hizo cada persona con lo que el bot le entregó. El bloque de arriba
   // ("Por asesor responsable") mide volumen de conversaciones; esto mide si el caso se trabajó.
-  var segAs = d.asesores || []; var segEl = document.getElementById('seguimientoasesor');
+  var segData = d.asesores || {}; var segAs = segData.filas || []; var segEl = document.getElementById('seguimientoasesor');
   var segSec = document.getElementById('secSeguimientoAsesor');
   if (segAs.length) {
     if (segSec) segSec.style.display = '';
@@ -218,9 +218,17 @@ function render(d){
     segEl.innerHTML = sthead+stbody;
     var totD = segAs.reduce(function(x,a){return x+a.derivados;},0);
     var totP = segAs.reduce(function(x,a){return x+a.pendientes;},0);
+    // El desglose por motivo explica por qué este total NO coincide con la tarjeta "Escalamientos a
+    // asesor": esa cuenta solo lo que el bot derivó a propósito, acá entra además el silencio.
+    var m = segData.porMotivo || {};
+    var partes = [];
+    if (m.pedido) partes.push(m.pedido+' porque el cliente pidió un asesor');
+    if (m.score) partes.push(m.score+' por score alto');
+    if (m.silencio) partes.push(m.silencio+' por falta de respuesta del cliente');
     document.getElementById('seguimientoasesornota').textContent =
-      totP ? (totP+' de '+totD+' casos derivados siguen sin que nadie los trabaje en el CRM.')
-           : ('Los '+totD+' casos derivados fueron trabajados.');
+      (totP ? (totP+' de '+totD+' casos derivados siguen sin que nadie los trabaje en el CRM.')
+            : ('Los '+totD+' casos derivados fueron trabajados.'))
+      + (partes.length ? ' Del total: '+partes.join(', ')+'.' : '');
   } else if (segSec) segSec.style.display = 'none';
 
   // Conversión del bot

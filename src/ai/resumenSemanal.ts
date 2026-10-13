@@ -89,7 +89,7 @@ export async function enviarResumenSemanal(): Promise<string | null> {
   const [agg, hallazgos, asesores] = await Promise.all([
     dbMetricsSummary('7d'),
     dbHallazgosRecientes(100),
-    vistaPorAsesor(st.auth, '7d').catch(() => []),
+    vistaPorAsesor(st.auth, '7d').catch(() => ({ filas: [], porMotivo: {} })),
   ]);
   if (!agg) return null;
 
@@ -98,7 +98,7 @@ export async function enviarResumenSemanal(): Promise<string | null> {
     capturaConvs: agg.capturaConvs ?? 0,
     escalConvs: agg.escalConvs ?? 0,
     errores: agg.errores ?? 0,
-    pendientesPorAsesor: asesores.map((a) => ({ nombre: a.nombre, pendientes: a.pendientes })),
+    pendientesPorAsesor: asesores.filas.map((a) => ({ nombre: a.nombre, pendientes: a.pendientes })),
     hallazgosGraves: hallazgos.filter((h: any) => h.gravedad === 'alta').length,
     topProgramas: agg.topProgramas ?? [],
   });
