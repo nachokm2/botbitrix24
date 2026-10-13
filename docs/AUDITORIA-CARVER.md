@@ -226,7 +226,28 @@ del caso.
 
 ## 11. Despliegue y verificación
 
-{{DESPLIEGUE}}
+**Controles críticos previos (todos aprobados el 2026-10-13):** tipos sin errores; 522/522 tests;
+regresión de referencia 12/12; brochures 16/16; huella de Postgrados idéntica; arranque en frío con
+`MARCA=carver` y `/health` OK; diff revisado (sin secretos y sin archivos ajenos: quedaron fuera
+`data/carver/precios-*.json` y `prompt-sofia-*.txt`); rama sincronizada con `origin/main`; sin
+migraciones; recuperación verificada (despliegues anteriores con `canRollback: true`); ninguna prueba
+dejó operaciones reales pendientes.
+
+**Despliegue:** commit `add3167` en `main` (rama `auditoria-carver-2026-10`, fusión fast-forward). Railway
+desplegó los dos servicios:
+
+| Servicio | Despliegue | Estado | `/health` | Arranque |
+|---|---|---|---|---|
+| `botcarver` (Carver) | `829430d7` | SUCCESS | `ok`, Redis persistente | Postgres conectado; seguimiento con `segundoHoras: 10`; recibe tráfico |
+| `botbitrix24` (Postgrados) | `58f8aea9` | SUCCESS | `ok`, Redis persistente | Postgres conectado; seguimiento con `segundoHoras: 0` (su comportamiento real anterior) |
+
+**Verificación posterior:** primeros eventos reales en Carver procesados sin errores (por ejemplo,
+mensajes de un operador humano detectados y el bot en silencio). La verificación de los flujos
+nuevos con conversaciones reales (guardián, brochure, estudiantes, traspaso por sesión) depende del
+tráfico que llegue y debe seguirse en los próximos días con las nuevas filas de auditoría:
+`guard_respuesta`, `brochure`, `bot_en_silencio`, `derivacion`, `seguimiento_omitido`,
+`seguimiento_respondido` y `conocimiento`. Hasta entonces, el estado de esos flujos es **probado en
+entorno aislado**, no **verificado en producción**.
 
 ## 12. Procedimiento de recuperación
 
