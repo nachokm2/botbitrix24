@@ -1,5 +1,7 @@
 import { callCrm } from '../bitrix/client';
 import { esEmbudoPropio, filtroEmbudosPropios } from './embudos';
+import { getUsuarios } from './directory';
+import { audit } from '../obs/audit';
 import { config, type MarchaBlancaPrograma } from '../config';
 import { getRedisClient, once } from '../store/kv';
 import { log } from '../log';
@@ -252,13 +254,80 @@ export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth)
   }
 
   try {
-    const d: any = await callCrm('crm.deal.get', { id: dealId, select: ['ASSIGNED_BY_ID'] }, auth);
-    if (Number(d?.ASSIGNED_BY_ID ?? 0) === destino) return true; // ya es suyo: nada que hacer
+    const d: any = await callCrm('crm.deal.get', { id: dealId, select: ['ASSIGNED_BY_ID', 'TITLE'] }, auth);
+    const actual = Number(d?.ASSIGNED_BY_ID ?? 0);
+    if (actual === destino) {
+      await crearTareaSeguimiento(dealId, destino, String(d?.TITLE ?? ''), auth);
+      return true;
+    }
+
+    // Si ya hay un asesor de verdad a cargo, NO se le quita el lead: se le avisa con una tarea.
+    // Quitárselo dejaba el embudo entero en manos del punto de entrada —165 negociaciones en una
+    // sola persona— y le borraba el trabajo al que venía siguiendo el caso.
+    if (await esAsesorVigente(actual, auth)) {
+      await crearTareaSeguimiento(dealId, actual, String(d?.TITLE ?? ''), auth);
+      log.info('derivarAResponsableFijo: la negociación ya tiene asesor; se le creó tarea en vez de reasignar', { dealId, asesor: actual });
+      return true;
+    }
+
+    // Sin asesor real (responsable por defecto, robot o alguien dado de baja): ahí sí entra el
+    // punto de entrada único, que para eso existe.
     await callCrm('crm.deal.update', { id: dealId, fields: { ASSIGNED_BY_ID: destino } }, auth);
-    log.info('derivarAResponsableFijo: negociación asignada', { dealId, destino });
+    await crearTareaSeguimiento(dealId, destino, String(d?.TITLE ?? ''), auth);
+    log.info('derivarAResponsableFijo: negociación sin asesor; asignada al punto de entrada', { dealId, destino, antes: actual });
     return true;
   } catch (e) {
-    log.warn('derivarAResponsableFijo: no se pudo asignar', { err: String(e), dealId, destino });
+    log.warn('derivarAResponsableFijo: no se pudo derivar', { err: String(e), dealId, destino });
     return false;
+  }
+}
+
+/**
+ * ¿El responsable actual es alguien que de verdad puede trabajar el caso?
+ *
+ * No basta con que el campo tenga un número. El responsable por defecto del embudo y los robots no
+ * son asesores, y alguien dado de baja tampoco: dejarle el lead sería mandarlo a un buzón donde
+ * nadie mira. Medido al limpiar Carver: 8 de los asesores que figuraban en el historial estaban
+ * dados de baja, uno de ellos con 46 negociaciones.
+ */
+async function esAsesorVigente(userId: number, auth: Auth): Promise<boolean> {
+  if (!userId) return false;
+  if (config.usuariosAutomaticos.includes(userId)) return false;
+  if (config.responsablesPorDefecto.includes(userId)) return false;
+  try {
+    const [u] = await getUsuarios([userId], auth);
+    return u?.activo !== false;
+  } catch {
+    // Ante la duda se lo deja a quien lo tiene: equivocarse hacia "no tocar" es reversible.
+    return true;
+  }
+}
+
+/** Tarea de seguimiento sobre la negociación, para el asesor que corresponda. Una por derivación:
+ *  si el cliente escribe tres veces en la tarde, el asesor no recibe tres tareas iguales. */
+async function crearTareaSeguimiento(dealId: number, asesorId: number, titulo: string, auth: Auth): Promise<void> {
+  if (!(await once(`tarea:derivacion:${dealId}:${asesorId}`, config.asignacionTareaHoras * 3600))) return;
+  const deadline = new Date(Date.now() + config.asignacionTareaHoras * 3600_000).toISOString();
+  try {
+    const t = await callCrm<BitrixTaskAddResult>(
+      'tasks.task.add',
+      {
+        fields: {
+          TITLE: `📞 Seguimiento — ${titulo || `Deal #${dealId}`}`,
+          DESCRIPTION:
+            'El asistente derivó esta conversación: el cliente pidió hablar con una persona o quedó en silencio tras mostrar interés.\n\n' +
+            `La negociación sigue siendo tuya. Contáctalo dentro de ${config.asignacionTareaHoras} horas, mientras el interés está fresco.`,
+          RESPONSIBLE_ID: asesorId,
+          DEADLINE: deadline,
+          PRIORITY: 2,
+          UF_CRM_TASK: [`D_${dealId}`],
+        },
+      },
+      auth,
+    );
+    await audit({ type: 'tarea_derivacion', crmEntity: `deal#${dealId}`, detail: { asesorId } });
+    log.info('tarea de seguimiento creada', { dealId, asesorId, taskId: (t as any)?.task?.id ?? (t as any)?.id });
+  } catch (e) {
+    log.warn('no se pudo crear la tarea de seguimiento', { err: String(e), dealId, asesorId });
   }
 }

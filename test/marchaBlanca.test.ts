@@ -61,6 +61,8 @@ mock.module('../src/store/db.ts', {
   namedExports: {
     dbDialogosConDeal: async () => dialogosConDeal,
     dbDialogosPorTextoPrograma: async (prog: { match: string }) => dialogosPorTexto[prog.match] ?? [],
+    // asignacionAsesores.ts audita la creación de tareas, y la auditoría escribe en db.
+    dbInsertAudit: async () => {},
   },
 });
 
