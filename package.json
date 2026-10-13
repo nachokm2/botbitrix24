@@ -13,6 +13,7 @@
     "regresion": "tsx scripts/regresion.ts",
     "primer-contacto": "tsx scripts/primer-contacto.ts",
     "chatapp-plantillas": "tsx scripts/chatapp-plantillas.ts",
+    "reasignar": "tsx scripts/reasignar-punto-entrada.ts",
     "test": "node --experimental-test-module-mocks --import tsx --test \"test/*.test.ts\""
   },
   "dependencies": {
