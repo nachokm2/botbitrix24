@@ -73,15 +73,17 @@ const TOOLS_CARVER = [
     name: 'consultar_informacion_institucional',
     description:
       'Información institucional VERIFICADA de Carver: calendario de ingresos por ciclo, argumentos de venta, ' +
-      'enlace oficial de postulación de su asesor, y proceso de admisión y matrícula. Úsala ANTES de responder ' +
-      'sobre fechas de inicio, cómo postular o los pasos de admisión. Si devuelve disponible=false, NO tienes ' +
-      'el dato: no lo inventes y sigue la instrucción que trae.',
+      'enlace oficial de postulación de su asesor, proceso de admisión y matrícula, y medios de pago oficiales. ' +
+      'Úsala ANTES de responder sobre fechas de inicio, cómo postular, los pasos de admisión o por dónde se paga. ' +
+      'Si devuelve disponible=false, NO tienes el dato: no lo inventes y sigue la instrucción que trae. En ' +
+      '"medios_de_pago", comparte ÚNICAMENTE el enlace que venga en "url"; si una entrada trae ' +
+      '"enlaceLoEnviaElAsesor", di que el asesor le envía ese enlace y NO pegues ninguno ni menciones montos.',
     input_schema: {
       type: 'object',
       properties: {
         tema: {
           type: 'string',
-          enum: ['calendario_ingresos', 'argumentos_venta', 'enlace_postulacion', 'proceso_admision'],
+          enum: ['calendario_ingresos', 'argumentos_venta', 'enlace_postulacion', 'proceso_admision', 'medios_de_pago'],
         },
       },
       required: ['tema'],

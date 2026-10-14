@@ -203,6 +203,32 @@
           "descripcion": "Se le asigna una consejera académica, que lo acompaña durante todo el programa."
         }
       ]
+    },
+    "medios_de_pago": {
+      "titulo": "Medios de pago oficiales",
+      "estado": "validado",
+      "fuente": "Medios_de_Pago_Carver_University.docx (dirección Carver)",
+      "responsable": "Dirección Carver University",
+      "vigenteHasta": "2027-07-05",
+      "actualizado": "2026-10-14",
+      "formato": "Un medio de pago por entrada. 'url' SOLO si es un portal sin monto asociado: una entrada con 'monto' nunca entrega enlace (ver medios_de_pago en src/core/conocimientoComercial.ts).",
+      "_porQueNoEstanLosEnlacesDePayPal": "El documento de la dirección trae seis enlaces de PayPal de importe fijo (50, 100, 150, 585 y 900 USD) pero NO dice qué monto corresponde a qué programa. Sin esa correspondencia el bot estaría adivinando con dinero de por medio, así que no se cargaron: el asesor envía el enlace que corresponde. Si algún día se carga la tabla, el código igual se niega a entregar un enlace con monto.",
+      "camposObligatorios": [
+        "medio",
+        "descripcion"
+      ],
+      "entradas": [
+        {
+          "medio": "Flywire",
+          "descripcion": "Plataforma internacional de pagos de Carver University. Se paga desde el portal oficial de la universidad, eligiendo el país; el monto se convierte a moneda local y se puede pagar con tarjeta de débito o crédito.",
+          "url": "https://carver.university/es/portal-de-pagos/"
+        },
+        {
+          "medio": "PayPal",
+          "descripcion": "Segundo medio oficial. El asesor envía el enlace de PayPal que corresponde al programa y al concepto (matrícula, abono inicial, arancel o pago al contado). IMPORTANTE: con PayPal se agrega el valor de la comisión que cobra PayPal, y eso se le debe indicar SIEMPRE a la persona antes de que pague.",
+          "montoDependeDelPrograma": true
+        }
+      ]
     }
   }
 }

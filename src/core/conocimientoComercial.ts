@@ -16,7 +16,13 @@ import { fileURLToPath } from 'node:url';
  * el contenido sigue pendiente (aceptación comercial), y cargarlo no obliga a tocar la conversación.
  */
 
-export const TEMAS = ['calendario_ingresos', 'argumentos_venta', 'enlace_postulacion', 'proceso_admision'] as const;
+export const TEMAS = [
+  'calendario_ingresos',
+  'argumentos_venta',
+  'enlace_postulacion',
+  'proceso_admision',
+  'medios_de_pago',
+] as const;
 export type Tema = (typeof TEMAS)[number];
 
 type EntradaTema = Record<string, unknown>;
@@ -94,6 +100,22 @@ export function consultarInformacionInstitucional(
     }
   }
 
+  if (tema === 'medios_de_pago') {
+    // Acá hay dinero de por medio, así que la regla es más estricta que en el resto de los temas:
+    // un enlace solo sale si NO lleva un monto asociado. Los enlaces de PayPal que entregó la
+    // dirección son de importe fijo —50, 100, 150, 585 y 900 USD— y el documento no dice qué monto
+    // corresponde a qué programa; si el bot eligiera mal, la persona pagaría una cifra equivocada y
+    // deshacerlo es caro. El portal de Flywire, en cambio, no trae importe: la persona llega ahí y
+    // el monto se define con su asesor.
+    entradas = entradas.map((e) => {
+      const conMonto = e.monto !== undefined && e.monto !== null && String(e.monto).trim() !== '';
+      const urlUsable = !conMonto && /^https:\/\//.test(String(e.url ?? ''));
+      if (urlUsable) return e;
+      const { url: _conMontoONoHttps, ...resto } = e;
+      return { ...resto, enlaceLoEnviaElAsesor: true };
+    });
+  }
+
   if (tema === 'enlace_postulacion') {
     // El enlace es PERSONAL del asesor de ventas: sin asesor resuelto no hay enlace que entregar.
     if (!opts.asesorId) return noDisponible('sin_asesor_asignado');
@@ -106,7 +128,7 @@ export function consultarInformacionInstitucional(
   return { ok: true, tema, disponible: true, contenido: entradas, fuente: def.fuente, vigenteHasta: def.vigenteHasta };
 }
 
-/** Estado de los cuatro temas, para el informe de aceptación comercial. */
+/** Estado de cada tema, para el informe de aceptación comercial. */
 export function estadoTemas(base: BaseConocimiento = BASE_CONOCIMIENTO) {
   return TEMAS.map((t) => {
     const d = base.temas?.[t];

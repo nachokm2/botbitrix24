@@ -15,7 +15,7 @@ const { PROGRAMAS } = await import('../src/ai/catalog');
 const { marca } = await import('../src/marca');
 const { config } = await import('../src/config');
 const { obtenerBrochure, archivoCorrespondeAPrograma, _limpiarCacheBrochures } = await import('../src/core/brochures');
-const { consultarInformacionInstitucional, BASE_CONOCIMIENTO, estadoTemas } = await import('../src/core/conocimientoComercial');
+const { consultarInformacionInstitucional, BASE_CONOCIMIENTO, estadoTemas, TEMAS } = await import('../src/core/conocimientoComercial');
 const { perteneceAlEquipo, esAsesorValido } = await import('../src/crm/equipo');
 const { sesionOpenLines, marcarTraspaso, traspasoVigente } = await import('../src/session');
 
@@ -131,7 +131,7 @@ test('conocimiento: lo validado se entrega y lo pendiente se declara faltante', 
   // Antes esta prueba afirmaba que los CUATRO temas estaban sin validar. Eso era una foto del dato,
   // no una regla: al cargarlos con los documentos de la dirección quedó en rojo sin que nada se
   // hubiera roto. Lo que debe sostenerse es la regla, tema por tema según su estado real.
-  assert.equal(estadoTemas().length, 4);
+  assert.equal(estadoTemas().length, TEMAS.length, 'el informe cubre todos los temas');
   for (const e of estadoTemas()) {
     const r: any = consultarInformacionInstitucional(e.tema);
     assert.equal(r.ok, true);
@@ -266,4 +266,64 @@ test('sesión: tras derivar, el bot calla toda la sesión — aunque pasen más 
   assert.ok(await traspasoVigente('chat-traspaso', '1233711'), 'misma sesión: sigue en silencio');
   assert.equal(await traspasoVigente('chat-traspaso', '1240000'), null, 'sesión nueva: el bot vuelve a atender');
   assert.equal(await traspasoVigente('chat-sin-traspaso', '1233711'), null);
+});
+
+// ── Medios de pago ───────────────────────────────────────────────────────────────────────────────
+// El único tema donde equivocarse cuesta dinero de verdad. La dirección entregó dos medios oficiales
+// y seis enlaces de PayPal de importe fijo (50, 100, 150, 585 y 900 USD) SIN decir qué monto
+// corresponde a qué programa. La regla, entonces: un enlace solo sale si no lleva monto.
+const pago = (extra: Record<string, any>) => tema({ camposObligatorios: ['medio', 'descripcion'], ...extra });
+
+test('pagos: el portal sin monto se entrega con su enlace', () => {
+  const b = base({
+    medios_de_pago: pago({
+      entradas: [{ medio: 'Flywire', descripcion: 'Portal oficial', url: 'https://carver.university/es/portal-de-pagos/' }],
+    }),
+  });
+  const r: any = consultarInformacionInstitucional('medios_de_pago', { hoy }, b as any);
+  assert.equal(r.disponible, true);
+  assert.equal(r.contenido[0].url, 'https://carver.university/es/portal-de-pagos/');
+});
+
+test('pagos: un enlace con monto fijo NUNCA se entrega, por mucho que esté cargado', () => {
+  // Si alguien pega mañana los enlaces de PayPal en el JSON, el bot sigue sin poder mandarlos: sin la
+  // tabla de qué monto va con qué programa, elegir uno es adivinar con la plata de otra persona.
+  const b = base({
+    medios_de_pago: pago({
+      entradas: [
+        { medio: 'PayPal', descripcion: 'Pago arancel', monto: 585, url: 'https://www.paypal.com/ncp/payment/KPUBERAA2HZ7U' },
+      ],
+    }),
+  });
+  const r: any = consultarInformacionInstitucional('medios_de_pago', { hoy }, b as any);
+  assert.equal(r.disponible, true, 'el medio sí se nombra');
+  assert.equal(r.contenido[0].url, undefined, 'el enlace con monto no sale');
+  assert.equal(r.contenido[0].enlaceLoEnviaElAsesor, true);
+  assert.equal(r.contenido[0].medio, 'PayPal');
+});
+
+test('pagos: un enlace que no es https tampoco se entrega', () => {
+  const b = base({
+    medios_de_pago: pago({ entradas: [{ medio: 'Otro', descripcion: 'x', url: 'http://pagos.example' }] }),
+  });
+  const r: any = consultarInformacionInstitucional('medios_de_pago', { hoy }, b as any);
+  assert.equal(r.contenido[0].url, undefined);
+  assert.equal(r.contenido[0].enlaceLoEnviaElAsesor, true);
+});
+
+test('pagos: con los datos reales de Carver, ningún enlace entregado lleva monto', () => {
+  const r: any = consultarInformacionInstitucional('medios_de_pago');
+  assert.equal(r.disponible, true, 'el tema está cargado y validado');
+  for (const e of r.contenido) {
+    if (e.url) {
+      assert.match(e.url, /^https:\/\//);
+      assert.equal(e.monto, undefined, `${e.medio} entrega un enlace con monto`);
+      assert.doesNotMatch(e.url, /paypal/i, 'ningún enlace de PayPal se entrega');
+    }
+  }
+  // PayPal se nombra, pero sin enlace y advirtiendo la comisión.
+  const pp = r.contenido.find((e: any) => e.medio === 'PayPal');
+  assert.ok(pp, 'PayPal es uno de los dos medios oficiales');
+  assert.equal(pp.url, undefined);
+  assert.match(pp.descripcion, /comisión/i);
 });

@@ -402,11 +402,18 @@ test('marca=carver: conoce las redes oficiales y no inventa testimonios', () => 
 
 // Flywire es la plataforma de pagos de Carver — aparece además como etapa propia en sus dos embudos
 // de Bitrix ("Flywire invoice"). Nombrarla da confianza: no es una transferencia suelta.
-test('marca=carver: nombra Flywire pero NUNCA comparte su sitio ni un enlace de pago', () => {
+//
+// La regla cambió: antes el prompt prohibía TODO enlace de pago. La dirección entregó después el
+// portal oficial de la universidad, que no lleva monto, y se decidió que el bot sí puede enviarlo.
+// Lo que sigue prohibido es cualquier enlace con importe fijo (los de PayPal) y el sitio genérico de
+// la pasarela: ahí es donde alguien termina pagando la cifra equivocada.
+test('marca=carver: nombra Flywire y PayPal, pero ningún enlace con monto sale del prompt', () => {
   assert.match(SYSTEM_PROMPT, /FLYWIRE/);
-  // El enlace de pago es PERSONAL de cada caso. Mandar la dirección general de Flywire induce a
-  // pagar por fuera del link que le corresponde, y eso es un problema difícil de deshacer.
-  assert.doesNotMatch(SYSTEM_PROMPT, /flywire\.com/, 'el sitio de Flywire no debe estar en el prompt');
-  assert.match(SYSTEM_PROMPT, /NUNCA compartas el sitio de Flywire ni ningún enlace de pago/);
-  assert.match(SYSTEM_PROMPT, /el único link válido es el que genera el asesor/);
+  assert.match(SYSTEM_PROMPT, /PAYPAL/);
+  assert.doesNotMatch(SYSTEM_PROMPT, /flywire\.com/, 'el sitio de la pasarela no debe estar en el prompt');
+  assert.doesNotMatch(SYSTEM_PROMPT, /paypal\.com/, 'ningún enlace de PayPal debe estar en el prompt');
+  // El enlace solo puede venir de la herramienta, nunca de la memoria del modelo ni del historial.
+  assert.match(SYSTEM_PROMPT, /ÚNICO enlace que puedes compartir es el que esa herramienta devuelva/);
+  assert.match(SYSTEM_PROMPT, /comisión que cobra PayPal/);
+  assert.match(SYSTEM_PROMPT, /NUNCA digas un monto/);
 });

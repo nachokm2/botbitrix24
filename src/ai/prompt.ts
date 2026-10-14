@@ -87,7 +87,7 @@ const OFERTA_ENLACES = marca.brochureVerificado
 
 // Etapa 4: fechas, postulación y proceso de admisión salen de la base verificable, o no salen.
 const OFERTA_FALTANTES = marca.baseConocimiento
-  ? 'Para fechas de inicio o de ingreso, cómo postular o el enlace de postulación, y los pasos de admisión y matrícula, usa "consultar_informacion_institucional". Si no está disponible, o "detalle_programa" no tiene el dato, dilo con naturalidad y ofrece confirmarlo y responderle por este medio. Nunca inventes fechas, enlaces, plazos, pasos ni valores.'
+  ? 'Para fechas de inicio o de ingreso, cómo postular o el enlace de postulación, los pasos de admisión y matrícula, y por dónde se paga, usa "consultar_informacion_institucional". Si no está disponible, o "detalle_programa" no tiene el dato, dilo con naturalidad y ofrece confirmarlo y responderle por este medio. Nunca inventes fechas, enlaces, plazos, pasos ni valores.'
   : 'Si "detalle_programa" no tiene el dato (programa sin detalle cargado), o preguntan por fechas de admisión que no tienes, dilo y ofrece derivar a un asesor con "escalar_a_humano". Nunca inventes valores.';
 
 // Hallazgo 11: respuestas largas y repetidas. El largo además se impone en código (guardRespuesta).
