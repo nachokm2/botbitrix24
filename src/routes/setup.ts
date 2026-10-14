@@ -10,6 +10,7 @@ import { dbEnabled, dbDialogosTodos, dbBorrarDialogos } from '../store/db';
 import { config } from '../config';
 import { dbResultadoPrimerContacto } from '../store/db';
 import { informeCalidadDatos } from '../crm/calidadDatos';
+import { planDeMovimiento, aplicarMovimiento } from '../crm/moverDerivados';
 import { log } from '../log';
 import type { BitrixCategory, BitrixCategoryListResponse, BitrixStatus, BitrixStatusListResponse } from '../bitrix/types';
 
@@ -355,4 +356,41 @@ export async function calidadDatos(req: Request, res: Response) {
   const informe = await informeCalidadDatos(st.auth ?? ({} as any), dias);
   const total = Object.values(informe.problemas).reduce((a, b) => a + b, 0);
   return res.json({ ok: true, dias, ...informe, totalProblemas: total });
+}
+
+/**
+ * Mueve a la etapa de "derivadas" lo que el bot ya derivó antes de que esa etapa existiera.
+ *
+ *   GET /setup/mover-derivados                       → SIMULACIÓN (no escribe)
+ *   GET /setup/mover-derivados?ejecutar=1            → escribe
+ *   ...&proteger=C73:EXECUTING,C73:FINAL_INVOICE     → etapas que NO se tocan
+ *
+ * Vive en el servicio porque la base de cada marca es interna: el cruce entre las derivaciones
+ * registradas y el estado actual en Bitrix solo se puede hacer donde corre el bot.
+ */
+export async function moverDerivados(req: Request, res: Response) {
+  const st = await getState();
+  if (!st.auth) return res.status(400).json({ ok: false, error: 'Sin auth de Bitrix' });
+  if (!Object.keys(config.stageDerivado).length) {
+    return res.status(400).json({ ok: false, error: 'BITRIX_STAGE_DERIVADO no configurado' });
+  }
+  const protegidas = new Set(
+    String(req.query.proteger ?? '')
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean),
+  );
+  const plan = await planDeMovimiento(st.auth, protegidas);
+  const ejecutar = String(req.query.ejecutar ?? '') === '1';
+  if (!ejecutar) {
+    return res.json({
+      ok: true,
+      simulacion: true,
+      ...plan,
+      // La reversa no se puede reconstruir después: si se ejecuta, guardar esta lista.
+      aviso: 'Nada se escribió. Guarda "mover" antes de ejecutar: es la única forma de revertirlo.',
+    });
+  }
+  const r = await aplicarMovimiento(st.auth, plan.mover);
+  return res.json({ ok: true, simulacion: false, intentadas: plan.mover.length, movidas: r.ok, fallos: r.fallos, reversa: plan.mover });
 }
