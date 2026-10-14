@@ -173,6 +173,16 @@ test('estudiante: la Advisor REAL del caso le gana a la tabla por tipo de progra
   assert.equal(r.advisor.id, 479297, 'la responsable de la negociación, aunque sea una licenciatura');
 });
 
+test('estudiante: una maestria asignada a la Advisor de licenciaturas SIGUE con ella', async () => {
+  // Importa para leer bien la tabla: NO reasigna a nadie. En el CRM hay 9 maestrias a cargo de la
+  // Advisor de licenciaturas, y esas siguen con ella, porque la responsable real del caso gana. La
+  // tabla solo entra donde HOY no hay nadie, que es cuando el responsable es el robot.
+  reset();
+  dealsPorContacto[730] = [{ ID: '6030', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '479681', UF_PROG: 'Maestria en Psicologia' }];
+  const r: any = await consultarEstadoEstudiante({ contact: 730 }, auth);
+  assert.equal(r.advisor.id, 479681, 'la responsable real, aunque la tabla diria 479297');
+});
+
 test('estudiante: un programa sin Advisor asignada no se adivina', async () => {
   // Los cursos de educación continua y los diplomados no tienen Advisor en el embudo 107. Mandar al
   // estudiante con alguien que no lo acompaña es peor que decirle el canal oficial.
