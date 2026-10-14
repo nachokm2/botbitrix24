@@ -279,6 +279,25 @@ export const config = {
       .filter((x) => /^C\d+:.+$/.test(x))
       .map((x) => [Number(x.slice(1, x.indexOf(':'))), x]),
   ) as Record<number, string>,
+  // FICHA DE MATRICULA (Carver). Campos del CONTACTO donde se guardan los antecedentes que antes
+  // pedia el formulario de postulacion de cada asesor. Todos existen ya en el portal; si alguno
+  // queda vacio, ese dato simplemente no se guarda y el bot lo sigue pidiendo.
+  ufDni: process.env.BITRIX_UF_DNI ?? (esCarver ? 'UF_CRM_CONTACT_1685037913533' : ''),
+  // Desplegable de paises (no texto libre): se manda el id del valor, no la palabra.
+  ufNacionalidad: process.env.BITRIX_UF_NACIONALIDAD ?? (esCarver ? 'UF_CRM_6564DCF2B858C' : ''),
+  ufTituloGrado: process.env.BITRIX_UF_TITULO_GRADO ?? (esCarver ? 'UF_CRM_CONTACT_1685042616176' : ''),
+  ufInstitucionTitulo: process.env.BITRIX_UF_INSTITUCION_TITULO ?? (esCarver ? 'UF_CRM_CONTACT_1685042668192' : ''),
+  ufAnioTitulo: process.env.BITRIX_UF_ANIO_TITULO ?? (esCarver ? 'UF_CRM_1713893307' : ''),
+  // Etapa "Pendiente de Firma" por embudo. El identificador NO es el mismo en los dos embudos de
+  // Carver —C73:EXECUTING contra C135:1— y en el 135 ese mismo EXECUTING es "Info Urgente", asi que
+  // una etapa fija mandaria media matricula a la etapa equivocada.
+  stagePendienteFirma: Object.fromEntries(
+    (process.env.BITRIX_STAGE_PENDIENTE_FIRMA ?? (esCarver ? 'C73:EXECUTING,C135:1' : ''))
+      .split(',')
+      .map((x) => x.trim())
+      .filter((x) => /^C\d+:.+$/.test(x))
+      .map((x) => [Number(x.slice(1, x.indexOf(':'))), x]),
+  ) as Record<number, string>,
   // Distintivo que se antepone al título de las negociaciones que el bot escala por puntaje alto,
   // para que el asesor sepa cuál mirar primero. Vacío = no se marca nada.
   marcaUrgente: process.env.BITRIX_MARCA_URGENTE ?? '🔥 URGENTE · ',

@@ -94,6 +94,11 @@ export type Marca = {
    *  —marca, no le contesta nadie y concluye que lo dejaron botado—. Donde está en false, el
    *  campo ni siquiera se lee: así no hay forma de que algo nuevo lo vuelva a tomar. */
   telefonoAsesorVigente: boolean;
+  /** ¿El bot completa la FICHA DE MATRICULA en el chat —los 14 antecedentes y la foto de la
+   *  cedula— y mueve la negociacion a "Pendiente de Firma"? Reemplaza el formulario de
+   *  postulacion que cada asesor enviaba por su cuenta: es el mismo formulario, escrito a mano,
+   *  sin el salto a otra pagina donde se cae la mitad de la gente. */
+  matriculaEnChat: boolean;
 };
 
 /** Valor de una variable de entorno, o el default si no está definida o está vacía. */
@@ -145,6 +150,7 @@ const POSTGRADOS: Marca = {
   brochureVerificado: false,
   baseConocimiento: false,
   telefonoAsesorVigente: true,
+  matriculaEnChat: false,
 };
 
 // Identidad de Carver, UNIFICADA (hallazgo 1 de la auditoría del piloto). Convivían tres:
@@ -175,7 +181,7 @@ const CARVER: Marca = {
   cotiza: true,
   usaPlanillaComercial: true,
   tieneVoz: false,
-  capturaDocumentos: false,
+  capturaDocumentos: true,
   sePresentaComoAsesor: true,
   etiquetaDocumento: 'RUT/DNI',
   otrosCanales: false,
@@ -196,6 +202,7 @@ const CARVER: Marca = {
   brochureVerificado: true,
   baseConocimiento: true,
   telefonoAsesorVigente: false,
+  matriculaEnChat: true,
 };
 
 const MARCAS: Record<MarcaKey, Marca> = { postgrados: POSTGRADOS, carver: CARVER };

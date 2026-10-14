@@ -14,10 +14,23 @@ const PASO_CIERRE = marca.tieneVoz
     ? 'YA CON SU NOMBRE Y SU CORREO (el teléfono es el WhatsApp desde el que escribe), ofrécele avanzar con su proceso de admisión —revisar requisitos, fechas de inicio y formas de pago— y deriva con "escalar_a_humano" para dejar el caso en seguimiento. NO digas "un asesor lo contactará" como si fueras otra persona: tú ERES su asesor, así que habla en primera persona ("quedo atento", "le hago seguimiento"). Pide otro teléfono solo si la persona quiere que la contacten en un número distinto, y en ese caso con su código de país (ej. +56, +57, +51, +593, +1). NO ofrezcas llamarlo tú.'
     : 'YA CON TODOS LOS DATOS (nombre, correo y teléfono), ofrécele que un asesor lo contacte para revisar requisitos, fechas de inicio y opciones de financiamiento, y deriva con "escalar_a_humano". Al pedir el teléfono recuerda que atiendes a varios países: pídele el número con su código de país (ej. +56, +57, +51, +593, +1) y confírmalo repitiéndolo. NO ofrezcas llamarlo tú.'
 
-// Paso 7: los antecedentes de matrícula (profesión, dirección, cédula) son el flujo de Postgrados.
-const PASO_MATRICULA = marca.capturaDocumentos
-  ? PASO_MATRICULA_POSTGRADOS
-  : 'SI el cliente expresa la DECISIÓN concreta de matricularse (no solo consultar o comparar programas) — en cualquier frase, ej. "quiero matricularme", "cómo me inscribo", "ya me decidí" — felicítalo brevemente, asegúrate de tener su nombre y su correo registrados con "registrar_interes_crm", y deriva de inmediato con "escalar_a_humano" para que un asesor lo guíe en la postulación. NO le pidas documentos, fotos de su cédula ni datos bancarios, y no le expliques pasos del proceso de matrícula que no vengan de una herramienta.'
+// Carver completa la ficha de matrícula en el chat: es el mismo formulario de postulación que cada
+// asesor enviaba por su cuenta, pero sin el salto a otra página, que es donde se cae la mitad de la
+// gente. Se pide de a tres o cuatro datos por mensaje —de a uno serían catorce turnos— y la etapa
+// solo se mueve con la ficha COMPLETA, foto de la cédula incluida.
+const PASO_MATRICULA_CARVER =
+  'SI el cliente expresa la DECISIÓN concreta de matricularse (no solo consultar o comparar programas) — en cualquier frase, ej. "quiero matricularme", "cómo me inscribo", "ya me decidí" — felicítalo en UNA frase y empieza a reunir su ficha de matrícula. Son 14 antecedentes y se piden DE A TRES O CUATRO POR MENSAJE, en este orden: (1) nombres, apellido paterno, apellido materno y cédula o DNI; (2) nacionalidad, fecha de nacimiento y domicilio particular; (3) número de celular, email personal y código postal; (4) nombre del título o grado académico que ya tiene, institución donde lo obtuvo y año de obtención; (5) por último, una foto de su cédula o DNI. ' +
+  'En este tramo la regla de UNA pregunta por mensaje no aplica: pide el grupo completo en una sola lista corta. Apenas te entregue datos —aunque sean parciales o en desorden— pásalos a "registrar_datos_matricula", que te dirá exactamente qué falta: pide SOLO eso y nunca repitas algo que ya tienes. ' +
+  'Cuando envíe la foto y SOLO si estás viendo esa imagen en este mismo turno (la ves directamente, es visión, no un archivo que no puedas abrir) Y reconoces que es un documento de identidad, usa "registrar_documento_identidad" para guardarla; nunca la uses para otro tipo de imagen ni para una de un turno anterior. La foto es OBLIGATORIA: sin ella la ficha no está completa y la matrícula no puede seguir, así que si se resiste explícale por qué hace falta en vez de dejarlo pasar. ' +
+  'Cuando "registrar_datos_matricula" devuelva completo=true, confírmaselo con calidez y PÁSALE LAS INSTRUCCIONES DE PAGO con "obtener_enlace_de_pago" según el programa y la forma de pago que haya elegido. NO le pidas datos bancarios, números de tarjeta ni claves, nunca.';
+
+// Paso 7: los antecedentes de matrícula. Carver reúne la ficha completa; Postgrados pide solo
+// profesión, dirección y cédula; una marca sin captura deriva sin pedir documentos.
+const PASO_MATRICULA = marca.matriculaEnChat
+  ? PASO_MATRICULA_CARVER
+  : marca.capturaDocumentos
+    ? PASO_MATRICULA_POSTGRADOS
+    : 'SI el cliente expresa la DECISIÓN concreta de matricularse (no solo consultar o comparar programas) — en cualquier frase, ej. "quiero matricularme", "cómo me inscribo", "ya me decidí" — felicítalo brevemente, asegúrate de tener su nombre y su correo registrados con "registrar_interes_crm", y deriva de inmediato con "escalar_a_humano" para que un asesor lo guíe en la postulación. NO le pidas documentos, fotos de su cédula ni datos bancarios, y no le expliques pasos del proceso de matrícula que no vengan de una herramienta.'
 
 // Qué puede decir el bot sobre PRECIO. Una marca que no cotiza (marca.cotiza=false) no tiene una
 // fuente de precio confirmada, así que la regla dura es derivar en vez de arriesgar una cifra: un

@@ -18,6 +18,7 @@ import { obtenerBrochure } from '../core/brochures';
 import { consultarInformacionInstitucional, INSTRUCCION_SIN_DATO } from '../core/conocimientoComercial';
 import { consultarEstadoEstudiante, crearTareaAdvisor } from '../crm/estudiantes';
 import { enlaceDePago } from '../core/mediosPago';
+import { registrarDatosMatricula, moverAPendienteDeFirma } from '../crm/matricula';
 import { getDealInfo } from '../crm/directory';
 import { audit } from '../obs/audit';
 import { config } from '../config';
@@ -61,6 +62,9 @@ async function seguirProgramaDeInteres(resultado: any, ctx: AgentContext): Promi
 }
 
 const ESTUDIANTE_KEY = (dialogId: string) => `estudiante:${dialogId}`;
+/** Marca que la foto de la cedula de ESTA conversacion ya se guardo. La ficha de matricula no se
+ *  da por completa sin ella, y releer el campo archivo del deal en cada turno es caro. */
+const CEDULA_KEY = (dialogId: string) => `cedula:${dialogId}`;
 // Canal oficial de Carver para consultas administrativas, tomado del conocimiento institucional ya
 // validado en el prompt (core/promptObjeciones.ts).
 const CONTACTO_GENERAL = 'admission@carver.university / +1 (321) 300-1034';
@@ -130,8 +134,14 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
           { id: dealId, fields: { [config.ufCedula]: { fileData: [`cedula-deal-${dealId}.${ext}`, ctx.pendingImage.base64] } } },
           ctx.auth,
         );
+        await setJson(CEDULA_KEY(ctx.conversationId), { at: Date.now() }, 30 * 24 * 3600);
         log.info('tool registrar_documento_identidad: cédula subida al deal', { dealId });
-        return { ok: true, mensaje: 'Confirma cálidamente al cliente que recibiste su documento correctamente y continúa el proceso.' };
+        return {
+          ok: true,
+          mensaje: marca.matriculaEnChat
+            ? 'Confirma cálidamente que recibiste su documento y sigue con los antecedentes que falten: vuelve a usar registrar_datos_matricula para saber cuáles son.'
+            : 'Confirma cálidamente al cliente que recibiste su documento correctamente y continúa el proceso.',
+        };
       }
 
       case 'solicitar_llamada': {
@@ -277,6 +287,23 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
           },
         }).catch(() => {});
         return r;
+      }
+
+      case 'registrar_datos_matricula': {
+        // La foto de la cedula se guarda por su propia herramienta; aca solo se pregunta si ya llego,
+        // porque sin ella la ficha no esta completa y la etapa no se mueve.
+        const yaTieneFoto = await getJson<{ at: number }>(CEDULA_KEY(ctx.conversationId));
+        const r = await registrarDatosMatricula(input ?? {}, ctx.crmEntities ?? {}, ctx.auth, {
+          tieneFotoCedula: Boolean(yaTieneFoto),
+        });
+        let movido = false;
+        if (r.completo && ctx.crmEntities?.deal) movido = await moverAPendienteDeFirma(ctx.crmEntities.deal, ctx.auth);
+        await audit({
+          type: 'conocimiento',
+          dialogId: ctx.conversationId,
+          detail: { tema: 'ficha_matricula', guardados: r.guardados.length, faltan: r.faltan.length, completo: r.completo, movido },
+        }).catch(() => {});
+        return { ...r, movidoAPendienteDeFirma: movido };
       }
 
       case 'escalar_a_humano': {

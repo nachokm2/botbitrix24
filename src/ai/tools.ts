@@ -120,6 +120,33 @@ const TOOLS_CARVER = [
       required: ['programa', 'concepto'],
     },
   },
+  {
+    name: 'registrar_datos_matricula',
+    description:
+      'Guarda en su ficha los antecedentes de matrícula y te dice QUÉ FALTA todavía. Úsala cada vez que la ' +
+      'persona entregue uno o varios de esos datos, aunque sean parciales: guarda lo que haya y no pierdas lo ' +
+      'demás. Pasa SOLO lo que la persona escribió, nunca lo que supongas. Cuando devuelva completo=true, la ' +
+      'negociación ya quedó en Pendiente de Firma y corresponde pasarle las instrucciones de pago.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        nombres: { type: 'string' },
+        apellidoPaterno: { type: 'string' },
+        apellidoMaterno: { type: 'string' },
+        dni: { type: 'string', description: 'Cédula de identidad, DNI o documento equivalente de su país.' },
+        nacionalidad: { type: 'string' },
+        fechaNacimiento: { type: 'string', description: 'Como la escribió: dd/mm/aaaa o aaaa-mm-dd.' },
+        domicilio: { type: 'string', description: 'Domicilio particular.' },
+        celular: { type: 'string', description: 'Con código de país si lo dio.' },
+        emailPersonal: { type: 'string' },
+        tituloGrado: { type: 'string', description: 'Nombre del título o grado académico que ya tiene.' },
+        institucionTitulo: { type: 'string', description: 'Institución donde obtuvo ese título.' },
+        anioTitulo: { type: 'string', description: 'Año de obtención del título.' },
+        codigoPostal: { type: 'string' },
+      },
+      required: [],
+    },
+  },
 ] as const;
 
 // escalar_a_humano distingue la derivación de un estudiante (va a su Advisor) solo donde existe ese flujo.

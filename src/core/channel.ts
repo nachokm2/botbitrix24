@@ -188,6 +188,7 @@ const TOOLS_WHATSAPP = [
   ...(marca.usaPlanillaComercial ? ['consultar_condiciones_comerciales'] : []),
   'registrar_interes_crm',
   ...(marca.capturaDocumentos ? ['registrar_documento_identidad'] : []),
+  ...(marca.matriculaEnChat ? ['registrar_datos_matricula'] : []),
   ...(marca.tieneVoz ? ['solicitar_llamada'] : []),
   ...(marca.brochureVerificado ? ['obtener_brochure'] : []),
   ...(marca.soporteEstudiantes ? ['consultar_estado_estudiante'] : []),
