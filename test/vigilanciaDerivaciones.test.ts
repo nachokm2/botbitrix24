@@ -40,6 +40,9 @@ mock.module('../src/obs/audit.ts', {
   },
 });
 
+let urgente = false;
+mock.module('../src/crm/urgencia.ts', { namedExports: { esUrgente: async () => urgente } });
+
 mock.module('../src/store.ts', {
   namedExports: {
     getState: async () => ({ auth: { domain: 'test.bitrix24.com', access_token: 'tok' }, botId: 1 }),
@@ -118,6 +121,8 @@ function reset() {
   config.derivacionAlertaHoras = 4;
   config.derivacionAlertaSupervisorHoras = 24;
   config.derivacionSupervisorId = 0;
+  config.derivacionAlertaUrgenteHoras = 1;
+  urgente = false;
 }
 
 /** Adelanta el reloj: vence la entrada y envejece la fecha de derivación, que es lo que mira el barrido. */
@@ -242,4 +247,42 @@ test('si no se puede leer la negociación, no avisa: ante la duda no se molesta 
   vencer(509);
   await barrerVigilanciaDerivaciones();
   assert.equal(avisos().length, 1);
+});
+
+test('un caso urgente se vigila con un plazo más corto', async () => {
+  // El escalamiento por puntaje lo dispara alguien con interés claro que ya dejó sus datos: a las
+  // cuatro horas el momento ya pasó.
+  reset();
+  urgente = true;
+  await vigilarDerivacion(600, 'chat-u');
+  const vence = zsets.get(VIGILANCIA_KEY)!.get('600')!;
+  const horas = (vence - Date.now()) / 3600_000;
+  assert.ok(horas > 0 && horas <= 1.05, `venció en ${horas} h, se esperaba ~1`);
+});
+
+test('uno normal conserva el plazo de siempre', async () => {
+  reset();
+  await vigilarDerivacion(601, 'chat-n');
+  const horas = (zsets.get(VIGILANCIA_KEY)!.get('601')! - Date.now()) / 3600_000;
+  assert.ok(horas > 3 && horas <= 4.05, `venció en ${horas} h, se esperaba ~4`);
+});
+
+test('el aviso de un urgente dice por qué lo es', async () => {
+  reset();
+  urgente = true;
+  await vigilarDerivacion(602, 'chat-u2');
+  vencer(602, 2);
+  await barrerVigilanciaDerivaciones();
+  assert.equal(avisos().length, 1);
+  assert.match(avisos()[0].params.MESSAGE, /puntaje alto/);
+});
+
+test('si el plazo urgente fuera mayor que el normal, manda el normal', async () => {
+  // Una configuración incoherente no debe ALARGAR el plazo de un caso urgente.
+  reset();
+  urgente = true;
+  config.derivacionAlertaUrgenteHoras = 99;
+  await vigilarDerivacion(603, 'chat-u3');
+  const horas = (zsets.get(VIGILANCIA_KEY)!.get('603')! - Date.now()) / 3600_000;
+  assert.ok(horas <= 4.05, `venció en ${horas} h`);
 });

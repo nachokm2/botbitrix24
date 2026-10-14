@@ -4,6 +4,7 @@ import { getRedisClient } from '../store/kv';
 import { getState, type Auth } from '../store';
 import { dbHuboOperadorDespuesDe } from '../store/db';
 import { audit } from '../obs/audit';
+import { esUrgente } from './urgencia';
 import { log } from '../log';
 
 /**
@@ -25,7 +26,7 @@ const DATOS_KEY = (dealId: number) => `derivacion:datos:${dealId}`;
 const TTL_DATOS_SEG = 15 * 24 * 3600;
 const REINTENTO_MS = 30 * 60_000; // Bitrix caído: se reintenta, no se descarta el caso
 
-type DatosVigilancia = { dialogId: string; derivadoEn: number; etapa: 1 | 2 };
+type DatosVigilancia = { dialogId: string; derivadoEn: number; etapa: 1 | 2; urgente?: boolean };
 
 /** Programa el primer aviso para una negociación recién derivada. Idempotente: si ya está vigilada,
  *  no reinicia el reloj (una segunda derivación del mismo caso no da más plazo). */
@@ -34,9 +35,21 @@ export async function vigilarDerivacion(dealId: number, dialogId: string): Promi
   if (!r || config.derivacionAlertaHoras <= 0 || !dealId) return;
   try {
     if (await r.zscore(VIGILANCIA_KEY, String(dealId))) return;
+    // Un caso escalado por puntaje alto no espera lo mismo: la persona mostró interés claro y ya
+    // dejó sus datos, así que a las cuatro horas el momento ya pasó. Se le da un plazo más corto.
+    const urgente = await esUrgente(dealId);
+    const horas = urgente && config.derivacionAlertaUrgenteHoras > 0
+      ? Math.min(config.derivacionAlertaUrgenteHoras, config.derivacionAlertaHoras)
+      : config.derivacionAlertaHoras;
     const ahora = Date.now();
-    await r.zadd(VIGILANCIA_KEY, ahora + config.derivacionAlertaHoras * 3600_000, String(dealId));
-    await r.set(DATOS_KEY(dealId), JSON.stringify({ dialogId, derivadoEn: ahora, etapa: 1 } satisfies DatosVigilancia), 'EX', TTL_DATOS_SEG);
+    await r.zadd(VIGILANCIA_KEY, ahora + horas * 3600_000, String(dealId));
+    await r.set(
+      DATOS_KEY(dealId),
+      JSON.stringify({ dialogId, derivadoEn: ahora, etapa: 1, urgente } satisfies DatosVigilancia),
+      'EX',
+      TTL_DATOS_SEG,
+    );
+    log.info('derivación bajo vigilancia', { dealId, horas, urgente });
   } catch (e) {
     log.warn('vigilarDerivacion falló', { err: String(e), dealId });
   }
@@ -60,11 +73,22 @@ async function fueAtendido(dealId: number, datos: DatosVigilancia, auth: Auth): 
   }
 }
 
-async function avisar(userId: number, dealId: number, horas: number, esSupervisor: boolean, auth: Auth): Promise<void> {
+async function avisar(
+  userId: number,
+  dealId: number,
+  horas: number,
+  esSupervisor: boolean,
+  auth: Auth,
+  urgente = false,
+): Promise<void> {
   const url = `https://${auth.domain}/crm/deal/details/${dealId}/`;
+  const prefijo = urgente ? '🔥 ' : '';
+  const nota = urgente
+    ? '\nEste caso lo escaló el asistente por puntaje alto: la persona mostró interés claro y ya dejó sus datos.'
+    : '';
   const texto = esSupervisor
-    ? `[B]Caso derivado sin tomar hace ${horas} h[/B]\nLa negociación [URL=${url}]#${dealId}[/URL] se derivó hace ${horas} horas y nadie la ha trabajado todavía.`
-    : `[B]Tiene un caso derivado sin responder[/B]\nEl asistente le derivó la negociación [URL=${url}]#${dealId}[/URL] hace ${horas} horas y aún no registra actividad. El cliente ya mostró interés.`;
+    ? `[B]${prefijo}Caso derivado sin tomar hace ${horas} h[/B]\nLa negociación [URL=${url}]#${dealId}[/URL] se derivó hace ${horas} horas y nadie la ha trabajado todavía.${nota}`
+    : `[B]${prefijo}Tiene un caso derivado sin responder[/B]\nEl asistente le derivó la negociación [URL=${url}]#${dealId}[/URL] hace ${horas} horas y aún no registra actividad. El cliente ya mostró interés.${nota}`;
   await callBitrix('im.notify.personal.add', { USER_ID: userId, MESSAGE: texto }, auth);
 }
 
@@ -109,7 +133,7 @@ export async function barrerVigilanciaDerivaciones(): Promise<void> {
       const destino = datos.etapa === 1 ? responsable : config.derivacionSupervisorId;
 
       if (destino) {
-        await avisar(destino, dealId, horas, datos.etapa === 2, st.auth);
+        await avisar(destino, dealId, horas, datos.etapa === 2, st.auth, Boolean(datos.urgente));
         await audit({
           type: 'derivacion_sin_tomar',
           crmEntity: `deal#${dealId}`,

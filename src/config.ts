@@ -325,6 +325,9 @@ export const config = {
   derivacionAlertaHoras: Number(process.env.DERIVACION_ALERTA_HORAS ?? 4) || 0,
   // Segundo aviso, al supervisor, si pasadas estas horas desde la derivación el caso sigue sin tomar.
   derivacionAlertaSupervisorHoras: Number(process.env.DERIVACION_ALERTA_SUPERVISOR_HORAS ?? 24) || 0,
+  // Plazo más corto para los casos escalados por puntaje alto. La persona mostró interés claro y ya
+  // dejó sus datos: a las cuatro horas el momento ya pasó. 0 = usar el plazo normal para todos.
+  derivacionAlertaUrgenteHoras: Number(process.env.DERIVACION_ALERTA_URGENTE_HORAS ?? 1) || 0,
   // Usuario de Bitrix que recibe ese segundo aviso (0 = no escalar, solo se avisa al responsable).
   derivacionSupervisorId: Number(process.env.BITRIX_SUPERVISOR_ID ?? 0) || 0,
   // Horas sin recibir UN SOLO mensaje, en horario hábil, antes de dar la alarma. El bot de

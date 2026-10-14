@@ -15,6 +15,7 @@ import { primaryEntity, type CrmEntities } from '../crm/entities';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { generarBriefing } from './briefing';
 import { marcarUrgente } from '../crm/urgencia';
+import { vigilarDerivacion } from '../crm/vigilanciaDerivaciones';
 import { callBitrix } from '../bitrix/client';
 import { marca } from '../marca';
 import { once } from '../store/kv';
@@ -313,6 +314,9 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
         crmEntity: crmEntities.deal ? `deal#${crmEntities.deal}` : undefined,
         detail: { score: evalData.score },
       });
+      // Faltaba: el escalamiento por puntaje no quedaba bajo vigilancia, justo el caso donde más
+      // caro sale que nadie lo tome. Las derivaciones explícitas y las por silencio ya lo estaban.
+      if (crmEntities.deal) void vigilarDerivacion(crmEntities.deal, dialogId);
       log.info('auto-escalado por score alto', { dialogId, score: evalData.score });
     } catch (e) {
       log.warn('auto-escalación falló', { err: String(e) });
