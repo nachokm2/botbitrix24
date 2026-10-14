@@ -229,9 +229,21 @@ test('herramienta de brochure: un NOOC devuelve ok=false sin enlace', async () =
   assert.ok(auditorias.some((a) => a.type === 'brochure' && a.detail.motivo === 'programa_no_comercializable'));
 });
 
-test('información institucional: lo pendiente se informa como no disponible y queda auditado', async () => {
+test('información institucional: toda consulta queda auditada, se tenga o no el dato', async () => {
+  // Esta prueba afirmaba que el calendario NO estaba disponible. Era una foto del dato —el tema
+  // estaba pendiente— y quedó en rojo al cargarlo con el documento de la dirección. Lo que debe
+  // sostenerse es que la consulta se audite siempre: así se ve qué preguntan y qué falta responder.
   reset();
   const r: any = await executeTool('consultar_informacion_institucional', { tema: 'calendario_ingresos' }, ctx() as any);
+  assert.equal(r.ok, true);
+  const a = auditorias.find((x) => x.type === 'conocimiento' && x.detail.tema === 'calendario_ingresos');
+  assert.ok(a, 'la consulta debe quedar auditada');
+  assert.equal(a.detail.disponible, r.disponible, 'la auditoría registra si se pudo responder');
+});
+
+test('información institucional: un tema sin cargar devuelve la instrucción de no inventar', async () => {
+  reset();
+  const r: any = await executeTool('consultar_informacion_institucional', { tema: 'enlace_postulacion' }, ctx() as any);
   assert.equal(r.disponible, false);
-  assert.ok(auditorias.some((a) => a.type === 'conocimiento' && a.detail.tema === 'calendario_ingresos'));
+  assert.match(r.instruccion, /NO lo inventes/);
 });

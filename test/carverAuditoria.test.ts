@@ -127,15 +127,39 @@ test('brochure: la correspondencia archivo↔programa tolera prefijos y tildes, 
 });
 
 // ── Etapa 4: base de conocimiento verificable ────────────────────────────────────────────────────
-test('conocimiento: hoy los cuatro temas están sin validar y el bot recibe "no disponible"', () => {
-  for (const t of ['calendario_ingresos', 'argumentos_venta', 'enlace_postulacion', 'proceso_admision']) {
-    const r: any = consultarInformacionInstitucional(t);
-    assert.equal(r.ok, true);
-    assert.equal(r.disponible, false, t);
-    assert.match(r.instruccion, /NO lo inventes/);
-  }
+test('conocimiento: lo validado se entrega y lo pendiente se declara faltante', () => {
+  // Antes esta prueba afirmaba que los CUATRO temas estaban sin validar. Eso era una foto del dato,
+  // no una regla: al cargarlos con los documentos de la dirección quedó en rojo sin que nada se
+  // hubiera roto. Lo que debe sostenerse es la regla, tema por tema según su estado real.
   assert.equal(estadoTemas().length, 4);
-  assert.ok(BASE_CONOCIMIENTO.temas.argumentos_venta.fuente, 'lo que existe declara su procedencia');
+  for (const e of estadoTemas()) {
+    const r: any = consultarInformacionInstitucional(e.tema);
+    assert.equal(r.ok, true);
+    if (e.estado === 'validado') {
+      // Un tema validado debe declarar de dónde salió: sin fuente no se entrega.
+      assert.ok(e.fuente, `${e.tema} validado sin fuente`);
+      assert.ok(e.vigenteHasta, `${e.tema} validado sin fecha de vigencia`);
+    } else {
+      assert.equal(r.disponible, false, e.tema);
+      assert.match(r.instruccion, /NO lo inventes/);
+    }
+  }
+});
+
+test('un tema sin validar nunca se entrega, aunque tenga entradas cargadas', () => {
+  // El riesgo real: cargar datos y olvidarse de validarlos, y que el bot los diga igual.
+  const r: any = consultarInformacionInstitucional(
+    'calendario_ingresos',
+    {},
+    base({
+      calendario_ingresos: tema({
+        estado: 'pendiente',
+        entradas: [{ ciclo: 'C01', programa: 'todos', inicioClases: '2099-01-01', cierrePostulacion: '2098-12-28' }],
+      }),
+    }) as any,
+  );
+  assert.equal(r.disponible, false);
+  assert.equal(r.motivo, 'pendiente_de_validacion');
 });
 
 const base = (temas: Record<string, any>) => ({ temas });
