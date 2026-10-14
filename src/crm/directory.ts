@@ -11,7 +11,9 @@ export type Responsable = {
   id: number;
   nombre: string;
   email?: string;
-  telefono?: string;
+  // Sin telefono: PERSONAL_MOBILE de la ficha esta desactualizado y no debe llegar a un cliente.
+  // Si hace falta un numero de contacto, va por configuracion y es institucional (ver
+  // data/carver/advisors.json), no el movil particular de cada persona.
   activo?: boolean;
   /** Departamentos de la estructura de Bitrix (UF_DEPARTMENT): define a qué equipo pertenece. */
   departamentos?: number[];
@@ -81,7 +83,6 @@ export async function getUsuarios(ids: number[], auth: Auth): Promise<Responsabl
           id,
           nombre,
           email,
-          telefono: u.PERSONAL_MOBILE || undefined,
           activo: u.ACTIVE !== false,
           departamentos: toIdArray(u.UF_DEPARTMENT),
         });
@@ -140,7 +141,11 @@ export async function getDealAsesores(
 const IDENTIDAD_TTL_MS = 5 * 60 * 1000;
 const identidadCacheK = new Map<string, { at: number; valor: IdentidadAsesor | null }>();
 
-export type IdentidadAsesor = { nombre: string; email?: string; telefono?: string };
+// Sin telefono a proposito: los moviles cargados en Bitrix estan desactualizados, y un numero
+// viejo delante de un cliente es peor que ninguno (marca, no contesta, y concluye que lo dejaron
+// botado). Si alguna vez hay un numero institucional vigente, entra por configuracion, no por
+// la ficha personal de cada persona.
+export type IdentidadAsesor = { nombre: string; email?: string };
 
 /** Nombre, correo y teléfono del responsable de una NEGOCIACIÓN, un LEAD o un CONTACTO — en ese orden
  *  de preferencia. El lead importa: la mitad de las conversaciones nuevas de WhatsApp entran como
@@ -185,7 +190,7 @@ export async function getIdentidadAsesor(
     // a quien de verdad puede atender: persona activa del equipo de la marca, no un robot ni el
     // responsable por defecto del embudo (ver crm/equipo.ts).
     if (u && !u.nombre.startsWith('Usuario ') && esAsesorValido(u)) {
-      valor = { nombre: u.nombre, email: u.email, telefono: u.telefono };
+      valor = { nombre: u.nombre, email: u.email };
     }
   } catch (e) {
     log.warn('getIdentidadAsesor falló', { err: String(e), entidad: clave });

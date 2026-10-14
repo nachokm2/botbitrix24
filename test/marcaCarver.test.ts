@@ -193,15 +193,20 @@ test('marca=carver: sin configuración explícita NO hereda los programas piloto
 // el primer mensaje con la persona que después va a seguir su caso.
 test('marca=carver: el bloque de identidad hace que el bot hable como el asesor, con sus datos', async () => {
   const { bloqueIdentidad } = await import('../src/ai/agentLoop');
-  const b = bloqueIdentidad({ nombre: 'Gabriela García', email: 'gabriela@carver.university', telefono: '+56912345678' }, true);
+  const b = bloqueIdentidad({ nombre: 'Gabriela García', email: 'gabriela@carver.university' }, true);
 
   assert.match(b, /tu nombre es Gabriela García/);
   assert.match(b, /gabriela@carver\.university/);
-  assert.match(b, /\+56912345678/);
   assert.match(b, /solo si el cliente lo pide/, 'los datos de contacto no se ofrecen por iniciativa propia');
   assert.match(b, /NUNCA digas que eres un bot/);
 
-  // Sin correo ni teléfono, no debe inventarlos ni dejar huecos.
+  // El bot NO da un teléfono. Antes entregaba el PERSONAL_MOBILE de la ficha de Bitrix, pero esos
+  // números están desactualizados: uno viejo delante de un cliente es peor que ninguno, porque
+  // marca, no le contesta nadie y concluye que lo dejaron botado.
+  assert.doesNotMatch(b, /teléfono/i, 'la identidad no ofrece teléfono');
+  assert.doesNotMatch(b, /\+?\d[\d\s()-]{7,}/, 'ningún número suelto en el bloque de identidad');
+
+  // Sin correo, no debe inventarlo ni dejar huecos.
   const soloNombre = bloqueIdentidad({ nombre: 'Jefferson Dávila' }, true);
   assert.match(soloNombre, /tu nombre es Jefferson Dávila/);
   assert.doesNotMatch(soloNombre, /correo es|teléfono es/);

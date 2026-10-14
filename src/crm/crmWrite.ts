@@ -10,7 +10,6 @@ import type { CrmEntity, CrmEntities } from './entities';
 import type { BitrixContact, BitrixLead, BitrixMultifield } from '../bitrix/types';
 import { buscarBrochureDrive, detectarTipo, type BrochureEncontrado } from './driveBrochure';
 import { agregarProgramaAcumulado, fusionarBrochures, renderCuerpoBrochureEmail } from './brochureEmail';
-import { getDealInfo, getUsuarios } from './directory';
 import { guardarVinculoChat, obtenerVinculoChat, borrarVinculoChat } from './chat';
 import { asignarAsesorPorTurno } from './asignacionAsesores';
 import { once } from '../store/kv';
@@ -198,18 +197,6 @@ async function obtenerNombreContacto(contactId: number | undefined, nombreDelTur
     return c?.NAME || 'Estimado/a';
   } catch {
     return 'Estimado/a';
-  }
-}
-
-/** Celular del asesor responsable (ASSIGNED_BY) del deal, para los botones de llamar/WhatsApp. */
-async function obtenerTelefonoAsesor(dealId: number, auth: Auth): Promise<string | undefined> {
-  try {
-    const info = await getDealInfo(dealId, auth);
-    if (!info.responsableId) return undefined;
-    const [asesor] = await getUsuarios([info.responsableId], auth);
-    return asesor?.telefono;
-  } catch {
-    return undefined;
   }
 }
 
@@ -461,14 +448,10 @@ export async function actualizarDatosCliente(
             brochureNuevo = true;
 
             if (config.ufCuerpoBrochureHtml) {
-              const [nombre, telefonoAsesor] = await Promise.all([
-                obtenerNombreContacto(e.contact, data.nombre, auth),
-                obtenerTelefonoAsesor(e.deal, auth),
-              ]);
+              const nombre = await obtenerNombreContacto(e.contact, data.nombre, auth);
               fields[config.ufCuerpoBrochureHtml] = renderCuerpoBrochureEmail({
                 nombre,
                 programas: encontrados.map((x) => x.programa),
-                telefonoAsesor,
               });
             }
           }
