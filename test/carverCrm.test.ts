@@ -194,40 +194,40 @@ test('estudiante: una Advisor de la tabla que ya no está activa no se entrega',
   assert.match(r.motivoSinAdvisor, /^advisor_de_tabla_/);
 });
 
-test('estudiante: el teléfono sale de Bitrix si lo tiene, y del archivo si no', async () => {
+test('estudiante: el telefono es el institucional de las Advisor, nunca su movil personal', async () => {
+  // Correccion de la direccion: hay UN numero por el que se escribe a las Advisor. El movil que
+  // algunas tienen cargado en Bitrix es un dato del empleado, no un canal de atencion: repartirlo a
+  // los estudiantes es dar el celular de alguien que no dio permiso.
   reset();
-  dealsPorContacto[716] = [{ ID: '6016', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '45', UF_PROG: 'Licenciatura en Psicología' }];
-
-  usuarios[479681].PERSONAL_MOBILE = '+56911112222';
-  const deBitrix: any = await consultarEstadoEstudiante({ contact: 716 }, auth);
-  assert.equal(deBitrix.advisor.telefono, '+56911112222', 'la ficha del portal manda');
-
+  usuarios[479681].PERSONAL_MOBILE = '+51900846196';
+  dealsPorContacto[716] = [{ ID: '6016', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '45', UF_PROG: 'Licenciatura en Psicologia' }];
+  const r: any = await consultarEstadoEstudiante({ contact: 716 }, auth);
   delete usuarios[479681].PERSONAL_MOBILE;
-  const delArchivo: any = await consultarEstadoEstudiante({ contact: 716 }, auth);
-  assert.equal(delArchivo.advisor.telefono, '+51900846196', 'sin número en Bitrix, el del archivo');
+  assert.equal(r.advisor.telefono, '+14073165413');
+  assert.notEqual(r.advisor.telefono, '+51900846196', 'el movil personal de Bitrix no se entrega');
 });
 
-test('estudiante: un teléfono mal formado no se entrega a medias', async () => {
-  // Un número incompleto es peor que ninguno: el estudiante lo marca, no entra, y queda convencido
-  // de que nadie lo atiende.
+test('estudiante: la Advisor real del caso tambien entrega el telefono institucional', async () => {
   reset();
-  dealsPorContacto[717] = [{ ID: '6017', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '479297', UF_PROG: 'Maestría en Psicología' }];
-  usuarios[479297].PERSONAL_MOBILE = '9 1234 5678'; // sin código de país
+  usuarios[479297].PERSONAL_MOBILE = '+56911112222';
+  dealsPorContacto[717] = [{ ID: '6017', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '479297', UF_PROG: 'Maestria en Psicologia' }];
   const r: any = await consultarEstadoEstudiante({ contact: 717 }, auth);
   delete usuarios[479297].PERSONAL_MOBILE;
-  assert.equal(r.advisor.telefono, undefined);
-  assert.equal(r.advisor.email, 'advisor.uno@carver.university', 'el correo sí se entrega');
+  assert.equal(r.advisor.telefono, '+14073165413');
+  assert.equal(r.advisor.email, 'advisor.uno@carver.university');
 });
 
-test('advisors.json: correos institucionales y teléfonos en formato internacional', async () => {
+test('advisors.json: correos institucionales y UN telefono en formato internacional', async () => {
   const { readFileSync } = await import('node:fs');
   const j = JSON.parse(readFileSync(new URL('../data/carver/advisors.json', import.meta.url), 'utf8'));
   assert.ok(j.advisors.length >= 2);
+  assert.match(j.telefonoAdvisors, /^\+[1-9]\d{7,14}$/, 'el telefono de las Advisor, en formato internacional');
   for (const a of j.advisors) {
     assert.ok(Number.isInteger(a.userId) && a.userId > 0, `${a.nombre} sin userId`);
     assert.match(a.email, /@carver\.university$/, `${a.nombre} con correo no institucional`);
     assert.ok(a.tipos.length, `${a.nombre} sin tipos de programa`);
-    if (a.telefono !== null) assert.match(a.telefono, /^\+[1-9]\d{7,14}$/, `${a.nombre} con teléfono mal formado`);
+    // Un numero por Advisor volveria a abrir la puerta a cargar ahi un movil personal.
+    assert.equal(a.telefono, undefined, `${a.nombre} no debe tener telefono propio`);
   }
 });
 

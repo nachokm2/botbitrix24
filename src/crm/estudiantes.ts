@@ -37,17 +37,19 @@ export type AdvisorVerificado = { id: number; nombre: string; email: string; tel
  * El orden importa: primero se intenta la Advisor REAL de su negociación; la tabla solo entra
  * cuando esa no existe o no es válida. Y lo que la tabla entrega igual se verifica contra Bitrix.
  */
-type AdvisorDePrograma = { userId: number; nombre: string; email: string; telefono: string | null; tipos: string[] };
+type AdvisorDePrograma = { userId: number; nombre: string; email: string; tipos: string[] };
 
-const ADVISORS_POR_PROGRAMA: AdvisorDePrograma[] = (() => {
+const TABLA_ADVISORS: { advisors: AdvisorDePrograma[]; telefono?: string } = (() => {
   try {
     const ruta = fileURLToPath(new URL('../../data/carver/advisors.json', import.meta.url));
-    const j = JSON.parse(readFileSync(ruta, 'utf8')) as { advisors?: AdvisorDePrograma[] };
-    return Array.isArray(j.advisors) ? j.advisors : [];
+    const j = JSON.parse(readFileSync(ruta, 'utf8')) as { advisors?: AdvisorDePrograma[]; telefonoAdvisors?: string };
+    return { advisors: Array.isArray(j.advisors) ? j.advisors : [], telefono: j.telefonoAdvisors };
   } catch {
-    return [];
+    return { advisors: [] };
   }
 })();
+
+const ADVISORS_POR_PROGRAMA = TABLA_ADVISORS.advisors;
 
 /** Sin tildes y en minúsculas: "Maestría en Psicología" y "maestria en psicologia" son lo mismo. */
 const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -61,12 +63,18 @@ export function advisorDelPrograma(programa: string | null): AdvisorDePrograma |
   return ADVISORS_POR_PROGRAMA.find((a) => a.tipos.some((t) => p.includes(normalizar(t)))) ?? null;
 }
 
-/** Un teléfono solo se entrega si está en formato internacional. Un número a medias es peor que
- *  ninguno: el estudiante lo marca, no entra, y queda convencido de que nadie lo atiende. */
-const telefonoEntregable = (t: string | null | undefined): string | undefined => {
-  const limpio = String(t ?? '').replace(/[\s()-]/g, '');
+/**
+ * El teléfono por el que se escribe a las Advisor: uno solo, institucional, el mismo para todas.
+ *
+ * NO sale de la ficha de Bitrix. Ahí algunas tienen cargado su móvil personal, que es un dato del
+ * empleado y no un canal de atención: entregarlo a un estudiante es repartir el celular de alguien
+ * que no dio permiso. Se entrega solo en formato internacional, porque un número a medias es peor
+ * que ninguno — el estudiante lo marca, no entra, y concluye que nadie lo atiende.
+ */
+const telefonoDeLasAdvisors = (() => {
+  const limpio = String(TABLA_ADVISORS.telefono ?? '').replace(/[\s()-]/g, '');
   return /^\+[1-9]\d{7,14}$/.test(limpio) ? limpio : undefined;
-};
+})();
 export type EstadoEstudiante =
   | { ok: true; matriculado: false; motivo?: string }
   | {
@@ -162,11 +170,7 @@ async function resolverAdvisor(
   // nombre deja de entregarse sin tener que acordarse de editar el archivo.
   const verificada = await advisorVerificado(deTabla.userId, auth);
   if (!verificada.ok) return { ok: false, motivo: `advisor_de_tabla_${verificada.motivo}` };
-  return {
-    ok: true,
-    // El teléfono de la tabla solo se usa si Bitrix no lo tiene: la ficha del portal manda.
-    advisor: { ...verificada.advisor, telefono: verificada.advisor.telefono ?? telefonoEntregable(deTabla.telefono) },
-  };
+  return { ok: true, advisor: verificada.advisor };
 }
 
 async function advisorVerificado(
@@ -183,7 +187,8 @@ async function advisorVerificado(
   if (!config.dominioCorreoOficial || !email.endsWith(`@${config.dominioCorreoOficial}`)) {
     return { ok: false, motivo: 'correo_no_institucional' };
   }
-  return { ok: true, advisor: { id: u.id, nombre: u.nombre, email, telefono: telefonoEntregable(u.telefono) } };
+  // El telefono NO sale de u.telefono (PERSONAL_MOBILE): ese es el movil personal de la persona.
+  return { ok: true, advisor: { id: u.id, nombre: u.nombre, email, telefono: telefonoDeLasAdvisors } };
 }
 
 /** Tarea para la Advisor sobre la negociación de acompañamiento. Una por día y estudiante: si
