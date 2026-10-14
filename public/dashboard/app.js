@@ -26,7 +26,8 @@ var KPI_META = {
   escal:{color:'#f79009',icon:'🧑‍💼'}, postulantes:{color:'#7c3aed',icon:'📝'},
   consultas:{color:'#0891b2',icon:'🔎'}, etapas:{color:'#7c3aed',icon:'🔀'},
   score:{color:'#0d9488',icon:'⭐'}, operador:{color:'#f79009',icon:'🗣️'},
-  matriculas:{color:'#12b76a',icon:'🎓'}, errores:{color:'#f04438',icon:'⚠️'},
+  matriculas:{color:'#12b76a',icon:'🎓'}, matriculados:{color:'#12b76a',icon:'🎓'},
+  errores:{color:'#f04438',icon:'⚠️'},
 };
 // Última cifra mostrada por tarjeta (persiste entre polls de 15s) — permite que el conteo animado
 // arranque desde 0 solo la PRIMERA vez, y en los refrescos siguientes solo se mueva si el valor
@@ -102,6 +103,9 @@ function render(d){
   // rango típico que se mira acá.
   var matriculasPiloto = (d.piloto && d.piloto.real && d.piloto.real.matriculas) || 0;
   var postulantesPiloto = (d.piloto && d.piloto.real && d.piloto.real.postulantes) || 0;
+  // Matriculados de las negociaciones que el bot atendió. Va en la fila de tarjetas porque es el
+  // número que se busca primero; el desglose por etapa está más abajo.
+  var resKpi = d.resultado || null;
 
   document.getElementById('kpis').innerHTML =
     kpi(conversaciones,'Conversaciones','Diálogos distintos donde el bot RESPONDIÓ al menos una vez, en el período y en cualquier canal habilitado. No cuenta los diálogos donde se mantuvo en silencio porque un asesor tomó la conversación antes: esos existen en el canal, pero no los atendió el bot. Es también el denominador de las tasas de captura y escalamiento.','conversaciones') +
@@ -113,6 +117,9 @@ function render(d){
     kpi(operador,'Intervención humana','Veces que un asesor/operador REAL escribió directamente en un chat de WhatsApp (no el bot; se verifica contra Bitrix que sea un empleado, no el cliente). Solo cuenta WhatsApp — por eso puede ser menor que "Escalamientos a asesor" (que suma todos los canales y no confirma que el asesor ya haya escrito), o mayor, si un asesor entra a conversar sin que el bot haya escalado antes.','operador') +
     (marca.tienePiloto === false ? '' : kpi(postulantesPiloto,'Postulantes (piloto)','Negociaciones de los 2 programas piloto que están HOY en la etapa "Postulantes" de Bitrix24 — el paso previo a la matrícula, al que el bot mueve cuando el score es alto y ya capturó nombre, correo y teléfono. Es una foto del momento: si la persona matricula, deja de contar acá y pasa a "Matrículas". Acumulado del piloto, NO cambia con el selector Hoy/7 días/30 días/Todo.','postulantes')) +
     (marca.tienePiloto === false ? '' : kpi(matriculasPiloto,'Matrículas (piloto)','Matrículas reales entre las negociaciones con las que el bot conversó/escaló, de los 2 programas piloto combinados. Acumulado desde el inicio del piloto — NO cambia con el selector Hoy/7 días/30 días/Todo (ver detalle en "Piloto: proyección vs. real" y "Negociaciones que trabajó el bot").','matriculas')) +
+    (resKpi && resKpi.atendidas
+      ? kpi(resKpi.ganadas,'Matriculados (acumulado)','Negociaciones que el bot atendió —conversó al menos un turno, o derivó— y que HOY están en una etapa de cierre favorable (matriculado, pagado, validación académica, Flywire invoice). No son todas las matrículas del embudo: atribuirse las que el bot nunca vio inflaría el número. ACUMULADO: a diferencia del resto de esta fila, NO cambia con el selector Hoy/7 días/30 días/Todo, porque una matrícula de hace dos meses sigue siendo resultado de esa conversación. El desglose por etapa está más abajo, en "En qué terminaron las conversaciones del bot".','matriculados')
+      : '') +
     kpi(errores,'Errores','Fallas técnicas del período: el bot no pudo responder, no pudo ENVIAR la respuesta (el cliente se queda esperando), o falló al guardar en el CRM. El detalle de cada una está más abajo, en "Fallas técnicas".','errores');
   animateKpis();
 
