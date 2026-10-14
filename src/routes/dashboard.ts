@@ -8,6 +8,7 @@ import { getState } from '../store';
 import { getUsuarios } from '../crm/directory';
 import { bitrixMarchaBlancaScorecard, resolverDialogosPorProgramaPiloto, type ProgramaScorecard } from '../crm/marchaBlanca';
 import { vistaPorAsesor, type VistaAsesores } from '../crm/vistaAsesores';
+import { resultadoDelBot, type ResultadoBot } from '../crm/resultadoBot';
 import { config } from '../config';
 import { marca } from '../marca';
 
@@ -47,6 +48,8 @@ const MARCHA_BLANCA_TTL_MS = 3 * 60 * 1000;
 // La vista por asesor también consulta Bitrix en lote (una página de crm.deal.list por cada 50
 // derivaciones), así que se cachea igual: el panel se refresca cada 15 s y esto cambia por hora.
 let asesoresCache: { at: number; range: string; data: VistaAsesores } | null = null;
+// El resultado consulta la etapa actual de todo lo que el bot tocó: no cambia por minuto.
+let resultadoCache: { at: number; data: ResultadoBot } | null = null;
 
 /** JSON con métricas de negocio (persistentes) + técnicas (en memoria) + actividad reciente. */
 export async function metricsSummary(req: Request, res: Response) {
@@ -183,6 +186,22 @@ export async function metricsSummary(req: Request, res: Response) {
     }
   }
 
+  // En qué terminaron las negociaciones que el bot atendió. No sigue el selector de rango: una
+  // matrícula de hace dos meses sigue siendo resultado de esa conversación.
+  let resultado: ResultadoBot | null = null;
+  if (st.auth) {
+    if (resultadoCache && Date.now() - resultadoCache.at < MARCHA_BLANCA_TTL_MS) {
+      resultado = resultadoCache.data;
+    } else {
+      try {
+        resultado = await resultadoDelBot(st.auth);
+        resultadoCache = { at: Date.now(), data: resultado };
+      } catch {
+        resultado = resultadoCache?.data ?? null;
+      }
+    }
+  }
+
   // El consumo sale de Postgres, no del contador en memoria: ese se reiniciaba en cada despliegue y
   // obligaba a extrapolar el costo del piloto desde una semana suelta. Se cae al contador en memoria
   // solo si todavía no hay registros persistidos (instalaciones anteriores a esta medición).
@@ -214,6 +233,7 @@ export async function metricsSummary(req: Request, res: Response) {
     live: { counters: live.counters, llm: live.llm },
     tokens: { in: tin, out: tout, costUsd: cost, persistido: Boolean(tokensPersistidos) },
     agg,
+    resultado, // en qué terminaron las negociaciones que el bot atendió (ver crm/resultadoBot.ts)
     asesores, // desglose por asesor: derivados / atendidos / pendientes (ver crm/vistaAsesores.ts)
     recent,
     hallazgos, // lo que la revisión nocturna encontró en las conversaciones del día

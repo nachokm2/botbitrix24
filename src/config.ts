@@ -282,6 +282,13 @@ export const config = {
   // Distintivo que se antepone al título de las negociaciones que el bot escala por puntaje alto,
   // para que el asesor sepa cuál mirar primero. Vacío = no se marca nada.
   marcaUrgente: process.env.BITRIX_MARCA_URGENTE ?? '🔥 URGENTE · ',
+  // Etapas que cuentan como cerradas CON ÉXITO al medir el resultado del bot. "Ganada" no es solo
+  // :WON — en Carver, "Pagado" es un desenlace tan bueno como "Matriculado" y vive en otra etapa.
+  // Vacío = solo las :WON de cada embudo.
+  stagesGanadas: (process.env.BITRIX_STAGES_GANADAS ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean),
   embudosPropios: (process.env.BITRIX_EMBUDOS_PROPIOS ?? '')
     .split(',')
     .map((x) => x.trim())

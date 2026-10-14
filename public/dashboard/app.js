@@ -426,6 +426,28 @@ function render(d){
     return '<a href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(entidad)+'</a>';
   };
 
+  // En qué terminaron las negociaciones que el bot atendió. Es el número que decide si todo esto
+  // vale la pena, y hasta ahora solo existía para los programas piloto de Postgrados.
+  var res = d.resultado;
+  var resSec = document.getElementById('secResultado');
+  if (res && res.atendidas) {
+    if (resSec) resSec.style.display = '';
+    var tasa = res.atendidas > 0 ? Math.round(res.ganadas / res.atendidas * 100) : 0;
+    document.getElementById('resultadokpis').innerHTML =
+      kpi(num(res.atendidas), 'Negociaciones atendidas', 'Negociaciones con las que el bot conversó al menos un turno, o que derivó a un asesor.') +
+      kpi(num(res.ganadas), 'Cerradas con éxito', 'Las que hoy están en una etapa de cierre favorable (matriculado, pagado).') +
+      kpi(tasa + '%', 'Tasa de cierre', 'Cerradas con éxito sobre el total que el bot atendió.') +
+      kpi(num(res.abiertas), 'Todavía abiertas', 'Ni ganadas ni perdidas: siguen en el embudo.') +
+      (res.montoGanado > 0 ? kpi('$' + num(res.montoGanado), 'Monto cerrado', 'Suma del importe de las negociaciones cerradas con éxito.') : '');
+    var rmax = Math.max.apply(null, res.porEtapa.map(function(x){return x.n;})) || 1;
+    document.getElementById('resultadoetapas').innerHTML =
+      '<thead><tr><th>Etapa actual</th><th>Negociaciones</th></tr></thead><tbody>' +
+      res.porEtapa.map(function(x){
+        var marca = x.ganada ? ' ✓' : '';
+        return '<tr><td>'+esc(x.nombre)+marca+'</td><td>'+barRow('', x.n, rmax, x.ganada ? '#12b76a' : undefined)+'</td></tr>';
+      }).join('') + '</tbody>';
+  } else if (resSec) resSec.style.display = 'none';
+
   // Casos derivados, uno por uno. La tabla por asesor dice CUÁNTOS; ésta dice CUÁLES, que es lo que
   // hace falta para ir a trabajarlos.
   var casos = (d.asesores && d.asesores.casos) || [];

@@ -70,6 +70,11 @@
 
   <div class="sec"><h2>Uso de herramientas<i class="hint" title="Cuántas veces se usó cada herramienta del bot (catálogo, condiciones comerciales, registrar interés, escalar a humano, etc.).">?</i></h2><div class="card"><div id="tools"></div></div></div>
 
+  <div class="sec" id="secResultado"><h2>En qué terminaron las conversaciones del bot<i class="hint" title="Etapa actual de las negociaciones que el bot atendió: aquellas con las que conversó al menos un turno, más las que derivó. NO son todas las matrículas del embudo — atribuirse las que el bot nunca vio inflaría el resultado. No cambia con el selector de rango: una matrícula de hace dos meses sigue siendo resultado de esa conversación.">?</i></h2><div class="card">
+    <div class="grid" id="resultadokpis" style="margin-bottom:10px"></div>
+    <table id="resultadoetapas"></table>
+  </div></div>
+
   <div class="sec" id="secCasosDerivados"><h2>Casos derivados<i class="hint" title="Cada negociación que el bot entregó a un asesor, con su etapa actual y si alguien la trabajó después. Primero las que nadie tomó: son las accionables. El enlace abre la ficha en Bitrix24.">?</i></h2><div class="card" style="overflow-x:auto"><div id="casosresumen" class="sub" style="margin-bottom:8px"></div><table id="casosderivados"></table></div></div>
 
   <div class="sec" id="secRevision"><h2>Revisión de conversaciones<i class="hint" title="Cada noche se leen las conversaciones del día y se marca lo que conviene mirar: preguntas sin responder, datos pedidos dos veces, información que podría estar inventada, interés que se apagó sin pedir datos, fallas técnicas y problemas de tono. Es un lector, no un juez: no cambia nada.">?</i></h2><div class="card" style="overflow-x:auto"><div id="revisionresumen" class="sub" style="margin-bottom:8px"></div><table id="revision"></table></div></div>
