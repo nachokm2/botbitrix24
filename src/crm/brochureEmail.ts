@@ -45,6 +45,10 @@ export async function fusionarBrochures(pdfs: Buffer[]): Promise<Buffer> {
 export type CuerpoBrochureInput = {
   nombre: string;
   programas: string[];
+  /** Movil del asesor responsable, para los botones de llamar/WhatsApp. Llega vacio donde la
+   *  marca declara que esos numeros no estan al dia (marca.telefonoAsesorVigente), y entonces el
+   *  bloque de ayuda no se arma: un enlace wa.me a un numero viejo es peor que no ofrecer nada. */
+  telefonoAsesor?: string;
 };
 
 /** Cuerpo EN TEXTO PLANO del correo de brochure(s) — la plantilla bizproc solo referencia este
@@ -59,7 +63,7 @@ export type CuerpoBrochureInput = {
  *     donde se guarda este cuerpo — y las entidades HTML numéricas tampoco sirven de escape,
  *     porque el punto (1) las escapa también (el "&" se vuelve "&amp;"). */
 export function renderCuerpoBrochureEmail(input: CuerpoBrochureInput): string {
-  const { nombre, programas } = input;
+  const { nombre, programas, telefonoAsesor } = input;
   const varios = programas.length > 1;
 
   const intro = varios
@@ -70,16 +74,26 @@ export function renderCuerpoBrochureEmail(input: CuerpoBrochureInput): string {
     .map((p, i) => `${i + 1}. ${p}\n   Archivo adjunto: Brochure ${p} (PDF)`)
     .join('\n\n');
 
-  // Acá iba un bloque "¿Necesitas ayuda?" con botones de llamar y de WhatsApp, armados con el
-  // PERSONAL_MOBILE de la ficha de Bitrix del asesor responsable. Esos números están
-  // desactualizados, y un enlace wa.me a un número viejo es peor que no ofrecer nada: la persona
-  // escribe, no le contesta nadie —o le contesta alguien que no es— y concluye que la dejaron
-  // botada. La conversación sigue por donde ya venía, que es donde el asesor sí está.
+  // Sin teléfono no se arma el bloque: un enlace wa.me a un número viejo es peor que no ofrecer
+  // nada, porque la persona escribe, no le contesta nadie —o le contesta alguien que no es— y
+  // concluye que la dejaron botada. Por eso en Carver llega vacío (ver marca.telefonoAsesorVigente).
+  const telefonoLimpio = telefonoAsesor?.replace(/[^\d+]/g, '');
+  const ayuda = telefonoLimpio
+    ? [
+        '---',
+        '¿Necesitas ayuda?',
+        'Si deseas resolver alguna duda o recibir orientación personalizada, puedes comunicarte directamente con tu asesor.',
+        `Llamar a tu asesor: ${telefonoLimpio}`,
+        `Continuar por WhatsApp: https://wa.me/${telefonoLimpio}`,
+      ].join('\n')
+    : '';
+
   return [
     `Hola, ${nombre}.`,
     intro,
     'Si tienes dudas sobre el plan de estudios, modalidad, aranceles, descuentos o el proceso de admisión, estaré encantado de ayudarte.',
     `${varios ? 'Programas' : 'Programa'} de interés:\n\n${bloquesPrograma}`,
+    ayuda,
     'Quedamos atentos para acompañarte durante todo tu proceso de admisión.',
   ]
     .filter(Boolean)

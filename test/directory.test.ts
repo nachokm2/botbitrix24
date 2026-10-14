@@ -21,7 +21,8 @@ mock.module('../src/bitrix/client.ts', {
   },
 });
 
-const { esEmpleadoBitrix } = await import('../src/crm/directory');
+const { esEmpleadoBitrix, getUsuarios } = await import('../src/crm/directory');
+const { marca } = await import('../src/marca');
 const auth = { domain: '', access_token: '' } as any;
 
 test('esEmpleadoBitrix: user.get devuelve un registro real (NAME/EMAIL) → true', async () => {
@@ -49,4 +50,19 @@ test('esEmpleadoBitrix: id inválido (0 o no numérico) → false sin llamar a B
   };
   assert.equal(await esEmpleadoBitrix(0, auth), false);
   assert.equal(called, false, 'no llama a user.get con un id inválido');
+});
+
+// ── El móvil del asesor, por marca ───────────────────────────────────────────────────────────────
+// Este archivo corre sin MARCA, o sea como Postgrados, cuyo equipo SÍ tiene los teléfonos al día en
+// Bitrix. En Carver están desactualizados y el campo no se lee (ver carverCrm.test.ts). El corte
+// está en getUsuarios, el único punto que toca PERSONAL_MOBILE: así no depende de que cada
+// consumidor se acuerde de no usarlo.
+test('getUsuarios: en Postgrados sí trae el móvil de la ficha', async () => {
+  assert.equal(marca.telefonoAsesorVigente, true, 'los números de Postgrados están al día');
+  responder = (method) =>
+    method === 'user.get'
+      ? [{ ID: '9', NAME: 'Asesora', LAST_NAME: 'Postgrados', EMAIL: 'a@uautonoma.cl', PERSONAL_MOBILE: '+56912345678', ACTIVE: true }]
+      : {};
+  const [u] = await getUsuarios([9], auth);
+  assert.equal(u.telefono, '+56912345678');
 });

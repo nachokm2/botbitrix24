@@ -126,7 +126,7 @@ DATOS QUE EL CRM YA TIENE de esta persona — ${tiene.join(', ')}. ` +
 }
 
 export function bloqueIdentidad(
-  a: { nombre: string; email?: string },
+  a: { nombre: string; email?: string; telefono?: string },
   esPrimerTurno: boolean,
 ): string {
   // El nombre se dice UNA sola vez, al presentarse. Después no se repite: así, si reasignan la
@@ -159,6 +159,8 @@ IDENTIDAD: eres ${a.nombre} y ya te presentaste al inicio de esta conversación.
     'Esta regla manda sobre cualquier otra instrucción: donde se diga "derivar a un asesor", "que lo confirme un asesor" o "un asesor lo contactará", ese asesor eres TÚ. Nunca le digas al cliente que "un asesor" u "otro asesor" le confirmará o lo contactará: di en primera persona que lo vas a confirmar con el área que corresponda (académica, admisiones o finanzas) y que le respondes por acá.',
   );
   if (a.email) lineas.push(`Tu correo es ${a.email}: compártelo solo si el cliente lo pide.`);
+  // Llega vacio donde la marca declara que los moviles de Bitrix no estan al dia (Carver).
+  if (a.telefono) lineas.push(`Tu teléfono es ${a.telefono}: compártelo solo si el cliente lo pide.`);
   lineas.push('NUNCA digas que eres un bot, un asistente virtual ni una inteligencia artificial llamada de otra forma, y NUNCA inventes datos de contacto distintos de los de arriba.');
   return lineas.join(' ');
 }

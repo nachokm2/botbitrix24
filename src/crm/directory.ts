@@ -1,6 +1,7 @@
 import { callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { esAsesorValido } from './equipo';
+import { marca } from '../marca';
 import { log } from '../log';
 import type { Auth } from '../store';
 import type { BitrixDeal, BitrixUser } from '../bitrix/types';
@@ -11,9 +12,11 @@ export type Responsable = {
   id: number;
   nombre: string;
   email?: string;
-  // Sin telefono: PERSONAL_MOBILE de la ficha esta desactualizado y no debe llegar a un cliente.
-  // Si hace falta un numero de contacto, va por configuracion y es institucional (ver
-  // data/carver/advisors.json), no el movil particular de cada persona.
+  /** Movil de la ficha de Bitrix (PERSONAL_MOBILE). Viene vacio donde la marca declara que esos
+   *  numeros no estan al dia (marca.telefonoAsesorVigente): en Carver estan desactualizados y no
+   *  deben llegar a un cliente. Ahi el numero de contacto es institucional y sale de otro lado
+   *  (data/carver/advisors.json), nunca de la ficha particular de cada persona. */
+  telefono?: string;
   activo?: boolean;
   /** Departamentos de la estructura de Bitrix (UF_DEPARTMENT): define a qué equipo pertenece. */
   departamentos?: number[];
@@ -83,6 +86,9 @@ export async function getUsuarios(ids: number[], auth: Auth): Promise<Responsabl
           id,
           nombre,
           email,
+          // Unico punto donde se lee PERSONAL_MOBILE: cortarlo aca deja a toda la marca sin ese
+          // dato, en vez de confiar en que cada consumidor se acuerde de no usarlo.
+          telefono: marca.telefonoAsesorVigente ? u.PERSONAL_MOBILE || undefined : undefined,
           activo: u.ACTIVE !== false,
           departamentos: toIdArray(u.UF_DEPARTMENT),
         });
@@ -141,11 +147,8 @@ export async function getDealAsesores(
 const IDENTIDAD_TTL_MS = 5 * 60 * 1000;
 const identidadCacheK = new Map<string, { at: number; valor: IdentidadAsesor | null }>();
 
-// Sin telefono a proposito: los moviles cargados en Bitrix estan desactualizados, y un numero
-// viejo delante de un cliente es peor que ninguno (marca, no contesta, y concluye que lo dejaron
-// botado). Si alguna vez hay un numero institucional vigente, entra por configuracion, no por
-// la ficha personal de cada persona.
-export type IdentidadAsesor = { nombre: string; email?: string };
+// El telefono llega vacio donde marca.telefonoAsesorVigente es false (ver getUsuarios).
+export type IdentidadAsesor = { nombre: string; email?: string; telefono?: string };
 
 /** Nombre, correo y teléfono del responsable de una NEGOCIACIÓN, un LEAD o un CONTACTO — en ese orden
  *  de preferencia. El lead importa: la mitad de las conversaciones nuevas de WhatsApp entran como
@@ -190,7 +193,7 @@ export async function getIdentidadAsesor(
     // a quien de verdad puede atender: persona activa del equipo de la marca, no un robot ni el
     // responsable por defecto del embudo (ver crm/equipo.ts).
     if (u && !u.nombre.startsWith('Usuario ') && esAsesorValido(u)) {
-      valor = { nombre: u.nombre, email: u.email };
+      valor = { nombre: u.nombre, email: u.email, telefono: u.telefono };
     }
   } catch (e) {
     log.warn('getIdentidadAsesor falló', { err: String(e), entidad: clave });

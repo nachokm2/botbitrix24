@@ -88,6 +88,12 @@ export type Marca = {
   brochureVerificado: boolean;
   /** ¿Tiene base de conocimiento comercial verificable (ver core/conocimientoComercial.ts)? */
   baseConocimiento: boolean;
+  /** ¿Se puede entregar a un cliente el móvil del asesor que trae su ficha de Bitrix
+   *  (PERSONAL_MOBILE)? En Postgrados sí: esos números están al día. En Carver NO: los de su
+   *  equipo están desactualizados, y un número viejo delante de un cliente es peor que ninguno
+   *  —marca, no le contesta nadie y concluye que lo dejaron botado—. Donde está en false, el
+   *  campo ni siquiera se lee: así no hay forma de que algo nuevo lo vuelva a tomar. */
+  telefonoAsesorVigente: boolean;
 };
 
 /** Valor de una variable de entorno, o el default si no está definida o está vacía. */
@@ -138,6 +144,7 @@ const POSTGRADOS: Marca = {
   soporteEstudiantes: false,
   brochureVerificado: false,
   baseConocimiento: false,
+  telefonoAsesorVigente: true,
 };
 
 // Identidad de Carver, UNIFICADA (hallazgo 1 de la auditoría del piloto). Convivían tres:
@@ -188,6 +195,7 @@ const CARVER: Marca = {
   soporteEstudiantes: true,
   brochureVerificado: true,
   baseConocimiento: true,
+  telefonoAsesorVigente: false,
 };
 
 const MARCAS: Record<MarcaKey, Marca> = { postgrados: POSTGRADOS, carver: CARVER };

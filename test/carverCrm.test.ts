@@ -51,6 +51,7 @@ mock.module('../src/obs/audit.ts', { namedExports: { audit: async (e: any) => vo
 const { getIdentidadAsesor } = await import('../src/crm/directory');
 const { derivarAResponsableFijo } = await import('../src/crm/asignacionAsesores');
 const { consultarEstadoEstudiante } = await import('../src/crm/estudiantes');
+const { getUsuarios } = await import('../src/crm/directory');
 const { executeTool } = await import('../src/ai/toolRunner');
 const { WHATSAPP_PROFILE } = await import('../src/core/channel');
 const auth = { domain: 'test.bitrix24.com', access_token: 'tok' } as any;
@@ -215,6 +216,17 @@ test('estudiante: la Advisor real del caso tambien entrega el telefono instituci
   delete usuarios[479297].PERSONAL_MOBILE;
   assert.equal(r.advisor.telefono, '+14073165413');
   assert.equal(r.advisor.email, 'advisor.uno@carver.university');
+});
+
+test('getUsuarios: en Carver NO trae el movil de la ficha, aunque Bitrix lo tenga', async () => {
+  // Los numeros del equipo de Carver estan desactualizados. Se corta aca, en el unico punto que lee
+  // PERSONAL_MOBILE, para que ningun consumidor nuevo pueda volver a entregarlo por descuido.
+  reset();
+  usuarios[479297].PERSONAL_MOBILE = '+56999998888';
+  const [u] = await getUsuarios([479297], auth);
+  delete usuarios[479297].PERSONAL_MOBILE;
+  assert.equal(u.telefono, undefined);
+  assert.equal(u.email, 'advisor.uno@carver.university', 'el resto de la ficha sigue llegando');
 });
 
 test('advisors.json: correos institucionales y UN telefono en formato internacional', async () => {
