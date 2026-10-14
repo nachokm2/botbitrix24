@@ -64,7 +64,8 @@ const TOOLS_CARVER = [
     name: 'consultar_estado_estudiante',
     description:
       'Verifica en el CRM si la persona de ESTE chat es estudiante matriculado y, si se puede verificar, quién es ' +
-      'su Advisor (nombre y correo institucional). Úsala cuando la persona diga ser estudiante o alumno y tenga ' +
+      'su Advisor (nombre, correo institucional y, si está registrado, su WhatsApp). Úsala cuando la persona diga ' +
+      'ser estudiante o alumno y tenga ' +
       'un inconveniente (plataforma, clases, notas, certificados, pagos de cuotas). No recibe parámetros: solo ' +
       'consulta la ficha de quien escribe.',
     input_schema: { type: 'object', properties: {}, required: [] },

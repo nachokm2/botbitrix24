@@ -1,0 +1,24 @@
+{
+  "_descripcion": "Qué Advisor acompaña a un estudiante matriculado, según el tipo de programa. Se usa SOLO cuando la negociación de acompañamiento (embudo 107) no tiene una Advisor válida como responsable — que hoy es el caso más común, porque el responsable es el robot 'Resp. Autom.' (#45).",
+  "_deDondeSale": "Mapeo derivado de las 968 negociaciones del embudo 107 que sí tienen a una persona como responsable (consulta del 2026-10-14): Yhoselin Vilca concentra 561 de 570 licenciaturas/bachelors; Daniela Cáceres, las 397 maestrías/masters, sin excepción. No es una regla declarada por la dirección: es lo que el CRM viene haciendo. Si cambia el reparto, hay que actualizar este archivo.",
+  "_comoActualizar": "Cada entrada necesita userId (de Bitrix), nombre, email institucional y los patrones de 'tipos'. 'telefono' es opcional y debe ir en formato internacional (+56..., +51...). El código igual verifica contra Bitrix que la persona siga activa y en el equipo antes de entregar sus datos: este archivo dice QUIÉN, Bitrix dice SI TODAVÍA.",
+  "advisors": [
+    {
+      "userId": 479681,
+      "nombre": "Yhoselin Vilca",
+      "email": "yhoselin.vilca@carver.university",
+      "telefono": "+51900846196",
+      "tipos": ["licenciatura", "bachelor"],
+      "cubre": "Licenciaturas y Bachelors (Psicología, Ingeniería Informática, Administración de Empresas)"
+    },
+    {
+      "userId": 479297,
+      "nombre": "Daniela Cáceres",
+      "email": "daniela.caceres@carver.university",
+      "telefono": null,
+      "tipos": ["maestria", "master", "magister"],
+      "cubre": "Maestrías y Masters (todas)"
+    }
+  ],
+  "_sinCobertura": "Los cursos de educación continua, diplomados e ingenierías NO tienen Advisor asignada en el embudo 107. Para esos programas el bot entrega el canal oficial y deriva, en vez de adivinar una persona."
+}

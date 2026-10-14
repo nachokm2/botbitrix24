@@ -225,8 +225,10 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
             ...r,
             contactoGeneral: CONTACTO_GENERAL,
             nota: r.advisor
-              ? `Es estudiante. NO le ofrezcas programas ni le pidas datos de contacto. Dale el nombre y el correo de su Advisor (${r.advisor.nombre}, ${r.advisor.email}) para su inconveniente y ofrécele avisarle tú: si acepta, usa escalar_a_humano con tipo "soporte_estudiante".`
-              : 'Es estudiante, pero no se pudo verificar quién es su Advisor: NO inventes un nombre ni un correo. Indícale el canal oficial (contactoGeneral) y deriva con escalar_a_humano con tipo "soporte_estudiante".',
+              ? `Es estudiante. NO le ofrezcas programas ni le pidas datos de contacto. Dale los datos de contacto de su Advisor (${r.advisor.nombre}, ${r.advisor.email}${
+                  r.advisor.telefono ? `, WhatsApp ${r.advisor.telefono}` : ''
+                }) para su inconveniente y ofrécele avisarle tú: si acepta, usa escalar_a_humano con tipo "soporte_estudiante". Entrega SOLO los datos que aparecen acá; si no hay teléfono, no lo menciones ni lo inventes.`
+              : 'Es estudiante, pero no se pudo verificar quién es su Advisor: NO inventes un nombre, un correo ni un teléfono. Indícale el canal oficial (contactoGeneral) y deriva con escalar_a_humano con tipo "soporte_estudiante".',
           };
         }
         if (r.ok) {

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { getUsuarios } from './directory';
@@ -22,7 +24,49 @@ import type { BitrixTaskAddResult } from '../bitrix/types';
  * correo del dominio institucional. Si no, se entrega el canal oficial general y se deriva.
  */
 
-export type AdvisorVerificado = { id: number; nombre: string; email: string };
+export type AdvisorVerificado = { id: number; nombre: string; email: string; telefono?: string };
+
+/**
+ * Tabla de respaldo: qué Advisor acompaña cada tipo de programa.
+ *
+ * Hace falta porque en el embudo 107 el responsable casi nunca es una persona: de 1.030
+ * negociaciones, 968 tienen Advisor y el resto quedó con el robot "Resp. Autom." (#45), que no es
+ * alguien a quien escribirle. Sin este respaldo, un estudiante de esos recibía "no pude verificar
+ * quién te acompaña" — que es cierto pero inútil.
+ *
+ * El orden importa: primero se intenta la Advisor REAL de su negociación; la tabla solo entra
+ * cuando esa no existe o no es válida. Y lo que la tabla entrega igual se verifica contra Bitrix.
+ */
+type AdvisorDePrograma = { userId: number; nombre: string; email: string; telefono: string | null; tipos: string[] };
+
+const ADVISORS_POR_PROGRAMA: AdvisorDePrograma[] = (() => {
+  try {
+    const ruta = fileURLToPath(new URL('../../data/carver/advisors.json', import.meta.url));
+    const j = JSON.parse(readFileSync(ruta, 'utf8')) as { advisors?: AdvisorDePrograma[] };
+    return Array.isArray(j.advisors) ? j.advisors : [];
+  } catch {
+    return [];
+  }
+})();
+
+/** Sin tildes y en minúsculas: "Maestría en Psicología" y "maestria en psicologia" son lo mismo. */
+const normalizar = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+/** La Advisor que cubre este programa, o null. Un programa sin cobertura (cursos de educación
+ *  continua, diplomados) devuelve null a propósito: es preferible derivar al canal oficial que
+ *  mandarle el estudiante a alguien que no lo acompaña. */
+export function advisorDelPrograma(programa: string | null): AdvisorDePrograma | null {
+  if (!programa) return null;
+  const p = normalizar(programa);
+  return ADVISORS_POR_PROGRAMA.find((a) => a.tipos.some((t) => p.includes(normalizar(t)))) ?? null;
+}
+
+/** Un teléfono solo se entrega si está en formato internacional. Un número a medias es peor que
+ *  ninguno: el estudiante lo marca, no entra, y queda convencido de que nadie lo atiende. */
+const telefonoEntregable = (t: string | null | undefined): string | undefined => {
+  const limpio = String(t ?? '').replace(/[\s()-]/g, '');
+  return /^\+[1-9]\d{7,14}$/.test(limpio) ? limpio : undefined;
+};
 export type EstadoEstudiante =
   | { ok: true; matriculado: false; motivo?: string }
   | {
@@ -84,7 +128,7 @@ export async function consultarEstadoEstudiante(entities: CrmEntities, auth: Aut
       return { ok: true, matriculado: true, programa, dealId: Number(ref.ID), advisor: null, motivoSinAdvisor: 'sin_negociacion_de_acompanamiento' };
     }
 
-    const advisor = await advisorVerificado(Number(deEstudiante.ASSIGNED_BY_ID), auth);
+    const advisor = await resolverAdvisor(Number(deEstudiante.ASSIGNED_BY_ID), programa, auth);
     return {
       ok: true,
       matriculado: true,
@@ -97,6 +141,32 @@ export async function consultarEstadoEstudiante(entities: CrmEntities, auth: Aut
     log.warn('consultarEstadoEstudiante falló', { err: String(e) });
     return { ok: false, error: 'CRM_NO_DISPONIBLE' };
   }
+}
+
+/**
+ * Quién acompaña a este estudiante: la responsable de su negociación si es una Advisor válida y,
+ * si no, la que cubre su tipo de programa. Nunca se devuelve a alguien sin verificar en Bitrix.
+ */
+async function resolverAdvisor(
+  responsableId: number,
+  programa: string | null,
+  auth: Auth,
+): Promise<{ ok: true; advisor: AdvisorVerificado } | { ok: false; motivo: string }> {
+  const directa = await advisorVerificado(responsableId, auth);
+  if (directa.ok) return directa;
+
+  const deTabla = advisorDelPrograma(programa);
+  if (!deTabla) return { ok: false, motivo: programa ? 'programa_sin_advisor' : directa.motivo };
+
+  // La tabla dice quién; Bitrix dice si sigue activa y en el equipo. Si alguien se va de Carver, su
+  // nombre deja de entregarse sin tener que acordarse de editar el archivo.
+  const verificada = await advisorVerificado(deTabla.userId, auth);
+  if (!verificada.ok) return { ok: false, motivo: `advisor_de_tabla_${verificada.motivo}` };
+  return {
+    ok: true,
+    // El teléfono de la tabla solo se usa si Bitrix no lo tiene: la ficha del portal manda.
+    advisor: { ...verificada.advisor, telefono: verificada.advisor.telefono ?? telefonoEntregable(deTabla.telefono) },
+  };
 }
 
 async function advisorVerificado(
@@ -113,7 +183,7 @@ async function advisorVerificado(
   if (!config.dominioCorreoOficial || !email.endsWith(`@${config.dominioCorreoOficial}`)) {
     return { ok: false, motivo: 'correo_no_institucional' };
   }
-  return { ok: true, advisor: { id: u.id, nombre: u.nombre, email } };
+  return { ok: true, advisor: { id: u.id, nombre: u.nombre, email, telefono: telefonoEntregable(u.telefono) } };
 }
 
 /** Tarea para la Advisor sobre la negociación de acompañamiento. Una por día y estudiante: si

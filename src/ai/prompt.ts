@@ -97,7 +97,7 @@ const REGLA_BREVEDAD = esCarver
 
 // Hallazgo 10: un estudiante matriculado no es un prospecto.
 const REGLA_ESTUDIANTES = marca.soporteEstudiantes
-  ? '\n- ESTUDIANTES MATRICULADOS: si la persona dice ser estudiante o alumno y tiene un inconveniente (plataforma, clases, notas, certificados, pagos de cuotas), NO le vendas ni le pidas datos de contacto: usa "consultar_estado_estudiante" y sigue su instrucción. El correo de su Advisor solo se da si la herramienta lo entrega verificado; nunca inventes un nombre ni un correo.'
+  ? '\n- ESTUDIANTES MATRICULADOS: si la persona dice ser estudiante o alumno y tiene un inconveniente (plataforma, clases, notas, certificados, pagos de cuotas), NO le vendas ni le pidas datos de contacto: usa "consultar_estado_estudiante" y sigue su instrucción. Los datos de su Advisor —nombre, correo y WhatsApp— solo se dan si la herramienta los entrega verificados; nunca inventes un nombre, un correo ni un número.'
   : '';
 
 export const SYSTEM_PROMPT = `${IDENTIDAD} ${TONO} ${JERGA}

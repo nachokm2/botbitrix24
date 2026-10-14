@@ -16,6 +16,9 @@ const llamadas: Llamada[] = [];
 const usuarios: Record<number, any> = {
   1313: { NAME: 'Punto', LAST_NAME: 'Entrada', EMAIL: 'entrada@carver.university', ACTIVE: true, UF_DEPARTMENT: [49] },
   479297: { NAME: 'Advisor', LAST_NAME: 'Uno', EMAIL: 'advisor.uno@carver.university', ACTIVE: true, UF_DEPARTMENT: [193] },
+  // Advisor de licenciaturas en data/carver/advisors.json. El teléfono se mueve en las pruebas para
+  // comprobar de dónde sale: la ficha de Bitrix manda sobre el número del archivo.
+  479681: { NAME: 'Advisor', LAST_NAME: 'Dos', EMAIL: 'advisor.dos@carver.university', ACTIVE: true, UF_DEPARTMENT: [193] },
   685357: { NAME: 'Ejecutiva', LAST_NAME: 'Carver', EMAIL: 'ejecutiva@gmail.com', ACTIVE: true, UF_DEPARTMENT: [511] },
   9: { NAME: 'Ejecutivo', LAST_NAME: 'Postgrados', EMAIL: 'ejecutivo@uautonoma.cl', ACTIVE: true, UF_DEPARTMENT: [5] },
   45: { NAME: 'Resp.', LAST_NAME: 'Autom.', EMAIL: 'robot@uautonoma.cl', ACTIVE: true, UF_DEPARTMENT: [7] },
@@ -133,13 +136,99 @@ test('estudiante: con negociación de acompañamiento y Advisor verificada, entr
   assert.deepEqual(de('crm.deal.list')[0].params.filter['@CATEGORY_ID'].sort(), [107, 135, 73].sort());
 });
 
-test('estudiante: si su responsable es el robot, no se inventa una Advisor', async () => {
+test('estudiante: si su responsable es el robot y no se sabe su programa, no se inventa una Advisor', async () => {
   reset();
   dealsPorContacto[701] = [{ ID: '6002', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '45' }];
   const r: any = await consultarEstadoEstudiante({ contact: 701 }, auth);
   assert.equal(r.matriculado, true);
   assert.equal(r.advisor, null);
   assert.equal(r.motivoSinAdvisor, 'responsable_no_valido');
+});
+
+// ── Advisor según el tipo de programa ────────────────────────────────────────────────────────────
+// En el embudo 107 el responsable casi nunca es una persona: de 1.030 negociaciones, 968 tienen
+// Advisor y el resto quedó con el robot. Sin respaldo por tipo de programa, esos estudiantes
+// recibían "no pude verificar quién te acompaña", que es cierto pero no les sirve de nada.
+test('estudiante: con el robot a cargo, la Advisor sale del tipo de programa', async () => {
+  reset();
+  dealsPorContacto[710] = [{ ID: '6010', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '45', UF_PROG: 'Maestría en Inteligencia Artificial' }];
+  const maestria: any = await consultarEstadoEstudiante({ contact: 710 }, auth);
+  assert.equal(maestria.advisor.id, 479297, 'las maestrías van a la Advisor de maestrías');
+
+  dealsPorContacto[711] = [{ ID: '6011', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '45', UF_PROG: 'Licenciatura en Psicología' }];
+  const licenciatura: any = await consultarEstadoEstudiante({ contact: 711 }, auth);
+  assert.equal(licenciatura.advisor.id, 479681, 'las licenciaturas van a la otra');
+
+  // Los nombres en inglés son los mismos programas: "Bachelor of Science in Psychology".
+  dealsPorContacto[712] = [{ ID: '6012', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '45', UF_PROG: 'Bachelor of Science in Psychology' }];
+  assert.equal(((await consultarEstadoEstudiante({ contact: 712 }, auth)) as any).advisor.id, 479681);
+});
+
+test('estudiante: la Advisor REAL del caso le gana a la tabla por tipo de programa', async () => {
+  // La tabla es un respaldo, no una regla: si alguien asignó a mano a otra Advisor, manda esa.
+  reset();
+  dealsPorContacto[713] = [{ ID: '6013', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '479297', UF_PROG: 'Licenciatura en Psicología' }];
+  const r: any = await consultarEstadoEstudiante({ contact: 713 }, auth);
+  assert.equal(r.advisor.id, 479297, 'la responsable de la negociación, aunque sea una licenciatura');
+});
+
+test('estudiante: un programa sin Advisor asignada no se adivina', async () => {
+  // Los cursos de educación continua y los diplomados no tienen Advisor en el embudo 107. Mandar al
+  // estudiante con alguien que no lo acompaña es peor que decirle el canal oficial.
+  reset();
+  dealsPorContacto[714] = [{ ID: '6014', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '45', UF_PROG: 'Curso de Educación Continua en Hacking Ético' }];
+  const r: any = await consultarEstadoEstudiante({ contact: 714 }, auth);
+  assert.equal(r.advisor, null);
+  assert.equal(r.motivoSinAdvisor, 'programa_sin_advisor');
+});
+
+test('estudiante: una Advisor de la tabla que ya no está activa no se entrega', async () => {
+  // El archivo dice QUIÉN; Bitrix dice SI TODAVÍA. Si alguien se va de Carver, su nombre deja de
+  // salir sin que haya que acordarse de editar el archivo.
+  reset();
+  usuarios[479681].ACTIVE = false;
+  dealsPorContacto[715] = [{ ID: '6015', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '45', UF_PROG: 'Licenciatura en Ingeniería Informática' }];
+  const r: any = await consultarEstadoEstudiante({ contact: 715 }, auth);
+  usuarios[479681].ACTIVE = true;
+  assert.equal(r.advisor, null);
+  assert.match(r.motivoSinAdvisor, /^advisor_de_tabla_/);
+});
+
+test('estudiante: el teléfono sale de Bitrix si lo tiene, y del archivo si no', async () => {
+  reset();
+  dealsPorContacto[716] = [{ ID: '6016', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '45', UF_PROG: 'Licenciatura en Psicología' }];
+
+  usuarios[479681].PERSONAL_MOBILE = '+56911112222';
+  const deBitrix: any = await consultarEstadoEstudiante({ contact: 716 }, auth);
+  assert.equal(deBitrix.advisor.telefono, '+56911112222', 'la ficha del portal manda');
+
+  delete usuarios[479681].PERSONAL_MOBILE;
+  const delArchivo: any = await consultarEstadoEstudiante({ contact: 716 }, auth);
+  assert.equal(delArchivo.advisor.telefono, '+51900846196', 'sin número en Bitrix, el del archivo');
+});
+
+test('estudiante: un teléfono mal formado no se entrega a medias', async () => {
+  // Un número incompleto es peor que ninguno: el estudiante lo marca, no entra, y queda convencido
+  // de que nadie lo atiende.
+  reset();
+  dealsPorContacto[717] = [{ ID: '6017', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '479297', UF_PROG: 'Maestría en Psicología' }];
+  usuarios[479297].PERSONAL_MOBILE = '9 1234 5678'; // sin código de país
+  const r: any = await consultarEstadoEstudiante({ contact: 717 }, auth);
+  delete usuarios[479297].PERSONAL_MOBILE;
+  assert.equal(r.advisor.telefono, undefined);
+  assert.equal(r.advisor.email, 'advisor.uno@carver.university', 'el correo sí se entrega');
+});
+
+test('advisors.json: correos institucionales y teléfonos en formato internacional', async () => {
+  const { readFileSync } = await import('node:fs');
+  const j = JSON.parse(readFileSync(new URL('../data/carver/advisors.json', import.meta.url), 'utf8'));
+  assert.ok(j.advisors.length >= 2);
+  for (const a of j.advisors) {
+    assert.ok(Number.isInteger(a.userId) && a.userId > 0, `${a.nombre} sin userId`);
+    assert.match(a.email, /@carver\.university$/, `${a.nombre} con correo no institucional`);
+    assert.ok(a.tipos.length, `${a.nombre} sin tipos de programa`);
+    if (a.telefono !== null) assert.match(a.telefono, /^\+[1-9]\d{7,14}$/, `${a.nombre} con teléfono mal formado`);
+  }
 });
 
 test('estudiante: un correo que no es institucional no se entrega', async () => {
