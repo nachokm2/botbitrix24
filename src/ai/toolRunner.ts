@@ -218,7 +218,7 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
       }
 
       case 'consultar_estado_estudiante': {
-        const r = await consultarEstadoEstudiante(ctx.crmEntities ?? {}, ctx.auth);
+        const r = await consultarEstadoEstudiante(ctx.crmEntities ?? {}, ctx.auth, input?.programa);
         if (r.ok && r.matriculado) {
           // Se recuerda para que una derivación posterior vaya a SU Advisor y no al flujo comercial.
           await setJson(ESTUDIANTE_KEY(ctx.conversationId), { dealId: r.dealId, advisorId: r.advisor?.id ?? null }, 7 * 24 * 3600);
@@ -229,7 +229,9 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
               ? `Es estudiante. NO le ofrezcas programas ni le pidas datos de contacto. Dale los datos de contacto de su Advisor (${r.advisor.nombre}, ${r.advisor.email}${
                   r.advisor.telefono ? `, WhatsApp ${r.advisor.telefono}` : ''
                 }) para su inconveniente y ofrécele avisarle tú: si acepta, usa escalar_a_humano con tipo "soporte_estudiante". Entrega SOLO los datos que aparecen acá; si no hay teléfono, no lo menciones ni lo inventes.`
-              : 'Es estudiante, pero no se pudo verificar quién es su Advisor: NO inventes un nombre, un correo ni un teléfono. Indícale el canal oficial (contactoGeneral) y deriva con escalar_a_humano con tipo "soporte_estudiante".',
+              : r.motivoSinAdvisor === 'sin_programa'
+                ? 'Es estudiante, pero su ficha no dice qué programa cursa y la Advisor depende de eso. NO le ofrezcas programas ni le pidas datos de contacto: pregúntale en qué programa está matriculado y, cuando te responda, vuelve a usar consultar_estado_estudiante.'
+                : 'Es estudiante, pero no se pudo verificar quién es su Advisor: NO inventes un nombre, un correo ni un teléfono. Indícale el canal oficial (contactoGeneral) y deriva con escalar_a_humano con tipo "soporte_estudiante".',
           };
         }
         if (r.ok) {

@@ -100,7 +100,15 @@ async function contactoDelChat(entities: CrmEntities, auth: Auth): Promise<numbe
   return null;
 }
 
-export async function consultarEstadoEstudiante(entities: CrmEntities, auth: Auth): Promise<EstadoEstudiante> {
+export async function consultarEstadoEstudiante(
+  entities: CrmEntities,
+  auth: Auth,
+  /** Programa que la PERSONA dice cursar. Se usa solo si su ficha no lo trae: en el embudo 107 ese
+   *  campo viene vacio a menudo, y sin programa no hay forma de saber que Advisor le corresponde.
+   *  Preguntarselo es mejor que dejarlo sin respuesta; lo peor que pasa si se equivoca es que
+   *  reciba el contacto de la otra Advisor, y ya esta verificado como matriculado. */
+  programaDeclarado?: string,
+): Promise<EstadoEstudiante> {
   if (!config.estudiantesCategorias.length && !config.etapasMatriculado.length) {
     return { ok: true, matriculado: false, motivo: 'sin_configuracion' };
   }
@@ -131,12 +139,13 @@ export async function consultarEstadoEstudiante(entities: CrmEntities, auth: Aut
     if (!deEstudiante && !ganada) return { ok: true, matriculado: false };
 
     const ref = deEstudiante ?? ganada!;
-    const programa = config.ufPrograma ? (String(ref[config.ufPrograma] ?? '').trim() || null) : null;
+    const deLaFicha = config.ufPrograma ? (String(ref[config.ufPrograma] ?? '').trim() || null) : null;
+    const programa = deLaFicha ?? (String(programaDeclarado ?? '').trim() || null);
     if (!deEstudiante) {
       return { ok: true, matriculado: true, programa, dealId: Number(ref.ID), advisor: null, motivoSinAdvisor: 'sin_negociacion_de_acompanamiento' };
     }
 
-    const advisor = await resolverAdvisor(Number(deEstudiante.ASSIGNED_BY_ID), programa, auth);
+    const advisor = await resolverAdvisor(programa, auth);
     return {
       ok: true,
       matriculado: true,
@@ -152,19 +161,26 @@ export async function consultarEstadoEstudiante(entities: CrmEntities, auth: Aut
 }
 
 /**
- * Quién acompaña a este estudiante: la responsable de su negociación si es una Advisor válida y,
- * si no, la que cubre su tipo de programa. Nunca se devuelve a alguien sin verificar en Bitrix.
+ * Quién acompaña a este estudiante: la Advisor que cubre su TIPO DE PROGRAMA, licenciatura o
+ * maestría. No se mira quién es el responsable de la negociación.
+ *
+ * Esa decisión viene de cómo se trabaja de verdad: el embudo 107 guarda a los matriculados, pero
+ * nadie lo trabaja desde Bitrix — las Advisor los atienden desde el ERP. Así que el responsable de
+ * esas negociaciones no es un dato que alguien mantenga: en 62 de 1.030 es directamente el robot
+ * "Resp. Autom.", y en el resto refleja una asignación que no necesariamente sigue vigente. Elegir
+ * por ahí es creerle a un campo que nadie actualiza.
+ *
+ * El tipo de programa, en cambio, es un hecho del estudiante y no una convención del CRM.
  */
 async function resolverAdvisor(
-  responsableId: number,
   programa: string | null,
   auth: Auth,
 ): Promise<{ ok: true; advisor: AdvisorVerificado } | { ok: false; motivo: string }> {
-  const directa = await advisorVerificado(responsableId, auth);
-  if (directa.ok) return directa;
+  // Sin programa no se adivina: el bot le pregunta cuál cursa y vuelve a consultar.
+  if (!programa) return { ok: false, motivo: 'sin_programa' };
 
   const deTabla = advisorDelPrograma(programa);
-  if (!deTabla) return { ok: false, motivo: programa ? 'programa_sin_advisor' : directa.motivo };
+  if (!deTabla) return { ok: false, motivo: 'programa_sin_advisor' };
 
   // La tabla dice quién; Bitrix dice si sigue activa y en el equipo. Si alguien se va de Carver, su
   // nombre deja de entregarse sin tener que acordarse de editar el archivo.

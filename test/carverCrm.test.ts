@@ -137,13 +137,13 @@ test('estudiante: con negociación de acompañamiento y Advisor verificada, entr
   assert.deepEqual(de('crm.deal.list')[0].params.filter['@CATEGORY_ID'].sort(), [107, 135, 73].sort());
 });
 
-test('estudiante: si su responsable es el robot y no se sabe su programa, no se inventa una Advisor', async () => {
+test('estudiante: sin saber su programa no se inventa una Advisor, se le pregunta', async () => {
   reset();
   dealsPorContacto[701] = [{ ID: '6002', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '45' }];
   const r: any = await consultarEstadoEstudiante({ contact: 701 }, auth);
   assert.equal(r.matriculado, true);
   assert.equal(r.advisor, null);
-  assert.equal(r.motivoSinAdvisor, 'responsable_no_valido');
+  assert.equal(r.motivoSinAdvisor, 'sin_programa');
 });
 
 // ── Advisor según el tipo de programa ────────────────────────────────────────────────────────────
@@ -165,22 +165,44 @@ test('estudiante: con el robot a cargo, la Advisor sale del tipo de programa', a
   assert.equal(((await consultarEstadoEstudiante({ contact: 712 }, auth)) as any).advisor.id, 479681);
 });
 
-test('estudiante: la Advisor REAL del caso le gana a la tabla por tipo de programa', async () => {
-  // La tabla es un respaldo, no una regla: si alguien asignó a mano a otra Advisor, manda esa.
+test('estudiante: manda el TIPO DE PROGRAMA, no quien figure como responsable', async () => {
+  // El embudo 107 guarda a los matriculados pero nadie lo trabaja desde Bitrix: las Advisor los
+  // atienden desde el ERP. Entonces el responsable de esas negociaciones es un campo que nadie
+  // mantiene, y elegir por ahi es creerle a un dato viejo. El tipo de programa es un hecho del
+  // estudiante, no una convencion del CRM.
   reset();
-  dealsPorContacto[713] = [{ ID: '6013', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '479297', UF_PROG: 'Licenciatura en Psicología' }];
+  dealsPorContacto[713] = [{ ID: '6013', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '479297', UF_PROG: 'Licenciatura en Psicologia' }];
   const r: any = await consultarEstadoEstudiante({ contact: 713 }, auth);
-  assert.equal(r.advisor.id, 479297, 'la responsable de la negociación, aunque sea una licenciatura');
+  assert.equal(r.advisor.id, 479681, 'la Advisor de licenciaturas, aunque el deal diga otra cosa');
 });
 
-test('estudiante: una maestria asignada a la Advisor de licenciaturas SIGUE con ella', async () => {
-  // Importa para leer bien la tabla: NO reasigna a nadie. En el CRM hay 9 maestrias a cargo de la
-  // Advisor de licenciaturas, y esas siguen con ella, porque la responsable real del caso gana. La
-  // tabla solo entra donde HOY no hay nadie, que es cuando el responsable es el robot.
+test('estudiante: una maestria va a la Advisor de maestrias aunque el deal diga otra', async () => {
   reset();
   dealsPorContacto[730] = [{ ID: '6030', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '479681', UF_PROG: 'Maestria en Psicologia' }];
   const r: any = await consultarEstadoEstudiante({ contact: 730 }, auth);
-  assert.equal(r.advisor.id, 479681, 'la responsable real, aunque la tabla diria 479297');
+  assert.equal(r.advisor.id, 479297);
+});
+
+test('estudiante: si su ficha no trae el programa, sirve el que declara la persona', async () => {
+  // El campo viene vacio a menudo en el embudo 107. Preguntarselo y volver a consultar es mejor que
+  // dejarlo sin respuesta; ya esta verificado como matriculado, asi que lo peor que puede pasar es
+  // que reciba el contacto de la otra Advisor.
+  reset();
+  dealsPorContacto[731] = [{ ID: '6031', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '45' }];
+  const sinDecir: any = await consultarEstadoEstudiante({ contact: 731 }, auth);
+  assert.equal(sinDecir.motivoSinAdvisor, 'sin_programa');
+
+  const declarado: any = await consultarEstadoEstudiante({ contact: 731 }, auth, 'Maestria en Inteligencia Artificial');
+  assert.equal(declarado.advisor.id, 479297);
+  assert.equal(declarado.programa, 'Maestria en Inteligencia Artificial');
+});
+
+test('estudiante: lo que diga la persona NO le gana al programa de su ficha', async () => {
+  reset();
+  dealsPorContacto[732] = [{ ID: '6032', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '45', UF_PROG: 'Licenciatura en Psicologia' }];
+  const r: any = await consultarEstadoEstudiante({ contact: 732 }, auth, 'Maestria en Psicologia');
+  assert.equal(r.advisor.id, 479681, 'manda la ficha');
+  assert.equal(r.programa, 'Licenciatura en Psicologia');
 });
 
 test('estudiante: un programa sin Advisor asignada no se adivina', async () => {
@@ -255,10 +277,13 @@ test('advisors.json: correos institucionales y UN telefono en formato internacio
 
 test('estudiante: un correo que no es institucional no se entrega', async () => {
   reset();
-  dealsPorContacto[702] = [{ ID: '6003', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '685357' }];
+  const antes = usuarios[479297].EMAIL;
+  usuarios[479297].EMAIL = 'advisor.uno@gmail.com';
+  dealsPorContacto[702] = [{ ID: '6003', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '45', UF_PROG: 'Maestria en Psicologia' }];
   const r: any = await consultarEstadoEstudiante({ contact: 702 }, auth);
+  usuarios[479297].EMAIL = antes;
   assert.equal(r.advisor, null);
-  assert.equal(r.motivoSinAdvisor, 'correo_no_institucional');
+  assert.equal(r.motivoSinAdvisor, 'advisor_de_tabla_correo_no_institucional');
 });
 
 test('estudiante: matriculado por etapa ganada, aunque todavía no tenga negociación de acompañamiento', async () => {
@@ -351,7 +376,8 @@ test('escalar_a_humano: el bot que habla como el asesor no se nombra en tercera 
 
 test('soporte a estudiante: la derivación va a SU Advisor, sin tocar la negociación comercial ni silenciar al bot', async () => {
   reset();
-  dealsPorContacto[710] = [{ ID: '6010', CATEGORY_ID: '107', STAGE_ID: 'C107:PREPAYMENT_INVOI', ASSIGNED_BY_ID: '479297' }];
+  // El programa define la Advisor, asi que la ficha tiene que traerlo.
+  dealsPorContacto[710] = [{ ID: '6010', CATEGORY_ID: '107', STAGE_ID: 'C107:PREPAYMENT_INVOI', ASSIGNED_BY_ID: '479297', UF_PROG: 'Maestria en Psicologia' }];
   const c = ctx({ crmEntities: { contact: 710, deal: 8200 } });
   const estado: any = await executeTool('consultar_estado_estudiante', {}, c as any);
   assert.equal(estado.advisor.email, 'advisor.uno@carver.university');
