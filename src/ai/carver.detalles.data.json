@@ -413,7 +413,115 @@
       "Para profesionales en ejercicio del desarrollo, la ingeniería y la gestión tecnológica que buscan diseñar, evaluar e implementar sistemas de software escalables, seguros y sostenibles"
     ],
     "grado": "Maestría · 36 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/BFPvFuPVkxEjnK3q3dwS"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/BFPvFuPVkxEjnK3q3dwS",
+    "planEstudios": [
+      {
+        "eje": "Fundamentos y patrones arquitectónicos",
+        "asignaturas": [
+          {
+            "codigo": "SWA 500",
+            "nombre": "Métodos de Arquitectura de Software",
+            "creditos": 3,
+            "descripcion": "Introduce los principios, conceptos y metodologías de la arquitectura de software. Se examina el rol de la arquitectura en la ingeniería de software, su relación con los requisitos del sistema y la evaluación de atributos de calidad como escalabilidad, mantenibilidad y rendimiento"
+          },
+          {
+            "codigo": "SWA 510",
+            "nombre": "Patrones de Diseño y Arquitectura",
+            "creditos": 3,
+            "descripcion": "Patrones de diseño y arquitectura que ofrecen soluciones reutilizables a desafíos recurrentes: patrones estructurales, de comportamiento y creacionales, y estilos arquitectónicos como layered, cliente-servidor y microservicios, con evaluación crítica de su idoneidad según el contexto"
+          },
+          {
+            "codigo": "SWA 520",
+            "nombre": "Arquitectura de Sistemas Distribuidos",
+            "creditos": 3,
+            "descripcion": "Principios arquitectónicos de los sistemas distribuidos, con énfasis en escalabilidad, resiliencia e interoperabilidad entre plataformas. Se estudian modelos de comunicación, mecanismos de consenso y trade-offs en el rendimiento, enfatizando el diseño de soluciones seguras y eficientes"
+          },
+          {
+            "codigo": "SWA 530",
+            "nombre": "Prácticas Avanzadas de Implementación",
+            "creditos": 3,
+            "descripcion": "Prácticas avanzadas en la implementación de arquitecturas, integrando metodologías ágiles, principios DevOps e integración/entrega continua (CI/CD). Se aplican técnicas de automatización, monitoreo y refactoring para asegurar la calidad del sistema"
+          }
+        ]
+      },
+      {
+        "eje": "Desarrollo, datos y gestión de proyectos",
+        "asignaturas": [
+          {
+            "codigo": "SWA 540",
+            "nombre": "Desarrollo de Software con Python",
+            "creditos": 3,
+            "descripcion": "Competencias avanzadas en programación Python para el desarrollo de software: diseño modular, estructuras de datos, manejo de errores e integración con bibliotecas externas, con énfasis en las mejores prácticas para código mantenible, escalable y eficiente"
+          },
+          {
+            "codigo": "SWA 550",
+            "nombre": "Python y Bases de Datos",
+            "creditos": 3,
+            "descripcion": "Integración y gestión de bases de datos con Python: diseño, consulta y optimización de bases relacionales y no relacionales, implementando capas de acceso a datos seguras y eficientes, alineadas con los modelos arquitectónicos del sistema"
+          },
+          {
+            "codigo": "SWA 560",
+            "nombre": "Gestión de Proyectos de Software",
+            "creditos": 3,
+            "descripcion": "Planificación, ejecución y gestión de proyectos de arquitectura de software: gestión ágil, asignación de recursos y evaluación de riesgos, con énfasis en liderazgo, engagement de stakeholders y rendición de cuentas en ciclos de desarrollo complejos"
+          }
+        ]
+      },
+      {
+        "eje": "Seguridad, gobernanza, IA y automatización",
+        "asignaturas": [
+          {
+            "codigo": "SWA 570",
+            "nombre": "Seguridad en Arquitecturas Modernas",
+            "creditos": 3,
+            "descripcion": "Principios y prácticas de seguridad en arquitecturas contemporáneas: autenticación, cifrado y modelado de amenazas aplicados a entornos distribuidos y cloud, con énfasis en estrategias proactivas para construir sistemas seguros y resilientes"
+          },
+          {
+            "codigo": "SWA 580",
+            "nombre": "Gobernanza y Sostenibilidad de Soluciones Tecnológicas",
+            "creditos": 3,
+            "descripcion": "Modelos de gobernanza y estrategias de sostenibilidad para sistemas de software: marcos de cumplimiento, consideraciones éticas y gestión del ciclo de vida, enfatizando la alineación de las decisiones arquitectónicas con los objetivos organizacionales y la innovación responsable"
+          },
+          {
+            "codigo": "SWA 590",
+            "nombre": "Aplicaciones de IA en Arquitectura de Software",
+            "creditos": 3,
+            "descripcion": "Aplicaciones de la inteligencia artificial en el diseño y la optimización de arquitecturas: Machine Learning, analítica predictiva y herramientas de automatización inteligente que potencian la toma de decisiones arquitectónicas, con foco en innovación, escalabilidad e integración ética"
+          },
+          {
+            "codigo": "SWA 600",
+            "nombre": "Automatización y Testing de Software",
+            "creditos": 3,
+            "descripcion": "Prácticas avanzadas de automatización y testing: diseño de frameworks de testing, estrategias de testing continuo e implementación de procesos de validación automatizada, con énfasis en el aseguramiento de la calidad, la confiabilidad y la eficiencia de los sistemas"
+          },
+          {
+            "codigo": "SWA 610",
+            "nombre": "Proyecto Integrador: Arquitectura de Software",
+            "creditos": 3,
+            "descripcion": "Asignatura culminante que integra los conocimientos y competencias del programa: se diseña e implementa un proyecto integral que aborda un desafío real en arquitectura de software, demostrando innovación, rigor metodológico y aplicabilidad profesional, con soluciones éticas, sostenibles y escalables"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "36 créditos, 12 asignaturas, 3 ejes formativos",
+    "salidasLaborales": [
+      "Arquitecto de software",
+      "Líder técnico de desarrollo",
+      "Director de ingeniería de software",
+      "Consultor en arquitectura de sistemas",
+      "Ingeniero de DevOps y automatización",
+      "Especialista en ciberseguridad aplicada",
+      "Gerente de proyectos tecnológicos",
+      "Director de transformación digital"
+    ],
+    "alGraduarte": [
+      "Evaluar modelos y patrones arquitectónicos para determinar su idoneidad y rendimiento dentro de los requisitos y restricciones de cada proyecto",
+      "Diseñar arquitecturas innovadoras y escalables que integren inteligencia artificial, automatización y visualización de big data",
+      "Analizar críticamente los trade-offs en sistemas distribuidos, asegurando una implementación segura, resiliente y eficiente entre plataformas",
+      "Desarrollar y justificar estrategias de gobernanza que alineen la arquitectura con la sostenibilidad, la ética y los objetivos organizacionales",
+      "Liderar proyectos avanzados de software aplicando metodologías ágiles e integrando soluciones basadas en Python",
+      "Implementar marcos robustos de testing y automatización para asegurar la calidad, confiabilidad y eficiencia de los sistemas"
+    ]
   },
   "maestria-en-ciencias-en-educacion-virtual": {
     "nombre": "Maestría en Ciencias en Educación Virtual",
@@ -425,7 +533,114 @@
       "Para docentes, diseñadores instruccionales, coordinadores académicos y profesionales de la educación que buscan liderar la innovación pedagógica y la transformación digital en instituciones de educación superior"
     ],
     "grado": "Maestría · 36 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/WqlM1w58GKM09W4J1C8v"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/WqlM1w58GKM09W4J1C8v",
+    "planEstudios": [
+      {
+        "eje": "Fundamentos del aprendizaje digital",
+        "asignaturas": [
+          {
+            "codigo": "SVE 500",
+            "nombre": "Aprendizaje en la Era Digital",
+            "creditos": 3,
+            "descripcion": "Explora las dinámicas del aprendizaje en entornos digitales contemporáneos. Se analiza cómo la tecnología transforma los procesos cognitivos, el acceso al conocimiento y el rol de educadores y estudiantes, enfatizando la comprensión de las tendencias del aprendizaje digital y sus implicaciones para la educación superior"
+          },
+          {
+            "codigo": "SVE 510",
+            "nombre": "Características de la Enseñanza y el Aprendizaje en Educación Superior",
+            "creditos": 3,
+            "descripcion": "Examina los principios, desafíos y oportunidades de la enseñanza y el aprendizaje en educación superior. Se analizan contextos institucionales, diversidad estudiantil y competencias profesionales requeridas en la academia, con énfasis en la práctica reflexiva y el diseño de experiencias de aprendizaje efectivas"
+          },
+          {
+            "codigo": "SVE 520",
+            "nombre": "PLE: Entornos Personales de Aprendizaje",
+            "creditos": 3,
+            "descripcion": "Introduce los entornos personales de aprendizaje (PLE) como marcos para el aprendizaje autodirigido y a lo largo de la vida. Se diseñan ecosistemas digitales que integran herramientas, recursos y redes para fomentar la autonomía y la colaboración, con estrategias para gestionar y optimizar el aprendizaje en contextos virtuales"
+          }
+        ]
+      },
+      {
+        "eje": "Diseño, metodología y recursos",
+        "asignaturas": [
+          {
+            "codigo": "SVE 540",
+            "nombre": "Diseño Instruccional para eLearning",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias en diseño instruccional para educación digital y en línea. Se aplican modelos como ADDIE y SAM al diseño de experiencias eLearning efectivas, con énfasis en la alineación de objetivos de aprendizaje, recursos digitales y estrategias de evaluación en entornos virtuales"
+          },
+          {
+            "codigo": "SVE 550",
+            "nombre": "Planificación Docente en Entornos Virtuales y Modelos de Educación a Distancia",
+            "creditos": 3,
+            "descripcion": "Examina los procesos de planificación y los modelos de educación a distancia para la instrucción virtual. Se analizan metodologías sincrónicas y asincrónicas, enfoques de aprendizaje híbrido y marcos para la impartición de cursos, con énfasis en estrategias que aseguran participación, accesibilidad y efectividad del aprendizaje"
+          },
+          {
+            "codigo": "SVE 560",
+            "nombre": "Teorías y Metodologías Innovadoras para la Educación Superior",
+            "creditos": 3,
+            "descripcion": "Explora teorías de enseñanza contemporáneas y metodologías innovadoras aplicadas a la educación superior. Se evalúan enfoques como el aprendizaje basado en problemas, el aula invertida y la gamificación, con énfasis en el fomento de la creatividad, la participación y el pensamiento crítico en la pedagogía digital"
+          },
+          {
+            "codigo": "SVE 570",
+            "nombre": "Creación de Materiales y Recursos Didácticos para Educación Superior",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias en el diseño y producción de materiales didácticos para contextos de educación digital y superior. Se crean recursos multimedia, contenidos interactivos y recursos educativos abiertos (REA), con énfasis en la creatividad, la accesibilidad y los estándares de calidad"
+          }
+        ]
+      },
+      {
+        "eje": "Evaluación, tecnología e inclusión",
+        "asignaturas": [
+          {
+            "codigo": "SVE 580",
+            "nombre": "Didáctica de Actividades en Entornos Educativos",
+            "creditos": 3,
+            "descripcion": "Se centra en el diseño didáctico e implementación de actividades en contextos virtuales y presenciales. Se exploran el aprendizaje colaborativo, las simulaciones y los enfoques basados en proyectos, con énfasis en metodologías activas que fomentan la participación, la reflexión y la construcción de conocimiento"
+          },
+          {
+            "codigo": "SVE 590",
+            "nombre": "Evaluación Efectiva y Retroalimentación en Entornos Educativos",
+            "creditos": 3,
+            "descripcion": "Examina la evaluación y la retroalimentación como componentes esenciales del proceso de aprendizaje. Se diseñan estrategias de evaluación formativa y sumativa, aplicando rúbricas, evaluación entre pares y herramientas digitales, con énfasis en la equidad, la transparencia y el uso de la retroalimentación para mejorar los resultados"
+          },
+          {
+            "codigo": "SVE 600",
+            "nombre": "IA Educativa: Ética y Tutoría Automatizada",
+            "creditos": 3,
+            "descripcion": "Explora la integración de la inteligencia artificial en la educación, con énfasis en la ética y los sistemas de tutoría automatizada. Se analizan plataformas de aprendizaje adaptativo, chatbots y herramientas de evaluación impulsadas por IA, enfatizando los marcos éticos, la transparencia y la aplicación responsable de la IA"
+          },
+          {
+            "codigo": "SVE 605",
+            "nombre": "Inclusión, Diversidad y Accesibilidad Digital",
+            "creditos": 3,
+            "descripcion": "Aborda las prácticas inclusivas, la diversidad y la accesibilidad en la educación digital. Se analizan estándares de accesibilidad, diseño universal para el aprendizaje (DUA) y estrategias para promover la equidad en entornos virtuales, con énfasis en la responsabilidad ética y la creación de experiencias educativas inclusivas"
+          },
+          {
+            "codigo": "SVE 610",
+            "nombre": "Proyecto Integrador: Educación Virtual",
+            "creditos": 3,
+            "descripcion": "Asignatura culminante que integra los conocimientos y competencias desarrollados a lo largo del programa. Se diseña e implementa un proyecto que aborda un desafío real en la educación digital, demostrando innovación, rigor académico y aplicabilidad profesional"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "36 créditos, 12 asignaturas, 3 ejes formativos",
+    "salidasLaborales": [
+      "Diseñador instruccional",
+      "Director de educación virtual",
+      "Coordinador de innovación pedagógica",
+      "Consultor en transformación digital educativa",
+      "Desarrollador de contenidos eLearning",
+      "Investigador en tecnología educativa",
+      "Especialista en evaluación y calidad educativa"
+    ],
+    "alGraduarte": [
+      "Analizar las dinámicas del aprendizaje digital y evaluar el impacto de las tecnologías emergentes en la educación superior",
+      "Diseñar, implementar y evaluar modelos instruccionales, recursos y metodologías adaptados a entornos de educación virtual y a distancia",
+      "Desarrollar estrategias de enseñanza inclusivas, accesibles e innovadoras que promuevan la participación, la diversidad y la equidad",
+      "Aplicar inteligencia artificial, marcos éticos y sistemas de tutoría automatizada para fortalecer la enseñanza y el aprendizaje personalizado",
+      "Liderar iniciativas de innovación educativa, transformación digital e investigación pedagógica en la educación superior",
+      "Diseñar entornos personales de aprendizaje y ecosistemas digitales que fomenten la autonomía y la colaboración"
+    ]
   },
   "maestria-en-educación-en-salud-y-simulacion-clinica": {
     "nombre": "Maestría en Educación en Salud y Simulación Clínica",
@@ -437,7 +652,114 @@
       "Para docentes, directores académicos, coordinadores de centros de simulación y líderes instruccionales en ciencias de la salud que buscan diseñar y liderar programas de formación con rigor pedagógico"
     ],
     "grado": "Maestría · 36 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/z03ISmE01uKw1PAzlHUh"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/z03ISmE01uKw1PAzlHUh",
+    "planEstudios": [
+      {
+        "eje": "Fundamentos pedagógicos y neurociencia",
+        "asignaturas": [
+          {
+            "codigo": "HED 500",
+            "nombre": "Neurociencia del Aprendizaje",
+            "creditos": 3,
+            "descripcion": "Explora cómo los procesos cognitivos, los sistemas de memoria, la neuroplasticidad y los principios de aprendizaje basados en el cerebro informan la enseñanza y el diseño instruccional. Se aplican estrategias basadas en evidencia para fortalecer la retención de conocimientos, la participación del estudiante y la toma de decisiones educativas en entornos académicos y simulados"
+          },
+          {
+            "codigo": "HED 510",
+            "nombre": "Pedagogía y Didáctica en Educación Superior",
+            "creditos": 3,
+            "descripcion": "Examina las teorías educativas, los modelos instruccionales y las estrategias didácticas relevantes para la educación superior en ciencias de la salud. Se diseñan experiencias de aprendizaje alineadas con los principios de la educación de adultos, la educación basada en competencias y las mejores prácticas pedagógicas para la docencia postsecundaria"
+          },
+          {
+            "codigo": "HED 520",
+            "nombre": "Enseñanza y Aprendizaje en Entornos de Educación Clínica",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias instruccionales para la enseñanza en entornos de aprendizaje relacionados con la salud, incluyendo centros de simulación, laboratorios clínicos académicos y entornos educativos supervisados. Se enfatizan las estrategias instruccionales, los modelos de coaching, la retroalimentación y el aprendizaje estructurado, sin involucrar supervisión clínica ni atención a pacientes"
+          },
+          {
+            "codigo": "HED 530",
+            "nombre": "Diseño y Evaluación de Programas Educativos en Ciencias de la Salud",
+            "creditos": 3,
+            "descripcion": "Marcos para el diseño, la implementación y la evaluación de programas educativos en ciencias de la salud: mapeo curricular, resultados de aprendizaje, modelos de competencias, estándares de acreditación y procesos de mejora continua, sin preparar para roles de formación clínica"
+          }
+        ]
+      },
+      {
+        "eje": "Tecnología, evaluación y aprendizaje interprofesional",
+        "asignaturas": [
+          {
+            "codigo": "HED 540",
+            "nombre": "Tecnologías de la Información y la Comunicación en Educación",
+            "creditos": 3,
+            "descripcion": "Analiza las herramientas digitales y las tecnologías emergentes que apoyan el aprendizaje en la educación en ciencias de la salud: plataformas de eLearning, recursos educativos potenciados por IA, entornos virtuales y aplicaciones multimedia, con énfasis en la accesibilidad, la participación y la pedagogía digital basada en evidencia"
+          },
+          {
+            "codigo": "HED 550",
+            "nombre": "Herramientas Innovadoras para la Evaluación por Competencias",
+            "creditos": 3,
+            "descripcion": "Métodos avanzados de evaluación de competencias: rúbricas, evaluaciones basadas en simulación, actividades de desempeño estructurado y enfoques analíticos para medir los resultados de aprendizaje, sin formación en certificación clínica ni evaluación para licenciatura profesional"
+          },
+          {
+            "codigo": "HED 560",
+            "nombre": "Antropología y Bioética en la Educación en Ciencias de la Salud",
+            "creditos": 3,
+            "descripcion": "Explora las perspectivas culturales, éticas y humanísticas relevantes para la enseñanza y el aprendizaje en ciencias de la salud: diversidad, determinantes sociales, ética profesional y enfoques culturalmente sensibles en la toma de decisiones educativas"
+          },
+          {
+            "codigo": "HED 570",
+            "nombre": "Razonamiento Clínico Interprofesional",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias para promover la educación interprofesional en entornos de aprendizaje en ciencias de la salud: comunicación, trabajo en equipo, modelos de aprendizaje colaborativo y resolución de problemas basada en escenarios, sin involucrar razonamiento clínico diagnóstico ni instrucción terapéutica"
+          }
+        ]
+      },
+      {
+        "eje": "Simulación, liderazgo y calidad académica",
+        "asignaturas": [
+          {
+            "codigo": "HED 580",
+            "nombre": "Simulación Clínica Aplicada a la Educación en Ciencias de la Salud",
+            "creditos": 3,
+            "descripcion": "Aborda la simulación como metodología educativa: diseño de escenarios, estrategias de facilitación, debriefing estructurado y evaluación del aprendizaje en centros de simulación, con énfasis en el desarrollo de competencias y en los enfoques educativos de la seguridad del paciente, sin involucrar práctica clínica real"
+          },
+          {
+            "codigo": "HED 590",
+            "nombre": "Gestión de la Calidad y Aseguramiento en la Educación en Ciencias de la Salud",
+            "creditos": 3,
+            "descripcion": "Sistemas de aseguramiento de la calidad aplicados a programas académicos en salud: estándares de acreditación, indicadores de desempeño, autoevaluación institucional y procesos de mejora continua orientados a la calidad de la formación"
+          },
+          {
+            "codigo": "HED 600",
+            "nombre": "Liderazgo y Gestión Institucional en Educación en Ciencias de la Salud",
+            "creditos": 3,
+            "descripcion": "Competencias de liderazgo para la conducción de programas y unidades académicas: gestión del cambio, desarrollo docente, planificación estratégica y toma de decisiones, con énfasis en el liderazgo ético y en el fortalecimiento de la capacidad institucional"
+          },
+          {
+            "codigo": "HED 610",
+            "nombre": "Proyecto Integrador: Educación en Salud y Simulación Clínica",
+            "creditos": 3,
+            "descripcion": "Asignatura culminante en la que se diseña y ejecuta una innovación educativa aplicada, alineada con las necesidades institucionales, demostrando rigor académico, liderazgo e impacto medible en las prácticas de enseñanza en ciencias de la salud"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "36 créditos, 12 asignaturas, 3 ejes formativos",
+    "salidasLaborales": [
+      "Director de programa académico en ciencias de la salud",
+      "Coordinador de centro de simulación clínica",
+      "Diseñador instruccional en educación en salud",
+      "Especialista en evaluación por competencias",
+      "Líder de innovación educativa en instituciones sanitarias",
+      "Consultor en calidad y acreditación académica en salud",
+      "Investigador en educación en ciencias de la salud"
+    ],
+    "alGraduarte": [
+      "Aplicar principios de neurociencia del aprendizaje al diseño de estrategias instruccionales que fortalezcan la retención y el desarrollo de competencias",
+      "Diseñar, implementar y evaluar programas educativos alineados con marcos de competencias, estándares de acreditación y objetivos institucionales",
+      "Integrar tecnologías digitales y metodologías basadas en simulación para fortalecer la participación y la colaboración interprofesional",
+      "Desarrollar herramientas innovadoras de evaluación por competencias con métricas analíticas, cualitativas y apoyadas en simulación",
+      "Liderar iniciativas educativas éticas y orientadas a la calidad, incorporando perspectivas antropológicas, bioéticas y organizacionales",
+      "Diseñar y ejecutar una innovación educativa aplicada, alineada con las necesidades institucionales y con impacto medible"
+    ]
   },
   "maestria-en-ergonomia-ocupacional-y-gestion": {
     "nombre": "Maestría en Ergonomía Ocupacional y Gestión",
@@ -449,7 +771,102 @@
       "Para profesionales en ejercicio de la ergonomía, la prevención de riesgos, la ingeniería, la salud ocupacional y la gestión organizacional que buscan diseñar y liderar intervenciones ergonómicas basadas en evidencia"
     ],
     "grado": "Maestría · 36 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/ku3JSsNBq4fmGmHXHsFp"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/ku3JSsNBq4fmGmHXHsFp",
+    "planEstudios": [
+      {
+        "eje": "Fundamentos de ergonomía y análisis",
+        "asignaturas": [
+          {
+            "codigo": "ERG 500",
+            "nombre": "Análisis Económico y Estadístico de Empresas",
+            "creditos": 3,
+            "descripcion": "Analiza el impacto de la economía global en las empresas y su entorno de negocios. Se abordan la gestión financiera y la toma de decisiones económicas, incluyendo la valoración empresarial y de inversiones mediante métodos financieros, y se aplica estadística y probabilidad al análisis de datos y al estudio de relaciones entre variables en contextos empresariales reales"
+          },
+          {
+            "codigo": "ERG 510",
+            "nombre": "Antropometría y Capacidad Física de Trabajo",
+            "creditos": 3,
+            "descripcion": "Introduce los principios ergonómicos aplicados al diseño de puestos de trabajo seguros y eficientes: metodologías de evaluación y técnicas de observación para identificar factores de riesgo, uso de la antropometría para el diseño dimensional de estaciones de trabajo y evaluación de la carga física en entornos productivos"
+          },
+          {
+            "codigo": "ERG 520",
+            "nombre": "Biomecánica Ocupacional",
+            "creditos": 3,
+            "descripcion": "Examina el comportamiento mecánico del sistema musculoesquelético en actividades ocupacionales: movimiento corporal, postura y fuerzas aplicadas desde una perspectiva biomecánica. Se abordan los microtraumatismos repetitivos y se evalúan los riesgos en la manipulación manual de cargas, con la epidemiología como herramienta de análisis"
+          }
+        ]
+      },
+      {
+        "eje": "Ergonomía ambiental, cognitiva y social",
+        "asignaturas": [
+          {
+            "codigo": "ERG 530",
+            "nombre": "Ergonomía Ambiental",
+            "creditos": 3,
+            "descripcion": "Aborda la influencia de los factores ambientales en la salud y el rendimiento: condiciones térmicas, estrés y confort térmico en los lugares de trabajo. Se analizan el ruido, la iluminación y el confort acústico como factores ergonómicos clave, así como el síndrome del edificio enfermo y la contaminación del aire interior"
+          },
+          {
+            "codigo": "ERG 540",
+            "nombre": "Gestión y Organización Empresarial",
+            "creditos": 3,
+            "descripcion": "Explora el funcionamiento de las organizaciones y el comportamiento de las personas en el trabajo: sistemas de información y de gestión integrados, gestión de recursos humanos, análisis de puestos, técnicas de negociación y comunicación interna, junto a la planificación estratégica y la ética profesional"
+          },
+          {
+            "codigo": "ERG 550",
+            "nombre": "Ergonomía Cognitiva",
+            "creditos": 3,
+            "descripcion": "Examina cómo los procesos cognitivos influyen en el rendimiento y la seguridad laboral: fiabilidad humana y métodos para evaluar el error humano, diseño de interfaces de usuario adaptadas a la cognición y a la toma de decisiones, y factores psicosociales y estrés en el entorno de trabajo"
+          },
+          {
+            "codigo": "ENI 560",
+            "nombre": "Ergonomía Social",
+            "creditos": 3,
+            "descripcion": "Se centra en los factores sociales y organizacionales que afectan el bienestar en el trabajo: accesibilidad y diseño inclusivo para todos los trabajadores, incluidas las personas con discapacidad. Se analizan la ergonomía en relación con la RSC, la cultura organizacional y el clima laboral, así como el burnout y el acoso psicológico laboral"
+          }
+        ]
+      },
+      {
+        "eje": "Auditoría, gestión de proyectos e integración",
+        "asignaturas": [
+          {
+            "codigo": "ERG 570",
+            "nombre": "Auditoría de Puestos de Trabajo y Actividades",
+            "creditos": 3,
+            "descripcion": "Analiza los sistemas de trabajo y los nuevos modelos organizacionales a través de la ingeniería de procesos. Se abordan la ergonomía de oficina y el diseño ergonómico de herramientas manuales, y se introducen métodos para evaluar y diseñar estaciones de trabajo eficientes, así como el diseño integral de puestos para la productividad y la seguridad"
+          },
+          {
+            "codigo": "ERG 580",
+            "nombre": "Gestión de Proyectos",
+            "creditos": 3,
+            "descripcion": "Introduce la estructura de proyectos, los roles del equipo y el ciclo de vida del proyecto. Se abordan la gestión de riesgos y la evaluación económica, y se incluyen métodos de planificación, programación y gestión del tiempo, así como la implementación, los procesos de corporativización y la gestión documental"
+          },
+          {
+            "codigo": "ERG 600",
+            "nombre": "Proyecto Integrador: Ergonomía Ocupacional",
+            "creditos": 9,
+            "descripcion": "Proyecto culminante que requiere aplicar los conocimientos teóricos y aplicados a un desafío real de ergonomía. Se diseña, implementa y evalúa una intervención integral que articula perspectivas biomecánicas, cognitivas, sociales y organizacionales. Los hallazgos se presentan mediante un informe profesional final y su defensa, con supervisión de un profesor-tutor y aprobación previa del Comité Académico"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "36 créditos, 10 asignaturas, 3 ejes formativos",
+    "salidasLaborales": [
+      "Ergónomo ocupacional",
+      "Consultor en diseño de puestos de trabajo",
+      "Especialista en prevención de riesgos laborales",
+      "Director de bienestar y salud ocupacional",
+      "Líder de proyectos de ergonomía organizacional",
+      "Investigador en factores humanos",
+      "Asesor en accesibilidad e inclusión laboral"
+    ],
+    "alGraduarte": [
+      "Analizar los entornos socio-ocupacionales y la interacción persona-trabajo con metodologías ergonómicas, biomecánicas, cognitivas y organizacionales",
+      "Diseñar e implementar soluciones ergonómicas centradas en el ser humano que mejoren el rendimiento, la accesibilidad, la seguridad y el bienestar",
+      "Aplicar métodos estadísticos, económicos y evaluativos para medir la efectividad, la eficiencia en costos y la sostenibilidad de las intervenciones",
+      "Integrar factores ambientales, psicosociales y tecnológicos en estrategias de diseño del puesto alineadas con estándares legales y éticos",
+      "Liderar proyectos interdisciplinarios y procesos de cambio organizacional con prácticas basadas en evidencia y cumplimiento regulatorio",
+      "Evaluar la fiabilidad humana y el error, y diseñar interfaces y entornos adaptados a la cognición y a la diversidad de las personas"
+    ]
   },
   "maestria-en-gestion-de-seguridad-y-salud-ocupacional": {
     "nombre": "Maestría en Gestión de Seguridad y Salud Ocupacional",
@@ -461,7 +878,115 @@
       "Para profesionales en ejercicio de la prevención de riesgos, la ingeniería, la salud ocupacional y la gestión organizacional que buscan liderar la seguridad y salud en el trabajo con visión estratégica y tecnológica"
     ],
     "grado": "Maestría · 36 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/VxJbL7QzUY0hfyu9704W"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/VxJbL7QzUY0hfyu9704W",
+    "planEstudios": [
+      {
+        "eje": "Sistemas, riesgos e higiene",
+        "asignaturas": [
+          {
+            "codigo": "OSH 500",
+            "nombre": "Sistemas de Gestión Integrados",
+            "creditos": 3,
+            "descripcion": "Sistemas de gestión integrados aplicados a la seguridad y salud ocupacional: marcos que combinan estándares de calidad, medio ambiente y seguridad como ISO 45001, ISO 9001 e ISO 14001, con énfasis en la alineación de sistemas para alcanzar eficiencia, cumplimiento y excelencia organizacional"
+          },
+          {
+            "codigo": "OSH 510",
+            "nombre": "Seguridad de Procesos Industriales: Métodos de Análisis de Riesgos (HAZOP, LOPA)",
+            "creditos": 3,
+            "descripcion": "Metodologías avanzadas para el análisis de riesgos en procesos industriales: técnicas de Análisis de Riesgo y Operabilidad (HAZOP) y Análisis de Capas de Protección (LOPA) para evaluar barreras de seguridad, vulnerabilidades y fiabilidad, con estudios de caso y mejores prácticas del sector"
+          },
+          {
+            "codigo": "OSH 520",
+            "nombre": "Higiene Ocupacional Avanzada: Métodos de Muestreo y Trazabilidad",
+            "creditos": 3,
+            "descripcion": "Higiene ocupacional avanzada con énfasis en métodos de muestreo y trazabilidad: evaluación de la exposición, protocolos de monitoreo y técnicas de laboratorio para agentes físicos, químicos y biológicos, destacando el rol de la trazabilidad en el cumplimiento y la protección del trabajador"
+          },
+          {
+            "codigo": "OSH 530",
+            "nombre": "Gestión de Riesgos Emergentes: Fatiga Operacional y Salud Mental",
+            "creditos": 3,
+            "descripcion": "Riesgos emergentes en salud ocupacional con foco en la fatiga operacional y la salud mental: peligros psicosociales, estresores laborales y sistemas de gestión de la fatiga, con énfasis en prevención, resiliencia e iniciativas organizacionales que promueven el bienestar y la productividad"
+          }
+        ]
+      },
+      {
+        "eje": "Liderazgo, gobernanza y comunicación",
+        "asignaturas": [
+          {
+            "codigo": "OSH 540",
+            "nombre": "Liderazgo y Cultura Preventiva",
+            "creditos": 3,
+            "descripcion": "Competencias de liderazgo para fomentar la cultura preventiva: el rol del liderazgo en la configuración de valores, comportamientos y prácticas que priorizan la seguridad y la salud, con énfasis en el liderazgo del cambio, la comunicación y la integración de la prevención en la cultura organizacional"
+          },
+          {
+            "codigo": "OSH 550",
+            "nombre": "Gobernanza, Cumplimiento y Auditorías Legales",
+            "creditos": 3,
+            "descripcion": "Marcos de gobernanza, estándares de cumplimiento y auditorías legales en SSO: sistemas regulatorios, controles internos y metodologías de auditoría, con énfasis en la rendición de cuentas, la transparencia y la toma de decisiones ética"
+          },
+          {
+            "codigo": "OSH 560",
+            "nombre": "Comunicación Estratégica y Gestión del Cambio",
+            "creditos": 3,
+            "descripcion": "Estrategias de comunicación y prácticas de gestión del cambio en contextos de SSO: diseño de planes de comunicación, estrategias de engagement y modelos de gestión del cambio para apoyar iniciativas de seguridad, con énfasis en liderazgo, transparencia y participación de stakeholders"
+          }
+        ]
+      },
+      {
+        "eje": "Tecnología, innovación y tendencias globales",
+        "asignaturas": [
+          {
+            "codigo": "OSH 570",
+            "nombre": "Digitalización y Big Data en SSO",
+            "creditos": 3,
+            "descripcion": "El rol de la transformación digital y el Big Data en la seguridad y salud ocupacional: analítica, sistemas de monitoreo y plataformas digitales para predecir riesgos y apoyar la toma de decisiones, con énfasis en innovación, escalabilidad y consideraciones éticas"
+          },
+          {
+            "codigo": "OSH 580",
+            "nombre": "Inteligencia Artificial y Machine Learning para la Predicción de Riesgos",
+            "creditos": 3,
+            "descripcion": "Aplicaciones de la inteligencia artificial y el Machine Learning en la predicción y mitigación de riesgos ocupacionales: diseño de modelos predictivos, análisis de conjuntos de datos y evaluación de la integración de la IA en los sistemas de gestión, con foco en entornos de alto riesgo"
+          },
+          {
+            "codigo": "OSH 590",
+            "nombre": "Realidad Virtual para la Formación",
+            "creditos": 3,
+            "descripcion": "El uso de la realidad virtual como herramienta innovadora de formación en SSO: diseño y evaluación de experiencias de aprendizaje inmersivo que simulan escenarios de riesgo, con énfasis en el aprendizaje experiencial, la concienciación y la efectividad en la capacitación de la fuerza laboral"
+          },
+          {
+            "codigo": "OSH 600",
+            "nombre": "Tendencias Globales e Innovación Sostenible en SSO",
+            "creditos": 3,
+            "descripcion": "Tendencias globales e innovaciones que configuran la seguridad y salud ocupacional: prácticas sostenibles, marcos internacionales y tecnologías emergentes que influyen en la cultura de seguridad, con énfasis en prospectiva, adaptabilidad y sistemas de SSO sostenibles"
+          },
+          {
+            "codigo": "OSH 610",
+            "nombre": "Proyecto Integrador: Seguridad y Salud Ocupacional",
+            "creditos": 3,
+            "descripcion": "Asignatura culminante que integra los conocimientos teóricos y prácticos del programa: se diseña e implementa un proyecto que aborda un desafío real en SSO, demostrando rigor metodológico, innovación y aplicabilidad profesional, con énfasis en soluciones sostenibles y éticas"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "36 créditos, 12 asignaturas, 3 ejes formativos",
+    "salidasLaborales": [
+      "Director de seguridad y salud ocupacional",
+      "Gerente de prevención de riesgos laborales",
+      "Consultor en sistemas de gestión SSO",
+      "Especialista en higiene ocupacional",
+      "Líder de innovación en seguridad industrial",
+      "Auditor en cumplimiento y gobernanza SSO",
+      "Analista de riesgos con IA y Big Data",
+      "Director de cultura preventiva organizacional"
+    ],
+    "alGraduarte": [
+      "Desarrollar competencias avanzadas en gestión estratégica de la SSO, con enfoque en la prevención de riesgos y el bienestar organizacional",
+      "Aplicar herramientas y modelos avanzados de análisis de riesgos en entornos industriales y organizacionales para garantizar condiciones de trabajo seguras",
+      "Integrar tecnologías innovadoras y digitales en la gestión de la SSO, utilizando Big Data y herramientas analíticas para decidir con información",
+      "Liderar iniciativas de cambio organizacional, promoviendo una cultura preventiva y de bienestar en todos los niveles de la organización",
+      "Gestionar ética y efectivamente la legislación y las regulaciones en SSO, asegurando el cumplimiento y la mejora continua de las prácticas laborales",
+      "Diseñar programas de formación inmersiva con realidad virtual y soluciones tecnológicas escalables para la prevención"
+    ]
   },
   "maestria-en-gestion-estrategica-organizaciones-de-salud": {
     "nombre": "Maestría en Gestión Estratégica de Organizaciones de Salud",
@@ -473,7 +998,113 @@
       "Para profesionales del sector salud —clínicos, administrativos y directivos— que buscan liderar instituciones sanitarias con visión estratégica, eficiencia operativa y decisiones basadas en datos"
     ],
     "grado": "Maestría · 36 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/o6ek1Nx0Yt4zYsMrSv1l"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/o6ek1Nx0Yt4zYsMrSv1l",
+    "planEstudios": [
+      {
+        "eje": "Contexto y estrategia en salud",
+        "asignaturas": [
+          {
+            "codigo": "SMH 500",
+            "nombre": "Contexto Sociosanitario de las Organizaciones de Salud",
+            "creditos": 3,
+            "descripcion": "Analiza los contextos sociosanitarios y su influencia en las organizaciones de salud. Se examinan factores demográficos, sociales y culturales que configuran los sistemas de salud y las estrategias institucionales, con énfasis en cómo las variables contextuales impactan la gobernanza sanitaria y la atención centrada en el paciente"
+          },
+          {
+            "codigo": "SMH 510",
+            "nombre": "Gestión Estratégica de Organizaciones de Salud",
+            "creditos": 3,
+            "descripcion": "Introduce modelos de gestión estratégica aplicados a organizaciones de salud. Se diseñan y evalúan estrategias orientadas a la eficiencia, la calidad y la sostenibilidad institucional, con énfasis en la alineación entre los objetivos organizacionales, las necesidades del paciente y las políticas de salud vigentes"
+          },
+          {
+            "codigo": "SMH 520",
+            "nombre": "Epidemiología Aplicada a la Gestión en Salud",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias en la aplicación de principios epidemiológicos a la gestión sanitaria. Se estudian datos de salud poblacional, medidas de incidencia y prevalencia, y modelos epidemiológicos para la toma de decisiones, con énfasis en la integración de la epidemiología en la planificación, evaluación y desarrollo de políticas"
+          },
+          {
+            "codigo": "SMH 530",
+            "nombre": "Economía de la Salud",
+            "creditos": 3,
+            "descripcion": "Examina los principios económicos que subyacen a los sistemas de salud. Se analizan costo-efectividad, asignación de recursos y modelos de financiamiento sanitario, con énfasis en el uso de herramientas económicas para mejorar la eficiencia, la equidad y la sostenibilidad en la gestión de salud"
+          }
+        ]
+      },
+      {
+        "eje": "Operaciones, calidad y finanzas",
+        "asignaturas": [
+          {
+            "codigo": "SMH 540",
+            "nombre": "Gestión de Operaciones en Salud",
+            "creditos": 3,
+            "descripcion": "Explora la gestión de operaciones en instituciones de salud. Se analizan la optimización de flujos de trabajo, la gestión de la cadena de suministro y los modelos de prestación de servicios, con énfasis en la mejora de la eficiencia, la calidad y la capacidad de respuesta de las organizaciones sanitarias"
+          },
+          {
+            "codigo": "SMH 550",
+            "nombre": "Gestión Estratégica y Control de Desempeño en Organizaciones de Salud",
+            "creditos": 3,
+            "descripcion": "Se centra en el control de desempeño y la alineación estratégica en la gestión sanitaria. Se estudian cuadros de mando integral, indicadores clave de rendimiento (KPIs) y mecanismos de rendición de cuentas, con énfasis en la integración de sistemas de control en la planificación estratégica para la mejora continua"
+          },
+          {
+            "codigo": "SMH 560",
+            "nombre": "Mejora Continua y Herramientas de Calidad",
+            "creditos": 3,
+            "descripcion": "Examina metodologías y herramientas de mejora continua en el sector salud. Se aplican marcos de gestión Lean, Six Sigma y sistemas de calidad a organizaciones sanitarias, con énfasis en la innovación, la seguridad del paciente y la sostenibilidad a largo plazo"
+          },
+          {
+            "codigo": "SMH 570",
+            "nombre": "Gestión de Costos y Presupuestos en Organizaciones de Salud",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias en planificación financiera, análisis de costos y control presupuestario en organizaciones de salud. Se analizan estructuras de costos, procesos de presupuestación y financiamiento basado en resultados, con énfasis en la responsabilidad financiera y el uso estratégico de los recursos"
+          }
+        ]
+      },
+      {
+        "eje": "Liderazgo, innovación y analítica",
+        "asignaturas": [
+          {
+            "codigo": "SMH 580",
+            "nombre": "Gestión y Evaluación de Proyectos de Salud",
+            "creditos": 3,
+            "descripcion": "Introduce metodologías de gestión de proyectos para contextos de salud. Se diseñan, implementan y evalúan proyectos que abordan necesidades institucionales y comunitarias, con énfasis en el uso de enfoques basados en evidencia, marcos de evaluación y alineación con las estrategias organizacionales"
+          },
+          {
+            "codigo": "SMH 590",
+            "nombre": "Analítica Aplicada al Sector Salud",
+            "creditos": 3,
+            "descripcion": "Examina el uso de la analítica para la toma de decisiones en organizaciones de salud. Se exploran modelos predictivos, visualización de datos y herramientas de informática sanitaria, con énfasis en la aplicación de la analítica para la mejora del desempeño y la planificación estratégica"
+          },
+          {
+            "codigo": "SMH 600",
+            "nombre": "Liderazgo y Desarrollo de Competencias Ejecutivas",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias de liderazgo ejecutivo para la gestión de organizaciones de salud. Se exploran teorías de liderazgo, estrategias de toma de decisiones y habilidades de comunicación, con énfasis en el liderazgo ético, la innovación y el fomento de culturas organizacionales colaborativas"
+          },
+          {
+            "codigo": "SMH 610",
+            "nombre": "Proyecto Integrador: Gestión Estratégica en Salud",
+            "creditos": 3,
+            "descripcion": "Asignatura culminante que integra los conocimientos y competencias adquiridos a lo largo del programa. Se diseña e implementa un proyecto estratégico que aborda un desafío real en la gestión de organizaciones de salud, demostrando innovación, rigor académico y aplicabilidad profesional"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "36 créditos, 12 asignaturas, 3 ejes formativos",
+    "salidasLaborales": [
+      "Director de hospital o clínica",
+      "Gerente de operaciones de salud",
+      "Consultor en gestión sanitaria",
+      "Director financiero en instituciones de salud",
+      "Líder de proyectos de mejora continua",
+      "Asesor en políticas y planificación sanitaria"
+    ],
+    "alGraduarte": [
+      "Analizar críticamente los contextos sociosanitarios y evaluar su influencia en los sistemas de salud y en las estrategias organizacionales",
+      "Diseñar, implementar y evaluar modelos de gestión estratégica que mejoren la eficiencia, la calidad y la sostenibilidad institucional",
+      "Aplicar principios de epidemiología, economía de la salud y gestión de operaciones para optimizar decisiones y asignación de recursos",
+      "Utilizar herramientas de control de desempeño, gestión financiera y mejora continua para asegurar la rendición de cuentas institucional",
+      "Liderar organizaciones de salud mediante la innovación y la toma de decisiones ética, alineada con la legislación vigente",
+      "Aplicar analítica y modelos predictivos a la mejora del desempeño y la planificación estratégica sanitaria"
+    ]
   },
   "maestria-en-ingenieria": {
     "nombre": "Maestría en Ingeniería",
@@ -485,7 +1116,114 @@
       "Para profesionales en ejercicio de la ingeniería, las operaciones y la gestión tecnológica que buscan optimizar procesos, integrar tecnologías emergentes y liderar proyectos de innovación sostenible"
     ],
     "grado": "Maestría · 36 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/x6s7FFxq7dBCOY24UQUe"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/x6s7FFxq7dBCOY24UQUe",
+    "planEstudios": [
+      {
+        "eje": "Ingeniería industrial y analítica",
+        "asignaturas": [
+          {
+            "codigo": "ENI 500",
+            "nombre": "Tendencias en Ingeniería Industrial",
+            "creditos": 3,
+            "descripcion": "Examina la evolución y las tendencias actuales de la ingeniería industrial, con énfasis en su rol en la configuración de la eficiencia, la productividad y la innovación. Se analizan prácticas globales, tecnologías emergentes y enfoques sostenibles que influyen en los sistemas industriales"
+          },
+          {
+            "codigo": "ENI 510",
+            "nombre": "Gestión de la Transformación Digital",
+            "creditos": 3,
+            "descripcion": "Introduce estrategias para gestionar la transformación digital en organizaciones industriales y de servicios: modelos de madurez digital, enfoques de liderazgo y marcos para la adopción de tecnologías disruptivas, con énfasis en la alineación de las iniciativas digitales con los objetivos organizacionales y las prácticas sostenibles"
+          },
+          {
+            "codigo": "ENI 520",
+            "nombre": "Simulación de Procesos Productivos",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias en simulación y modelado de procesos productivos para mejorar la eficiencia y la toma de decisiones. Se aplican herramientas de análisis de flujos de trabajo, optimización de sistemas y simulaciones basadas en escenarios, con énfasis en la reducción de costos, la gestión de riesgos y la mejora continua"
+          },
+          {
+            "codigo": "ENI 530",
+            "nombre": "Ejecución y Control de Proyectos",
+            "creditos": 3,
+            "descripcion": "Se centra en las metodologías de ejecución y control de proyectos de ingeniería: herramientas de programación, presupuestación y gestión de riesgos para asegurar el éxito de los proyectos, con énfasis en el monitoreo del desempeño, la gestión de stakeholders y la aplicación de mejores prácticas"
+          }
+        ]
+      },
+      {
+        "eje": "Datos, decisiones y tecnología",
+        "asignaturas": [
+          {
+            "codigo": "ENI 540",
+            "nombre": "Análisis de Datos Aplicado",
+            "creditos": 3,
+            "descripcion": "Proporciona los conceptos y herramientas fundamentales del análisis de datos para aplicaciones de ingeniería: estadística descriptiva, probabilidad, visualización de datos y técnicas predictivas introductorias, con énfasis en el uso de enfoques basados en datos para apoyar la toma de decisiones operativas y estratégicas"
+          },
+          {
+            "codigo": "ENI 550",
+            "nombre": "Toma de Decisiones Operativa",
+            "creditos": 3,
+            "descripcion": "Examina modelos y técnicas de toma de decisiones en contextos industriales y organizacionales: optimización, árboles de decisión y análisis multicriterio para evaluar alternativas, con énfasis en las aplicaciones prácticas de métodos analíticos en escenarios operativos complejos"
+          },
+          {
+            "codigo": "ENI 560",
+            "nombre": "Transformación Digital: Tecnologías Emergentes",
+            "creditos": 3,
+            "descripcion": "Aborda las tecnologías emergentes que están redefiniendo los entornos industriales y de servicios, y los marcos para evaluar su adopción, escalabilidad e integración en la estrategia organizacional"
+          },
+          {
+            "codigo": "ENI 570",
+            "nombre": "Automatización e IoT en Manufactura y Servicios",
+            "creditos": 3,
+            "descripcion": "Examina la automatización y el Internet de las Cosas en procesos industriales y de servicios: manufactura inteligente, dispositivos conectados y sistemas de monitoreo en tiempo real, con énfasis en la eficiencia, la adaptabilidad y la innovación a través de soluciones basadas en IoT"
+          }
+        ]
+      },
+      {
+        "eje": "Innovación, sostenibilidad y proyectos",
+        "asignaturas": [
+          {
+            "codigo": "ENI 580",
+            "nombre": "Innovación Tecnológica y Estrategias Sostenibles",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias en innovación tecnológica y su relación con el desarrollo sostenible: marcos de estrategias sostenibles, principios de economía circular y adaptabilidad organizacional, con énfasis en el equilibrio entre la innovación y las responsabilidades éticas y ambientales"
+          },
+          {
+            "codigo": "ENI 590",
+            "nombre": "Formulación y Evaluación de Proyectos",
+            "creditos": 3,
+            "descripcion": "Introduce metodologías para la formulación, evaluación y justificación de proyectos de ingeniería: análisis costo-beneficio, estudios de factibilidad y herramientas de evaluación de riesgos, con énfasis en la alineación estratégica, la sostenibilidad y la rendición de cuentas"
+          },
+          {
+            "codigo": "ENI 600",
+            "nombre": "Proyectos de Mejora en Empresas en Operación",
+            "creditos": 3,
+            "descripcion": "Examina estrategias para diseñar e implementar proyectos de mejora en empresas existentes: metodologías de mejora continua, gestión del cambio organizacional y herramientas de optimización de procesos, con énfasis en la generación de impactos medibles en eficiencia, calidad y sostenibilidad"
+          },
+          {
+            "codigo": "ENI 610",
+            "nombre": "Proyecto Integrador: Ingeniería",
+            "creditos": 3,
+            "descripcion": "Asignatura culminante que integra las competencias adquiridas a lo largo del programa: se diseña e implementa un proyecto que aborda un desafío real de ingeniería, demostrando innovación, rigor metodológico y aplicabilidad profesional"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "36 créditos, 12 asignaturas, 3 ejes formativos",
+    "salidasLaborales": [
+      "Director de operaciones industriales",
+      "Gerente de transformación digital",
+      "Consultor en optimización de procesos",
+      "Líder de proyectos de ingeniería",
+      "Especialista en automatización e IoT",
+      "Director de innovación y sostenibilidad",
+      "Analista de datos para ingeniería"
+    ],
+    "alGraduarte": [
+      "Aplicar principios avanzados de ingeniería, técnicas de optimización y analítica de datos para mejorar procesos industriales y de servicios",
+      "Diseñar e implementar estrategias sostenibles que integren economía circular, innovación tecnológica y transformación digital",
+      "Utilizar automatización, IoT e inteligencia artificial para mejorar la eficiencia, la adaptabilidad y la competitividad en la manufactura",
+      "Liderar proyectos complejos aplicando simulación, planificación y toma de decisiones operativa para alcanzar los objetivos organizacionales",
+      "Impulsar el cambio tecnológico y la innovación organizacional con compromiso ético y responsabilidad con la sostenibilidad",
+      "Formular y evaluar proyectos con análisis costo-beneficio, estudios de factibilidad y herramientas de evaluación de riesgos"
+    ]
   },
   "maestria-en-inteligencia-artificial": {
     "nombre": "Maestría en Inteligencia Artificial",
@@ -497,7 +1235,113 @@
       "Para profesionales en ejercicio que buscan liderar proyectos de innovación con tecnologías inteligentes en sectores como salud, educación, industria y servicios"
     ],
     "grado": "Maestría · 36 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/HqG2kbl5LhRQXbmZbILW"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/HqG2kbl5LhRQXbmZbILW",
+    "planEstudios": [
+      {
+        "eje": "Fundamentos y análisis de datos",
+        "asignaturas": [
+          {
+            "codigo": "IAI 500",
+            "nombre": "Análisis de Datos y Toma de Decisiones",
+            "creditos": 3,
+            "descripcion": "Herramientas metodológicas y tecnológicas para aplicar el análisis de datos como soporte de decisiones operativas y estratégicas: análisis exploratorio, modelado estadístico y minería de datos, con énfasis en el razonamiento basado en evidencia y la comunicación de hallazgos"
+          },
+          {
+            "codigo": "IAI 510",
+            "nombre": "Machine Learning y Toma de Decisiones",
+            "creditos": 3,
+            "descripcion": "Fundamentos del Machine Learning y su rol en la decisión organizacional: algoritmos supervisados y no supervisados —regresión, clasificación, clustering y series temporales— aplicados a problemas reales, con evaluación crítica de modelos y uso ético en entornos empresariales"
+          },
+          {
+            "codigo": "IAI 520",
+            "nombre": "IA Generativa para Liderazgo Ejecutivo",
+            "creditos": 3,
+            "descripcion": "Conocimiento estratégico sobre herramientas de IA generativa y sus implicaciones para la transformación organizacional: modelos generativos, automatización de contenidos, generación de conocimiento y personalización, evaluando críticamente riesgos, oportunidades y consideraciones éticas"
+          }
+        ]
+      },
+      {
+        "eje": "Modelos avanzados y sistemas inteligentes",
+        "asignaturas": [
+          {
+            "codigo": "IAI 530",
+            "nombre": "Deep Learning: Fundamentos y Modelos Avanzados",
+            "creditos": 3,
+            "descripcion": "Bases teóricas y computacionales del Deep Learning: arquitecturas de redes neuronales, métodos de optimización y modelos avanzados como redes convolucionales y recurrentes, con énfasis en escalabilidad y desafíos de entrenamiento en múltiples dominios"
+          },
+          {
+            "codigo": "IAI 540",
+            "nombre": "Deep Learning Aplicado a la Resolución de Problemas Complejos",
+            "creditos": 3,
+            "descripcion": "Aplicación de métodos de Deep Learning a problemas reales en salud, industria y educación: diseño y entrenamiento de modelos avanzados experimentando con distintas arquitecturas y estrategias de optimización, evaluando críticamente los resultados"
+          },
+          {
+            "codigo": "IAI 550",
+            "nombre": "Generación Aumentada por Recuperación (RAG)",
+            "creditos": 3,
+            "descripcion": "Principios y aplicaciones de los sistemas Retrieval-Augmented Generation: embeddings, arquitecturas híbridas y entornos multiagente que combinan recuperación de información con generación de lenguaje natural, con énfasis en el prototipado de sistemas RAG funcionales"
+          },
+          {
+            "codigo": "IAI 560",
+            "nombre": "Sistemas Inteligentes para Recuperación de Información y Generación de Conocimiento",
+            "creditos": 3,
+            "descripcion": "Sistemas inteligentes para gestionar, recuperar y generar conocimiento: búsqueda semántica, razonamiento automatizado y bases de conocimiento inteligentes, con énfasis en innovación, transparencia y potenciación de la decisión organizacional"
+          }
+        ]
+      },
+      {
+        "eje": "Estrategia, liderazgo e integración",
+        "asignaturas": [
+          {
+            "codigo": "IAI 570",
+            "nombre": "Estrategias de IA para la Transformación Organizacional",
+            "creditos": 3,
+            "descripcion": "Diseño e implementación de estrategias basadas en IA que impulsen la transformación organizacional: modelos de gestión del cambio, marcos de madurez digital y casos de integración en diversas industrias, con énfasis en innovación, agilidad e impacto ético"
+          },
+          {
+            "codigo": "IAI 580",
+            "nombre": "Liderazgo Organizacional y Gestión del Cambio con IA",
+            "creditos": 3,
+            "descripcion": "Liderazgo y gestión del cambio en organizaciones que adoptan IA: estilos de liderazgo, enfoques colaborativos y estrategias para abordar la resistencia al cambio, enfatizando la integración ética, sostenible y efectiva de las iniciativas impulsadas por IA"
+          },
+          {
+            "codigo": "IAI 590",
+            "nombre": "Reinforcement Learning Aplicado a los Negocios",
+            "creditos": 3,
+            "descripcion": "Reinforcement Learning y su aplicación en contextos de negocio: agentes, entornos, políticas y sistemas de recompensa, aplicando algoritmos como Q-learning y Deep Reinforcement Learning a problemas de logística, finanzas y operaciones"
+          },
+          {
+            "codigo": "IAI 600",
+            "nombre": "Optimización de Procesos Organizacionales con IA",
+            "creditos": 3,
+            "descripcion": "Técnicas basadas en IA para optimizar procesos: analítica predictiva, investigación de operaciones y algoritmos de optimización para mejorar la eficiencia, reducir costos y fortalecer la decisión en sistemas de gestión de calidad"
+          },
+          {
+            "codigo": "IAI 610",
+            "nombre": "Proyecto Integrador: Inteligencia Artificial",
+            "creditos": 3,
+            "descripcion": "Asignatura culminante que integra los conocimientos y competencias de la maestría: se diseña y desarrolla un proyecto que aplica metodologías de IA a un desafío real, demostrando innovación, rigor académico, aplicabilidad profesional y potencial de impacto sostenible"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "36 créditos, 12 asignaturas, 3 ejes formativos",
+    "salidasLaborales": [
+      "Científico de datos",
+      "Ingeniero de Machine Learning",
+      "Arquitecto de soluciones de IA",
+      "Consultor en transformación digital",
+      "Líder de innovación tecnológica",
+      "Director de proyectos de IA"
+    ],
+    "alGraduarte": [
+      "Analizar los fundamentos teóricos y computacionales de la IA, evaluando críticamente el alcance y las limitaciones de los sistemas autónomos y adaptativos",
+      "Diseñar e implementar soluciones inteligentes con técnicas avanzadas de Machine Learning, redes neuronales y programación de alto nivel",
+      "Evaluar el impacto ético, legal y social de la IA, incorporando gobernanza algorítmica, protección de datos y cumplimiento regulatorio",
+      "Aplicar modelos predictivos y sistemas de soporte a la decisión sobre grandes volúmenes de datos en salud, educación e industria",
+      "Liderar proyectos e iniciativas de investigación aplicada en IA con pensamiento estratégico y metodologías avanzadas",
+      "Gestionar responsablemente tecnologías emergentes y conducir equipos multidisciplinarios en contextos de cambio tecnológico"
+    ]
   },
   "maestria-en-neurodivergencia": {
     "nombre": "Maestría en Neurodivergencia",
@@ -509,7 +1353,113 @@
       "Para profesionales en ejercicio de la psicología, la educación, la salud y áreas afines que buscan promover la inclusión, el bienestar y el empoderamiento de las personas neurodivergentes"
     ],
     "grado": "Maestría · 36 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/a44Fa2km5CcqTBF1vtP5"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/a44Fa2km5CcqTBF1vtP5",
+    "planEstudios": [
+      {
+        "eje": "Fundamentos neurocientíficos",
+        "asignaturas": [
+          {
+            "codigo": "MHS 500",
+            "nombre": "Enfoques Avanzados sobre Neurodiversidad",
+            "creditos": 3,
+            "descripcion": "Enfoques interdisciplinarios avanzados para el estudio y el acompañamiento de personas neurodivergentes. Se analizan críticamente teorías y marcos contemporáneos, integrando neurociencia, psicología y educación, con énfasis en equidad, accesibilidad y prácticas inclusivas"
+          },
+          {
+            "codigo": "MHS 510",
+            "nombre": "Fundamentos Neurobiológicos del Neurodesarrollo",
+            "creditos": 3,
+            "descripcion": "Procesos neurobiológicos que subyacen al neurodesarrollo: mecanismos genéticos, moleculares y cerebrales que contribuyen a los perfiles neurodivergentes, con énfasis en su aplicación al diagnóstico, la intervención y la planificación educativa"
+          },
+          {
+            "codigo": "MHS 520",
+            "nombre": "Neurociencia de la Neurodivergencia: Perspectiva Evolutiva",
+            "creditos": 3,
+            "descripcion": "La salud mental a través de las etapas del desarrollo humano, con foco en las influencias psicosociales, culturales y ambientales, y en cómo las transiciones vitales y los factores contextuales impactan el bienestar mental"
+          },
+          {
+            "codigo": "OSH 530",
+            "nombre": "Perspectivas Neuropsicológicas de la Neurodivergencia",
+            "creditos": 3,
+            "descripcion": "Teorías neuropsicológicas e instrumentos de evaluación aplicados a personas neurodivergentes: procesos cognitivos, conductuales y emocionales asociados a distintos perfiles del neurodesarrollo, con aplicaciones basadas en evidencia"
+          }
+        ]
+      },
+      {
+        "eje": "Intervención, educación y bienestar",
+        "asignaturas": [
+          {
+            "codigo": "MHS 540",
+            "nombre": "Salud Mental y Bienestar Integral en Personas Neurodivergentes",
+            "creditos": 3,
+            "descripcion": "Enfoques terapéuticos, estrategias de fortalecimiento de la resiliencia e intervenciones comunitarias, con énfasis en el cuidado holístico, las políticas inclusivas y la reducción del estigma en salud mental"
+          },
+          {
+            "codigo": "MHS 550",
+            "nombre": "Neuroeducación y Aprendizaje en Neurodivergencia",
+            "creditos": 3,
+            "descripcion": "Estrategias de enseñanza y aprendizaje fundamentadas en el funcionamiento cerebral, orientadas a apoyar los procesos educativos de personas neurodivergentes en contextos escolares y formativos"
+          },
+          {
+            "codigo": "OSH 560",
+            "nombre": "Evaluación, Diagnóstico e Intervenciones Terapéuticas en Neurodivergencia",
+            "creditos": 3,
+            "descripcion": "Métodos avanzados de evaluación, diagnóstico e intervención: marcos diagnósticos, terapias basadas en evidencia y enfoques interdisciplinarios de tratamiento, con énfasis en consideraciones éticas y prácticas culturalmente sensibles"
+          },
+          {
+            "codigo": "OSH 570",
+            "nombre": "Tecnologías Asistivas para la Inclusión",
+            "creditos": 3,
+            "descripcion": "Tecnologías que promueven la inclusión y participación de personas neurodivergentes: herramientas para la comunicación, el aprendizaje y la movilidad integradas en entornos terapéuticos y educativos, con foco en accesibilidad y empoderamiento"
+          }
+        ]
+      },
+      {
+        "eje": "Integración, inclusión y práctica aplicada",
+        "asignaturas": [
+          {
+            "codigo": "MHS 580",
+            "nombre": "Estimulación Neuromotora y Actividad Física Terapéutica",
+            "creditos": 3,
+            "descripcion": "Estimulación neuromotora y actividad física terapéutica como enfoques de apoyo: intervenciones que promueven habilidades motoras, coordinación y regulación sensorial, con énfasis en el diseño de programas que fomenten el bienestar y la independencia funcional"
+          },
+          {
+            "codigo": "MHS 590",
+            "nombre": "Integración Sensorial en Personas Neurodivergentes",
+            "creditos": 3,
+            "descripcion": "Teorías e intervenciones de integración sensorial: análisis de los desafíos de procesamiento sensorial y diseño de estrategias para promover la regulación y la participación en contextos educativos, terapéuticos y comunitarios"
+          },
+          {
+            "codigo": "MHS 600",
+            "nombre": "Enfoques Interdisciplinarios de la Neurodivergencia",
+            "creditos": 3,
+            "descripcion": "Integración de perspectivas de neurociencia, psicología, educación y ciencias sociales para diseñar marcos inclusivos e intervenciones colaborativas, con énfasis en políticas públicas, incidencia social y cambio sistémico"
+          },
+          {
+            "codigo": "MHS 610",
+            "nombre": "Proyecto Integrador: Neurodivergencia",
+            "creditos": 3,
+            "descripcion": "Asignatura culminante que sintetiza los conocimientos y competencias del programa: se diseña e implementa un proyecto que aborda un desafío real relacionado con la neurodivergencia, demostrando rigor académico, innovación y aplicabilidad profesional"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "36 créditos, 12 asignaturas, 3 ejes formativos",
+    "salidasLaborales": [
+      "Especialista en neuroeducación",
+      "Coordinador de programas de inclusión",
+      "Consultor en neurodiversidad organizacional",
+      "Investigador en neurodesarrollo",
+      "Diseñador de intervenciones con tecnología asistiva",
+      "Líder de políticas públicas en inclusión y accesibilidad"
+    ],
+    "alGraduarte": [
+      "Analizar críticamente los fundamentos neurobiológicos, psicológicos y educativos de la neurodivergencia desde una perspectiva interdisciplinaria",
+      "Diseñar e implementar estrategias inclusivas que apoyen el aprendizaje, la salud mental y el bienestar de las personas neurodivergentes",
+      "Aplicar métodos avanzados de evaluación, marcos diagnósticos e intervenciones basadas en evidencia, adaptados a diversos perfiles del neurodesarrollo",
+      "Integrar tecnologías asistivas, estrategias de procesamiento sensorial y técnicas de estimulación neuromotora para promover el desarrollo funcional",
+      "Liderar investigaciones, políticas y prácticas innovadoras que promuevan la equidad y la accesibilidad",
+      "Actuar con sensibilidad cultural y responsabilidad ética en contextos educativos, clínicos y sociales"
+    ]
   },
   "maestria-en-salud-mental": {
     "nombre": "Maestría en Salud Mental",
@@ -521,7 +1471,114 @@
       "Para profesionales en ejercicio que desean profundizar en el análisis de la salud mental desde la investigación, la epidemiología, la neurociencia cognitiva y los determinantes sociales, sin orientación clínica"
     ],
     "grado": "Maestría · 36 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/Ve6rKWotry0XzB0vwetQ"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/Ve6rKWotry0XzB0vwetQ",
+    "planEstudios": [
+      {
+        "eje": "Fundamentos y perspectivas en salud mental",
+        "asignaturas": [
+          {
+            "codigo": "MHS 500",
+            "nombre": "Perspectivas Académicas en Psiquiatría y Sistemas de Salud Mental",
+            "creditos": 3,
+            "descripcion": "Fundamentos históricos y epidemiológicos de la salud mental y principales modelos clínicos en relación con las redes de atención comunitaria. Analiza cómo se estructuran e interpretan los servicios en diversos contextos políticos, culturales y sociales, con énfasis en diversidad, equidad e inclusión"
+          },
+          {
+            "codigo": "MHS 510",
+            "nombre": "Salud Mental a lo Largo del Ciclo Vital: Infancia, Adolescencia y Adultos Mayores",
+            "creditos": 3,
+            "descripcion": "La salud mental a través de las etapas del desarrollo humano, con foco en las influencias psicosociales, culturales y ambientales, y en cómo las transiciones vitales y los factores contextuales impactan el bienestar, sin evaluación clínica ni instrucción terapéutica"
+          },
+          {
+            "codigo": "OSH 520",
+            "nombre": "Trastornos Mentales Prevalentes: Enfoques Conceptuales y Epidemiológicos",
+            "creditos": 3,
+            "descripcion": "Los principales trastornos mentales desde perspectivas conceptuales, científicas y poblacionales: tendencias epidemiológicas, sistemas de clasificación y consideraciones éticas asociadas a la definición de condiciones de salud mental, sin abordar diagnóstico ni tratamiento clínico"
+          },
+          {
+            "codigo": "OSH 530",
+            "nombre": "Crisis de Salud Mental: Respuestas Comunitarias y Organizacionales",
+            "creditos": 3,
+            "descripcion": "Enfoques no clínicos de las crisis de salud mental, con énfasis en la prevención, la coordinación y las respuestas comunitarias u organizacionales. Se examinan factores sistémicos, marcos de crisis y mecanismos de políticas sin involucrar intervención clínica ni atención a pacientes"
+          }
+        ]
+      },
+      {
+        "eje": "Investigación, neurociencia y modelos basados en evidencia",
+        "asignaturas": [
+          {
+            "codigo": "MHS 540",
+            "nombre": "Métodos de Investigación en Estudios de Salud Mental",
+            "creditos": 3,
+            "descripcion": "Formación avanzada en metodologías cualitativas y cuantitativas aplicadas a estudios de salud mental: diseño de proyectos de investigación no clínica, análisis de datos y evaluación de evidencia relevante para políticas e iniciativas organizacionales o comunitarias"
+          },
+          {
+            "codigo": "MHS 550",
+            "nombre": "Psicobiología y Neurociencia Clínica",
+            "creditos": 3,
+            "descripcion": "Bases biológicas del comportamiento y mecanismos neurales asociados a los procesos mentales, con énfasis en los conceptos clave de psicobiología y neurociencia relevantes para la investigación contemporánea en salud mental"
+          },
+          {
+            "codigo": "OSH 560",
+            "nombre": "Intervención en Crisis y Salud Mental en Desastres",
+            "creditos": 3,
+            "descripcion": "Marcos conceptuales y analíticos aplicados a contextos de crisis y desastres, con énfasis en las perspectivas académicas sobre coordinación y respuesta, no en la instrucción diagnóstica ni terapéutica"
+          },
+          {
+            "codigo": "OSH 570",
+            "nombre": "Modelos Contemporáneos Basados en Evidencia",
+            "creditos": 3,
+            "descripcion": "Visión descriptiva de diversos modelos teóricos con eficacia terapéutica demostrada en el tratamiento de condiciones psicopatológicas, con especial atención a los factores protectores que contribuyen al cambio terapéutico"
+          }
+        ]
+      },
+      {
+        "eje": "Determinantes sociales, debates y neurociencia aplicada",
+        "asignaturas": [
+          {
+            "codigo": "MHS 580",
+            "nombre": "Debates Contemporáneos en Psiquiatría y Salud Mental",
+            "creditos": 3,
+            "descripcion": "Debates académicos actuales en psiquiatría y salud mental: controversias sobre clasificación, críticas sociales y culturales, y desafíos globales emergentes, con énfasis en las perspectivas conceptuales y analíticas"
+          },
+          {
+            "codigo": "MHS 590",
+            "nombre": "Determinantes Sociales de la Salud Mental",
+            "creditos": 3,
+            "descripcion": "Cómo los determinantes sociales, culturales, económicos y ambientales configuran los resultados de salud mental en las poblaciones, con énfasis en el rol de la desigualdad, el estigma, la discriminación y las condiciones estructurales, desde una perspectiva analítica no clínica"
+          },
+          {
+            "codigo": "MHS 600",
+            "nombre": "Investigación Aplicada en Neurociencia Cognitiva",
+            "creditos": 3,
+            "descripcion": "Enfoques metodológicos y herramientas analíticas de la neurociencia cognitiva, centrados en el diseño e interpretación de investigaciones que examinan las bases neurales de los procesos cognitivos en contextos multidisciplinarios"
+          },
+          {
+            "codigo": "MHS 610",
+            "nombre": "Proyecto Integrador: Salud Mental",
+            "creditos": 3,
+            "descripcion": "Proyecto culminante: un estudio basado en investigación, un análisis de políticas o una propuesta organizacional que aborde un tema de salud mental, integrando las competencias teóricas, metodológicas y éticas del programa. No incluye práctica clínica ni actividades terapéuticas"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "36 créditos, 12 asignaturas, 3 ejes formativos",
+    "salidasLaborales": [
+      "Investigador en salud mental",
+      "Analista de políticas de salud mental",
+      "Coordinador de programas de prevención y promoción del bienestar",
+      "Consultor en salud mental organizacional",
+      "Especialista en determinantes sociales de la salud",
+      "Asesor en instituciones de salud pública",
+      "Académico e investigador en neurociencia cognitiva aplicada"
+    ],
+    "alGraduarte": [
+      "Analizar los sistemas de salud mental, los factores psicosociales y los marcos interdisciplinarios desde una perspectiva académica y basada en investigación",
+      "Examinar los conceptos fundamentales y los modelos teóricos de la psiquiatría sin involucrarse en formación clínica ni práctica diagnóstica",
+      "Evaluar la influencia de los determinantes socioculturales, organizacionales y ambientales en el bienestar mental de las poblaciones",
+      "Aplicar métodos de investigación al estudio de problemas de salud mental, políticas e iniciativas comunitarias u organizacionales",
+      "Interpretar los procesos psicobiológicos y los principios de la neurociencia y su relevancia en el análisis interdisciplinario",
+      "Desarrollar recomendaciones basadas en evidencia para la promoción del bienestar, la prevención y el diseño de políticas y programas"
+    ]
   },
   "maestriaenadministraciondeempresas": {
     "nombre": "Maestría en Administración de Empresas MBA",
@@ -533,7 +1590,139 @@
       "Para profesionales en ejercicio que buscan asumir posiciones de dirección y necesitan una formación integral en todas las áreas funcionales del negocio, con visión estratégica y capacidad de ejecución"
     ],
     "grado": "Maestría · 36 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/rrX7UhzJlyLkS5JdFT6j"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/rrX7UhzJlyLkS5JdFT6j",
+    "planEstudios": [
+      {
+        "eje": "Fundamentos de negocios y entorno global",
+        "asignaturas": [
+          {
+            "codigo": "BUS 500",
+            "nombre": "Negocios en la Economía Global",
+            "creditos": 3,
+            "descripcion": "Examina los factores que afectan los negocios internacionales y la expansión empresarial. Se analizan características demográficas, económicas, políticas, de recursos naturales, tecnológicas y culturales, y su rol en el avance de las empresas multinacionales"
+          },
+          {
+            "codigo": "BUS 505",
+            "nombre": "Derecho Empresarial y Ética",
+            "creditos": 3,
+            "descripcion": "Introduce las leyes y estándares éticos que los gerentes deben cumplir en la conducción de negocios. Se estudian las normativas para proteger consumidores, empleados y operaciones, así como estrategias de gestión de conflictos y temas legales como responsabilidad civil, contratos, propiedad, propiedad intelectual y derecho laboral"
+          },
+          {
+            "codigo": "ACC 510",
+            "nombre": "Contabilidad para la Toma de Decisiones y Control",
+            "creditos": 3,
+            "descripcion": "Examina las diversas formas en que los tomadores de decisiones pueden utilizar la información contable. Se aborda la creación, uso e interpretación de datos contables internos, incluyendo control de costos, reportes, presupuestación, planificación de utilidades y proyecciones para la toma de decisiones"
+          },
+          {
+            "codigo": "MAR 515",
+            "nombre": "Marketing para Ejecutivos",
+            "creditos": 3,
+            "descripcion": "Desarrolla un conocimiento práctico de las decisiones que toman los gerentes de marketing, aprendiendo a pensar estratégicamente. Se desarrollan planes de marketing que alinean decisiones y estrategias, implementando acciones que optimizan el valor para el cliente y la organización"
+          }
+        ]
+      },
+      {
+        "eje": "Liderazgo, economía y relaciones internacionales",
+        "asignaturas": [
+          {
+            "codigo": "LED 520",
+            "nombre": "Liderazgo y Comportamiento Organizacional",
+            "creditos": 3,
+            "descripcion": "Proporciona una comprensión profunda del comportamiento individual, grupal y organizacional. Se desarrollan habilidades prácticas para liderar individuos y equipos hacia el alto desempeño, analizando el entorno empresarial, detectando problemas y desarrollando soluciones creativas y socialmente responsables"
+          },
+          {
+            "codigo": "BUS 525",
+            "nombre": "Economía Gerencial",
+            "creditos": 3,
+            "descripcion": "Integra teorías de microeconomía y macroeconomía a nivel de empresa con aplicaciones en la toma de decisiones empresariales desde una perspectiva económica. Se aplican estrategias de precios, análisis de producción y costos, y análisis de industria. Se examina cómo el análisis del comportamiento del consumidor fundamenta la teoría de la demanda"
+          },
+          {
+            "codigo": "BUS 530",
+            "nombre": "Relaciones Internacionales",
+            "creditos": 3,
+            "descripcion": "Aborda los aspectos interdisciplinarios de las relaciones internacionales aplicados al ámbito empresarial, con énfasis en los desafíos y responsabilidades gerenciales que implica operar en contextos domésticos e internacionales, incluyendo el rol de los gobiernos, las políticas públicas y los factores que condicionan la actividad económica transfronteriza"
+          },
+          {
+            "codigo": "STA 535",
+            "nombre": "Métodos Cuantitativos y Cualitativos para la Toma de Decisiones",
+            "creditos": 3,
+            "descripcion": "Introduce la utilización y aplicación de métodos cuantitativos para la toma de decisiones individual, organizacional y social. Se examinan herramientas para el desarrollo e interpretación de atributos y variables, incluyendo visualización de datos, distribuciones de probabilidad, inferencia estadística, regresión, pronósticos, control de calidad, simulación Monte Carlo, árboles de decisión y optimización"
+          }
+        ]
+      },
+      {
+        "eje": "Operaciones, tecnología y finanzas",
+        "asignaturas": [
+          {
+            "codigo": "BUS 540",
+            "nombre": "Gestión de la Cadena de Suministro",
+            "creditos": 3,
+            "descripcion": "Examina las actividades que crean bienes y servicios a través de la transformación de insumos en productos. Introduce el diseño, operación y control de sistemas de cadena de suministro y logística doméstica e internacional, con énfasis en transporte, distribución y almacenamiento en la empresa"
+          },
+          {
+            "codigo": "ISM 545",
+            "nombre": "Gestión de Información y Tecnología",
+            "creditos": 3,
+            "descripcion": "Estudia la integración de soluciones de sistemas de información y procesos de negocio. Se examina cómo la información y los sistemas de información se relacionan con los procesos empresariales, cómo las organizaciones los utilizan para estrategia competitiva y gestión de recursos, y las implicaciones éticas e internacionales de su uso"
+          },
+          {
+            "codigo": "FIN 550",
+            "nombre": "Toma de Decisiones Financieras",
+            "creditos": 3,
+            "descripcion": "Presenta los procesos para analizar la condición financiera de una empresa, desarrollar alternativas y tomar decisiones de finanzas empresariales. Se ejercita el análisis de datos financieros y operativos actuales, y su proyección para apoyar la toma de decisiones. Incluye gestión de capital de trabajo, fuentes de financiamiento y métodos para obtener capital externo"
+          },
+          {
+            "codigo": "HRM 555",
+            "nombre": "Gestión de Recursos Humanos",
+            "creditos": 3,
+            "descripcion": "Analiza los procesos de gestión del recurso humano considerando su importancia estratégica. Se examina la relación entre las funciones tradicionales de recursos humanos y las diversas funciones empresariales. El curso abarca reclutamiento, selección, capacitación, desarrollo, evaluación del desempeño, compensación, beneficios, seguridad y relaciones laborales"
+          }
+        ]
+      },
+      {
+        "eje": "Proyectos, emprendimiento e integración",
+        "asignaturas": [
+          {
+            "codigo": "BUS 560",
+            "nombre": "Gestión Avanzada de Proyectos",
+            "creditos": 3,
+            "descripcion": "Profundiza en las metodologías de dirección de proyectos aplicadas al entorno empresarial: definición del alcance, planificación, programación, presupuesto y gestión de riesgos, con énfasis en el liderazgo de equipos de proyecto, la gestión de stakeholders y el control del desempeño hasta el cierre"
+          },
+          {
+            "codigo": "BUS 565",
+            "nombre": "Liderazgo Emprendedor",
+            "creditos": 3,
+            "descripcion": "Estudia las teorías, habilidades y prácticas de liderazgo necesarias para la efectividad en diversos entornos emprendedores. Se examinan diferentes contextos incluyendo empresas privadas, corporaciones, organizaciones sin fines de lucro y movimientos sociales"
+          },
+          {
+            "codigo": "BUS 600",
+            "nombre": "Proyecto Integrador: Administración de Empresas",
+            "creditos": 3,
+            "descripcion": "Asignatura culminante donde se aplican los conocimientos y habilidades de cursos previos al proceso de planificación empresarial requerido para el desarrollo de nuevos emprendimientos. Se integran los conocimientos adquiridos a lo largo del programa, trabajando en proyectos empresariales extendidos con experiencia práctica, evaluando planes de negocio y utilizando herramientas analíticas apropiadas"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "45 créditos, 15 asignaturas, 4 ejes formativos",
+    "salidasLaborales": [
+      "Gerente de división",
+      "Director financiero",
+      "Gerente de marketing",
+      "Director de operaciones y cadena de suministro",
+      "Gerente de recursos humanos",
+      "Director de proyectos",
+      "Consultor empresarial",
+      "Emprendedor y fundador de startups",
+      "Director de tecnología e innovación"
+    ],
+    "alGraduarte": [
+      "Aplicar mejores prácticas para resolver problemas gerenciales e integrar teorías y prácticas para realizar análisis estratégico",
+      "Demostrar habilidades efectivas de comunicación escrita y oral en presentaciones de negocios, y liderar equipos diversos",
+      "Identificar y analizar las responsabilidades éticas de las empresas, tomando decisiones de manera ética y compasiva",
+      "Aplicar técnicas de toma de decisiones cuantitativas y cualitativas a problemas de gestión, identificando necesidades del cliente",
+      "Participar en el desarrollo de productos y servicios que respondan a oportunidades reales de mercado",
+      "Utilizar herramientas de tecnología de información para procesos organizacionales y generar soluciones innovadoras"
+    ]
   },
   "maestriaenadministracionpublica": {
     "nombre": "Maestría en Administración Pública",
@@ -545,7 +1734,114 @@
       "Para profesionales del sector público, organizaciones sin fines de lucro y entidades ambientales o de salud que buscan liderar organizaciones gubernamentales con visión estratégica, ética y compromiso con la transparencia"
     ],
     "grado": "Maestría · 36 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/S2cwoyI2YkE7jg3lfWJM"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/S2cwoyI2YkE7jg3lfWJM",
+    "planEstudios": [
+      {
+        "eje": "Fundamentos de gestión pública y estrategia",
+        "asignaturas": [
+          {
+            "codigo": "PAC 500",
+            "nombre": "Gestión Estratégica",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias para identificar, analizar y sintetizar datos e información que apoyen la toma de decisiones organizacionales orientadas a mejorar la satisfacción del cliente y el desempeño financiero. Se examinan factores genéricos y específicos que reflejan el desempeño operativo global de una organización, incluyendo responsabilidad ética y social corporativa"
+          },
+          {
+            "codigo": "PAC 510",
+            "nombre": "Administración Pública",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias de pensamiento crítico, investigación y comunicación aplicadas a los sectores público y privado. Se examina el contexto intercultural de las instituciones en un entorno global, la gestión de la diversidad y los principales desafíos de las instituciones contemporáneas, enfatizando el conocimiento integrador, las habilidades y la ética necesarios para posiciones de liderazgo administrativo y gerencial"
+          },
+          {
+            "codigo": "PAC 520",
+            "nombre": "Gestión Financiera y Presupuestaria para Organizaciones Públicas",
+            "creditos": 3,
+            "descripcion": "Proporciona una visión integral de la presupuestación y gestión financiera de organismos públicos. Se examina el proceso presupuestario, incluyendo los actores involucrados y las estrategias que emplean, y se desarrollan habilidades prácticas para comprender, analizar y preparar presupuestos públicos como mecanismo central de asignación de recursos"
+          },
+          {
+            "codigo": "PAC 530",
+            "nombre": "Gestión Estratégica de Personas",
+            "creditos": 3,
+            "descripcion": "Aborda el diseño y ejecución de estrategias de gestión de recursos humanos. Se desarrollan competencias para pensar sistemática y estratégicamente sobre la gestión del activo humano de las organizaciones, implementar políticas efectivas y generar ventaja competitiva a través del desarrollo del talento"
+          }
+        ]
+      },
+      {
+        "eje": "Comunicación, negociación y control",
+        "asignaturas": [
+          {
+            "codigo": "PAC 540",
+            "nombre": "Marketing Político y Gestión de Medios",
+            "creditos": 3,
+            "descripcion": "Examina la importancia e interrelación entre política, medios y comunicación, desarrollando planes operativos y estrategias precisas. Se explora el uso de redes sociales, medios tradicionales y plataformas web para fines de comunicación político-electoral, así como técnicas de oratoria y asesoría en comunicación pública"
+          },
+          {
+            "codigo": "PAC 550",
+            "nombre": "Negociación de Conflictos Sociales",
+            "creditos": 3,
+            "descripcion": "Desarrolla habilidades de negociación y gestión de conflictos a partir de las fortalezas y debilidades personales. Se profundiza en los elementos clave del proceso de negociación, estrategias para tratar con negociadores difíciles y técnicas para alcanzar resultados colaborativos que agreguen valor"
+          },
+          {
+            "codigo": "PAC 560",
+            "nombre": "Auditoría y Prevención de Riesgos",
+            "creditos": 3,
+            "descripcion": "Examina las características clave del gobierno corporativo, incluyendo el rol de la auditoría interna y el aseguramiento. Se estudian los principios de gestión de riesgos, métodos de identificación y análisis de riesgos, estrategias de tratamiento, monitoreo integrado y mecanismos de control interno"
+          },
+          {
+            "codigo": "PAC 570",
+            "nombre": "Transparencia y Participación Ciudadana",
+            "creditos": 3,
+            "descripcion": "Promueve la comprensión de valores democráticos como la transparencia y la rendición de cuentas. Se analizan estrategias deliberativas y de acción colectiva para el involucramiento cívico, enfatizando la participación ciudadana en la evaluación del desempeño gubernamental y la formulación de políticas como estrategia para mejorar la confianza en el gobierno"
+          }
+        ]
+      },
+      {
+        "eje": "Transformación, proyectos e integración",
+        "asignaturas": [
+          {
+            "codigo": "PAC 580",
+            "nombre": "Gestión del Cambio en Organizaciones Públicas",
+            "creditos": 3,
+            "descripcion": "Examina las principales teorías y perspectivas sobre desarrollo y cambio organizacional en el sector público. Se analiza el rol del entorno interno y externo en impulsar o restringir el cambio, así como la importancia de los contextos político, cultural y tecnológico, desarrollando competencias para aplicar principios de gestión del cambio en organizaciones de servicios humanos y sistemas sociales"
+          },
+          {
+            "codigo": "PAC 590",
+            "nombre": "Formulación, Implementación y Evaluación de Proyectos Públicos",
+            "creditos": 3,
+            "descripcion": "Proporciona herramientas para guiar la identificación y formulación de proyectos públicos. Se enfatiza la selección de alternativas en las etapas tempranas del ciclo de proyecto, la especificación de elementos y la evaluación de riesgos, vinculando el diseño lógico del proyecto con la planificación del trabajo y la presupuestación"
+          },
+          {
+            "codigo": "PAC 595",
+            "nombre": "Gobierno Digital",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias para reconocer las oportunidades del gobierno electrónico e identificar dónde la tecnología puede aplicarse para impulsar eficiencias, habilitar el cambio y mejorar la prestación de servicios a los ciudadanos. Se analizan tecnologías emergentes y su aplicación para lograr una transformación digital que sirva al departamento y a los ciudadanos"
+          },
+          {
+            "codigo": "PAC 600",
+            "nombre": "Proyecto Integrador: Gobierno y Gestión Pública",
+            "creditos": 3,
+            "descripcion": "Asignatura culminante que integra los conceptos clave, ideas, teorías y terminología de la administración pública y la gestión del sector público. Se abordan los principales debates teóricos, los principios de reforma del sector público y su aplicación a casos individuales, demostrando capacidad de análisis crítico y comunicación efectiva, tanto escrita como oral"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "36 créditos, 12 asignaturas, 3 ejes formativos",
+    "salidasLaborales": [
+      "Director de organismos públicos",
+      "Gerente de políticas públicas",
+      "Consultor en gestión gubernamental",
+      "Líder de proyectos de transformación institucional",
+      "Especialista en presupuesto y finanzas públicas",
+      "Director de transparencia y participación ciudadana",
+      "Analista de políticas y evaluación de programas"
+    ],
+    "alGraduarte": [
+      "Demostrar comprensión del entorno en que operan las organizaciones gubernamentales y aplicar conocimientos teóricos y prácticos a su gestión",
+      "Gestionar recursos financieros y presupuestarios con eficiencia, aplicando análisis, planificación y control presupuestario en el sector público",
+      "Diseñar e implementar estrategias de comunicación política y marketing que promuevan el posicionamiento institucional y la participación ciudadana",
+      "Aplicar técnicas de negociación y gestión de conflictos sociales para alcanzar resultados colaborativos en contextos complejos",
+      "Liderar procesos de transformación digital, cambio organizacional y mejora continua con compromiso ético y responsabilidad social",
+      "Conducir evaluaciones de programas y análisis de políticas para practicar un servicio público basado en evidencia"
+    ]
   },
   "maestriaenpsicologia": {
     "nombre": "Maestría en Psicología",
@@ -557,7 +1853,114 @@
       "Para profesionales que buscan fortalecer su formación académica en psicología, ya sea como preparación para estudios doctorales o para profundizar en desarrollo humano, psicopatología, trauma y métodos de investigación"
     ],
     "grado": "Maestría · 36 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/69q3VbjKC2itcHToMT32"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/69q3VbjKC2itcHToMT32",
+    "planEstudios": [
+      {
+        "eje": "Fundamentos teóricos y desarrollo humano",
+        "asignaturas": [
+          {
+            "codigo": "PSY 500",
+            "nombre": "Teoría del Counseling",
+            "creditos": 3,
+            "descripcion": "Revisión de los enfoques teóricos del counseling y la psicoterapia, incluyendo conceptos fundamentales, evaluación, roles del cliente y del consejero, relevancia cultural y estrategias/técnicas de intervención. Incluye práctica mediante role-playing de habilidades fundamentales de respuesta en counseling"
+          },
+          {
+            "codigo": "PSY 510",
+            "nombre": "Psicología del Desarrollo",
+            "creditos": 3,
+            "descripcion": "Aborda las experiencias de desarrollo y contextuales del ser humano a lo largo de la vida. Se enfatizan las cuestiones y preguntas que han dominado el campo y que continúan impulsando la investigación. Los temas incluyen fundamentos teóricos en investigación, políticas y ética, salud y bienestar, contexto del desarrollo humano y cuestiones de fin de vida"
+          },
+          {
+            "codigo": "PSY 520",
+            "nombre": "Desarrollo Humano Avanzado",
+            "creditos": 3,
+            "descripcion": "Explora teorías e investigación sobre el desarrollo normal y la evolución de la conciencia a lo largo del ciclo vital, incluyendo desarrollo prenatal, nacimiento, infancia, primera infancia, niñez media y tardía, adolescencia, adultez temprana, madurez, vejez y muerte"
+          },
+          {
+            "codigo": "PSY 570",
+            "nombre": "Gerontología Social",
+            "creditos": 3,
+            "descripcion": "Introducción a la investigación sobre envejecimiento, orientada a comprender la demografía de las sociedades que envejecen, teorías del ciclo vital, métodos de investigación en envejecimiento, procesos psicosociales del envejecimiento, cuestiones familiares y de cuidado, vivienda y cuidados a largo plazo, y políticas sociales actuales"
+          }
+        ]
+      },
+      {
+        "eje": "Psicopatología, trauma e intervención en crisis",
+        "asignaturas": [
+          {
+            "codigo": "PSY 530",
+            "nombre": "Intervención en Crisis y Salud Mental en Desastres",
+            "creditos": 3,
+            "descripcion": "Examina el campo del counseling en crisis y la salud mental en desastres, con énfasis en mejorar el bienestar de quienes son sobrevivientes de un evento de crisis o desastre. Aborda la evaluación, diagnóstico y tratamiento de problemas relacionados con crisis y desastres, como estrés, trastorno de estrés agudo, episodios de crisis aguda, trauma y TEPT, junto a la práctica basada en evidencia actual y el rol del profesional en el desarrollo de equipos de crisis y recursos comunitarios"
+          },
+          {
+            "codigo": "PSY 560",
+            "nombre": "Psicofarmacología",
+            "creditos": 3,
+            "descripcion": "Introducción a la psicofarmacología, resumiendo los conceptos básicos de las funciones de los órganos y sistemas del cuerpo humano y el cerebro. Incorpora una visión general de los fármacos, su acción, efectos, uso y abuso, identificando y evaluando las acciones, efectos, usos y abusos de drogas legales e ilegales"
+          },
+          {
+            "codigo": "PSY 580",
+            "nombre": "Psicopatología",
+            "creditos": 3,
+            "descripcion": "Cubre una amplia gama de definiciones y modelos enfocados en los trastornos y condiciones psicológicas complejas. Se enfatiza el aprendizaje de conceptualizaciones aceptadas junto con enfoques de tratamiento contemporáneos, y se introduce el Manual Diagnóstico y Estadístico de los Trastornos Mentales (DSM) y las bases del diagnóstico y clasificación, con foco en el pensamiento crítico y los aspectos multiculturales, legales y éticos del campo"
+          },
+          {
+            "codigo": "PSY 590",
+            "nombre": "Trauma Psicológico a lo Largo del Ciclo Vital",
+            "creditos": 3,
+            "descripcion": "Base en trauma psicológico y su impacto en la salud mental y física. Se utilizan dos marcos —biopsicosocial y psicopatología del desarrollo— para adquirir conocimiento actualizado sobre las consecuencias de las experiencias traumáticas y otras adversidades graves a lo largo del continuo molar a molecular y a través del ciclo vital, cubriendo intervenciones de vanguardia para ayudar a individuos traumatizados a mejorar sus síntomas y funcionamiento"
+          }
+        ]
+      },
+      {
+        "eje": "Investigación y fundamentos socioculturales",
+        "asignaturas": [
+          {
+            "codigo": "PSY 540",
+            "nombre": "Investigación y Evaluación",
+            "creditos": 3,
+            "descripcion": "Proporciona una base sobre cómo se formulan preguntas productivas de investigación y evaluación, la distinción crítica entre observación empírica e inferencia, los tipos de conclusiones que pueden extraerse de datos empíricos, y la importancia de las consideraciones éticas y culturales en la conducción de investigación"
+          },
+          {
+            "codigo": "PSY 550",
+            "nombre": "Fundamentos Sociales y Culturales",
+            "creditos": 3,
+            "descripcion": "Explora temas y tendencias en una sociedad pluralista. Las áreas cubiertas incluyen cuestiones asociadas con factores como edad, raza, preferencia religiosa, discapacidad física, orientación sexual, etnicidad y cultura, género y estatus socioeconómico, examinando sus implicaciones y consideraciones éticas"
+          },
+          {
+            "codigo": "PSY 600",
+            "nombre": "Estadística Psicológica Avanzada",
+            "creditos": 3,
+            "descripcion": "Diseñado para fomentar la comprensión de la relación entre metodología de investigación y análisis estadístico. Se aprende a determinar qué estadístico es apropiado dado un diseño de investigación particular, aplicando el conocimiento de estadística psicológica al análisis e interpretación de conjuntos de datos"
+          },
+          {
+            "codigo": "PSY 610",
+            "nombre": "Proyecto Capstone en Psicología",
+            "creditos": 3,
+            "descripcion": "El Proyecto Capstone brinda la oportunidad de involucrarse en investigación de alto nivel enfocada en el campo de la psicología. Representa una oportunidad para integrar y aplicar los cursos previos, aprendiendo a utilizar la disciplina para diseñar soluciones creativas a problemas del mundo real en nuestras comunidades y lugares de trabajo"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "36 créditos, 12 asignaturas, 3 ejes formativos",
+    "salidasLaborales": [
+      "Investigador en psicología",
+      "Candidato a programas doctorales (PhD/PsyD)",
+      "Asistente de investigación en instituciones académicas",
+      "Analista en programas de intervención psicosocial",
+      "Coordinador de proyectos en organizaciones de salud mental",
+      "Académico en formación",
+      "Consultor en desarrollo humano organizacional"
+    ],
+    "alGraduarte": [
+      "Comprender estudios de investigación cualitativos, cuantitativos y de métodos mixtos, examinando los métodos y diseños más apropiados",
+      "Diseñar, ejecutar, redactar y presentar investigación psicológica original",
+      "Analizar los distintos aspectos del desarrollo humano —cognitivo, social y emocional— a lo largo del ciclo vital",
+      "Evaluar el impacto de los problemas de salud mental en la sociedad a niveles micro y macro",
+      "Explorar los diversos tipos de trauma y cómo afectan de manera diferenciada a individuos, parejas, familias y grupos",
+      "Evaluar las preocupaciones psicológicas, sociológicas y biológicas del envejecimiento, y las actitudes ante la muerte y el duelo en diversas culturas"
+    ]
   },
   "licenciatura-en-administracion-de-empresas": {
     "nombre": "Licenciatura en Administración de Empresas",
@@ -570,7 +1973,266 @@
       "Para quienes desean iniciar su formación universitaria en negocios con una visión integral de gestión, finanzas, marketing y tecnología, ya sea para desempeñarse en corporaciones o para emprender"
     ],
     "grado": "Licenciatura · 120 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/pyHxim7UjhDTQDsH3Y2W"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/pyHxim7UjhDTQDsH3Y2W",
+    "planEstudios": [
+      {
+        "eje": "Plan de estudios",
+        "asignaturas": [
+          {
+            "codigo": "WBA 101",
+            "nombre": "Escritura Básica",
+            "creditos": 3
+          },
+          {
+            "codigo": "ENG 101",
+            "nombre": "Composición en Inglés I",
+            "creditos": 3
+          },
+          {
+            "codigo": "COM 102",
+            "nombre": "Comunicación Interpersonal",
+            "creditos": 3
+          },
+          {
+            "codigo": "SFO 104",
+            "nombre": "Fundamentos de Oratoria",
+            "creditos": 3
+          },
+          {
+            "codigo": "AHP 105",
+            "nombre": "Historia del Arte",
+            "creditos": 3
+          },
+          {
+            "codigo": "ALG 106",
+            "nombre": "Álgebra Universitaria",
+            "creditos": 3
+          },
+          {
+            "codigo": "PSY 107",
+            "nombre": "Introducción a la Psicología",
+            "creditos": 3
+          },
+          {
+            "codigo": "SOC 108",
+            "nombre": "Sociología",
+            "creditos": 3
+          },
+          {
+            "codigo": "BIO 109",
+            "nombre": "Biología",
+            "creditos": 3
+          },
+          {
+            "codigo": "MIS 111",
+            "nombre": "Introducción a las Ciencias de la Computación",
+            "creditos": 3,
+            "descripcion": "Obligatorias"
+          },
+          {
+            "codigo": "MAT 210",
+            "nombre": "Matemáticas",
+            "creditos": 3,
+            "descripcion": "Desarrolla fundamentos matemáticos para la gestión y los negocios: álgebra, funciones, ecuaciones lineales y cálculo introductorio, con énfasis en la aplicación de métodos cuantitativos a problemas organizacionales y económicos"
+          },
+          {
+            "codigo": "BUS 220",
+            "nombre": "Prácticas y Estrategias de Gestión",
+            "creditos": 3,
+            "descripcion": "Introduce los conceptos fundamentales de la gestión —planificación, organización, dirección y control—, analizando el rol del gerente y explorando teorías clásicas y contemporáneas de la administración"
+          },
+          {
+            "codigo": "ENT 230",
+            "nombre": "Emprendimiento y Modelos de Negocio",
+            "creditos": 3,
+            "descripcion": "Explora el proceso emprendedor y el diseño de modelos de negocio: identificar oportunidades, evaluar riesgos y desarrollar estrategias para lanzar y sostener emprendimientos, con énfasis en la innovación y la creación de valor"
+          },
+          {
+            "codigo": "MKT 240",
+            "nombre": "Estrategias y Prácticas de Marketing",
+            "creditos": 3,
+            "descripcion": "Introduce los conceptos y prácticas del marketing contemporáneo: comportamiento del consumidor, segmentación, branding y marketing mix, con énfasis en el enfoque ético y estratégico de las decisiones"
+          },
+          {
+            "codigo": "STA 250",
+            "nombre": "Estadística",
+            "creditos": 3,
+            "descripcion": "Proporciona herramientas estadísticas para la toma de decisiones empresariales: estadística descriptiva, probabilidad, muestreo, pruebas de hipótesis y análisis de regresión, con énfasis en la interpretación de resultados para la estrategia"
+          },
+          {
+            "codigo": "ECO 260",
+            "nombre": "Economía",
+            "creditos": 3,
+            "descripcion": "Introduce principios microeconómicos y macroeconómicos aplicados a los negocios: oferta y demanda, estructuras de mercado, políticas fiscales y monetarias, y el impacto de la globalización en las economías"
+          },
+          {
+            "codigo": "ACC 270",
+            "nombre": "Contabilidad Financiera",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias en el registro, clasificación e interpretación de transacciones financieras, con preparación de estados financieros y análisis de información contable, enfatizando estándares éticos y prácticas internacionales"
+          },
+          {
+            "codigo": "MAT 280",
+            "nombre": "Matemáticas Financieras",
+            "creditos": 3,
+            "descripcion": "Introduce los métodos matemáticos aplicados a la decisión financiera: tasas de interés, anualidades, amortización y valoración de inversiones, con énfasis en sus aplicaciones prácticas"
+          },
+          {
+            "codigo": "ACC 290",
+            "nombre": "Contabilidad de Costos y Presupuestos",
+            "creditos": 3,
+            "descripcion": "Examina los métodos de contabilidad de costos y los procesos de presupuestación: comportamiento de los costos, métodos de asignación y planificación presupuestaria, con énfasis en el control financiero y la eficiencia"
+          },
+          {
+            "codigo": "FIN 300",
+            "nombre": "Gestión Financiera",
+            "creditos": 3,
+            "descripcion": "Ofrece una visión integral de la gestión financiera: presupuesto de capital, análisis financiero, gestión de riesgos y estrategias de inversión, con énfasis en la maximización del valor organizacional y la sostenibilidad"
+          },
+          {
+            "codigo": "BUS 310",
+            "nombre": "Globalización y Estrategias de Negocios",
+            "creditos": 3,
+            "descripcion": "Explora el impacto de la globalización en la estrategia empresarial: mercados internacionales, ventajas competitivas y cadenas de suministro globales, con énfasis en consideraciones éticas, culturales y de sostenibilidad"
+          },
+          {
+            "codigo": "MIS 320",
+            "nombre": "Tecnologías de Información para la Gestión",
+            "creditos": 3,
+            "descripcion": "Examina el rol de las tecnologías de información en la gestión: plataformas digitales, sistemas empresariales y herramientas basadas en datos, con énfasis en la innovación y la transformación digital"
+          },
+          {
+            "codigo": "BUS 330",
+            "nombre": "Comportamiento y Desarrollo Organizacional",
+            "creditos": 3,
+            "descripcion": "Explora las teorías de comportamiento organizacional y los enfoques de desarrollo institucional: motivación, liderazgo, dinámicas de grupo y procesos de cambio, con estrategias basadas en evidencia para mejorar la efectividad"
+          },
+          {
+            "codigo": "ENT 340",
+            "nombre": "Creación de Nuevos Emprendimientos",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias para crear y gestionar nuevos emprendimientos: diseño de planes de negocio, evaluación de estrategias de financiamiento y análisis de oportunidades, con énfasis en la innovación y la escalabilidad"
+          },
+          {
+            "codigo": "HRM 350",
+            "nombre": "Gestión de Recursos Humanos",
+            "creditos": 3,
+            "descripcion": "Examina los principios y prácticas de la gestión de personas: reclutamiento, capacitación, evaluación del desempeño y relaciones laborales, con énfasis en la alineación de las estrategias de RRHH con los objetivos organizacionales"
+          },
+          {
+            "codigo": "MKT 360",
+            "nombre": "Marketing Estratégico",
+            "creditos": 3,
+            "descripcion": "Desarrolla estrategias avanzadas de marketing para alcanzar ventaja competitiva: posicionamiento, diferenciación y estrategias de entrada al mercado, con énfasis en el marketing digital, la sostenibilidad y los mercados globales"
+          },
+          {
+            "codigo": "MKT 370",
+            "nombre": "Investigación de Mercados",
+            "creditos": 3,
+            "descripcion": "Introduce metodologías y herramientas para la investigación de mercados: diseño de encuestas, recolección de datos y análisis estadístico, con énfasis en traducir hallazgos en insights de negocio accionables"
+          },
+          {
+            "codigo": "LAW 380",
+            "nombre": "Derecho Empresarial",
+            "creditos": 3,
+            "descripcion": "Examina el entorno legal y fiscal de los negocios: contratos, derecho societario y regulaciones tributarias en contextos nacionales e internacionales, con énfasis en el cumplimiento, la ética y la gestión de riesgos legales"
+          },
+          {
+            "codigo": "BUS 390",
+            "nombre": "Habilidades Blandas para la Gestión",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias interpersonales y de comunicación para la gestión: negociación, trabajo en equipo y estrategias de liderazgo, con énfasis en la inteligencia emocional, la conciencia cultural y la resolución de conflictos"
+          },
+          {
+            "codigo": "BUS 400",
+            "nombre": "Planificación y Control de Gestión",
+            "creditos": 3,
+            "descripcion": "Aborda los sistemas de planificación y los mecanismos de control de gestión: presupuestos, indicadores de desempeño y marcos de rendición de cuentas, con énfasis en la alineación estratégica y la mejora continua"
+          },
+          {
+            "codigo": "FIN 410",
+            "nombre": "Mercados Financieros",
+            "creditos": 3,
+            "descripcion": "Introduce la estructura y funcionamiento de los mercados financieros: instrumentos, instituciones y marcos regulatorios, con énfasis en la toma de decisiones de inversión y el análisis de mercado"
+          },
+          {
+            "codigo": "SCM 420",
+            "nombre": "Gestión de la Cadena de Suministro",
+            "creditos": 3,
+            "descripcion": "Examina estrategias para diseñar y gestionar cadenas de suministro: logística, aprovisionamiento y sistemas de distribución global, con énfasis en la eficiencia, la sostenibilidad y la transformación digital"
+          },
+          {
+            "codigo": "AIM 430",
+            "nombre": "Inteligencia Artificial para los Negocios",
+            "creditos": 3,
+            "descripcion": "Explora las aplicaciones de la inteligencia artificial en los negocios: analítica predictiva, automatización y toma de decisiones impulsada por IA, con énfasis en las consideraciones éticas y su integración en los procesos organizacionales"
+          },
+          {
+            "codigo": "INN 440",
+            "nombre": "Innovación Empresarial",
+            "creditos": 3,
+            "descripcion": "Examina la innovación como motor de la competitividad: modelos de innovación, design thinking y estrategias para fomentar la creatividad organizacional, con énfasis en la innovación sostenible y disruptiva"
+          },
+          {
+            "codigo": "BAN 450",
+            "nombre": "Analítica de Negocios",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias en analítica y decisión basada en datos, aplicando herramientas estadísticas y computacionales al análisis de grandes conjuntos de datos, con énfasis en la visualización, los modelos predictivos y la gestión basada en evidencia"
+          },
+          {
+            "codigo": "INT 460",
+            "nombre": "Comercio Internacional",
+            "creditos": 3,
+            "descripcion": "Explora las teorías y prácticas del comercio internacional: políticas comerciales, mercados globales y estrategias de negociación, con énfasis en las consideraciones éticas y el impacto de la globalización"
+          },
+          {
+            "codigo": "ECO 470",
+            "nombre": "Economía Circular",
+            "creditos": 3,
+            "descripcion": "Introduce los principios y prácticas de la economía circular: modelos de reducción de residuos, eficiencia en el uso de recursos y estrategias empresariales sostenibles, con énfasis en la innovación y los marcos globales de sostenibilidad"
+          },
+          {
+            "codigo": "RSK 480",
+            "nombre": "Evaluación y Análisis de Riesgos",
+            "creditos": 3,
+            "descripcion": "Examina metodologías para identificar, analizar y mitigar riesgos empresariales, explorando herramientas cuantitativas y cualitativas, con énfasis en la gestión estratégica de riesgos y la decisión bajo incertidumbre"
+          },
+          {
+            "codigo": "PRJ 490",
+            "nombre": "Formulación y Evaluación de Proyectos",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias en diseño, formulación y evaluación de proyectos empresariales: estudios de factibilidad, análisis costo-beneficio y métodos de evaluación de riesgos, con énfasis en la alineación con los objetivos organizacionales"
+          },
+          {
+            "codigo": "CAP 499",
+            "nombre": "Proyecto Integrador: Administración de Empresas",
+            "creditos": 3,
+            "descripcion": "Asignatura culminante que integra los conocimientos y competencias adquiridos a lo largo del programa. Se diseña e implementa un proyecto que aborda un desafío empresarial real, demostrando innovación, pensamiento estratégico y aplicabilidad profesional"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "120 créditos: formación general, obligatorias y concentración",
+    "salidasLaborales": [
+      "Gerente general",
+      "Director financiero",
+      "Consultor de negocios",
+      "Emprendedor",
+      "Analista de negocios",
+      "Director de marketing",
+      "Gerente de operaciones",
+      "Gestor de proyectos",
+      "Ejecutivo de comercio internacional",
+      "Líder de innovación empresarial"
+    ],
+    "alGraduarte": [
+      "Identificar, analizar y resolver problemas empresariales complejos aplicando principios de administración, economía, finanzas y ciencias de la gestión",
+      "Aplicar herramientas de gestión estratégica y operativa considerando factores éticos, sociales, ambientales y de negocios globales",
+      "Demostrar habilidades efectivas de comunicación y negociación en contextos profesionales y multiculturales",
+      "Exhibir capacidades de liderazgo y trabajo en equipo en diversas industrias, promoviendo la innovación y el crecimiento sostenible",
+      "Demostrar competencias en análisis financiero y analítica de negocios con herramientas tecnológicas y metodologías basadas en datos",
+      "Participar en la planificación, implementación y evaluación de estrategias orientadas a mejorar la eficiencia, competitividad y sostenibilidad"
+    ]
   },
   "licenciaturaeningenieriainformatica": {
     "nombre": "Licenciatura en Ingeniería Informática",
@@ -583,7 +2245,282 @@
       "Para quienes desean iniciar su formación universitaria en tecnología con bases técnicas sólidas en programación, sistemas, datos e inteligencia artificial, con proyección a la industria, la academia o el sector público"
     ],
     "grado": "Licenciatura · 120 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/li7Lu82J8FfGCWOOHAKR"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/li7Lu82J8FfGCWOOHAKR",
+    "planEstudios": [
+      {
+        "eje": "Plan de estudios",
+        "asignaturas": [
+          {
+            "codigo": "WBA 101",
+            "nombre": "Escritura Básica",
+            "creditos": 3
+          },
+          {
+            "codigo": "ENG 101",
+            "nombre": "Composición en Inglés I",
+            "creditos": 3
+          },
+          {
+            "codigo": "COM 102",
+            "nombre": "Comunicación Interpersonal",
+            "creditos": 3
+          },
+          {
+            "codigo": "SFO 104",
+            "nombre": "Fundamentos de Oratoria",
+            "creditos": 3
+          },
+          {
+            "codigo": "AHP 105",
+            "nombre": "Historia del Arte",
+            "creditos": 3
+          },
+          {
+            "codigo": "ALG 106",
+            "nombre": "Álgebra Universitaria",
+            "creditos": 3
+          },
+          {
+            "codigo": "PSY 107",
+            "nombre": "Introducción a la Psicología",
+            "creditos": 3
+          },
+          {
+            "codigo": "SOC 108",
+            "nombre": "Sociología",
+            "creditos": 3
+          },
+          {
+            "codigo": "BIO 109",
+            "nombre": "Biología",
+            "creditos": 3
+          },
+          {
+            "codigo": "MIS 111",
+            "nombre": "Ciencias de la Computación I",
+            "creditos": 3
+          }
+        ]
+      },
+      {
+        "eje": "Fundamentos de programación y sistemas",
+        "asignaturas": [
+          {
+            "codigo": "CDE 200",
+            "nombre": "Diseño de Compiladores",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias en diseño de compiladores: fases de la compilación, impacto de los atributos del lenguaje en el proceso, efecto de las características del hardware en el código generado y fundamentos prácticos de implementación"
+          },
+          {
+            "codigo": "SML 210",
+            "nombre": "Métodos y Lenguajes de Simulación",
+            "creditos": 3,
+            "descripcion": "Introduce los conceptos básicos de modelado de sistemas y simulación por computadora: técnicas de simulación, lenguajes especializados y aplicaciones prácticas para el análisis y optimización de sistemas complejos"
+          },
+          {
+            "codigo": "WNS 220",
+            "nombre": "Redes y Sistemas Inalámbricos",
+            "creditos": 3,
+            "descripcion": "Introduce los fundamentos de las comunicaciones inalámbricas: arquitecturas de red, protocolos y aplicaciones, propagación de señales, modelado de canales, conceptos celulares, modulación de espectro expandido, acceso múltiple y estándares"
+          },
+          {
+            "codigo": "ALG 230",
+            "nombre": "Algoritmos",
+            "creditos": 3,
+            "descripcion": "Proporciona los fundamentos de la implementación práctica y el uso de algoritmos y estructuras de datos: diseño y análisis de implementaciones, técnicas de análisis de algoritmos, teoría de reducciones y clasificación de problemas en clases de complejidad"
+          },
+          {
+            "codigo": "APR 240",
+            "nombre": "Programación Web I",
+            "creditos": 3,
+            "descripcion": "Introducción al desarrollo web: HTML5 y CSS, conceptos de programación web, construcción de páginas, hojas de estilo en cascada y JavaScript, cubriendo sintaxis, estructuras de datos, AJAX, DOM y bibliotecas"
+          },
+          {
+            "codigo": "DAB 250",
+            "nombre": "Bases de Datos",
+            "creditos": 3,
+            "descripcion": "Presenta los conceptos fundamentales de diseño y uso de bases de datos: modelos de datos, álgebra relacional y SQL, normalización, transacciones, organización física, indexación, seguridad y tendencias como Big Data, Map Reduce y NoSQL"
+          },
+          {
+            "codigo": "DAB 260",
+            "nombre": "Analítica de Bases de Datos",
+            "creditos": 3,
+            "descripcion": "Visión general de Big Data: almacenamiento, recuperación y procesamiento de grandes volúmenes, con diseño de algoritmos bajo el paradigma Map Reduce e implementación de analítica usando Pig, Spark y Hive"
+          },
+          {
+            "codigo": "APR 270",
+            "nombre": "Programación Avanzada I",
+            "creditos": 3,
+            "descripcion": "Conocimientos avanzados de programación: estructuras de datos y algoritmos, orientación a objetos, hilos, recursión y complejidad computacional elemental, con estándares para datos estructurados y fuentes externas"
+          },
+          {
+            "codigo": "APR 280",
+            "nombre": "Programación Orientada a Objetos I",
+            "creditos": 3,
+            "descripcion": "Filosofía y ventajas de la POO sobre la programación estructurada: encapsulamiento, clases y objetos, especificadores de acceso, constructores y destructores, herencia simple y múltiple, polimorfismo, sobrecarga, clases abstractas, excepciones, plantillas y multihilo"
+          },
+          {
+            "codigo": "DAB 290",
+            "nombre": "Estructuras de Datos",
+            "creditos": 3,
+            "descripcion": "Visión general de arreglos, pilas, colas, árboles y grafos, con sus implementaciones y representaciones en tiempo de ejecución, examinando algoritmos de ordenamiento, búsqueda y grafos, junto al análisis de algoritmos y el diseño eficiente de código"
+          }
+        ]
+      },
+      {
+        "eje": "Desarrollo de aplicaciones y sistemas",
+        "asignaturas": [
+          {
+            "codigo": "CCD 300",
+            "nombre": "Computación en la Nube y DevOps",
+            "creditos": 3,
+            "descripcion": "Comprensión fundamental de DevOps, computación en la nube, Agile y Scrum, y su impacto transformacional en los negocios y en la ingeniería de software, con sus herramientas, procesos, prácticas y métricas"
+          },
+          {
+            "codigo": "DAS 310",
+            "nombre": "Diseño y Análisis de Sistemas I",
+            "creditos": 3,
+            "descripcion": "Introduce software usado por analistas y diseñadores para gestionar proyectos, analizar y documentar sistemas, y diseñar e implementar nuevos: UML, tecnologías inalámbricas, ERP, sistemas web para comercio electrónico y diseño RAD y GUI"
+          },
+          {
+            "codigo": "APR 320",
+            "nombre": "Programación Avanzada II",
+            "creditos": 3,
+            "descripcion": "Construye sobre conocimientos previos de programación: manejo de errores y excepciones, I/O y streams, programación concurrente con hilos, programación GUI, Collections Framework y pruebas unitarias con JUnit"
+          },
+          {
+            "codigo": "APR 330",
+            "nombre": "Programación Orientada a Objetos II",
+            "creditos": 3,
+            "descripcion": "Programación en Python: sentencias de control, funciones, listas, tuplas, diccionarios, conjuntos, NumPy, manejo de archivos y excepciones, POO, herencia, sobrecarga de operadores, polimorfismo y casos de estudio de diseño"
+          },
+          {
+            "codigo": "DAS 340",
+            "nombre": "Diseño y Análisis de Sistemas II",
+            "creditos": 3,
+            "descripcion": "Conceptos, herramientas y tecnologías para el análisis y diseño de sistemas: modelado de datos, análisis de procesos, modelado de redes, diseño de bases de datos, de interfaces de usuario y de programas"
+          },
+          {
+            "codigo": "WAD 350",
+            "nombre": "Desarrollo de Aplicaciones Web I",
+            "creditos": 3,
+            "descripcion": "Construye competencias centrales en diseño y desarrollo web: HTML, XHTML y DHTML, hojas de estilo en cascada y CSS dinámico, JavaScript orientado a objetos, y AJAX con XML y JSON para transferir datos entre cliente y servidor"
+          },
+          {
+            "codigo": "MOB 360",
+            "nombre": "Aplicaciones Móviles I",
+            "creditos": 3,
+            "descripcion": "Introduce tecnologías de programación, diseño y desarrollo de aplicaciones móviles: acceso a capacidades del dispositivo, estándares de la industria, sistemas operativos y programación mediante un SDK, hasta crear aplicaciones básicas"
+          },
+          {
+            "codigo": "WAD 370",
+            "nombre": "Desarrollo de Aplicaciones Web II",
+            "creditos": 3,
+            "descripcion": "Conceptos avanzados de programación: programación asíncrona, funciones de orden superior y estructuras de datos, profundizando en técnicas avanzadas de desarrollo web y arquitecturas modernas de aplicaciones"
+          },
+          {
+            "codigo": "MOB 380",
+            "nombre": "Aplicaciones Móviles II",
+            "creditos": 3,
+            "descripcion": "Diseño y desarrollo de aplicaciones móviles para smartphones, tablets, escritorio y web, creando aplicaciones de alta demanda actual y futura y profundizando en técnicas avanzadas de desarrollo multiplataforma"
+          },
+          {
+            "codigo": "APR 390",
+            "nombre": "Programación Web II",
+            "creditos": 3,
+            "descripcion": "Guía en programación web del lado del servidor: escritura de aplicaciones que se ejecutan en un servidor web, transformando una página HTML estática en una aplicación dinámica, con tecnologías de servidor y frameworks modernos"
+          }
+        ]
+      },
+      {
+        "eje": "Concentración: seguridad, IA y gestión tecnológica",
+        "asignaturas": [
+          {
+            "codigo": "SAP 400",
+            "nombre": "Seguridad de Aplicaciones",
+            "creditos": 3,
+            "descripcion": "Comprensión del código malicioso y de los ataques técnicos y no técnicos, y de cómo una organización puede protegerse: seguridad de dispositivos endpoint, de infraestructura cloud, de sistemas Big Data y de entornos virtuales"
+          },
+          {
+            "codigo": "QUA 410",
+            "nombre": "Aseguramiento de la Calidad",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias sobre la capacidad de un producto de software para satisfacer necesidades declaradas e implícitas: pruebas de caja blanca, caja negra, orientadas a objetos, basadas en web y en la nube"
+          },
+          {
+            "codigo": "ITP 420",
+            "nombre": "Gestión de Proyectos de TI",
+            "creditos": 3,
+            "descripcion": "Introduce los conceptos y métodos requeridos para la construcción de sistemas intensivos en software de gran escala, con comprensión amplia de la ingeniería de software y técnicas para el análisis y diseño de sistemas complejos"
+          },
+          {
+            "codigo": "ITM 430",
+            "nombre": "Gestión de Servicios de TI",
+            "creditos": 3,
+            "descripcion": "Estudia la Gestión de Servicios de TI (ITSM): implementación y gestión de servicios de calidad mediante un conjunto de procedimientos y funciones que alinean TI con los objetivos del negocio y entregan valor a la organización"
+          },
+          {
+            "codigo": "APR 440",
+            "nombre": "Programación Web III",
+            "creditos": 3,
+            "descripcion": "Revisa tecnologías web para páginas estáticas y aplicaciones interactivas: temas avanzados en HTML, CSS y JavaScript, tecnologías del lado del servidor, acceso a bases de datos en aplicaciones de tres capas y comunicación asíncrona"
+          },
+          {
+            "codigo": "BUS 450",
+            "nombre": "Negocios Digitales",
+            "creditos": 3,
+            "descripcion": "Explora las tendencias emergentes en negocios digitales en clientes, competencia, datos, innovación, tecnología y propuestas de valor, estudiando las empresas más innovadoras del mundo y las lecciones de las empresas tradicionales en la era digital"
+          },
+          {
+            "codigo": "ARI 460",
+            "nombre": "Inteligencia Artificial",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias en IA y programación con herramientas de lenguaje: sistemas expertos, redes neuronales, lógica difusa, robótica, procesamiento de lenguaje natural, visión por computadora, árboles de decisión, máquinas de vectores de soporte, redes bayesianas y aprendizaje estadístico"
+          },
+          {
+            "codigo": "ENS 470",
+            "nombre": "Ingeniería de Software",
+            "creditos": 3,
+            "descripcion": "Comprensión de requisitos del sistema, compromisos de ingeniería, métodos efectivos de diseño, codificación y pruebas, desarrollo en equipo y aplicación de herramientas, combinando un enfoque técnico fuerte con un proyecto capstone con cliente real"
+          },
+          {
+            "codigo": "VPR 480",
+            "nombre": "Programación Visual",
+            "creditos": 3,
+            "descripcion": "Desarrolla competencias en programación visual y diseño de programas: fundamentos de programación orientada a eventos y objetos, arreglos, validación de entrada de usuario y creación de programas controlados por menú y aplicaciones multiformulario"
+          },
+          {
+            "codigo": "CAP 499",
+            "nombre": "Proyecto Integrador: Ingeniería Informática",
+            "creditos": 3,
+            "descripcion": "Asignatura culminante que desarrolla la capacidad de extraer inferencias razonables de observaciones, formular y resolver nuevos problemas con habilidades analíticas, y sintetizar información e ideas. Incluye organización y gestión de proyectos de software, seguridad, equipos de programadores, validación y verificación"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "120 créditos: educación general y 3 ejes de especialización",
+    "salidasLaborales": [
+      "Desarrollador de software",
+      "Ingeniero de sistemas",
+      "Desarrollador web full-stack",
+      "Desarrollador de aplicaciones móviles",
+      "Administrador de bases de datos",
+      "Ingeniero de datos",
+      "Especialista en ciberseguridad",
+      "Ingeniero DevOps",
+      "Analista de inteligencia artificial",
+      "Gerente de proyectos de TI",
+      "Arquitecto de soluciones cloud",
+      "Consultor tecnológico"
+    ],
+    "alGraduarte": [
+      "Identificar, formular y resolver problemas complejos de ingeniería aplicando principios de ingeniería, ciencia y matemáticas",
+      "Aplicar diseño de ingeniería considerando salud pública, seguridad, bienestar y factores globales, culturales, sociales, ambientales y económicos",
+      "Demostrar habilidades de comunicación efectiva y liderazgo para trabajar en equipos diversos y ejecutar soluciones computacionales",
+      "Diseñar e implementar sistemas computacionales con herramientas modernas y procedimientos apropiados de pruebas y documentación",
+      "Aprovechar una amplia base de conocimientos en ciencia e ingeniería para entregar soluciones viables en el contexto adecuado",
+      "Asumir roles de liderazgo en la industria, la academia y el gobierno en la configuración del panorama tecnológico"
+    ]
   },
   "licenciaturaenpsicologia": {
     "nombre": "Licenciatura en Psicología",
@@ -596,6 +2533,273 @@
       "Para quienes desean iniciar su formación universitaria en psicología con bases científicas sólidas, ya sea para desempeñarse profesionalmente o para continuar estudios de posgrado"
     ],
     "grado": "Licenciatura · 120 créditos",
-    "brochureUrl": "https://uachile.bitrix24.es/doc/BT66qdaYxjWA0vUeJjEf"
+    "brochureUrl": "https://uachile.bitrix24.es/doc/BT66qdaYxjWA0vUeJjEf",
+    "planEstudios": [
+      {
+        "eje": "Plan de estudios",
+        "asignaturas": [
+          {
+            "codigo": "WBA 101",
+            "nombre": "Escritura Básica",
+            "creditos": 3
+          },
+          {
+            "codigo": "ENG 101",
+            "nombre": "Composición en Inglés I",
+            "creditos": 3
+          },
+          {
+            "codigo": "COM 102",
+            "nombre": "Comunicación Interpersonal",
+            "creditos": 3
+          },
+          {
+            "codigo": "SFO 104",
+            "nombre": "Fundamentos de Oratoria",
+            "creditos": 3
+          },
+          {
+            "codigo": "AHP 105",
+            "nombre": "Historia del Arte",
+            "creditos": 3
+          },
+          {
+            "codigo": "ALG 106",
+            "nombre": "Álgebra Universitaria",
+            "creditos": 3
+          },
+          {
+            "codigo": "PSY 107",
+            "nombre": "Introducción a la Psicología",
+            "creditos": 3
+          },
+          {
+            "codigo": "SOC 108",
+            "nombre": "Sociología",
+            "creditos": 3
+          },
+          {
+            "codigo": "BIO 109",
+            "nombre": "Biología",
+            "creditos": 3
+          },
+          {
+            "codigo": "MIS 111",
+            "nombre": "Ciencias de la Computación I",
+            "creditos": 3
+          }
+        ]
+      },
+      {
+        "eje": "Fundamentos científicos y metodológicos",
+        "asignaturas": [
+          {
+            "codigo": "PSY 200",
+            "nombre": "Introducción a la Sensación y Percepción",
+            "creditos": 3,
+            "descripcion": "Introduce el estudio científico de la sensación y la percepción, con un estudio detallado de los principales sentidos desde perspectivas de la filosofía, la física, las ciencias de la computación, la neurociencia y la psicología. Se estudia la base física de la información perceptual y los procesos por los cuales se convierte en percepciones en el cerebro"
+          },
+          {
+            "codigo": "PSY 202",
+            "nombre": "Introducción a la Teoría Literaria",
+            "creditos": 3,
+            "descripcion": "Examina las formas en que leemos e introduce estrategias importantes para abordar textos literarios desarrolladas en el siglo XX, con especial atención a las teorías postestructuralistas y su legado, organizándose en torno a paradigmas teóricos específicos"
+          },
+          {
+            "codigo": "ENG 210",
+            "nombre": "Composición en Inglés II",
+            "creditos": 3,
+            "descripcion": "Énfasis en estilo, uso de biblioteca, lectura y evaluación de fuentes disponibles, planificación, escritura y documentación de trabajos de investigación breves"
+          },
+          {
+            "codigo": "RWR 215",
+            "nombre": "Introducción a la Escritura de Investigación",
+            "creditos": 3,
+            "descripcion": "Establece y profundiza la comprensión de la investigación mediante la exploración crítica del lenguaje de investigación, la ética y los enfoques metodológicos, introduciendo los elementos del proceso investigativo en enfoques cuantitativos, cualitativos y mixtos"
+          },
+          {
+            "codigo": "PSY 240",
+            "nombre": "Desarrollo Infantil y Adolescente",
+            "creditos": 3,
+            "descripcion": "Explora el desarrollo cognitivo, físico y socioemocional de niños en edad escolar y adolescentes, con estrategias para trabajar con estos grupos etarios en diversos entornos y abordar los desafíos que enfrentan hoy"
+          },
+          {
+            "codigo": "IRM 210",
+            "nombre": "Introducción a los Métodos de Investigación",
+            "creditos": 3,
+            "descripcion": "Introduce el lenguaje de investigación, los principios éticos y los elementos del proceso investigativo en enfoques cuantitativos, cualitativos y mixtos, utilizando estos fundamentos para revisar críticamente literatura relevante al campo"
+          },
+          {
+            "codigo": "STA 212",
+            "nombre": "Métodos Estadísticos",
+            "creditos": 3,
+            "descripcion": "Enseña los conceptos y métodos básicos de estadística, incluyendo estadística descriptiva, probabilidad, teoría y práctica de muestreo, pruebas de hipótesis y correlación"
+          },
+          {
+            "codigo": "PSY 215",
+            "nombre": "Teoría e Investigación de la Personalidad",
+            "creditos": 3,
+            "descripcion": "Examina el campo de la personalidad desde una perspectiva científica, estudiando los enfoques generales para comprenderla, los teóricos clave y los conceptos asociados a cada perspectiva, junto con sus fortalezas y limitaciones"
+          },
+          {
+            "codigo": "PSY 270",
+            "nombre": "Cerebro y Comportamiento",
+            "creditos": 3,
+            "descripcion": "Se enfoca en conceptos básicos de neurociencia y en cómo el cerebro procesa sensación, motivación, emoción, aprendizaje y comportamiento anormal, abordando los componentes celulares del sistema nervioso, los neurotransmisores y la comunicación celular"
+          },
+          {
+            "codigo": "MIS 208",
+            "nombre": "Ciencias de la Computación II",
+            "creditos": 3,
+            "descripcion": "Estudio expandido de conceptos de programación, buen estilo, algoritmos, documentación y estructuras de datos elementales, con uso de laboratorio para diseñar, codificar, depurar y ejecutar programas"
+          }
+        ]
+      },
+      {
+        "eje": "Desarrollo, cognición y procesos sociales",
+        "asignaturas": [
+          {
+            "codigo": "PSY 300",
+            "nombre": "Desarrollo Social y de la Personalidad",
+            "creditos": 3,
+            "descripcion": "Introduce las principales teorías e investigaciones en desarrollo social y de la personalidad, con énfasis en el desarrollo desde la infancia hasta la adolescencia y en las influencias interactivas de la biología, el contexto social y la cultura"
+          },
+          {
+            "codigo": "PSY 301",
+            "nombre": "Desarrollo Profesional en Psicología",
+            "creditos": 3,
+            "descripcion": "Los estudiantes desarrollan metas y planes de carrera alcanzables, implementando conocimientos, habilidades y valores psicológicos en actividades ocupacionales en diversos entornos para satisfacer necesidades personales y sociales"
+          },
+          {
+            "codigo": "PSY 310",
+            "nombre": "Comportamiento Cognitivo",
+            "creditos": 3,
+            "descripcion": "Estudio del pensamiento, memoria, lenguaje y toma de decisiones desde la psicología cognitiva, con discusión de ciencias afines como la lingüística, la neurociencia y la filosofía, e incluyendo imaginería mental, discurso y testimonio de testigos"
+          },
+          {
+            "codigo": "PSY 320",
+            "nombre": "Desarrollo en la Infancia: Las Bases del Conocimiento Humano",
+            "creditos": 3,
+            "descripcion": "Estudio profundo del desarrollo humano durante los primeros tres años de vida, cubriendo desarrollo motor y del lenguaje, y discutiendo los roles de la genética, la experiencia y el tiempo en la formación de la persona"
+          },
+          {
+            "codigo": "PSY 330",
+            "nombre": "Psicología Social",
+            "creditos": 3,
+            "descripcion": "Evaluación de las teorías fundamentales y los métodos experimentales en el estudio de la psicología social, con el propósito de que el estudiante comprenda las ideas y métodos que forman la base del campo"
+          },
+          {
+            "codigo": "PSY 340",
+            "nombre": "Psicología Educativa",
+            "creditos": 3,
+            "descripcion": "Proporciona comprensión de los fundamentos de la teoría, el estudio y la práctica psicológica educativa: características del aprendiz, creatividad, inteligencia, motivación, medición y evaluación, y diversos modelos de enseñanza"
+          },
+          {
+            "codigo": "PSY 350",
+            "nombre": "Teorías de la Personalidad",
+            "creditos": 3,
+            "descripcion": "Examina el campo de la personalidad desde una perspectiva científica, destacando los teóricos clave y los conceptos asociados con cada perspectiva, junto con las fortalezas y limitaciones de los diferentes enfoques"
+          },
+          {
+            "codigo": "PSY 360",
+            "nombre": "Psicología de las Relaciones Interpersonales",
+            "creditos": 3,
+            "descripcion": "Enfoque experiencial de los procesos intra e interpersonales cotidianos: auto-revelación, confianza, expresión verbal y no verbal de sentimientos, habilidades de escucha, resolución de conflictos, manejo de ira y estrés, y el valor de cultivar relaciones diversas"
+          },
+          {
+            "codigo": "QRE 390",
+            "nombre": "Razonamiento Cuantitativo",
+            "creditos": 3,
+            "descripcion": "Diseñado para asegurar que los estudiantes se gradúen con comprensión básica y competencia en matemáticas, estadística o ciencias de la computación"
+          },
+          {
+            "codigo": "PSY 390",
+            "nombre": "Motivación y Emoción",
+            "creditos": 3,
+            "descripcion": "Estudio del desarrollo social, emocional, cognitivo y biológico del individuo a través de la motivación durante su ciclo vital, abarcando desde la infancia hasta la vida adulta"
+          }
+        ]
+      },
+      {
+        "eje": "Aplicaciones y especialización",
+        "asignaturas": [
+          {
+            "codigo": "SAP 400",
+            "nombre": "Psicología Anormal",
+            "creditos": 3,
+            "descripcion": "Visión general del estudio científico de la enfermedad mental: conceptos básicos, perspectivas históricas, modelos teóricos, evaluación, diagnóstico y métodos de investigación, junto a las principales categorías de trastornos mentales en adultos, niños y adolescentes, con sus teorías de origen y tratamientos"
+          },
+          {
+            "codigo": "QUA 410",
+            "nombre": "Psicología del Desarrollo",
+            "creditos": 3,
+            "descripcion": "Estudio del desarrollo social, emocional, cognitivo y biológico del individuo a lo largo de su ciclo vital, abarcando desde la infancia hasta la vida adulta"
+          },
+          {
+            "codigo": "ITP 420",
+            "nombre": "Drogas y Comportamiento",
+            "creditos": 3,
+            "descripcion": "Se enfoca en las interacciones entre drogas y comportamiento: acciones de las drogas, farmacocinética, tolerancia, dependencia, neurotransmisores y sistema nervioso, y luego las diferentes clases de drogas, desde las de uso común hasta los antipsicóticos"
+          },
+          {
+            "codigo": "ITM 430",
+            "nombre": "Psicología Organizacional",
+            "creditos": 3,
+            "descripcion": "Introduce la historia de la psicología industrial y organizacional, el análisis de puestos, las evaluaciones psicológicas, las decisiones de personal, la capacitación y desarrollo, el cambio organizacional, el trabajo en equipo, la motivación, el liderazgo y el estrés laboral"
+          },
+          {
+            "codigo": "APR 440",
+            "nombre": "Métodos de Evaluación",
+            "creditos": 3,
+            "descripcion": "Los estudiantes aprenden sobre evaluación psicológica y su proceso de pruebas, utilizando una combinación de técnicas que ayudan a formular hipótesis sobre una persona, su comportamiento, personalidad y capacidades"
+          },
+          {
+            "codigo": "BUS 450",
+            "nombre": "Psicología y Diversidad",
+            "creditos": 3,
+            "descripcion": "Ofrece una visión introductoria de la variedad de diferencias humanas y de los procesos de interacción con personas distintas, examinando la diversidad constituida a través de intersecciones de raza, género, etnia, nacionalidad, edad, idioma, religión, clase, orientación sexual y capacidad física"
+          },
+          {
+            "codigo": "ARI 460",
+            "nombre": "Métodos de Investigación de Casos",
+            "creditos": 3,
+            "descripcion": "Cubre los conceptos esenciales de diseño de investigación y metodología para convertirse en evaluador crítico de la investigación: diseños cualitativos y cuantitativos, evaluación de programas, problemas de medición y análisis de datos"
+          },
+          {
+            "codigo": "ENS 470",
+            "nombre": "Psicología del Envejecimiento",
+            "creditos": 3,
+            "descripcion": "Introducción al proceso de envejecimiento desde una perspectiva psicológica: principales teorías, estereotipos sobre los adultos mayores, cambios en salud física y mental, cognición, transiciones en la vida adulta, relaciones sociales, sexualidad, y muerte y duelo"
+          },
+          {
+            "codigo": "PSY 499",
+            "nombre": "Proyecto Integrador: Psicología",
+            "creditos": 6,
+            "descripcion": "Asignatura culminante diseñada como la experiencia integradora de la carrera. El estudiante demuestra dominio de las competencias científicas, metodológicas e interpersonales adquiridas a lo largo del programa mediante un proyecto de investigación o de aplicación práctica"
+          }
+        ]
+      }
+    ],
+    "resumenPlan": "120 créditos: educación general y 3 ejes de especialización",
+    "salidasLaborales": [
+      "Asistente de investigación en psicología",
+      "Especialista en recursos humanos",
+      "Coordinador de programas de bienestar",
+      "Asistente en servicios sociales",
+      "Especialista en desarrollo organizacional",
+      "Coordinador de programas educativos",
+      "Analista de comportamiento del consumidor",
+      "Asistente en centros de salud mental",
+      "Consultor en diversidad e inclusión",
+      "Investigador de mercados"
+    ],
+    "alGraduarte": [
+      "Desarrollar un conocimiento práctico del comportamiento humano basado en principios científicos y teorías psicológicas contemporáneas",
+      "Aplicar métodos de investigación cuantitativos y cualitativos para analizar fenómenos psicológicos y evaluar evidencia científica de manera crítica",
+      "Demostrar habilidades interpersonales y de comunicación efectiva para el trabajo en equipos diversos y el logro de metas profesionales",
+      "Comprender y aplicar estándares éticos en la práctica científica y profesional de la psicología",
+      "Utilizar el razonamiento basado en evidencia para comprender conductas y resolver problemas en contextos organizacionales y sociales",
+      "Contar con una base sólida para continuar estudios de posgrado en psicología u otros campos"
+    ]
   }
 }
