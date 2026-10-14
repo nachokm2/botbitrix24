@@ -89,7 +89,7 @@ export async function enviarResumenSemanal(): Promise<string | null> {
   const [agg, hallazgos, asesores] = await Promise.all([
     dbMetricsSummary('7d'),
     dbHallazgosRecientes(100),
-    vistaPorAsesor(st.auth, '7d').catch(() => ({ filas: [], porMotivo: {} })),
+    vistaPorAsesor(st.auth, '7d').catch(() => ({ filas: [], porMotivo: {}, casos: [] })),
   ]);
   if (!agg) return null;
 

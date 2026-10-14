@@ -156,3 +156,31 @@ test('informa por qué llegó cada caso: es lo que explica el total', async () =
   const { porMotivo } = await vistaPorAsesor(auth);
   assert.deepEqual(porMotivo, { pedido: 1, silencio: 2 });
 });
+
+test('devuelve el detalle de cada caso, con lo necesario para ir a verlo', async () => {
+  escenario([
+    { dealId: 1, derivadoHace: 10, asignado: 100, movidoPor: 100, movidoHace: 8 },
+    { dealId: 2, derivadoHace: 10, asignado: 100 },
+  ]);
+  deals[0].TITLE = 'Maestría en Psicología – Ana';
+  deals[0].CATEGORY_ID = '73';
+  const { casos } = await vistaPorAsesor(auth);
+
+  assert.equal(casos.length, 2);
+  // Primero lo que nadie tomó: es la pantalla accionable.
+  assert.equal(casos[0].atendido, false);
+  assert.equal(casos[0].dealId, 2);
+  const tomado = casos.find((c: any) => c.dealId === 1)!;
+  assert.equal(tomado.atendido, true);
+  assert.equal(tomado.esperaSeg, 2 * 3600);
+  assert.equal(tomado.titulo, 'Maestría en Psicología – Ana');
+  assert.equal(tomado.asesor, 'Asesor real 100', 'con nombre, no con id');
+  assert.equal(tomado.categoria, 73);
+});
+
+test('el caso conserva por qué se derivó', async () => {
+  escenario([{ dealId: 1, derivadoHace: 5, asignado: 100 }]);
+  derivaciones[0].motivo = 'silencio';
+  const { casos } = await vistaPorAsesor(auth);
+  assert.equal(casos[0].motivo, 'silencio');
+});

@@ -169,7 +169,7 @@ export async function metricsSummary(req: Request, res: Response) {
 
   // Vista por asesor: a quién le entregó el bot cada caso y qué hizo con él. Responde la pregunta
   // que el agregado deja abierta — 4 de 38 derivaciones trabajadas no dice a quién hay que ayudar.
-  let asesores: VistaAsesores = { filas: [], porMotivo: {} };
+  let asesores: VistaAsesores = { filas: [], porMotivo: {}, casos: [] };
   if (st.auth) {
     if (asesoresCache && asesoresCache.range === range && Date.now() - asesoresCache.at < MARCHA_BLANCA_TTL_MS) {
       asesores = asesoresCache.data;
@@ -178,7 +178,7 @@ export async function metricsSummary(req: Request, res: Response) {
         asesores = await vistaPorAsesor(st.auth, range);
         asesoresCache = { at: Date.now(), range, data: asesores };
       } catch {
-        asesores = asesoresCache?.range === range ? asesoresCache.data : { filas: [], porMotivo: {} };
+        asesores = asesoresCache?.range === range ? asesoresCache.data : { filas: [], porMotivo: {}, casos: [] };
       }
     }
   }

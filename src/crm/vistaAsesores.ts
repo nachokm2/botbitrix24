@@ -15,6 +15,20 @@ import { log } from '../log';
  * depende de que haya programas piloto configurados, así que sirve igual en las dos marcas.
  */
 
+/** Un caso derivado, con lo necesario para ir a verlo sin salir del panel. */
+export type CasoDerivado = {
+  dealId: number;
+  titulo: string;
+  categoria: number;
+  etapa: string;
+  motivo: string;
+  asesor: string;
+  derivadoEn: string;
+  atendido: boolean;
+  esperaSeg: number | null;
+  dialogId: string | null;
+};
+
 export type FilaAsesor = {
   id: number;
   nombre: string;
@@ -32,10 +46,10 @@ const LOTE = 50; // crm.deal.list devuelve como máximo 50 filas por página
  *  nombre: esa tarjeta cuenta solo lo que el bot derivó a propósito (el cliente lo pidió o lo
  *  disparó el score) y acá entran además las derivaciones por falta de respuesta. Sin decirlo, dos
  *  números que no cuadran parecen un error. */
-export type VistaAsesores = { filas: FilaAsesor[]; porMotivo: Record<string, number> };
+export type VistaAsesores = { filas: FilaAsesor[]; porMotivo: Record<string, number>; casos: CasoDerivado[] };
 
 export async function vistaPorAsesor(auth: Auth, range = 'all'): Promise<VistaAsesores> {
-  const vacio: VistaAsesores = { filas: [], porMotivo: {} };
+  const vacio: VistaAsesores = { filas: [], porMotivo: {}, casos: [] };
   const derivaciones = await dbDerivaciones(range);
   if (!derivaciones.length) return vacio;
   const porMotivo: Record<string, number> = {};
@@ -44,7 +58,7 @@ export async function vistaPorAsesor(auth: Auth, range = 'all'): Promise<VistaAs
   // Un deal puede aparecer una sola vez (la consulta ya agrupa por entidad), así que el set de IDs
   // es el de derivaciones. Se piden de a 50: pedirlos todos juntos devuelve solo la primera página
   // y el resto queda sin responsable — el mismo error que costó 24 negociaciones en el panel.
-  const dealsPorId = new Map<number, MovimientoDeal & { ASSIGNED_BY_ID?: string }>();
+  const dealsPorId = new Map<number, MovimientoDeal & { ASSIGNED_BY_ID?: string; TITLE?: string; CATEGORY_ID?: string; CONTACT_ID?: string }>();
   const ids = derivaciones.map((d) => d.dealId);
   for (let i = 0; i < ids.length; i += LOTE) {
     try {
@@ -52,7 +66,7 @@ export async function vistaPorAsesor(auth: Auth, range = 'all'): Promise<VistaAs
         'crm.deal.list',
         {
           filter: { '@ID': ids.slice(i, i + LOTE) },
-          select: ['ID', 'ASSIGNED_BY_ID', 'MOVED_BY_ID', 'MOVED_TIME', 'STAGE_ID'],
+          select: ['ID', 'ASSIGNED_BY_ID', 'MOVED_BY_ID', 'MOVED_TIME', 'STAGE_ID', 'TITLE', 'CATEGORY_ID', 'CONTACT_ID'],
         },
         auth,
       );
@@ -68,6 +82,7 @@ export async function vistaPorAsesor(auth: Auth, range = 'all'): Promise<VistaAs
 
   type Acum = { derivados: number; esperas: number[]; ultima: number };
   const porAsesor = new Map<number, Acum>();
+  const casos: CasoDerivado[] = [];
 
   for (const der of derivaciones) {
     const d = dealsPorId.get(der.dealId);
@@ -91,11 +106,25 @@ export async function vistaPorAsesor(auth: Auth, range = 'all'): Promise<VistaAs
       !enBarrido.has(der.dealId) &&
       Number.isFinite(derivadoEn) &&
       movido > derivadoEn;
-    if (atendido) acum.esperas.push((movido - derivadoEn) / 1000);
+    const esperaSeg = atendido ? Math.round((movido - derivadoEn) / 1000) : null;
+    if (esperaSeg !== null) acum.esperas.push(esperaSeg);
+
+    casos.push({
+      dealId: der.dealId,
+      titulo: String(d.TITLE ?? ''),
+      categoria: Number(d.CATEGORY_ID ?? 0),
+      etapa: String(d.STAGE_ID ?? ''),
+      motivo: der.motivo,
+      asesor: String(asesor),
+      derivadoEn: der.ts,
+      atendido: Boolean(atendido),
+      esperaSeg,
+      dialogId: der.dialogId,
+    });
 
     porAsesor.set(asesor, acum);
   }
-  if (!porAsesor.size) return { filas: [], porMotivo };
+  if (!porAsesor.size) return { filas: [], porMotivo, casos };
 
   const nombres = new Map<number, string>();
   try {
@@ -119,5 +148,8 @@ export async function vistaPorAsesor(auth: Auth, range = 'all'): Promise<VistaAs
     })
     // Primero quien tiene más casos sin trabajar: es la fila sobre la que hay algo que hacer.
     .sort((x, y) => y.pendientes - x.pendientes || y.derivados - x.derivados);
-  return { filas, porMotivo };
+  for (const c of casos) c.asesor = nombres.get(Number(c.asesor)) ?? `Asesor ${c.asesor}`;
+  // Sin tomar primero, y dentro de eso lo más reciente: así la primera pantalla es la accionable.
+  casos.sort((a, b) => Number(a.atendido) - Number(b.atendido) || b.derivadoEn.localeCompare(a.derivadoEn));
+  return { filas, porMotivo, casos };
 }

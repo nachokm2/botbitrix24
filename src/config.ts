@@ -268,6 +268,17 @@ export const config = {
   // negociaciones de 5 embudos ajenos en manos del responsable de Carver.
   //
   // Vacío = todos los embudos son propios, que es el comportamiento anterior.
+  // Etapa a la que el bot mueve una negociación al derivarla, por embudo. Se escriben las etapas
+  // separadas por coma y el embudo sale del propio identificador: "C73:UC_9HGHNN" es la etapa
+  // "Derivados Bot" del embudo 73. Un embudo sin etapa configurada no se mueve.
+  // Ej.: BITRIX_STAGE_DERIVADO=C73:UC_9HGHNN,C135:UC_XXXXXX
+  stageDerivado: Object.fromEntries(
+    (process.env.BITRIX_STAGE_DERIVADO ?? '')
+      .split(',')
+      .map((x) => x.trim())
+      .filter((x) => /^C\d+:.+$/.test(x))
+      .map((x) => [Number(x.slice(1, x.indexOf(':'))), x]),
+  ) as Record<number, string>,
   embudosPropios: (process.env.BITRIX_EMBUDOS_PROPIOS ?? '')
     .split(',')
     .map((x) => x.trim())

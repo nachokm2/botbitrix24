@@ -426,6 +426,38 @@ function render(d){
     return '<a href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(entidad)+'</a>';
   };
 
+  // Casos derivados, uno por uno. La tabla por asesor dice CUÁNTOS; ésta dice CUÁLES, que es lo que
+  // hace falta para ir a trabajarlos.
+  var casos = (d.asesores && d.asesores.casos) || [];
+  var casosEl = document.getElementById('casosderivados');
+  var casosSec = document.getElementById('secCasosDerivados');
+  var MOTIVO = { pedido: 'Lo pidió el cliente', score: 'Score alto', silencio: 'Dejó de responder' };
+  if (casos.length) {
+    if (casosSec) casosSec.style.display = '';
+    var ccols = ['Negociación','Por qué se derivó','Asesor','Etapa actual','Derivada','¿La trabajaron?'];
+    var cthead = '<thead><tr>'+ccols.map(function(c){return '<th>'+esc(c)+'</th>';}).join('')+'</tr></thead>';
+    var ctbody = '<tbody>'+casos.slice(0, 200).map(function(c){
+      var link = crmLink('deal#'+c.dealId);
+      var nombre = c.titulo ? esc(c.titulo) : '';
+      var estado = c.atendido
+        ? '<span style="color:#12b76a">sí'+(c.esperaSeg!=null ? ' · '+fmtEspera(c.esperaSeg) : '')+'</span>'
+        : '<b style="color:#f04438">no</b>';
+      return '<tr>'+
+        '<td>'+link+(nombre ? '<div class="sub">'+nombre+'</div>' : '')+'</td>'+
+        '<td>'+esc(MOTIVO[c.motivo] || c.motivo)+'</td>'+
+        '<td>'+esc(c.asesor)+'</td>'+
+        '<td>'+esc(String(c.etapa).split(':').pop())+'</td>'+
+        '<td>'+esc(new Date(c.derivadoEn).toLocaleString('es-CL'))+'</td>'+
+        '<td>'+estado+'</td>'+
+      '</tr>';
+    }).join('')+'</tbody>';
+    casosEl.innerHTML = cthead+ctbody;
+    var sinTomar = casos.filter(function(c){return !c.atendido;}).length;
+    document.getElementById('casosresumen').textContent =
+      casos.length+' casos derivados · '+sinTomar+' sin que nadie los trabaje'+
+      (casos.length > 200 ? ' (se muestran los 200 más recientes)' : '')+'.';
+  } else if (casosSec) casosSec.style.display = 'none';
+
   // Revisión de conversaciones: lo que la lectura nocturna marcó como digno de mirar. Los defectos
   // del piloto se encontraron todos leyendo conversaciones a mano; nadie alcanza a leer 70 al día.
   var hall = d.hallazgos || []; var hEl = document.getElementById('revision');

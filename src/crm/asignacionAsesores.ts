@@ -1,5 +1,5 @@
 import { callCrm } from '../bitrix/client';
-import { esEmbudoPropio, filtroEmbudosPropios } from './embudos';
+import { esEmbudoPropio, filtroEmbudosPropios, moverAEtapaDerivado } from './embudos';
 import { getUsuarios } from './directory';
 import { perteneceAlEquipo } from './equipo';
 import { audit } from '../obs/audit';
@@ -260,6 +260,11 @@ export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth)
     const d: any = await callCrm('crm.deal.get', { id: dealId, select: ['ASSIGNED_BY_ID', 'TITLE'] }, auth);
     const actual = Number(d?.ASSIGNED_BY_ID ?? 0);
     const titulo = String(d?.TITLE ?? '');
+
+    // La etapa se mueve siempre que se derive, sin importar a quién quede asignada: es lo que hace
+    // visible en el propio embudo que el bot ya pasó por ahí. No bloquea la derivación si falla.
+    void moverAEtapaDerivado(dealId, auth).catch(() => {});
+
     if (actual === destino) {
       await crearTareaSeguimiento(dealId, destino, titulo, auth);
       await auditarDerivacion(dealId, 'tarea_al_punto_de_entrada', { asesor: destino });
