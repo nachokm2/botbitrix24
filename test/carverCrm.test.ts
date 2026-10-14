@@ -283,6 +283,38 @@ const ctx = (extra: any = {}) => ({
   ...extra,
 });
 
+// El numero de las Advisor es para ESTUDIANTES MATRICULADOS. La compuerta esta en que
+// consultarEstadoEstudiante solo arma el bloque con datos de contacto cuando matriculado es true;
+// para cualquier otro caso la herramienta devuelve el canal oficial y nada mas.
+test('el numero de las Advisor NO sale si la persona no es estudiante matriculado', async () => {
+  reset();
+  // Un prospecto: negociacion comercial abierta, sin ficha en el embudo de acompanamiento (107).
+  dealsPorContacto[720] = [{ ID: '6020', CATEGORY_ID: '73', STAGE_ID: 'C73:UC_KY8NN7', ASSIGNED_BY_ID: '479297', UF_PROG: 'Maestria en Psicologia' }];
+  const prospecto: any = await executeTool('consultar_estado_estudiante', {}, ctx({ crmEntities: { contact: 720 } }) as any);
+  assert.equal(prospecto.matriculado, false);
+  assert.doesNotMatch(JSON.stringify(prospecto), /4073165413/, 'ni el numero ni nada parecido');
+
+  // Alguien de quien no se puede verificar la identidad tampoco lo recibe.
+  const sinContacto: any = await executeTool('consultar_estado_estudiante', {}, ctx() as any);
+  assert.equal(sinContacto.matriculado, false);
+  assert.doesNotMatch(JSON.stringify(sinContacto), /4073165413/);
+
+  // Y una ficha retirada del embudo de acompanamiento deja de ser estudiante.
+  dealsPorContacto[721] = [{ ID: '6021', CATEGORY_ID: '107', STAGE_ID: 'C107:LOSE', ASSIGNED_BY_ID: '479297', UF_PROG: 'Maestria en Psicologia' }];
+  const retirado: any = await executeTool('consultar_estado_estudiante', {}, ctx({ crmEntities: { contact: 721 } }) as any);
+  assert.equal(retirado.matriculado, false);
+  assert.doesNotMatch(JSON.stringify(retirado), /4073165413/);
+});
+
+test('el numero SI sale para un estudiante matriculado verificado', async () => {
+  reset();
+  dealsPorContacto[722] = [{ ID: '6022', CATEGORY_ID: '107', STAGE_ID: 'C107:NEW', ASSIGNED_BY_ID: '45', UF_PROG: 'Maestria en Psicologia' }];
+  const r: any = await executeTool('consultar_estado_estudiante', {}, ctx({ crmEntities: { contact: 722 } }) as any);
+  assert.equal(r.matriculado, true);
+  assert.equal(r.advisor.telefono, '+14073165413');
+  assert.match(r.nota, /WhatsApp \+14073165413/);
+});
+
 test('herramienta de precio: el fee viaja SOLO si el cliente lo preguntó (hallazgo 5)', async () => {
   reset();
   const sinPregunta: any = await executeTool('consultar_condiciones_comerciales', { programa: 'Maestría en Salud Mental' }, ctx({ ultimoMensajeCliente: '¿Cuánto cuesta?' }) as any);
