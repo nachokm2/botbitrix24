@@ -195,7 +195,10 @@ export async function metricsSummary(req: Request, res: Response) {
     } else {
       try {
         resultado = await resultadoDelBot(st.auth);
-        resultadoCache = { at: Date.now(), data: resultado };
+        // Un resultado incompleto no se cachea: se reintenta en el refresco siguiente, cuando
+        // Bitrix ya no esté bloqueando. Cachearlo congelaría el número equivocado por minutos.
+        if (!resultado.incompleto) resultadoCache = { at: Date.now(), data: resultado };
+        else if (resultadoCache) resultado = resultadoCache.data;
       } catch {
         resultado = resultadoCache?.data ?? null;
       }

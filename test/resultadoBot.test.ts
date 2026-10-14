@@ -20,12 +20,16 @@ mock.module('../src/store/db.ts', {
 });
 
 let deals: any[] = [];
+let fallarLote = false;
 const consultas: any[] = [];
 mock.module('../src/bitrix/client.ts', {
   namedExports: {
     callCrm: async (method: string, params: any) => {
       consultas.push({ method, params });
-      if (method === 'crm.deal.list') return deals.filter((d) => params.filter['@ID'].includes(Number(d.ID)));
+      if (method === 'crm.deal.list') {
+        if (fallarLote) throw new Error('OPERATION_TIME_LIMIT');
+        return deals.filter((d) => params.filter['@ID'].includes(Number(d.ID)));
+      }
       if (method === 'crm.status.list')
         return [
           { STATUS_ID: 'C73:WON', NAME: 'Matriculado' },
@@ -119,4 +123,22 @@ test('sin negociaciones atendidas devuelve vacío en vez de romper', async () =>
   assert.equal(consultas.length, 0, 'ni siquiera consulta a Bitrix');
   config.embudosPropios = [];
   config.stagesGanadas = [];
+});
+
+test('si Bitrix rechaza un lote, el resultado se marca incompleto', async () => {
+  // Un total corto presentado como bueno engaña: la tarjeta marcó "0 matriculados" cuando en
+  // realidad se habían perdido dos lotes por el límite de operaciones de Bitrix.
+  escenario();
+  let primera = true;
+  const original = consultas.length;
+  const { callCrm } = await import('../src/bitrix/client');
+  assert.ok(callCrm);
+  // Se fuerza el fallo del primer lote sustituyendo los datos por un volumen que requiera dos.
+  conversados = Array.from({ length: 60 }, (_, i) => ({ dialogId: 'c' + i, dealId: i + 1 }));
+  deals = conversados.map((c) => ({ ID: String(c.dealId), STAGE_ID: 'C73:WON', CATEGORY_ID: '73', OPPORTUNITY: '10', CLOSED: 'Y' }));
+  fallarLote = true;
+  const r = await resultadoDelBot(auth);
+  fallarLote = false;
+  assert.equal(r.incompleto, true);
+  assert.ok(original >= 0 && primera);
 });

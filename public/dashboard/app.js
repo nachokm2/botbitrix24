@@ -117,9 +117,11 @@ function render(d){
     kpi(operador,'Intervención humana','Veces que un asesor/operador REAL escribió directamente en un chat de WhatsApp (no el bot; se verifica contra Bitrix que sea un empleado, no el cliente). Solo cuenta WhatsApp — por eso puede ser menor que "Escalamientos a asesor" (que suma todos los canales y no confirma que el asesor ya haya escrito), o mayor, si un asesor entra a conversar sin que el bot haya escalado antes.','operador') +
     (marca.tienePiloto === false ? '' : kpi(postulantesPiloto,'Postulantes (piloto)','Negociaciones de los 2 programas piloto que están HOY en la etapa "Postulantes" de Bitrix24 — el paso previo a la matrícula, al que el bot mueve cuando el score es alto y ya capturó nombre, correo y teléfono. Es una foto del momento: si la persona matricula, deja de contar acá y pasa a "Matrículas". Acumulado del piloto, NO cambia con el selector Hoy/7 días/30 días/Todo.','postulantes')) +
     (marca.tienePiloto === false ? '' : kpi(matriculasPiloto,'Matrículas (piloto)','Matrículas reales entre las negociaciones con las que el bot conversó/escaló, de los 2 programas piloto combinados. Acumulado desde el inicio del piloto — NO cambia con el selector Hoy/7 días/30 días/Todo (ver detalle en "Piloto: proyección vs. real" y "Negociaciones que trabajó el bot").','matriculas')) +
-    (resKpi && resKpi.atendidas
+    (resKpi && resKpi.atendidas && !resKpi.incompleto
       ? kpi(resKpi.ganadas,'Matriculados (acumulado)','Negociaciones que el bot atendió —conversó al menos un turno, o derivó— y que HOY están en una etapa de cierre favorable (matriculado, pagado, validación académica, Flywire invoice). No son todas las matrículas del embudo: atribuirse las que el bot nunca vio inflaría el número. ACUMULADO: a diferencia del resto de esta fila, NO cambia con el selector Hoy/7 días/30 días/Todo, porque una matrícula de hace dos meses sigue siendo resultado de esa conversación. El desglose por etapa está más abajo, en "En qué terminaron las conversaciones del bot".','matriculados')
-      : '') +
+      : resKpi && resKpi.incompleto
+        ? kpi('—','Matriculados (acumulado)','No se pudo contar: Bitrix rechazó parte de las consultas por su límite de operaciones. Se reintenta solo en el próximo refresco. Se muestra un guion y no un número porque un total incompleto presentado como bueno es peor que no mostrar nada.','matriculados')
+        : '') +
     kpi(errores,'Errores','Fallas técnicas del período: el bot no pudo responder, no pudo ENVIAR la respuesta (el cliente se queda esperando), o falló al guardar en el CRM. El detalle de cada una está más abajo, en "Fallas técnicas".','errores');
   animateKpis();
 
@@ -439,8 +441,12 @@ function render(d){
   var resSec = document.getElementById('secResultado');
   if (res && res.atendidas) {
     if (resSec) resSec.style.display = '';
+    var aviso = res.incompleto
+      ? '<div class="sub" style="color:#f79009;margin-bottom:8px">Conteo incompleto: Bitrix rechazó parte de las consultas por límite de operaciones. Los números de abajo se quedan cortos; se reintenta en el próximo refresco.</div>'
+      : '';
     var tasa = res.atendidas > 0 ? Math.round(res.ganadas / res.atendidas * 100) : 0;
     document.getElementById('resultadokpis').innerHTML =
+      aviso +
       kpi(num(res.atendidas), 'Negociaciones atendidas', 'Negociaciones con las que el bot conversó al menos un turno, o que derivó a un asesor.') +
       kpi(num(res.ganadas), 'Cerradas con éxito', 'Las que hoy están en una etapa de cierre favorable (matriculado, pagado).') +
       kpi(tasa + '%', 'Tasa de cierre', 'Cerradas con éxito sobre el total que el bot atendió.') +

@@ -20,6 +20,10 @@ import { log } from '../log';
 const LOTE = 50;
 
 export type ResultadoBot = {
+  /** true si alguna consulta a Bitrix falló y faltan negociaciones por contar. Un total incompleto
+   *  presentado como bueno es peor que no mostrar nada: la tarjeta decía "0 matriculados" cuando en
+   *  realidad se habían perdido dos lotes por el límite de operaciones de Bitrix. */
+  incompleto: boolean;
   atendidas: number;
   ganadas: number;
   perdidas: number;
@@ -28,7 +32,7 @@ export type ResultadoBot = {
   porEtapa: Array<{ etapa: string; nombre: string; n: number; ganada: boolean }>;
 };
 
-const VACIO: ResultadoBot = { atendidas: 0, ganadas: 0, perdidas: 0, abiertas: 0, montoGanado: 0, porEtapa: [] };
+const VACIO: ResultadoBot = { incompleto: false, atendidas: 0, ganadas: 0, perdidas: 0, abiertas: 0, montoGanado: 0, porEtapa: [] };
 
 /** ¿Esta etapa cuenta como cerrada con éxito? Configurable porque "ganada" no es solo :WON — en
  *  Carver, "Pagado" es un desenlace tan bueno como "Matriculado" y vive en otra etapa. */
@@ -44,6 +48,7 @@ export async function resultadoDelBot(auth: Auth): Promise<ResultadoBot> {
   if (!ids.length) return VACIO;
 
   const deals: Array<Record<string, any>> = [];
+  let incompleto = false;
   for (let i = 0; i < ids.length; i += LOTE) {
     try {
       const filas = await callCrm<Array<Record<string, any>>>(
@@ -56,7 +61,11 @@ export async function resultadoDelBot(auth: Auth): Promise<ResultadoBot> {
       );
       for (const d of Array.isArray(filas) ? filas : []) deals.push(d);
     } catch (e) {
-      log.warn('resultadoDelBot: no se pudo leer un lote', { err: String(e) });
+      // No se sigue como si nada: sin este lote el total queda corto y el panel mostraría menos
+      // matriculados de los que hay. Pasó de verdad — 216 negociaciones bajaron a 126 y la tarjeta
+      // marcó 0 — porque Bitrix bloquea por límite de operaciones cuando se le consulta mucho.
+      incompleto = true;
+      log.warn('resultadoDelBot: no se pudo leer un lote; el resultado queda incompleto', { err: String(e) });
     }
   }
   // Solo los embudos de esta marca: el bot se topa con negociaciones de otros equipos y contarlas
@@ -64,7 +73,7 @@ export async function resultadoDelBot(auth: Auth): Promise<ResultadoBot> {
   const propios = config.embudosPropios.length
     ? deals.filter((d) => config.embudosPropios.includes(Number(d.CATEGORY_ID ?? -1)))
     : deals;
-  if (!propios.length) return VACIO;
+  if (!propios.length) return { ...VACIO, incompleto };
 
   const nombre = new Map<string, string>();
   for (const cat of new Set(propios.map((d) => Number(d.CATEGORY_ID ?? -1)))) {
@@ -77,7 +86,7 @@ export async function resultadoDelBot(auth: Auth): Promise<ResultadoBot> {
   }
 
   const conteo = new Map<string, number>();
-  const out: ResultadoBot = { ...VACIO, atendidas: propios.length, porEtapa: [] };
+  const out: ResultadoBot = { ...VACIO, incompleto, atendidas: propios.length, porEtapa: [] };
   for (const d of propios) {
     const stage = String(d.STAGE_ID ?? '');
     conteo.set(stage, (conteo.get(stage) ?? 0) + 1);
