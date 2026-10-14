@@ -1,5 +1,6 @@
 import { marca } from '../marca';
 import { esEmbudoPropio } from './embudos';
+import { esUrgente, conMarcaUrgente } from './urgencia';
 import { audit } from '../obs/audit';
 import { callBitrix, callCrm } from '../bitrix/client';
 import { config } from '../config';
@@ -418,7 +419,11 @@ export async function actualizarDatosCliente(
     const fields: any = {};
     let brochureNuevo = false;
     if (data.programa_interes) {
-      fields.TITLE = `${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`;
+      // El distintivo de urgencia se vuelve a anteponer: este título se reescribe cada vez que
+      // cambia el programa de interés, y sin esto la marca se borraba sola en la siguiente
+      // actualización de datos, que es justo cuando la conversación va bien.
+      const base = `${data.programa_interes}${data.nombre ? ' – ' + data.nombre : ''}`;
+      fields.TITLE = (await esUrgente(e.deal)) ? conMarcaUrgente(base) : base;
       // Campo personalizado dedicado, para reportería/filtrado: guarda solo el ÚLTIMO programa
       // mencionado (sin cambios respecto al comportamiento anterior).
       if (config.ufPrograma) fields[config.ufPrograma] = data.programa_interes;

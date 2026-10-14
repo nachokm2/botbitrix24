@@ -1,6 +1,7 @@
 import { callCrm } from '../bitrix/client';
 import { esEmbudoPropio, filtroEmbudosPropios, moverAEtapaDerivado } from './embudos';
 import { getUsuarios } from './directory';
+import { esUrgente } from './urgencia';
 import { perteneceAlEquipo } from './equipo';
 import { audit } from '../obs/audit';
 import { config, type MarchaBlancaPrograma } from '../config';
@@ -353,16 +354,21 @@ async function vigenciaDelAsesor(userId: number, auth: Auth): Promise<Vigencia> 
  *  si el cliente escribe tres veces en la tarde, el asesor no recibe tres tareas iguales. */
 async function crearTareaSeguimiento(dealId: number, asesorId: number, titulo: string, auth: Auth): Promise<void> {
   if (!(await once(`tarea:derivacion:${dealId}:${asesorId}`, config.asignacionTareaHoras * 3600))) return;
+  // Una tarea urgente se ve distinta en la bandeja del asesor, que es donde de verdad la mira.
+  const urgente = await esUrgente(dealId);
   const deadline = new Date(Date.now() + config.asignacionTareaHoras * 3600_000).toISOString();
   try {
     const t = await callCrm<BitrixTaskAddResult>(
       'tasks.task.add',
       {
         fields: {
-          TITLE: `📞 Seguimiento — ${titulo || `Deal #${dealId}`}`,
+          TITLE: `${urgente ? '🔥 URGENTE · ' : ''}📞 Seguimiento — ${titulo || `Deal #${dealId}`}`,
           DESCRIPTION:
             'El asistente derivó esta conversación: el cliente pidió hablar con una persona o quedó en silencio tras mostrar interés.\n\n' +
-            `La negociación sigue siendo tuya. Contáctalo dentro de ${config.asignacionTareaHoras} horas, mientras el interés está fresco.`,
+            `La negociación sigue siendo tuya. Contáctalo dentro de ${config.asignacionTareaHoras} horas, mientras el interés está fresco.` +
+            (urgente
+              ? '\n\nESTE CASO ESTÁ MARCADO COMO URGENTE: el asistente lo escaló por puntaje alto, o sea que la persona mostró interés claro y ya dejó sus datos.'
+              : ''),
           RESPONSIBLE_ID: asesorId,
           DEADLINE: deadline,
           PRIORITY: 2,

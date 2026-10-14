@@ -14,6 +14,7 @@ import { getDealInfo } from '../crm/directory';
 import { primaryEntity, type CrmEntities } from '../crm/entities';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
 import { generarBriefing } from './briefing';
+import { marcarUrgente } from '../crm/urgencia';
 import { callBitrix } from '../bitrix/client';
 import { marca } from '../marca';
 import { once } from '../store/kv';
@@ -265,6 +266,11 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
   ) {
     sess.escalatedByScore = true;
     try {
+      // Se marca ANTES de derivar, para que la tarea que crea la derivación ya salga como urgente.
+      // Este escalamiento es el que más vale atender rápido: lo dispara una conversación con interés
+      // claro y datos entregados, pero en el embudo se ve igual que cualquier otra.
+      await marcarUrgente(crmEntities.deal, auth, { score: evalData.score, motivo: 'score_alto' });
+
       if (marca.sePresentaComoAsesor) {
         // El bot habla COMO el asesor: anunciar "te conecto con un asesor" contradice su identidad (y
         // tuteaba). Se deriva sin anunciarlo, por el mismo camino que una derivación explícita.

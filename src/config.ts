@@ -279,6 +279,9 @@ export const config = {
       .filter((x) => /^C\d+:.+$/.test(x))
       .map((x) => [Number(x.slice(1, x.indexOf(':'))), x]),
   ) as Record<number, string>,
+  // Distintivo que se antepone al título de las negociaciones que el bot escala por puntaje alto,
+  // para que el asesor sepa cuál mirar primero. Vacío = no se marca nada.
+  marcaUrgente: process.env.BITRIX_MARCA_URGENTE ?? '🔥 URGENTE · ',
   embudosPropios: (process.env.BITRIX_EMBUDOS_PROPIOS ?? '')
     .split(',')
     .map((x) => x.trim())
