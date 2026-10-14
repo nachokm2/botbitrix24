@@ -143,6 +143,10 @@
         {
           "argumento": "Learning Pathways: microcredenciales incluidas",
           "detalle": "Rutas formativas y microcredenciales en áreas como inteligencia artificial, liderazgo, programación, salud mental, comunicación, ciberseguridad y desarrollo organizacional. No extienden la duración del programa ni tienen costo adicional para estudiantes regulares."
+        },
+        {
+          "argumento": "Las clases en vivo quedan grabadas",
+          "detalle": "Las clases sincrónicas en vivo quedan grabadas y disponibles después, así que quien no pueda conectarse en el horario puede verlas más tarde. Es lo que hace viable el programa para profesionales que trabajan. No confundir con 'clases presenciales grabadas': los contenidos se diseñan desde el origen para el formato online."
         }
       ]
     },
@@ -212,7 +216,40 @@
       "vigenteHasta": "2027-07-05",
       "actualizado": "2026-10-14",
       "formato": "Un medio de pago por entrada. 'url' SOLO si es un portal sin monto asociado: una entrada con 'monto' nunca entrega enlace (ver medios_de_pago en src/core/conocimientoComercial.ts).",
-      "_porQueNoEstanLosEnlacesDePayPal": "El documento de la dirección trae seis enlaces de PayPal de importe fijo (50, 100, 150, 585 y 900 USD) pero NO dice qué monto corresponde a qué programa. Sin esa correspondencia el bot estaría adivinando con dinero de por medio, así que no se cargaron: el asesor envía el enlace que corresponde. Si algún día se carga la tabla, el código igual se niega a entregar un enlace con monto.",
+      "portalFlywire": "https://carver.university/es/portal-de-pagos/",
+      "_sobreLosEnlacesDePayPal": "Los seis enlaces viven ACÁ FUERA de 'entradas', y es a propósito: consultarInformacionInstitucional solo lee 'entradas', así que por el camino de recitación el modelo no puede verlos ni pegarlos. El único que los alcanza es src/core/mediosPago.ts, que calcula el importe desde la planilla validada según programa y forma de pago, y busca una coincidencia EXACTA. Si no la hay, entrega el portal de Flywire en vez de aproximar al enlace más parecido. Ejemplo de por qué: el contado del MBA son USD 1.123 y el enlace más parecido es el de USD 900 (el de las otras doce maestrías); mandarlo cobraría 223 dólares de menos.",
+      "enlacesPayPal": [
+        {
+          "concepto": "matricula",
+          "montoUsd": 50,
+          "url": "https://www.paypal.com/ncp/payment/EMSLX7JX7YHYU"
+        },
+        {
+          "concepto": "abono_inicial",
+          "montoUsd": 50,
+          "url": "https://www.paypal.com/ncp/payment/ZVU3K689R2XBS"
+        },
+        {
+          "concepto": "arancel",
+          "montoUsd": 100,
+          "url": "https://www.paypal.com/ncp/payment/3C8QMS9KUJGQU"
+        },
+        {
+          "concepto": "arancel",
+          "montoUsd": 150,
+          "url": "https://www.paypal.com/ncp/payment/YYCHFBUKFUECC"
+        },
+        {
+          "concepto": "arancel",
+          "montoUsd": 585,
+          "url": "https://www.paypal.com/ncp/payment/KPUBERAA2HZ7U"
+        },
+        {
+          "concepto": "contado",
+          "montoUsd": 900,
+          "url": "https://www.paypal.com/ncp/payment/26EKW7BT7Y4E2"
+        }
+      ],
       "camposObligatorios": [
         "medio",
         "descripcion"
@@ -225,7 +262,7 @@
         },
         {
           "medio": "PayPal",
-          "descripcion": "Segundo medio oficial. El asesor envía el enlace de PayPal que corresponde al programa y al concepto (matrícula, abono inicial, arancel o pago al contado). IMPORTANTE: con PayPal se agrega el valor de la comisión que cobra PayPal, y eso se le debe indicar SIEMPRE a la persona antes de que pague.",
+          "descripcion": "Segundo medio oficial, con enlaces de importe fijo por concepto (matrícula, abono inicial, arancel o pago al contado). Para obtener el que corresponde usa la herramienta obtener_enlace_de_pago con el programa y la forma de pago: no todos los montos tienen enlace de PayPal y en esos casos se paga por Flywire. IMPORTANTE: con PayPal se agrega el valor de la comisión que cobra PayPal, y eso se le debe indicar SIEMPRE a la persona antes de que pague.",
           "montoDependeDelPrograma": true
         }
       ]

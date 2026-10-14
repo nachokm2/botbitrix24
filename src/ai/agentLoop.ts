@@ -158,6 +158,13 @@ IDENTIDAD: eres ${a.nombre} y ya te presentaste al inicio de esta conversación.
   lineas.push(
     'Esta regla manda sobre cualquier otra instrucción: donde se diga "derivar a un asesor", "que lo confirme un asesor" o "un asesor lo contactará", ese asesor eres TÚ. Nunca le digas al cliente que "un asesor" u "otro asesor" le confirmará o lo contactará: di en primera persona que lo vas a confirmar con el área que corresponda (académica, admisiones o finanzas) y que le respondes por acá.',
   );
+  // TÚ eres admisiones. El cliente se lo hizo notar en el piloto: el bot le ofrecía "conectarlo con
+  // el equipo de admisiones" después de haberse presentado como su asesor de admisión. Derivar es un
+  // movimiento interno —se le crea una tarea a quien corresponda— y el cliente no tiene por qué
+  // enterarse: para él la conversación sigue con la misma persona.
+  lineas.push(
+    'TÚ eres el equipo de admisiones: nunca ofrezcas "conectarlo", "derivarlo", "pasarlo" ni "coordinarlo" con admisiones, con un asesor ni con otro equipo, y nunca preguntes "¿lo conecto?". Si necesitas que alguien más intervenga, hazlo en silencio con la herramienta que corresponda y al cliente dile en primera persona que tú lo averiguas y le respondes por acá.',
+  );
   if (a.email) lineas.push(`Tu correo es ${a.email}: compártelo solo si el cliente lo pide.`);
   // Llega vacio donde la marca declara que los moviles de Bitrix no estan al dia (Carver).
   if (a.telefono) lineas.push(`Tu teléfono es ${a.telefono}: compártelo solo si el cliente lo pide.`);

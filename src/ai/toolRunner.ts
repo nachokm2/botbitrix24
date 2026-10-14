@@ -17,6 +17,7 @@ import { preguntaPorCostosAdicionales } from '../core/guardRespuesta';
 import { obtenerBrochure } from '../core/brochures';
 import { consultarInformacionInstitucional, INSTRUCCION_SIN_DATO } from '../core/conocimientoComercial';
 import { consultarEstadoEstudiante, crearTareaAdvisor } from '../crm/estudiantes';
+import { enlaceDePago } from '../core/mediosPago';
 import { getDealInfo } from '../crm/directory';
 import { audit } from '../obs/audit';
 import { config } from '../config';
@@ -257,6 +258,23 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
           detail: { tema: input?.tema, disponible: r.ok ? r.disponible : false, motivo: r.ok && !r.disponible ? r.motivo : undefined },
         }).catch(() => {});
         return r.ok ? r : { ...r, instruccion: INSTRUCCION_SIN_DATO };
+      }
+
+      case 'obtener_enlace_de_pago': {
+        const r = enlaceDePago(String(input?.programa ?? ''), String(input?.concepto ?? '') as any);
+        await audit({
+          type: 'conocimiento',
+          dialogId: ctx.conversationId,
+          detail: {
+            tema: 'enlace_de_pago',
+            programa: input?.programa,
+            concepto: input?.concepto,
+            medio: r.ok ? r.medio : undefined,
+            montoUsd: r.ok ? r.montoUsd : undefined,
+            motivo: r.ok ? undefined : r.motivo,
+          },
+        }).catch(() => {});
+        return r;
       }
 
       case 'escalar_a_humano': {

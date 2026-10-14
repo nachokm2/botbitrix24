@@ -191,7 +191,7 @@ const TOOLS_WHATSAPP = [
   ...(marca.tieneVoz ? ['solicitar_llamada'] : []),
   ...(marca.brochureVerificado ? ['obtener_brochure'] : []),
   ...(marca.soporteEstudiantes ? ['consultar_estado_estudiante'] : []),
-  ...(marca.baseConocimiento ? ['consultar_informacion_institucional'] : []),
+  ...(marca.baseConocimiento ? ['consultar_informacion_institucional', 'obtener_enlace_de_pago'] : []),
   'escalar_a_humano',
 ];
 

@@ -77,7 +77,7 @@ const OBJ_FLUJO_DATOS = esCarver
   : 'FLUJO DE DATOS DE CONTACTO: cuando la persona muestre interés en un programa, pídele los datos de forma natural y en este orden, UNA cosa a la vez: (1) su nombre; (2) su correo electrónico; (3) su teléfono. Explica que es para que un asesor le envíe la información y lo contacte.';
 
 const OBJ_CAPTURA = esCarver
-  ? 'COMPLETA LA CAPTURA DE DATOS antes de derivar. Datos obligatorios: nombre y correo (el teléfono es el de WhatsApp). Pídelos de a uno, confirma el correo repitiéndolo, y regístralos con "registrar_interes_crm" apenas los tengas. Mientras falte alguno, NO escales: sigue conversando y respondiendo sus dudas, no te quedes en silencio.'
+  ? 'COMPLETA LA CAPTURA DE DATOS antes de derivar. Datos obligatorios: nombre y correo (el teléfono es el de WhatsApp). Pídelos de a uno, confirma el correo repitiéndolo, y regístralos con "registrar_interes_crm" apenas los tengas. Mientras falte alguno, NO escales: sigue conversando y respondiendo sus dudas, no te quedes en silencio. NUNCA digas que tienes registrados datos que no tienes: si te falta el correo, pídelo; decir "ya tengo sus datos de contacto" teniendo solo el nombre es faltar a la verdad y además deja el caso sin forma de contactarlo.'
   : `COMPLETA LA CAPTURA DE DATOS antes de derivar. Datos obligatorios: nombre, correo y teléfono. Pídelos de a uno, valida el correo y el teléfono repitiéndolos para confirmar, y regístralos con "registrar_interes_crm" apenas los tengas. Mientras falte alguno, NO escales${marca.tieneVoz ? ' ni ofrezcas la llamada' : ''}: sigue conversando y respondiendo sus dudas, no te quedes en silencio.`;
 
 // Hallazgo 2: el brochure solo sale verificado, de su herramienta.
@@ -87,7 +87,7 @@ const OFERTA_ENLACES = marca.brochureVerificado
 
 // Etapa 4: fechas, postulación y proceso de admisión salen de la base verificable, o no salen.
 const OFERTA_FALTANTES = marca.baseConocimiento
-  ? 'Para fechas de inicio o de ingreso, cómo postular o el enlace de postulación, los pasos de admisión y matrícula, y por dónde se paga, usa "consultar_informacion_institucional". Si no está disponible, o "detalle_programa" no tiene el dato, dilo con naturalidad y ofrece confirmarlo y responderle por este medio. Nunca inventes fechas, enlaces, plazos, pasos ni valores.'
+  ? 'Para fechas de inicio o de ingreso, cómo postular o el enlace de postulación, los pasos de admisión y matrícula, por dónde se paga, y TAMBIÉN para qué incluye el programa, en qué plataforma son las clases, si quedan grabadas, el acompañamiento, las becas o por qué elegir esta universidad, usa "consultar_informacion_institucional" (tema "argumentos_venta" para todo lo último). Cuando quiera PAGAR algo concreto, usa "obtener_enlace_de_pago". Si no está disponible, o "detalle_programa" no tiene el dato, dilo con naturalidad y ofrece confirmarlo y responderle por este medio. Nunca inventes fechas, enlaces, plazos, pasos ni valores.'
   : 'Si "detalle_programa" no tiene el dato (programa sin detalle cargado), o preguntan por fechas de admisión que no tienes, dilo y ofrece derivar a un asesor con "escalar_a_humano". Nunca inventes valores.';
 
 // Hallazgo 11: respuestas largas y repetidas. El largo además se impone en código (guardRespuesta).

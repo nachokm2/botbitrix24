@@ -90,6 +90,27 @@ const TOOLS_CARVER = [
       required: ['tema'],
     },
   },
+  {
+    name: 'obtener_enlace_de_pago',
+    description:
+      'El enlace de pago que corresponde a un programa y una forma de pago. Úsala cuando la persona quiera PAGAR ' +
+      'o pida por dónde pagar algo concreto. TÚ NO ELIGES EL MONTO: lo calcula esta herramienta desde la planilla ' +
+      'validada. Comparte ÚNICAMENTE la URL que devuelva, tal cual, y si viene "avisoComision" menciónala antes de ' +
+      'que pague. Si devuelve medio="flywire" es porque no existe enlace de PayPal para ese monto: entrega el portal ' +
+      'y NO prometas enviarle otro enlace después, porque no vas a tener ninguno.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        programa: { type: 'string', description: 'Nombre del programa, tal como aparece en el catálogo.' },
+        concepto: {
+          type: 'string',
+          enum: ['matricula', 'abono_inicial', 'cuota_mensual', 'pago_semestral', 'pago_contado'],
+          description: 'Qué va a pagar. Si no te lo ha dicho, pregúntaselo antes de llamar a esta herramienta.',
+        },
+      },
+      required: ['programa', 'concepto'],
+    },
+  },
 ] as const;
 
 // escalar_a_humano distingue la derivación de un estudiante (va a su Advisor) solo donde existe ese flujo.

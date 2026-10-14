@@ -433,3 +433,40 @@ test('marca=carver: nombra Flywire y PayPal, pero ningún enlace con monto sale 
   assert.match(SYSTEM_PROMPT, /comisión que cobra PayPal/);
   assert.match(SYSTEM_PROMPT, /NUNCA digas un monto/);
 });
+
+// ── Correcciones salidas del chat de prueba de Pedro (10 y 14 de octubre) ────────────────────────
+test('el bot ES admisiones: no ofrece "conectar" ni "derivar" a nadie', async () => {
+  // Pedro se lo hizo notar: "¿Pero tú eres el equipo de admisiones o no?", despues de que el bot le
+  // ofreciera conectarlo con admisiones habiendose presentado como su asesor de admision. Derivar es
+  // un movimiento interno; para el cliente la conversacion sigue con la misma persona.
+  const { bloqueIdentidad } = await import('../src/ai/agentLoop');
+  const b = bloqueIdentidad({ nombre: 'Basthian Sepúlveda' }, true);
+  assert.match(b, /TÚ eres el equipo de admisiones/);
+  assert.match(b, /nunca preguntes "¿lo conecto\?"/);
+  assert.match(b, /hazlo en silencio/);
+});
+
+test('no puede decir que tiene datos que no tiene', async () => {
+  // Con solo un nombre, el bot le dijo "tengo registrado su interes y sus datos de contacto". No
+  // tenia correo, y el caso quedaba sin forma de contactarlo.
+  assert.match(SYSTEM_PROMPT, /NUNCA digas que tienes registrados datos que no tienes/);
+  assert.match(SYSTEM_PROMPT, /si te falta el correo, pídelo/);
+});
+
+test('los atributos del programa salen de la base, no de la memoria del modelo', async () => {
+  // "Que plataforma son las clases?" se respondio con "no lo tengo en el sistema" teniendo Canvas
+  // cargado, y "quedan grabadas?" se respondio inventando. Ahora el prompt enruta ese tipo de
+  // pregunta al tema argumentos_venta.
+  assert.match(SYSTEM_PROMPT, /en qué plataforma son las clases, si quedan grabadas/);
+  assert.match(SYSTEM_PROMPT, /argumentos_venta/);
+  assert.match(SYSTEM_PROMPT, /obtener_enlace_de_pago/);
+});
+
+test('las clases grabadas son un dato cargado, no una invencion', async () => {
+  const { consultarInformacionInstitucional } = await import('../src/core/conocimientoComercial');
+  const r: any = consultarInformacionInstitucional('argumentos_venta');
+  assert.equal(r.disponible, true);
+  const grabadas = r.contenido.find((e: any) => /quedan grabadas/i.test(e.argumento));
+  assert.ok(grabadas, 'el dato tiene que estar en la base, confirmado por la direccion');
+  assert.match(grabadas.detalle, /grabadas y disponibles después/);
+});
