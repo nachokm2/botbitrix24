@@ -470,3 +470,14 @@ test('las clases grabadas son un dato cargado, no una invencion', async () => {
   assert.ok(grabadas, 'el dato tiene que estar en la base, confirmado por la direccion');
   assert.match(grabadas.detalle, /grabadas y disponibles después/);
 });
+
+test('el prompt no puede contradecir a la herramienta de enlaces de pago', async () => {
+  // Al darle al bot obtener_enlace_de_pago quedo en el prompt la frase anterior: "los enlaces de
+  // PayPal NO los tienes y no los vas a tener". El bot leia que no podia hacer justo lo que acababa
+  // de poder hacer. Se detecto al imprimir el prompt completo.
+  assert.doesNotMatch(SYSTEM_PROMPT, /no los vas a tener/, 'ya si los tiene');
+  assert.doesNotMatch(SYSTEM_PROMPT, /enlaceLoEnviaElAsesor/, 'ese campo ya no manda en pagos');
+  assert.match(SYSTEM_PROMPT, /obtener_enlace_de_pago/);
+  assert.match(SYSTEM_PROMPT, /TÚ NO ELIGES EL MONTO/);
+  assert.match(SYSTEM_PROMPT, /NO prometas enviarle otro enlace/);
+});
