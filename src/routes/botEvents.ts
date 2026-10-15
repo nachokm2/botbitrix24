@@ -19,6 +19,7 @@ import { primaryEntity } from '../crm/entities';
 import { esEmpleadoBitrix, getIdentidadAsesor, getDatosConocidosDeEntidades, getUsuarios } from '../crm/directory';
 import { esAsesorValido } from '../crm/equipo';
 import { asesoresDisponibles, motivoHorario } from '../core/horarioAsesores';
+import { hayOperadorEnElChat } from '../crm/operadorEnChat';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
@@ -171,6 +172,19 @@ async function handle(req: Request) {
   // En horario de asesores el bot no se mete: el chat es de ellos. Se audita para que el silencio
   // sea MEDIBLE — es la contrapartida de callar sin responder: si alguien queda sin atención, al
   // menos queda el registro de cuántos mensajes llegaron mientras el bot estaba apagado.
+  // Alguien recogió la conversación desde Bitrix. Bitrix NO le entrega al bot los mensajes de los
+  // operadores, así que sin esto el bot no se entera de nada y responde por encima del asesor, que
+  // es exactamente lo que pasó en el deal #3649251.
+  if (await hayOperadorEnElChat(chatId, auth, sess.clientId)) {
+    sess.humanTookOver = true;
+    await saveSession(dialogId, sess);
+    if (marca.traspasoPorSesion) await marcarTraspaso(dialogId, sesion, 'operador');
+    void cancelarSeguimiento(dialogId);
+    inc('operator_msg');
+    void audit({ type: 'operator_msg', dialogId, detail: { motivo: 'operador_en_el_chat', chatId } });
+    return log.info('botMessage: una persona está en el chat; bot en silencio', { dialogId, chatId });
+  }
+
   if (asesoresDisponibles()) {
     inc('bot_en_silencio_horario');
     void audit({ type: 'bot_en_silencio', dialogId, detail: { motivo: 'horario_asesores', detalle: motivoHorario() } });

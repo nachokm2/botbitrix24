@@ -16,9 +16,16 @@ process.env.HORARIO_ASESORES_ACTIVO = 'false';
 const llamadas: Array<{ method: string; params: any }> = [];
 /** Quien responde a user.get. Vacio = el remitente es el cliente, no un empleado del portal. */
 let usuarioDelPortal: any[] = [];
+/** Participantes del chat de Open Lines. Por defecto solo el bot y el cliente (que entra como
+ *  externo): nadie recogió la conversación. */
+let participantes: any[] = [
+  { id: 800185, bot: true, name: 'Carver University' },
+  { id: 767389, extranet: true, name: 'cliente' },
+];
 const crm = async (method: string, params: any) => {
   llamadas.push({ method, params });
   if (method === 'user.get') return usuarioDelPortal;
+  if (method === 'im.dialog.users.list') return participantes;
   return {};
 };
 mock.module('../src/bitrix/client.ts', {
@@ -132,4 +139,58 @@ test('un mensaje del usuario del webhook NO cuenta como asesor atendiendo', asyn
   botMessageHandler(eventoDe(21, '1300002', '767389', 'chat-webhook-primero') as any, res);
   await esperar(() => turnos > 0);
   assert.equal(turnos, 1, 'el bot sigue atendiendo: nadie tomo el caso de verdad');
+});
+
+// ── Una persona recoge la conversación desde Bitrix ──────────────────────────────────────────────
+// Caso real, deal #3649251 del 15-oct-2026: la asesora se unió al chat a las 13:11, lo recogió a las
+// 13:12 y escribió a las 13:13. A las 13:35 el cliente respondió y el bot contestó por encima.
+// Bitrix NO le entrega al bot los mensajes de los operadores, así que entre su último turno y el del
+// cliente, para el bot no había pasado nada. Lo que sí puede ver es quién está dentro del chat.
+test('si una persona está dentro del chat, el bot NO responde aunque nunca haya visto su mensaje', async () => {
+  const { _limpiarCacheOperadores } = await import('../src/crm/operadorEnChat');
+  _limpiarCacheOperadores();
+  turnos = 0;
+  llamadas.length = 0;
+  auditorias.length = 0;
+  participantes = [
+    { id: 800185, bot: true, name: 'Carver University' },
+    { id: 767389, extranet: true, name: 'cliente' },
+    { id: 536133, name: 'Valezka Hernández' }, // se unió y recogió la conversación
+  ];
+
+  botMessageHandler(eventoDe(30, '1400001', '767389', 'chat-con-operador') as any, res);
+  await esperar(() => auditorias.some((a) => a.type === 'operator_msg'));
+  assert.ok(auditorias.some((a) => a.type === 'operator_msg' && a.detail.motivo === 'operador_en_el_chat'));
+  assert.equal(turnos, 0, 'el motor no corrió');
+  assert.equal(llamadas.filter((c) => c.method === 'imbot.message.add').length, 0, 'no le escribió al cliente');
+
+  participantes = participantes.slice(0, 2);
+  _limpiarCacheOperadores();
+});
+
+test('con solo el bot y el cliente en el chat, el bot atiende normalmente', async () => {
+  const { _limpiarCacheOperadores } = await import('../src/crm/operadorEnChat');
+  _limpiarCacheOperadores();
+  turnos = 0;
+  llamadas.length = 0;
+  participantes = [
+    { id: 800185, bot: true, name: 'Carver University' },
+    { id: 767389, extranet: true, name: 'cliente' },
+  ];
+  botMessageHandler(eventoDe(31, '1400002', '767389', 'chat-sin-operador') as any, res);
+  await esperar(() => turnos > 0);
+  assert.equal(turnos, 1);
+  _limpiarCacheOperadores();
+});
+
+test('si Bitrix no responde la lista de participantes, el bot atiende igual', async () => {
+  // Fail-open a propósito: dejar mudo al bot por una consulta fallida es peor que una respuesta de
+  // más, porque el cliente se queda esperando a nadie.
+  const { hayOperadorEnElChat, _limpiarCacheOperadores } = await import('../src/crm/operadorEnChat');
+  _limpiarCacheOperadores();
+  const original = participantes;
+  participantes = null as any;
+  assert.equal(await hayOperadorEnElChat('1400003', { domain: 'x', access_token: 'y' } as any), false);
+  participantes = original;
+  _limpiarCacheOperadores();
 });

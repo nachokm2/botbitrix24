@@ -279,6 +279,10 @@ export const config = {
       .filter((x) => /^C\d+:.+$/.test(x))
       .map((x) => [Number(x.slice(1, x.indexOf(':'))), x]),
   ) as Record<number, string>,
+  // Antes de responder, comprobar si una persona se unio al chat de Open Lines. Bitrix no entrega
+  // los mensajes de operador como evento al bot, asi que mirar la lista de participantes es la
+  // unica forma de enterarse de que alguien recogio la conversacion.
+  detectarOperadorEnChat: (process.env.DETECTAR_OPERADOR_EN_CHAT ?? 'true').toLowerCase() === 'true',
   // HORARIO DE ASESORES. Mientras hay gente atendiendo, el bot NO se mete: calla y deja el chat a
   // los asesores. Fuera de ese horario —noches, madrugadas, sabados y domingos— responde el.
   // Activo solo donde se declare: Postgrados sigue atendiendo a toda hora.
