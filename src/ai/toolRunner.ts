@@ -19,6 +19,7 @@ import { consultarInformacionInstitucional, INSTRUCCION_SIN_DATO } from '../core
 import { consultarEstadoEstudiante, crearTareaAdvisor } from '../crm/estudiantes';
 import { enlaceDePago } from '../core/mediosPago';
 import { registrarDatosMatricula, moverAPendienteDeFirma } from '../crm/matricula';
+import { enviarBrochurePorWhatsApp } from '../core/brochureArchivo';
 import { getDealInfo } from '../crm/directory';
 import { audit } from '../obs/audit';
 import { config } from '../config';
@@ -205,11 +206,32 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
           detail: r.ok ? { programa: r.programa, formato: r.formato } : { programa: r.programa, motivo: r.motivo },
         }).catch(() => {});
         if (r.ok) {
+          // Se intenta mandar el PDF como ARCHIVO por WhatsApp. Un enlace obliga a salir a un
+          // navegador y mucha gente no lo hace; el archivo le queda en el telefono. Si no se puede
+          // —no hay PDF de ese programa, no hay telefono, ChatApp falla— se entrega el enlace, que
+          // es el comportamiento de siempre.
+          const envio = await enviarBrochurePorWhatsApp(r.programa, ctx.crmEntities ?? {}, ctx.auth);
+          await audit({
+            type: 'brochure',
+            dialogId: ctx.conversationId,
+            detail: { programa: r.programa, comoArchivo: envio.enviado, motivo: envio.enviado ? undefined : envio.motivo },
+          }).catch(() => {});
+          if (envio.enviado) {
+            return {
+              ok: true,
+              programa: r.programa,
+              entregadoComo: 'archivo_pdf',
+              nota:
+                'El PDF ya se le envió a su WhatsApp, en este mismo momento. NO pegues ningún enlace: ' +
+                'dile en una frase breve que se lo acabas de enviar y pregúntale si tiene dudas del programa.',
+            };
+          }
           return {
             ok: true,
             programa: r.programa,
             url: r.url,
             formato: r.formato,
+            entregadoComo: 'enlace',
             nota:
               r.formato === 'pdf'
                 ? 'Brochure oficial en PDF, verificado ahora. Compártelo tal cual, en una línea aparte.'

@@ -283,6 +283,10 @@ export const config = {
   // los mensajes de operador como evento al bot, asi que mirar la lista de participantes es la
   // unica forma de enterarse de que alguien recogio la conversacion.
   detectarOperadorEnChat: (process.env.DETECTAR_OPERADOR_EN_CHAT ?? 'true').toLowerCase() === 'true',
+  // Carpeta del Drive de Bitrix con los brochures de Carver en PDF. El bot los envia como
+  // ARCHIVO por WhatsApp, no como enlace: un PDF se queda en el telefono, un enlace obliga a
+  // salir a un navegador y mucha gente no lo hace. Vacio = se sigue entregando el enlace.
+  driveFolderBrochuresCarver: Number(process.env.BITRIX_DRIVE_BROCHURES_CARVER ?? (esCarver ? 2514665 : 0)) || 0,
   // HORARIO DE ASESORES. Mientras hay gente atendiendo, el bot NO se mete: calla y deja el chat a
   // los asesores. Fuera de ese horario —noches, madrugadas, sabados y domingos— responde el.
   // Activo solo donde se declare: Postgrados sigue atendiendo a toda hora.

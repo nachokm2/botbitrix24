@@ -123,3 +123,45 @@ export async function enviarPlantilla(opts: {
     return { ok: false, error: String(e).slice(0, 300) };
   }
 }
+
+/**
+ * Envía un ARCHIVO (el brochure en PDF) al chat de WhatsApp de una persona.
+ *
+ * ChatApp acepta una URL y él mismo descarga el archivo, así que no hay que subir bytes: basta la
+ * URL de descarga que da el Drive de Bitrix. Verificado contra la API el 15-10-2026 — el campo se
+ * llama `file`, no `url`, y el endpoint es `/messages/file`.
+ *
+ * Por qué no se manda por Canales Abiertos: `imbot.message.add` solo envía texto. Un enlace en el
+ * chat no es lo mismo que el PDF — la persona tiene que abrir el navegador, a veces iniciar sesión,
+ * y muchos simplemente no lo hacen. El archivo llega a su WhatsApp y se queda ahí.
+ *
+ * Solo funciona dentro de la ventana de 24 h de WhatsApp. Fuera de ella hay que usar una plantilla.
+ */
+export async function enviarArchivo(opts: {
+  phoneE164: string;
+  /** URL de descarga directa. Tiene que responder un archivo, no una página que lo muestre. */
+  url: string;
+  nombreArchivo: string;
+  /** Texto que acompaña al archivo. Opcional: va como pie del documento en WhatsApp. */
+  descripcion?: string;
+  licenseId?: number;
+}): Promise<{ ok: true; messageId?: string } | { ok: false; error: string }> {
+  const licencia = opts.licenseId ?? config.chatappLicenseId;
+  if (!licencia) return { ok: false, error: 'Falta CHATAPP_LICENSE_ID' };
+  if (!/^https:\/\//.test(opts.url)) return { ok: false, error: 'La URL del archivo no es https' };
+  const chatId = opts.phoneE164.replace(/^\+/, '');
+  try {
+    const j = await pedir(`/licenses/${licencia}/messengers/${MENSAJERO}/chats/${chatId}/messages/file`, {
+      method: 'POST',
+      body: JSON.stringify({
+        file: opts.url,
+        fileName: opts.nombreArchivo,
+        ...(opts.descripcion ? { caption: opts.descripcion } : {}),
+      }),
+    });
+    log.info('ChatApp: archivo enviado', { chatId, nombreArchivo: opts.nombreArchivo });
+    return { ok: true, messageId: j?.data?.id };
+  } catch (e) {
+    return { ok: false, error: String(e).slice(0, 300) };
+  }
+}
