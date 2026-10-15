@@ -9,6 +9,10 @@ import assert from 'node:assert/strict';
 process.env.MARCA = 'carver';
 process.env.NODE_ENV = 'test';
 process.env.SEGUIMIENTO_SEGUNDO_HORAS = '10';
+// El horario de asesores se prueba aparte (horarioAsesores.test.ts). Estas pruebas miran el
+// CONTENIDO del recordatorio, y con la regla activa no saldria ninguno en horario de oficina:
+// dependerian de la hora a la que alguien corra el suite.
+process.env.HORARIO_ASESORES_ACTIVO = 'false';
 
 const enviados: Array<{ method: string; params: any }> = [];
 mock.module('../src/bitrix/client.ts', {

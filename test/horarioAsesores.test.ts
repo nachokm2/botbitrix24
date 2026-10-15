@@ -134,3 +134,19 @@ test('un recordatorio de las 20:00 entre semana sale tal cual', () => {
   const r = proximoHorarioPermitido(miercoles20);
   assert.equal(r.getTime(), miercoles20.getTime());
 });
+
+test('un recordatorio ya vencido en plena jornada se REPROGRAMA, no se envia', () => {
+  // Este camino no pasa por el manejador de mensajes, asi que la regla de alla no lo cubria: el bot
+  // seguia hablando por recordatorios aunque las respuestas estuvieran apagadas. Fue lo que se vio
+  // en produccion el 15-10: un recordatorio salio a las 13:24, en plena jornada.
+  const miercoles13 = invierno('15T17:00:00'); // miercoles 13:00 en Chile
+  assert.equal(asesoresDisponibles(miercoles13), true, 'control: hay asesores');
+  const reprogramado = proximoHorarioPermitido(miercoles13);
+  assert.notEqual(reprogramado.getTime(), miercoles13.getTime(), 'no se envia en ese instante');
+  assert.equal(asesoresDisponibles(reprogramado), false, 'se corre a cuando no hay nadie');
+});
+
+test('un recordatorio vencido de noche SI se envia en el acto', () => {
+  const miercoles20 = invierno('16T00:00:00'); // miercoles 20:00 en Chile
+  assert.equal(proximoHorarioPermitido(miercoles20).getTime(), miercoles20.getTime());
+});

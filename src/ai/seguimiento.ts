@@ -291,12 +291,18 @@ async function barrerRecordatorios(key: string, etapa: 1 | 2): Promise<void> {
 
     try {
       // Chequeo defensivo: el plazo se calcula ya respetando el horario (ver programarSeguimiento),
-      // pero si el barrido se atrasó (ej. el servicio estuvo caído) puede llegar aquí fuera de
-      // ventana — se reprograma en vez de mandar el mensaje fuera de horario.
+      // pero puede llegar acá fuera de ventana si el barrido se atrasó, o si el recordatorio quedó
+      // programado ANTES de que cambiara la regla de horario. Se reprograma en vez de enviarlo.
+      //
+      // Antes esta condición solo miraba la ventana de seguimiento y no el horario de asesores, así
+      // que un recordatorio vencido a las 13:00 salía igual, en plena jornada. Este camino NO pasa
+      // por el manejador de mensajes, así que la regla de allá no lo cubría: el bot seguía hablando
+      // aunque las respuestas estuvieran apagadas. Ahora se consulta la misma función que programa,
+      // que ya contempla las dos ventanas.
       const ahora = new Date();
-      if (horaEnChile(ahora) < config.seguimientoHoraInicio || horaEnChile(ahora) >= config.seguimientoHoraFin) {
-        const vencimiento = proximoHorarioPermitido(ahora);
-        await r.zadd(key, vencimiento.getTime(), dialogId);
+      const permitido = proximoHorarioPermitido(ahora);
+      if (permitido.getTime() !== ahora.getTime()) {
+        await r.zadd(key, permitido.getTime(), dialogId);
         continue;
       }
 
