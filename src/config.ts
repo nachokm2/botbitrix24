@@ -279,6 +279,18 @@ export const config = {
       .filter((x) => /^C\d+:.+$/.test(x))
       .map((x) => [Number(x.slice(1, x.indexOf(':'))), x]),
   ) as Record<number, string>,
+  // HORARIO DE ASESORES. Mientras hay gente atendiendo, el bot NO se mete: calla y deja el chat a
+  // los asesores. Fuera de ese horario —noches, madrugadas, sabados y domingos— responde el.
+  // Activo solo donde se declare: Postgrados sigue atendiendo a toda hora.
+  horarioAsesoresActivo:
+    (process.env.HORARIO_ASESORES_ACTIVO ?? (esCarver ? 'true' : 'false')).toLowerCase() === 'true',
+  horarioAsesoresInicio: process.env.HORARIO_ASESORES_INICIO ?? '09:00',
+  horarioAsesoresFin: process.env.HORARIO_ASESORES_FIN ?? '18:30',
+  // Dias de la semana con asesores (0=domingo). Por defecto lunes a viernes.
+  horarioAsesoresDias: (process.env.HORARIO_ASESORES_DIAS ?? '1,2,3,4,5')
+    .split(',')
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isInteger(n) && n >= 0 && n <= 6),
   // FICHA DE MATRICULA (Carver). Campos del CONTACTO donde se guardan los antecedentes que antes
   // pedia el formulario de postulacion de cada asesor. Todos existen ya en el portal; si alguno
   // queda vacio, ese dato simplemente no se guarda y el bot lo sigue pidiendo.

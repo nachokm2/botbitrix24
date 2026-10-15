@@ -9,6 +9,9 @@ process.env.MARCA = 'carver';
 process.env.NODE_ENV = 'test';
 process.env.REDIS_URL = '';
 process.env.BITRIX_BOT_ID = '800185';
+// El horario de asesores se prueba aparte (horarioAsesores.test.ts). Acá se desactiva para que
+// estas pruebas no dependan de la hora a la que se ejecuten.
+process.env.HORARIO_ASESORES_ACTIVO = 'false';
 
 const llamadas: Array<{ method: string; params: any }> = [];
 /** Quien responde a user.get. Vacio = el remitente es el cliente, no un empleado del portal. */

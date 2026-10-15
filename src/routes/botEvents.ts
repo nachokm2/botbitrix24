@@ -18,6 +18,7 @@ import { aplicaCopiloto, entregarBorrador } from '../ai/copiloto';
 import { primaryEntity } from '../crm/entities';
 import { esEmpleadoBitrix, getIdentidadAsesor, getDatosConocidosDeEntidades, getUsuarios } from '../crm/directory';
 import { esAsesorValido } from '../crm/equipo';
+import { asesoresDisponibles, motivoHorario } from '../core/horarioAsesores';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
@@ -150,6 +151,7 @@ async function handle(req: Request) {
     return log.info('botMessage: sesión atendida por humano; bot en silencio', { dialogId });
   }
 
+
   // Recién acá se persiste el token, con el evento ya identificado como mensaje de un CLIENTE.
   // Antes se guardaba el de cualquier evento, incluidos los que dispara un asesor al escribir en el
   // chat: ese token es SUYO y, si no tiene concedida la aplicación, no sirve para imbot.message.add.
@@ -166,6 +168,15 @@ async function handle(req: Request) {
       return log.info('botMessage: la sesión ya fue traspasada a una persona; bot en silencio', { dialogId, sesion, motivo: t.motivo });
     }
   }
+  // En horario de asesores el bot no se mete: el chat es de ellos. Se audita para que el silencio
+  // sea MEDIBLE — es la contrapartida de callar sin responder: si alguien queda sin atención, al
+  // menos queda el registro de cuántos mensajes llegaron mientras el bot estaba apagado.
+  if (asesoresDisponibles()) {
+    inc('bot_en_silencio_horario');
+    void audit({ type: 'bot_en_silencio', dialogId, detail: { motivo: 'horario_asesores', detalle: motivoHorario() } });
+    return log.info('botMessage: hay asesores atendiendo; bot en silencio', { dialogId, motivo: motivoHorario() });
+  }
+
   if (sessChanged) await saveSession(dialogId, sess);
 
   inc('inbound');

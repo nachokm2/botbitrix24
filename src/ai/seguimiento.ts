@@ -2,6 +2,7 @@ import { anthropic, CLASSIFIER } from './client';
 import { getHistory, setHistory } from './memory';
 import { transcript } from './briefing';
 import { getSession, traspasoVigente } from '../session';
+import { asesoresDisponibles, proximoFueraDeHorario } from '../core/horarioAsesores';
 import { marca } from '../marca';
 import { guardarRespuesta } from '../core/guardRespuesta';
 import { URLS_OFICIALES_CARVER } from '../core/promptObjeciones';
@@ -102,10 +103,25 @@ export function horaEnChile(fecha: Date): number {
  *  mensajes del cliente, que son inmediatas a cualquier hora). */
 export function proximoHorarioPermitido(fecha: Date): Date {
   let t = fecha;
-  for (let i = 0; i < 24; i++) {
-    const h = horaEnChile(t);
-    if (h >= config.seguimientoHoraInicio && h < config.seguimientoHoraFin) return t;
-    t = new Date(t.getTime() + 3600_000);
+  // Dos condiciones a la vez: la ventana de seguimiento (no escribir de madrugada) y el horario de
+  // asesores (no escribir mientras ellos atienden). Se alternan hasta que se cumplen las dos,
+  // porque corregir una puede volver a romper la otra: salir de la jornada a las 18:30 cae dentro
+  // de la ventana, pero correr al día siguiente a las 9:00 vuelve a caer en jornada.
+  for (let vuelta = 0; vuelta < 10; vuelta++) {
+    let movido = false;
+    for (let i = 0; i < 24; i++) {
+      const h = horaEnChile(t);
+      if (h >= config.seguimientoHoraInicio && h < config.seguimientoHoraFin) break;
+      t = new Date(t.getTime() + 3600_000);
+      movido = true;
+    }
+    const fuera = proximoFueraDeHorario(t);
+    if (fuera.getTime() === t.getTime() && !movido) return t;
+    if (fuera.getTime() !== t.getTime()) {
+      t = fuera;
+      continue;
+    }
+    if (!asesoresDisponibles(t)) return t;
   }
   return t;
 }
