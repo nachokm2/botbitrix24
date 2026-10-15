@@ -11,9 +11,11 @@ process.env.REDIS_URL = '';
 process.env.BITRIX_BOT_ID = '800185';
 
 const llamadas: Array<{ method: string; params: any }> = [];
+/** Quien responde a user.get. Vacio = el remitente es el cliente, no un empleado del portal. */
+let usuarioDelPortal: any[] = [];
 const crm = async (method: string, params: any) => {
   llamadas.push({ method, params });
-  if (method === 'user.get') return []; // el remitente es el cliente, no un empleado
+  if (method === 'user.get') return usuarioDelPortal;
   return {};
 };
 mock.module('../src/bitrix/client.ts', {
@@ -80,4 +82,51 @@ test('en una sesión NUEVA de Open Lines, el bot vuelve a atender', async () => 
   await esperar(() => turnos > 0 && llamadas.some((c) => c.method === 'imbot.message.add'));
   assert.equal(turnos, 1);
   assert.equal(llamadas.filter((c) => c.method === 'imbot.message.add').length, 1);
+});
+
+// ── El asesor escribe PRIMERO ────────────────────────────────────────────────────────────────────
+// Es lo habitual cuando toma un lead: saluda el. Antes el bot solo ignoraba ese mensaje sin anotar
+// que habia alguien atendiendo, asi que volvia a meterse apenas el cliente contestaba.
+const eventoDe = (msgId: number, sesion: string, fromUser: string, dialogo: string) => {
+  const e: any = evento(msgId, sesion);
+  e.body.data.PARAMS.FROM_USER_ID = fromUser;
+  e.body.data.PARAMS.DIALOG_ID = dialogo;
+  e.body.data.PARAMS.MESSAGE = 'Hola, soy su asesor, lo acompano con su postulacion';
+  return e;
+};
+
+test('si el asesor escribe primero, el bot se retira y NO contesta al cliente', async () => {
+  usuarioDelPortal = [{ ID: '479681', NAME: 'Yhoselin', LAST_NAME: 'Vilca', EMAIL: 'y@carver.university', ACTIVE: true, UF_DEPARTMENT: [193] }];
+  turnos = 0;
+  llamadas.length = 0;
+  auditorias.length = 0;
+
+  botMessageHandler(eventoDe(10, '1300001', '479681', 'chat-asesor-primero') as any, res);
+  await esperar(() => auditorias.some((a) => a.type === 'operator_msg'));
+  assert.ok(auditorias.some((a) => a.type === 'operator_msg' && a.detail.asesorDelEquipo === true));
+
+  // Ahora contesta el cliente: el bot ya no debe meterse.
+  usuarioDelPortal = [];
+  botMessageHandler(eventoDe(11, '1300001', '767389', 'chat-asesor-primero') as any, res);
+  await esperar(() => auditorias.some((a) => a.type === 'bot_en_silencio'));
+  assert.equal(turnos, 0, 'el motor no corrio');
+  assert.equal(llamadas.filter((c) => c.method === 'imbot.message.add').length, 0, 'no le escribio al cliente');
+});
+
+test('un mensaje del usuario del webhook NO cuenta como asesor atendiendo', async () => {
+  // Si cualquier empleado callara al bot, un mensaje automatico lo dejaria mudo sin que nadie haya
+  // tomado el caso. Solo cuenta un asesor valido del equipo.
+  usuarioDelPortal = [{ ID: '4173', NAME: 'Webhook', LAST_NAME: 'Admin', EMAIL: 'admin@uautonoma.cl', ACTIVE: true, UF_DEPARTMENT: [7] }];
+  turnos = 0;
+  llamadas.length = 0;
+  auditorias.length = 0;
+
+  botMessageHandler(eventoDe(20, '1300002', '4173', 'chat-webhook-primero') as any, res);
+  await esperar(() => auditorias.some((a) => a.type === 'operator_msg'));
+  assert.ok(auditorias.some((a) => a.type === 'operator_msg' && a.detail.asesorDelEquipo === false));
+
+  usuarioDelPortal = [];
+  botMessageHandler(eventoDe(21, '1300002', '767389', 'chat-webhook-primero') as any, res);
+  await esperar(() => turnos > 0);
+  assert.equal(turnos, 1, 'el bot sigue atendiendo: nadie tomo el caso de verdad');
 });

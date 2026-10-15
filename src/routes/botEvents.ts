@@ -16,7 +16,8 @@ import { leerHistorialPrevio } from '../crm/historialChat';
 import { pideNoMolestar, excluir } from '../crm/exclusion';
 import { aplicaCopiloto, entregarBorrador } from '../ai/copiloto';
 import { primaryEntity } from '../crm/entities';
-import { esEmpleadoBitrix, getIdentidadAsesor, getDatosConocidosDeEntidades } from '../crm/directory';
+import { esEmpleadoBitrix, getIdentidadAsesor, getDatosConocidosDeEntidades, getUsuarios } from '../crm/directory';
+import { esAsesorValido } from '../crm/equipo';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
@@ -102,11 +103,32 @@ async function handle(req: Request) {
     // quedaría mal clasificado como "un operador escribió" y el bot se callaría para siempre en esa
     // conversación (bug confirmado en producción: deal #3490143, Ruben Castrillon).
     if (await esEmpleadoBitrix(Number(fromUser), auth)) {
+      // No se fija clientId, pero SÍ se registra que hay una persona atendiendo: si es un asesor del
+      // equipo, el bot se retira de la conversación. Antes solo se ignoraba el mensaje, así que
+      // cuando el asesor escribía PRIMERO —que es lo habitual cuando toma un lead— el bot no se
+      // enteraba de nada y volvía a meterse apenas el cliente contestaba.
+      //
+      // Se exige que sea un asesor VÁLIDO del equipo: un mensaje del usuario del webhook o de un
+      // robot no es alguien atendiendo, y callar al bot por eso lo dejaría mudo sin que nadie haya
+      // tomado el caso.
+      const [u] = await getUsuarios([Number(fromUser)], auth);
+      const esAsesor = esAsesorValido(u);
+      if (esAsesor) {
+        sess.humanTookOver = true;
+        await saveSession(dialogId, sess);
+        if (marca.traspasoPorSesion) await marcarTraspaso(dialogId, sesion, 'operador');
+        void cancelarSeguimiento(dialogId);
+      }
       inc('operator_msg');
-      void audit({ type: 'operator_msg', dialogId, detail: { fromUser, motivo: 'primer_mensaje_de_empleado' } });
+      void audit({
+        type: 'operator_msg',
+        dialogId,
+        detail: { fromUser, motivo: 'primer_mensaje_de_empleado', asesorDelEquipo: esAsesor },
+      });
       return log.info('botMessage: primer mensaje del chat es de un empleado (no del cliente); se ignora sin fijar clientId', {
         dialogId,
         fromUser,
+        asesorDelEquipo: esAsesor,
       });
     }
     sess.clientId = fromUser; // primer mensaje (ya verificado que no es empleado) = cliente
