@@ -507,3 +507,22 @@ test('la ficha de cada programa dice Carnegie, no solo el prompt', async () => {
   }
   assert.ok(conCreditos >= 16, `solo ${conCreditos} campos con creditos`);
 });
+
+test('los creditos declarados cuadran con lo que suma la malla', async () => {
+  // El MBA declaraba 36 y su malla sumaba 45. El bot le sostuvo el 36 a un cliente que lo corrigio,
+  // dos veces. Carver confirmo que son 45. Mientras los dos datos vivan en campos distintos, lo
+  // unico que evita que vuelvan a separarse es esta prueba.
+  const { readFileSync } = await import('node:fs');
+  const d = JSON.parse(readFileSync(new URL('../src/ai/carver.detalles.data.json', import.meta.url), 'utf8'));
+  let revisados = 0;
+  for (const [k, v] of Object.entries<any>(d)) {
+    const m = /(\d+)\s*créditos/i.exec(String(v.grado ?? ''));
+    const ejes = v.planEstudios ?? [];
+    if (!m || !ejes.length) continue;
+    const suma = ejes.reduce((t: number, e: any) => t + (e.asignaturas ?? []).reduce((u: number, a: any) => u + (a.creditos ?? 0), 0), 0);
+    if (!suma) continue;
+    revisados++;
+    assert.equal(Number(m[1]), suma, `${k}: grado dice ${m[1]} y la malla suma ${suma}`);
+  }
+  assert.ok(revisados >= 16, `solo se revisaron ${revisados} programas`);
+});
