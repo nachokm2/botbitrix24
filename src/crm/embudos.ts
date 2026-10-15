@@ -1,5 +1,6 @@
 import { callCrm } from '../bitrix/client';
 import { getRedisClient } from '../store/kv';
+import { dbUltimaDerivacion } from '../store/db';
 import { config } from '../config';
 import type { Auth } from '../store';
 import { log } from '../log';
@@ -65,8 +66,10 @@ export async function derivacionYaGestionada(dealId: number, auth: Auth): Promis
   const r = getRedisClient();
   if (!r || !dealId) return false;
   try {
-    const marca = Number(await r.get(MOVIDA_KEY(dealId)));
-    // Sin marca previa el bot nunca la movió: esta es la primera derivación y sí corresponde.
+    // La marca en Redis solo cubre lo movido desde que existe este resguardo; para lo anterior se
+    // mira el registro de derivaciones, que sí tiene historial. Sin ninguna de las dos, el bot nunca
+    // derivó esta negociación: es la primera vez y sí corresponde moverla.
+    const marca = Number(await r.get(MOVIDA_KEY(dealId))) || (await dbUltimaDerivacion(dealId)) || 0;
     if (!marca) return false;
     const d: any = await callCrm('crm.deal.get', { id: dealId, select: ['MOVED_BY_ID', 'MOVED_TIME'] }, auth);
     const cuando = d?.MOVED_TIME ? new Date(d.MOVED_TIME).getTime() : 0;

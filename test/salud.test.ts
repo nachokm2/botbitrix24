@@ -48,6 +48,7 @@ mock.module('../src/store.ts', {
 let envios = { total: 0, fallidos: 0, errores: [] as string[] };
 mock.module('../src/store/db.ts', {
   namedExports: {
+    dbUltimaDerivacion: async () => null,
     dbEnviosRecientes: async () => envios,
     dbMinutosDesdeUltimoTurno: async () => 10,
     dbInsertAudit: async () => {},

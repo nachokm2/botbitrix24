@@ -27,6 +27,7 @@ mock.module('../src/ai/client.ts', {
 let transcripciones: any[] = [];
 mock.module('../src/store/db.ts', {
   namedExports: {
+    dbUltimaDerivacion: async () => null,
     dbTranscripcionesRecientes: async () => transcripciones,
     dbInsertAudit: async () => {},
     // El mock reemplaza db.ts para TODO el grafo, así que debe exportar también lo que consumen los

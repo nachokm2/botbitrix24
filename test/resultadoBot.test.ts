@@ -11,6 +11,7 @@ let conversados: Array<{ dialogId: string; dealId: number }> = [];
 let derivados: any[] = [];
 mock.module('../src/store/db.ts', {
   namedExports: {
+    dbUltimaDerivacion: async () => null,
     dbDialogosConDeal: async () => conversados,
     dbDerivaciones: async () => derivados,
     dbInsertAudit: async () => {},

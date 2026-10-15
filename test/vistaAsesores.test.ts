@@ -10,6 +10,7 @@ process.env.REDIS_URL = '';
 let derivaciones: Array<{ dealId: number; ts: string; dialogId: string | null; motivo: string }> = [];
 mock.module('../src/store/db.ts', {
   namedExports: {
+    dbUltimaDerivacion: async () => null,
     dbDerivaciones: async () => derivaciones,
     dbInsertAudit: async () => {},
     // marchaBlanca.ts (de donde sale detectarBarridosEnBloque) importa estas dos: el mock debe

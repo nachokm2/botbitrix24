@@ -32,6 +32,7 @@ mock.module('../src/bitrix/client.ts', {
 let conversados: Array<{ dialogId: string; dealId: number }> = [];
 mock.module('../src/store/db.ts', {
   namedExports: {
+    dbUltimaDerivacion: async () => null,
     dbDialogosConDeal: async () => conversados,
     dbInsertAudit: async () => {},
     dbHuboOperadorDespuesDe: async () => false,

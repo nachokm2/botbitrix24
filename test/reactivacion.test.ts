@@ -11,6 +11,7 @@ process.env.BITRIX_UF_PROGRAMA = 'UF_PROG';
 let frias: any[] = [];
 mock.module('../src/store/db.ts', {
   namedExports: {
+    dbUltimaDerivacion: async () => null,
     dbConversacionesFrias: async () => frias,
     dbInsertAudit: async () => {},
     dbDialogosConDeal: async () => [],

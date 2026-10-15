@@ -33,6 +33,18 @@ mock.module('../src/store/kv.ts', {
   },
 });
 
+let ultimaDerivacion: number | null = null;
+mock.module('../src/store/db.ts', {
+  namedExports: {
+    dbUltimaDerivacion: async () => ultimaDerivacion,
+    dbInsertAudit: async () => {},
+    dbDerivaciones: async () => [],
+    dbDialogosConDeal: async () => [],
+    dbHuboOperadorDespuesDe: async () => false,
+    dbDialogosPorTextoPrograma: async () => [],
+  },
+});
+
 let deal: any = {};
 const llamadas: any[] = [];
 mock.module('../src/bitrix/client.ts', {
@@ -64,6 +76,7 @@ const movidas = () => llamadas.filter((c) => c.method === 'crm.deal.update');
 function reset() {
   llamadas.length = 0;
   almacen.clear();
+  ultimaDerivacion = null;
   deal = { CATEGORY_ID: '73', STAGE_ID: 'C73:UC_KY8NN7', CLOSED: 'N', MOVED_BY_ID: '0', MOVED_TIME: null };
   config.stageDerivado = { 73: 'C73:UC_9HGHNN' };
   config.embudosPropios = [73, 135];
@@ -143,4 +156,30 @@ test('una negociación de la que el bot no tiene marca nunca se considera gestio
   deal.MOVED_BY_ID = String(ASESOR);
   deal.MOVED_TIME = new Date().toISOString();
   assert.equal(await derivacionYaGestionada(5007, auth), false, 'el bot nunca la movió: no hay nada que respetar');
+});
+
+test('una negociación derivada ANTES de este resguardo también queda protegida', async () => {
+  // La marca en Redis solo existe para lo movido desde el despliegue. El problema de hoy está en lo
+  // anterior: negociaciones derivadas hace días que el asesor ya tomó. Para eso se mira el registro
+  // de derivaciones, que sí tiene historial.
+  reset();
+  const anteayer = Date.now() - 2 * 24 * 3600_000;
+  ultimaDerivacion = anteayer; // el bot la derivó, pero sin marca en Redis
+  deal.STAGE_ID = 'C73:UC_KY8NN7';
+  deal.MOVED_BY_ID = String(ASESOR);
+  deal.MOVED_TIME = new Date(anteayer + 3600_000).toISOString(); // el asesor la movió después
+
+  assert.equal(await derivacionYaGestionada(5008, auth), true);
+  assert.equal(await moverAEtapaDerivado(5008, auth), false);
+  assert.equal(deal.STAGE_ID, 'C73:UC_KY8NN7');
+});
+
+test('si el asesor la movió ANTES de que el bot derivara, no cuenta como gestión de esa derivación', async () => {
+  reset();
+  const ayer = Date.now() - 24 * 3600_000;
+  ultimaDerivacion = ayer;
+  deal.MOVED_BY_ID = String(ASESOR);
+  deal.MOVED_TIME = new Date(ayer - 3600_000).toISOString(); // una hora ANTES de derivar
+
+  assert.equal(await derivacionYaGestionada(5009, auth), false);
 });

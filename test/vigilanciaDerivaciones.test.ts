@@ -57,6 +57,7 @@ mock.module('../src/store.ts', {
 let huboOperador = false;
 mock.module('../src/store/db.ts', {
   namedExports: {
+    dbUltimaDerivacion: async () => null,
     dbHuboOperadorDespuesDe: async () => huboOperador,
     dbInsertAudit: async () => {},
   },

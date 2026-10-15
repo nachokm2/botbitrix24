@@ -26,6 +26,7 @@ mock.module('../src/bitrix/client.ts', {
 
 mock.module('../src/store/db.ts', {
   namedExports: {
+    dbUltimaDerivacion: async () => null,
     dbDialogosConDeal: async () => [],
     dbDialogosPorTextoPrograma: async () => [],
     dbInsertAudit: async () => {},

@@ -12,6 +12,7 @@ let agg: any = null;
 let hallazgos: any[] = [];
 mock.module('../src/store/db.ts', {
   namedExports: {
+    dbUltimaDerivacion: async () => null,
     dbMetricsSummary: async () => agg,
     dbHallazgosRecientes: async () => hallazgos,
     dbDerivaciones: async () => [],

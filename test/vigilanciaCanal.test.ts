@@ -10,6 +10,7 @@ process.env.REDIS_URL = '';
 let minutosDesdeUltimo: number | null = 10;
 mock.module('../src/store/db.ts', {
   namedExports: {
+    dbUltimaDerivacion: async () => null,
     dbMinutosDesdeUltimoTurno: async () => minutosDesdeUltimo,
     dbInsertAudit: async () => {},
     dbHuboOperadorDespuesDe: async () => false,

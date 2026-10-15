@@ -59,6 +59,7 @@ let dialogosConDeal: Array<{ dialogId: string; dealId: number }> = [];
 let dialogosPorTexto: Record<string, string[]> = {}; // match del programa -> dialogIds
 mock.module('../src/store/db.ts', {
   namedExports: {
+    dbUltimaDerivacion: async () => null,
     dbDialogosConDeal: async () => dialogosConDeal,
     dbDialogosPorTextoPrograma: async (prog: { match: string }) => dialogosPorTexto[prog.match] ?? [],
     // asignacionAsesores.ts audita la creación de tareas, y la auditoría escribe en db.

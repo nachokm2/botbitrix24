@@ -1284,6 +1284,34 @@ export async function dbDerivaciones(range = 'all'): Promise<Array<{ dealId: num
   }
 }
 
+/**
+ * Cuándo derivó el bot esta negociación por última vez, en epoch ms, o null.
+ *
+ * La marca en Redis solo existe para lo que el bot movió DESPUÉS de desplegar esa protección; esto
+ * cubre lo anterior, que es justo donde está el problema hoy: negociaciones derivadas hace días que
+ * un asesor ya tomó. Se usa `max(ts)`, la derivación más reciente, no la primera.
+ */
+export async function dbUltimaDerivacion(dealId: number): Promise<number | null> {
+  if (!pool || !Number.isFinite(dealId) || dealId <= 0) return null;
+  try {
+    const r = await pool.query(
+      `SELECT max(ts) ts
+       FROM audit_log
+       WHERE crm_entity = $1
+         AND (type='auto_escalation'
+              OR type='seguimiento_transferencia'
+              OR type='derivacion'
+              OR (type='tool_call' AND detail->>'name'='escalar_a_humano' AND detail->>'ok'='true'))`,
+      [`deal#${dealId}`],
+    );
+    const ts = r.rows?.[0]?.ts;
+    return ts ? new Date(ts).getTime() : null;
+  } catch (err) {
+    log.warn('dbUltimaDerivacion falló', { err: String(err), dealId });
+    return null;
+  }
+}
+
 /** Transcripciones de las conversaciones con actividad en las últimas `horas`, para la revisión
  *  automática (ai/revisionDiaria.ts). Una fila por diálogo, con el diálogo completo ya armado. */
 export async function dbTranscripcionesRecientes(
