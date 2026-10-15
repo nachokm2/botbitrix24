@@ -481,3 +481,29 @@ test('el prompt no puede contradecir a la herramienta de enlaces de pago', async
   assert.match(SYSTEM_PROMPT, /TÚ NO ELIGES EL MONTO/);
   assert.match(SYSTEM_PROMPT, /NO prometas enviarle otro enlace/);
 });
+
+test('los creditos se nombran Carnegie, nunca a secas ni como ECTS', async () => {
+  // "36 creditos" leido desde Latinoamerica o Espana se entiende como ECTS europeos, que son otra
+  // unidad: la persona se hace una idea equivocada del tamano del programa. Son Carnegie.
+  assert.match(SYSTEM_PROMPT, /CRÉDITOS CARNEGIE/);
+  assert.match(SYSTEM_PROMPT, /NO son ECTS/);
+  assert.match(SYSTEM_PROMPT, /NO conviertas ni estimes una equivalencia/);
+  assert.match(SYSTEM_PROMPT, /la resuelve la autoridad competente de su país/);
+});
+
+test('la ficha de cada programa dice Carnegie, no solo el prompt', async () => {
+  // El prompt se puede ignorar; el dato que entrega la herramienta no. Los 16 programas con grado
+  // declarado tienen que traerlo ya escrito.
+  const { readFileSync } = await import('node:fs');
+  const d = JSON.parse(readFileSync(new URL('../src/ai/carver.detalles.data.json', import.meta.url), 'utf8'));
+  let conCreditos = 0;
+  for (const [k, v] of Object.entries<any>(d)) {
+    for (const campo of ['grado', 'resumenPlan']) {
+      const val = v[campo];
+      if (typeof val !== 'string' || !/\d+\s*créditos/i.test(val)) continue;
+      conCreditos++;
+      assert.match(val, /créditos Carnegie/i, `${k}.${campo} dice creditos sin decir Carnegie`);
+    }
+  }
+  assert.ok(conCreditos >= 16, `solo ${conCreditos} campos con creditos`);
+});
