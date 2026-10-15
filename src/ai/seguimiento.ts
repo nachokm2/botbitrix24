@@ -13,6 +13,7 @@ import { recordTokens, inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
 import { asignarAsesorPorTurno, derivarAResponsableFijo } from '../crm/asignacionAsesores';
+import { derivacionYaGestionada } from '../crm/embudos';
 import { vigilarDerivacion, barrerVigilanciaDerivaciones } from '../crm/vigilanciaDerivaciones';
 import { primaryEntity, type CrmEntities } from '../crm/entities';
 
@@ -365,6 +366,15 @@ export async function barrerTransferenciasVencidas(): Promise<void> {
 
       const entities = await getJson<CrmEntities>(ENTITIES_KEY(dialogId));
       if (!entities || !(entities.deal || entities.lead || entities.contact)) continue;
+
+      // El asesor pudo tomar el caso en el CRM mientras esta transferencia esperaba su turno: mueve
+      // la etapa, llama, manda un correo. Nada de eso pasa por el chat, así que `humanTookOver`
+      // sigue en false y antes se derivaba igual, devolviendo la negociación a "Derivados Bot" sin
+      // que el cliente hubiera escrito una palabra.
+      if (entities.deal && (await derivacionYaGestionada(entities.deal, auth))) {
+        log.info('seguimiento: un asesor ya trabajó esta derivación; no se vuelve a derivar', { dialogId, deal: entities.deal });
+        continue;
+      }
 
       // Solo cuenta como "derivado" si REALMENTE asignó (deal real de uno de los 2 programas piloto,
       // no asignado antes) — antes se registraba igual aunque no aplicara (ej. sin deal todavía, o
