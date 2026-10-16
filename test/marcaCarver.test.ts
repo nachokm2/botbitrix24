@@ -558,3 +558,35 @@ test('los atributos nuevos de Carver estan cargados y con sus condiciones', asyn
   assert.ok(r.contenido.some((e: any) => /quedan grabadas/i.test(e.argumento)), 'se perdieron las grabaciones');
   assert.ok(texto.includes('George Washington Carver'), 'se perdio la beca de la planilla');
 });
+
+test('los 16 programas tienen duracion, y los modulos cuadran con la malla', async () => {
+  // Era el dato que mas se pregunta despues del precio y no existia en ninguna parte: el bot tenia
+  // "36 creditos" y "15 cuotas" a la vista, de donde deducir "15 meses" suena razonable y seria
+  // inventado. Lo confirmo la direccion el 16-10.
+  const { readFileSync } = await import('node:fs');
+  const d = JSON.parse(readFileSync(new URL('../src/ai/carver.detalles.data.json', import.meta.url), 'utf8'));
+  const cond = JSON.parse(readFileSync(new URL('../src/ai/carver.condiciones.data.json', import.meta.url), 'utf8')).programas;
+  const vend = new Map(cond.filter((p: any) => p.tipo === 'licenciatura' || p.tipo === 'maestria').map((p: any) => [p.nombre, p.tipo]));
+
+  let revisados = 0;
+  for (const v of Object.values<any>(d)) {
+    const tipo = vend.get(v.nombre);
+    if (!tipo) continue;
+    revisados++;
+    assert.ok(v.duracion, `${v.nombre} sin duracion`);
+    if (tipo === 'maestria') {
+      const meses = /Administración de Empresas/.test(v.nombre) ? 15 : 12;
+      assert.match(v.duracion, new RegExp(`^${meses} meses de clases`), v.nombre);
+      // Si se afirma un numero de modulos, tiene que ser el que lista la malla. Ergonomia declara
+      // 10 asignaturas con un proyecto de 9 creditos, asi que ahi NO se afirma ninguno.
+      const m = /\((\d+) módulos\)/.exec(v.duracion);
+      if (m) {
+        const asig = (v.planEstudios ?? []).reduce((t: number, e: any) => t + (e.asignaturas ?? []).length, 0);
+        assert.equal(Number(m[1]), asig, `${v.nombre}: dice ${m[1]} modulos y la malla lista ${asig}`);
+      }
+    } else {
+      assert.match(v.duracion, /años/, v.nombre);
+    }
+  }
+  assert.equal(revisados, 16);
+});
