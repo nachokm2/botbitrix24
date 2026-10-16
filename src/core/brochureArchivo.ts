@@ -1,4 +1,4 @@
-import { callCrm } from '../bitrix/client';
+import { callCrm, callCrmEnvelope } from '../bitrix/client';
 import { config } from '../config';
 import { log } from '../log';
 import type { Auth } from '../store';
@@ -51,11 +51,19 @@ function significativas(s: string): string[] {
     .filter((w) => w.length >= 4 && !VACIAS.has(w));
 }
 
-/** "L." y "M." son como Carver nombra sus archivos: licenciatura y maestría. */
+/**
+ * De qué nivel es el archivo: licenciatura o maestría.
+ *
+ * Conviven dos convenciones de nombre en la misma carpeta. La de Carver abrevia —"L. Psicología",
+ * "M. Psicología"— y la de Postgrados escribe el prefijo "BR-" con la palabra completa
+ * —"BR-Maestría en Ingeniería"—. Hay que entender las dos: si una no se reconoce, sus archivos
+ * quedan sin nivel y compiten con los del otro nivel que comparten tema, y entonces NINGUNO se
+ * entrega. Pasó con el MBA, que dejó de funcionar al subir la licenciatura homónima.
+ */
 function tipoDelArchivo(nombre: string): 'licenciatura' | 'maestria' | null {
-  const n = (nombre ?? '').trim().toLowerCase();
-  if (n.startsWith('l.')) return 'licenciatura';
-  if (n.startsWith('m.')) return 'maestria';
+  const n = (nombre ?? '').trim().toLowerCase().replace(/^br-\s*/, '').normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (n.startsWith('l.') || n.startsWith('licenciatura') || n.startsWith('bachelor')) return 'licenciatura';
+  if (n.startsWith('m.') || n.startsWith('maestria') || n.startsWith('magister') || n.startsWith('master')) return 'maestria';
   return null;
 }
 
@@ -71,10 +79,22 @@ async function listarPdfs(auth: Auth): Promise<ArchivoDrive[]> {
   if (cache && ahora - cache.at < CACHE_MS) return cache.archivos;
   if (!config.driveFolderBrochuresCarver) return [];
   try {
-    const r: any = await callCrm('disk.folder.getchildren', { id: config.driveFolderBrochuresCarver }, auth);
-    const archivos = (Array.isArray(r) ? r : [])
-      .filter((h: any) => h?.TYPE !== 'folder' && /\.pdf$/i.test(String(h?.NAME ?? '')))
-      .map((h: any) => ({ id: Number(h.ID), nombre: String(h.NAME) }));
+    // Bitrix pagina de a 50. La carpeta de Carver ya tiene 66 elementos, asi que leer solo la
+    // primera pagina dejaba invisibles los archivos subidos despues — que es exactamente lo que
+    // paso con los once brochures del 16-10: estaban cargados y el bot no los veia.
+    const archivos: ArchivoDrive[] = [];
+    let start = 0;
+    for (let pagina = 0; pagina < 20; pagina++) {
+      const env: any = await callCrmEnvelope('disk.folder.getchildren', { id: config.driveFolderBrochuresCarver, start }, auth);
+      const hijos = Array.isArray(env?.result) ? env.result : [];
+      for (const h of hijos) {
+        if (h?.TYPE !== 'folder' && /\.pdf$/i.test(String(h?.NAME ?? ''))) {
+          archivos.push({ id: Number(h.ID), nombre: String(h.NAME) });
+        }
+      }
+      if (env?.next === undefined || env?.next === null || !hijos.length) break;
+      start = Number(env.next);
+    }
     cache = { at: ahora, archivos };
     return archivos;
   } catch (e) {

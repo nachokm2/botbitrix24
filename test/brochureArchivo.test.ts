@@ -13,7 +13,7 @@ process.env.REDIS_URL = '';
 process.env.CHATAPP_LICENSE_ID = '50126'; // sin licencia el envio se considera desactivado
 
 // Los nombres son los reales del Drive de Carver, con sus duplicados "(1)".
-const ARCHIVOS = [
+const BASE = [
   { ID: '3960133', NAME: 'Webpage de Carver', TYPE: 'folder' },
   { ID: '2471837', NAME: 'L. Psicología - Carver University.pdf' },
   { ID: '2471839', NAME: 'L. Ingeniería Informática - Carver University.pdf' },
@@ -26,13 +26,27 @@ const ARCHIVOS = [
   { ID: '2514661', NAME: 'GRÁFICA WSP-GENÉRICA BACHELOR.jpg' },
 ];
 
+// Relleno hasta pasar los 50 de una página. La carpeta real tiene 66 elementos, y leer solo la
+// primera página dejaba invisibles los archivos subidos después: los once brochures del 16-10
+// estaban cargados y el bot no los veía. Sin este relleno, ese bug no se nota en las pruebas.
+const RELLENO = Array.from({ length: 55 }, (_, i) => ({ ID: `90${i}`, NAME: `grafica-${i}.jpg` }));
+
+// Suben con la convención de Postgrados: prefijo "BR-" y el nivel escrito completo, no abreviado.
+const SEGUNDA_PAGINA = [
+  { ID: '21293249', NAME: 'BR-Maestría en Inteligencia Artificial.pdf' },
+  { ID: '21293243', NAME: 'BR-Licenciatura en Administración de Empresas.pdf' },
+  { ID: '21293229', NAME: 'BR-Maestría en Ingeniería.pdf' },
+];
+
+const ARCHIVOS = [...BASE, ...RELLENO, ...SEGUNDA_PAGINA];
+
 let contacto: any = { PHONE: [{ VALUE: '+56912345678', VALUE_TYPE: 'MOBILE' }] };
 let fallaDrive = false;
 mock.module('../src/bitrix/client.ts', {
   namedExports: {
     callCrm: async (method: string, params: any) => {
       if (fallaDrive) throw new Error('Bitrix no responde');
-      if (method === 'disk.folder.getchildren') return ARCHIVOS;
+      if (method === 'disk.folder.getchildren') return ARCHIVOS.slice(params.start ?? 0, (params.start ?? 0) + 50);
       if (method === 'disk.file.get') {
         const a = ARCHIVOS.find((x) => x.ID === String(params.id));
         return a ? { ID: a.ID, NAME: a.NAME, DOWNLOAD_URL: `https://portal.test/descarga/${a.ID}` } : {};
@@ -42,7 +56,15 @@ mock.module('../src/bitrix/client.ts', {
     },
     callBitrix: async () => ({}),
     callBitrixEnvelope: async () => ({ result: {} }),
-    callCrmEnvelope: async () => ({ result: [] }),
+    // Bitrix pagina de a 50 y devuelve "next" mientras quede algo.
+    callCrmEnvelope: async (method: string, params: any) => {
+      if (fallaDrive) throw new Error('Bitrix no responde');
+      if (method !== 'disk.folder.getchildren') return { result: [] };
+      const start = Number(params?.start ?? 0);
+      const pagina = ARCHIVOS.slice(start, start + 50);
+      const next = start + 50 < ARCHIVOS.length ? start + 50 : undefined;
+      return { result: pagina, total: ARCHIVOS.length, next };
+    },
     callWebhook: async () => ({}),
   },
 });
@@ -109,7 +131,7 @@ test('entre un archivo y su duplicado "(1)" elige el original', async () => {
 
 test('un programa sin PDF no recibe el de otro', async () => {
   reset();
-  for (const p of ['Maestría en Inteligencia Artificial', 'Maestría en Neurodivergencia', 'Maestría en Salud Mental']) {
+  for (const p of ['Maestría en Neurodivergencia', 'Maestría en Salud Mental', 'Maestría en Arquitectura de Software']) {
     const r: any = await archivoDelBrochure(p, auth);
     assert.equal(r.ok, false, p);
     assert.equal(r.motivo, 'sin_archivo', p);
@@ -172,4 +194,40 @@ test('sin contacto no se envía a ninguna parte', async () => {
   assert.equal(r.enviado, false);
   assert.equal(r.motivo, 'sin_telefono');
   assert.equal(enviados.length, 0);
+});
+
+// ── Los dos bugs del 16-10 ───────────────────────────────────────────────────────────────────────
+test('encuentra archivos que están MÁS ALLÁ de la primera página del Drive', async () => {
+  // Bitrix devuelve 50 elementos por página. La carpeta de Carver tiene 66, así que los once
+  // brochures recién subidos quedaban invisibles: el usuario los veía cargados y el bot decía que
+  // no existían. Sin paginar, esta prueba falla.
+  reset();
+  const r: any = await archivoDelBrochure('Maestría en Inteligencia Artificial', auth);
+  assert.equal(r.ok, true, 'está en la segunda página');
+  assert.equal(String(r.fileId), '21293249');
+});
+
+test('entiende el prefijo "BR-" con el nivel escrito completo', async () => {
+  // Conviven dos convenciones en la misma carpeta: "M. Psicología" (Carver) y "BR-Maestría en
+  // Ingeniería" (Postgrados). Hay que leer el nivel de las dos.
+  reset();
+  const r: any = await archivoDelBrochure('Maestría en Ingeniería', auth);
+  assert.equal(r.ok, true);
+  assert.match(r.nombre, /^BR-Maestría en Ingeniería/);
+});
+
+test('subir la licenciatura NO deja sin brochure a la maestría homónima', async () => {
+  // El riesgo concreto: "BR-Licenciatura en Administración de Empresas" comparte todas sus palabras
+  // clave con "M. Administración de Empresas". Si el prefijo "BR-" no se reconociera como nivel, el
+  // archivo quedaría sin nivel, competiría con el de la maestría y NINGUNO se entregaría — el MBA
+  // dejaría de funcionar justo al agregar un archivo nuevo.
+  reset();
+  const mba: any = await archivoDelBrochure('Maestría en Administración de Empresas MBA', auth);
+  assert.equal(mba.ok, true, 'el MBA sigue teniendo su brochure');
+  assert.equal(String(mba.fileId), '2475415');
+
+  const lic: any = await archivoDelBrochure('Licenciatura en Administración de Empresas', auth);
+  assert.equal(lic.ok, true);
+  assert.equal(String(lic.fileId), '21293243');
+  assert.notEqual(mba.fileId, lic.fileId);
 });
