@@ -196,9 +196,21 @@ async function handle(req: Request) {
   }
 
   if (asesoresDisponibles()) {
+    // No basta con callar: el canal está configurado con "No transferir", así que si el bot recibe
+    // la conversación y no hace nada, NADIE la recibe después y la persona queda esperando para
+    // siempre. Se entrega a la cola en el acto, que es lo que haría el canal si el bot no existiera.
+    let entregada = false;
+    try {
+      await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: chatId }, auth);
+      entregada = true;
+      if (marca.traspasoPorSesion) await marcarTraspaso(dialogId, sesion, 'horario_asesores');
+      void cancelarSeguimiento(dialogId);
+    } catch (e) {
+      log.warn('no se pudo entregar la sesión a la cola en horario de asesores', { err: String(e), dialogId, chatId });
+    }
     inc('bot_en_silencio_horario');
-    void audit({ type: 'bot_en_silencio', dialogId, detail: { motivo: 'horario_asesores', detalle: motivoHorario() } });
-    return log.info('botMessage: hay asesores atendiendo; bot en silencio', { dialogId, motivo: motivoHorario() });
+    void audit({ type: 'bot_en_silencio', dialogId, detail: { motivo: 'horario_asesores', detalle: motivoHorario(), entregada } });
+    return log.info('botMessage: hay asesores atendiendo; sesión entregada a la cola', { dialogId, motivo: motivoHorario(), entregada });
   }
 
   if (sessChanged) await saveSession(dialogId, sess);

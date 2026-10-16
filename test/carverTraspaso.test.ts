@@ -194,3 +194,33 @@ test('si Bitrix no responde la lista de participantes, el bot atiende igual', as
   participantes = original;
   _limpiarCacheOperadores();
 });
+
+// ── Horario de asesores: callar NO basta ─────────────────────────────────────────────────────────
+// El canal quedó configurado con "No transferir" (WELCOME_BOT_TIME 0), así que si el bot recibe la
+// conversación y no hace nada, nadie la recibe después: la persona espera para siempre. Antes había
+// un respaldo de 600 segundos; ya no.
+test('en horario de asesores el bot ENTREGA la sesión a la cola, no solo calla', async () => {
+  const { config } = await import('../src/config');
+  const antes = { act: config.horarioAsesoresActivo, ini: config.horarioAsesoresInicio, fin: config.horarioAsesoresFin, dias: config.horarioAsesoresDias };
+  // Se fuerza "siempre hay asesores" para que la prueba no dependa de la hora en que se ejecute.
+  config.horarioAsesoresActivo = true;
+  config.horarioAsesoresInicio = '00:00';
+  config.horarioAsesoresFin = '24:00';
+  config.horarioAsesoresDias = [0, 1, 2, 3, 4, 5, 6];
+  turnos = 0;
+  llamadas.length = 0;
+  auditorias.length = 0;
+
+  botMessageHandler(eventoDe(40, '1500001', '767389', 'chat-horario') as any, res);
+  await esperar(() => auditorias.some((a) => a.type === 'bot_en_silencio'));
+
+  assert.equal(turnos, 0, 'el bot no responde');
+  assert.equal(llamadas.filter((c) => c.method === 'imbot.message.add').length, 0, 'no le escribe al cliente');
+  const entrega = llamadas.find((c) => c.method === 'imopenlines.bot.session.operator');
+  assert.ok(entrega, 'entrega la sesión a la cola para que la tome un asesor');
+  const a = auditorias.find((x) => x.type === 'bot_en_silencio' && x.detail.motivo === 'horario_asesores');
+  assert.ok(a, 'queda auditado');
+  assert.equal(a.detail.entregada, true);
+
+  Object.assign(config, { horarioAsesoresActivo: antes.act, horarioAsesoresInicio: antes.ini, horarioAsesoresFin: antes.fin, horarioAsesoresDias: antes.dias });
+});
