@@ -577,8 +577,10 @@ test('los 16 programas tienen duracion, y los modulos cuadran con la malla', asy
     if (tipo === 'maestria') {
       const meses = /Administración de Empresas/.test(v.nombre) ? 15 : 12;
       assert.match(v.duracion, new RegExp(`^${meses} meses de clases`), v.nombre);
-      // Si se afirma un numero de modulos, tiene que ser el que lista la malla. Ergonomia declara
-      // 10 asignaturas con un proyecto de 9 creditos, asi que ahi NO se afirma ninguno.
+      // El numero de modulos tiene que ser el que lista la malla, SIEMPRE. No es una formalidad:
+      // Ergonomia Ocupacional tiene 10 modulos en 12 meses —confirmado por la direccion— mientras
+      // las otras doce maestrias tienen 12. Dar por hecho que meses y modulos coinciden habria
+      // puesto un numero inventado en la unica que no sigue la regla.
       const m = /\((\d+) módulos\)/.exec(v.duracion);
       if (m) {
         const asig = (v.planEstudios ?? []).reduce((t: number, e: any) => t + (e.asignaturas ?? []).length, 0);
@@ -589,4 +591,18 @@ test('los 16 programas tienen duracion, y los modulos cuadran con la malla', asy
     }
   }
   assert.equal(revisados, 16);
+});
+
+test('Ergonomía declara 10 módulos, no 12: los meses no siempre son módulos', async () => {
+  // La regla general es 12 meses con 12 módulos, pero esta maestría tiene 10 y llega igual a 36
+  // créditos porque su Proyecto Integrador vale 9 en vez de 3. Confirmado por la dirección el
+  // 16-10. Es la excepción que haría inventar un número a quien asuma la regla.
+  const { readFileSync } = await import('node:fs');
+  const d = JSON.parse(readFileSync(new URL('../src/ai/carver.detalles.data.json', import.meta.url), 'utf8'));
+  const v = d['maestria-en-ergonomia-ocupacional-y-gestion'];
+  assert.equal(v.duracion, '12 meses de clases (10 módulos)');
+  const asig = v.planEstudios.reduce((t: number, e: any) => t + e.asignaturas.length, 0);
+  const cred = v.planEstudios.reduce((t: number, e: any) => t + e.asignaturas.reduce((u: number, a: any) => u + (a.creditos ?? 0), 0), 0);
+  assert.equal(asig, 10);
+  assert.equal(cred, 36, 'llega a 36 con un proyecto de 9 créditos');
 });
