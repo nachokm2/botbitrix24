@@ -526,3 +526,35 @@ test('los creditos declarados cuadran con lo que suma la malla', async () => {
   }
   assert.ok(revisados >= 16, `solo se revisaron ${revisados} programas`);
 });
+
+test('los atributos nuevos de Carver estan cargados y con sus condiciones', async () => {
+  // Documento Carver_Atributos_Estrategicos_2026_Actualizado.docx. Lo importante no son los
+  // atributos sino sus LIMITES: varios beneficios son para estudiantes regulares, o dependen de
+  // cupos, o los gestiona la consejera. Presentarlos como acceso libre promete lo que no hay.
+  const { consultarInformacionInstitucional } = await import('../src/core/conocimientoComercial');
+  const r: any = consultarInformacionInstitucional('argumentos_venta');
+  assert.equal(r.disponible, true);
+  const texto = JSON.stringify(r.contenido);
+
+  for (const termino of ['Office Hours', 'NOOCs', 'Carver Global Talks', 'Coursera', 'Canvas', 'Capstone', 'Global Academic Network', 'Cum Laude']) {
+    assert.match(texto, new RegExp(termino, 'i'), `falta el atributo: ${termino}`);
+  }
+
+  // Las condiciones, que son lo que evita prometer de mas.
+  const coursera = r.contenido.find((e: any) => /coursera/i.test(e.detalle));
+  assert.match(coursera.detalle, /CURSOS SELECCIONADOS/, 'Coursera no es el catalogo completo');
+  assert.match(coursera.detalle, /CONSEJERA ACAD/i, 'lo gestiona la consejera, no es automatico');
+
+  const noocs = r.contenido.find((e: any) => /noocs/i.test(e.detalle));
+  assert.match(noocs.detalle, /ESTUDIANTES REGULARES/, 'los NOOCs son para estudiantes regulares');
+  assert.match(noocs.detalle, /CUPOS DISPONIBLES/, 'los bootcamps dependen de cupos');
+
+  // La apostilla acredita autenticidad, NO reconocimiento: es la objecion numero uno.
+  const licencia = r.contenido.find((e: any) => /12743/.test(e.detalle));
+  assert.match(licencia.detalle, /AUTENTICIDAD/);
+  assert.match(licencia.detalle, /depende de la normativa de cada país/);
+
+  // Lo que no venia en el documento pero confirmo la direccion no se perdio al reemplazarlo.
+  assert.ok(r.contenido.some((e: any) => /quedan grabadas/i.test(e.argumento)), 'se perdieron las grabaciones');
+  assert.ok(texto.includes('George Washington Carver'), 'se perdio la beca de la planilla');
+});

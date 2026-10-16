@@ -80,75 +80,60 @@
       ]
     },
     "argumentos_venta": {
-      "titulo": "Argumentos de venta y atributos de Carver",
+      "titulo": "Atributos diferenciadores institucionales",
       "estado": "validado",
-      "fuente": "Carver_Atributos_Estrategicos_2026 Rev. HLH 15.06.2026.docx (dirección Carver)",
+      "fuente": "Carver_Atributos_Estrategicos_2026_Actualizado.docx (dirección Carver)",
       "responsable": "Dirección Carver University",
       "vigenteHasta": "2027-06-30",
-      "actualizado": "2026-10-14",
-      "formato": "Un argumento por entrada.",
+      "actualizado": "2026-10-16",
+      "formato": "Un atributo por entrada (A01–A08 del documento oficial), más la beca de la planilla validada y las grabaciones confirmadas por la dirección.",
       "camposObligatorios": [
         "argumento",
         "detalle"
       ],
       "entradas": [
         {
-          "argumento": "Licencia para operar",
-          "detalle": "Opera bajo licencia del Florida Department of Education, Commission for Independent Education (CIE), licencia N.º 12743. No es acreditación."
+          "argumento": "A01 · Universidad estadounidense con licencia estatal vigente en Florida",
+          "detalle": "Universidad estadounidense con sede en Florida, opera bajo la Licencia N.º 12743 de la Commission for Independent Education del Estado de Florida. Esa condición le permite ofrecer programas y otorgar títulos válidos y oficiales dentro del marco regulatorio aplicable. Oferta de licenciaturas y maestrías impartidas desde Estados Unidos, con títulos emitidos allá conforme a su licencia institucional. Diploma digital con apostilla de La Haya: la apostilla acredita la AUTENTICIDAD del documento; su reconocimiento académico o profesional depende de la normativa de cada país."
         },
         {
-          "argumento": "Títulos apostillados",
-          "detalle": "Título y registro de calificaciones con Apostilla de La Haya, en digital; en físico a pedido."
+          "argumento": "A02 · Faculty internacional con experiencia comprobable",
+          "detalle": "Cuerpo docente de académicos y profesionales con formación de posgrado y experiencia en investigación, liderazgo organizacional y ejercicio profesional. Clases en vivo para dialogar con docentes, resolver dudas, analizar casos y compartir experiencias con estudiantes de distintos países. Participación SIN COSTO ADICIONAL para estudiantes regulares en seminarios internacionales certificados y otras actividades académicas de la universidad. Carver Global Talks y encuentros con especialistas que amplían la exposición a perspectivas internacionales y sectoriales."
         },
         {
-          "argumento": "Modalidad",
-          "detalle": "100% en línea, con clases en vivo en español."
+          "argumento": "A03 · Formación 100% online y completamente en español",
+          "detalle": "Modelo académico diseñado para educación online: contenidos asincrónicos, actividades prácticas, recursos multimedia, evaluaciones formativas e instancias sincrónicas. Permite estudiar desde cualquier lugar y compatibilizar con responsabilidades laborales, familiares y personales. Programas completamente en español y sin necesidad de trasladarse a Estados Unidos. Admisión, inscripción y acompañamiento 100% online. Distintas fechas de inicio durante el año, según la programación y disponibilidad de cada programa."
         },
         {
-          "argumento": "Acompañamiento",
-          "detalle": "Asesor académico, clases con docentes y biblioteca disponible 24/7."
+          "argumento": "A04 · Acompañamiento real en todos los niveles",
+          "detalle": "Desde la admisión hasta la graduación cada estudiante recibe orientación académica y administrativa, con un modelo de atención que busca detectar tempranamente las dificultades. Atención personalizada en admisión e inscripción. Asignación de una consejera académica (Academic Advisor) que acompaña durante todo el programa. Welcome Program para conocer la universidad, el programa y las plataformas. Correo institucional de Carver University. OFFICE HOURS: reuniones uno a uno con profesores para resolver dudas. Sello Cum Laude otorgado por Emagister a partir de valoraciones positivas de estudiantes."
+        },
+        {
+          "argumento": "A05 · Educación con propósito e impacto profesional",
+          "detalle": "Programas orientados a competencias aplicables a desafíos reales: conocimientos actualizados, análisis de casos, resolución de problemas y proyectos. Alineados con necesidades actuales del mercado laboral, con enfoque práctico. Capstone Project como instancia final de integración. Centro de Investigación, Innovación y Tecnología (CRIT), donde estudiantes destacados pueden compartir trabajos académicos y Capstone Projects, SUJETO A EVALUACIÓN INSTITUCIONAL. Alianzas con organizaciones como Sabentis, Macrobots y Fundación ORP, entre otras."
+        },
+        {
+          "argumento": "A06 · Internacionalización accesible y comunidad global",
+          "detalle": "Acerca una experiencia universitaria estadounidense sin exigir movilidad física. Comunidad de estudiantes, docentes y especialistas de distintos países, especialmente de América Latina. Participación en la Global Academic Network, red educativa internacional que reúne a más de 60.000 estudiantes en Estados Unidos, Europa y América del Sur. Clases espejo, experiencias COIL, encuentros y seminarios internacionales. Becas y beneficios económicos SUJETOS A DISPONIBILIDAD, y pago por los canales oficiales Flywire y PayPal."
+        },
+        {
+          "argumento": "A07 · Innovación tecnológica y recursos para el aprendizaje",
+          "detalle": "Plataforma CANVAS para acceder a asignaturas, materiales, evaluaciones y actividades. Biblioteca digital internacional y recursos complementarios para estudio e investigación. COURSERA: acceso sin costo adicional a CURSOS SELECCIONADOS ofrecidos por otras universidades, GESTIONADO A TRAVÉS DE LA CONSEJERA ACADÉMICA — no es acceso abierto al catálogo completo ni automático. Uso formativo de herramientas tecnológicas y de inteligencia artificial desde una perspectiva ética, crítica y profesional."
+        },
+        {
+          "argumento": "A08 · Rutas complementarias para la actualización permanente",
+          "detalle": "Formación que amplía competencias sin extender necesariamente la duración del programa. NOOCs: participación sin costo adicional, disponibles PARA ESTUDIANTES REGULARES de Carver University. Acceso preferencial a actividades especiales como bootcamps, DE ACUERDO CON LA PROGRAMACIÓN Y LOS CUPOS DISPONIBLES. Learning Pathways y microcredenciales en inteligencia artificial, liderazgo, programación, salud mental, comunicación, ciberseguridad y desarrollo organizacional."
         },
         {
           "argumento": "Beca",
           "detalle": "Beca George Washington Carver Grant del 50% en licenciaturas y maestrías (planilla comercial validada)."
         },
         {
-          "argumento": "Universidad estadounidense con licencia estatal vigente en Florida",
-          "detalle": "Opera bajo licencia estatal vigente en el Estado de Florida, lo que le permite otorgar grados académicos dentro de un marco regulatorio reconocido. Da certeza jurídica de acceder a educación superior internacional real, con respaldo verificable y sin movilidad física."
-        },
-        {
-          "argumento": "Faculty internacional con experiencia comprobable",
-          "detalle": "Académicos y profesionales con formación de posgrado, investigación, liderazgo organizacional y ejercicio profesional. Se suman iniciativas como Carver Global Talks, seminarios especializados y ciclos de conversación con expertos de distintos países."
-        },
-        {
-          "argumento": "Formación 100% online diseñada para serlo",
-          "detalle": "No son clases presenciales grabadas: cada asignatura se concibe desde su origen para el formato online. Combina contenidos asincrónicos, actividades prácticas, recursos multimedia y evaluaciones, MÁS clases sincrónicas en vivo con profesores y compañeros de distintos países."
-        },
-        {
-          "argumento": "Acompañamiento real en todos los niveles",
-          "detalle": "Desde la admisión hasta la graduación hay acceso directo a Academic Advisors, Directores de Programa y equipos de soporte. El seguimiento es proactivo: busca detectar a tiempo dificultades académicas o administrativas. Los estudiantes hispanohablantes cuentan con soporte en español."
-        },
-        {
-          "argumento": "Educación con propósito e impacto",
-          "detalle": "Los programas desarrollan competencias aplicadas desde el primer día: resolución de problemas reales, análisis de casos y proyectos integradores. Los contenidos se revisan de forma permanente para mantener su pertinencia."
-        },
-        {
-          "argumento": "Internacionalización al alcance de más personas",
-          "detalle": "Combina flexibilidad, comunidad académica internacional y una estructura de costos accesible. Clases espejo, experiencias COIL, seminarios internacionales y actividades colaborativas permiten desarrollar competencias globales sin trasladarse ni dejar el trabajo."
-        },
-        {
-          "argumento": "Innovación tecnológica al servicio del aprendizaje",
-          "detalle": "Acceso a Canvas, biblioteca digital internacional y herramientas basadas en inteligencia artificial. La universidad además forma en el uso ético, crítico y profesional de esas tecnologías."
-        },
-        {
-          "argumento": "Learning Pathways: microcredenciales incluidas",
-          "detalle": "Rutas formativas y microcredenciales en áreas como inteligencia artificial, liderazgo, programación, salud mental, comunicación, ciberseguridad y desarrollo organizacional. No extienden la duración del programa ni tienen costo adicional para estudiantes regulares."
-        },
-        {
           "argumento": "Las clases en vivo quedan grabadas",
           "detalle": "Las clases sincrónicas en vivo quedan grabadas y disponibles después, así que quien no pueda conectarse en el horario puede verlas más tarde. Es lo que hace viable el programa para profesionales que trabajan. No confundir con 'clases presenciales grabadas': los contenidos se diseñan desde el origen para el formato online."
         }
-      ]
+      ],
+      "_principioRector": "Del propio documento: cada atributo debe corresponder a una experiencia que Carver University pueda acreditar y entregar de manera consistente. Las condiciones en MAYÚSCULAS son las del documento y existen para que el bot no prometa de más: Coursera es un catálogo seleccionado y gestionado por la consejera, los NOOCs son para estudiantes regulares, los bootcamps dependen de cupos y el CRIT de evaluación institucional."
     },
     "enlace_postulacion": {
       "titulo": "Enlace oficial de postulación del agente de ventas",
