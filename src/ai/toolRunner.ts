@@ -281,11 +281,7 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
       }
 
       case 'consultar_informacion_institucional': {
-        let asesorId: number | null = null;
-        if (input?.tema === 'enlace_postulacion' && ctx.crmEntities?.deal) {
-          asesorId = (await getDealInfo(ctx.crmEntities.deal, ctx.auth)).responsableId;
-        }
-        const r = consultarInformacionInstitucional(String(input?.tema ?? ''), { asesorId });
+        const r = consultarInformacionInstitucional(String(input?.tema ?? ''));
         await audit({
           type: 'conocimiento',
           dialogId: ctx.conversationId,

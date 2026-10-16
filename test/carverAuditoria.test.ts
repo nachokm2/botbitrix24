@@ -210,22 +210,14 @@ test('conocimiento: vencido, incompleto, contradictorio o sin fuente → no disp
   assert.equal((consultarInformacionInstitucional('calendario_ingresos', { hoy }, sinFuente as any) as any).motivo, 'sin_fuente');
 });
 
-test('conocimiento: el enlace de postulación es el del asesor de ESTE caso, nunca el de otro', () => {
-  const b = base({
-    enlace_postulacion: tema({
-      camposObligatorios: ['asesorId', 'asesor', 'url'],
-      entradas: [
-        { asesorId: 685357, asesor: 'Asesor A', url: 'https://apply.example/a' },
-        { asesorId: 685355, asesor: 'Asesor B', url: 'https://apply.example/b' },
-      ],
-    }),
-  });
-  const a: any = consultarInformacionInstitucional('enlace_postulacion', { hoy, asesorId: 685357 }, b as any);
-  assert.equal(a.contenido[0].url, 'https://apply.example/a');
-  const sinAsesor: any = consultarInformacionInstitucional('enlace_postulacion', { hoy, asesorId: null }, b as any);
-  assert.equal(sinAsesor.motivo, 'sin_asesor_asignado');
-  const otro: any = consultarInformacionInstitucional('enlace_postulacion', { hoy, asesorId: 999 }, b as any);
-  assert.equal(otro.motivo, 'sin_enlace_para_el_asesor');
+test('ya NO existe un tema de enlace de postulación, y es a propósito', () => {
+  // Cada asesor tenía su formulario externo. Ahora el bot pide los 14 antecedentes en la propia
+  // conversación y los deja en el CRM: mandar a la persona a otra página es donde se cae la mitad
+  // de la gente. Un tema vacío sería una invitación a mencionar un enlace que no existe.
+  assert.ok(!TEMAS.includes('enlace_postulacion' as any), 'el tema no debe volver a la lista');
+  const r: any = consultarInformacionInstitucional('enlace_postulacion');
+  assert.equal(r.ok, false);
+  assert.equal(r.error, 'TEMA_DESCONOCIDO');
 });
 
 test('conocimiento: un tema desconocido se rechaza', () => {

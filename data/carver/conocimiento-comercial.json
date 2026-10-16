@@ -135,21 +135,6 @@
       ],
       "_principioRector": "Del propio documento: cada atributo debe corresponder a una experiencia que Carver University pueda acreditar y entregar de manera consistente. Las condiciones en MAYÚSCULAS son las del documento y existen para que el bot no prometa de más: Coursera es un catálogo seleccionado y gestionado por la consejera, los NOOCs son para estudiantes regulares, los bootcamps dependen de cupos y el CRIT de evaluación institucional."
     },
-    "enlace_postulacion": {
-      "titulo": "Enlace oficial de postulación del agente de ventas",
-      "estado": "pendiente",
-      "fuente": null,
-      "responsable": null,
-      "vigenteHasta": null,
-      "actualizado": null,
-      "formato": "Una entrada por asesor de ventas (ID de usuario de Bitrix24) con su enlace oficial de postulación.",
-      "camposObligatorios": [
-        "asesorId",
-        "asesor",
-        "url"
-      ],
-      "entradas": []
-    },
     "proceso_admision": {
       "titulo": "Proceso de admisión y matrícula",
       "estado": "validado",
@@ -252,5 +237,6 @@
         }
       ]
     }
-  }
+  },
+  "_sobreLaPostulacion": "No hay tema de \"enlace de postulacion\" y es a proposito: cada asesor tenia su formulario externo, y ahora el bot pide los 14 antecedentes en la propia conversacion y los deja en el CRM (ver src/crm/matricula.ts). Mandar a la persona a otra pagina es donde se cae la mitad de la gente."
 }

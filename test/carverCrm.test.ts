@@ -410,9 +410,13 @@ test('información institucional: toda consulta queda auditada, se tenga o no el
   assert.equal(a.detail.disponible, r.disponible, 'la auditoría registra si se pudo responder');
 });
 
-test('información institucional: un tema sin cargar devuelve la instrucción de no inventar', async () => {
+test('información institucional: un tema que no existe devuelve la instrucción de no inventar', async () => {
+  // Antes se probaba con "enlace_postulacion", que estaba cargado pero vacío. Ese tema ya no existe
+  // —el bot toma los antecedentes él mismo— así que ahora se prueba con uno inventado, que es el
+  // caso que de verdad hay que cubrir: el modelo pidiendo algo que no está.
   reset();
-  const r: any = await executeTool('consultar_informacion_institucional', { tema: 'enlace_postulacion' }, ctx() as any);
-  assert.equal(r.disponible, false);
+  const r: any = await executeTool('consultar_informacion_institucional', { tema: 'requisitos_visa' }, ctx() as any);
+  assert.equal(r.ok, false);
+  assert.equal(r.error, 'TEMA_DESCONOCIDO');
   assert.match(r.instruccion, /NO lo inventes/);
 });

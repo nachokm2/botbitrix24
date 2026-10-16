@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 /**
- * Base de conocimiento comercial VERIFICABLE (calendario de ingresos, argumentos de venta, enlace de
- * postulación del asesor y proceso de admisión).
+ * Base de conocimiento comercial VERIFICABLE (calendario de ingresos, atributos institucionales,
+ * proceso de admisión y medios de pago).
  *
  * El problema que resuelve no es técnico sino de procedencia: estos datos los pide el cliente todos
  * los días y hoy no existen en ninguna fuente que el bot pueda citar. En el piloto, un asesor le dio
@@ -19,7 +19,6 @@ import { fileURLToPath } from 'node:url';
 export const TEMAS = [
   'calendario_ingresos',
   'argumentos_venta',
-  'enlace_postulacion',
   'proceso_admision',
   'medios_de_pago',
 ] as const;
@@ -68,7 +67,7 @@ function completa(e: EntradaTema, campos: string[]): boolean {
 
 export function consultarInformacionInstitucional(
   temaPedido: string,
-  opts: { hoy?: Date; asesorId?: number | null } = {},
+  opts: { hoy?: Date } = {},
   base: BaseConocimiento = BASE_CONOCIMIENTO,
 ): ResultadoConocimiento {
   const tema = TEMAS.find((t) => t === temaPedido);
@@ -116,14 +115,6 @@ export function consultarInformacionInstitucional(
     });
   }
 
-  if (tema === 'enlace_postulacion') {
-    // El enlace es PERSONAL del asesor de ventas: sin asesor resuelto no hay enlace que entregar.
-    if (!opts.asesorId) return noDisponible('sin_asesor_asignado');
-    entradas = entradas.filter((e) => Number(e.asesorId) === opts.asesorId && /^https:\/\//.test(String(e.url)));
-    if (!entradas.length) return noDisponible('sin_enlace_para_el_asesor');
-    if (new Set(entradas.map((e) => String(e.url))).size > 1) return noDisponible('contradictorio');
-    entradas = entradas.slice(0, 1);
-  }
 
   return { ok: true, tema, disponible: true, contenido: entradas, fuente: def.fuente, vigenteHasta: def.vigenteHasta };
 }
