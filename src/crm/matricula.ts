@@ -37,7 +37,7 @@ export type DatosMatricula = {
 };
 
 /** Qué falta todavía, con el nombre que entiende una persona. */
-const ETIQUETAS: Record<keyof DatosMatricula | 'fotoCedula', string> = {
+const ETIQUETAS: Record<keyof DatosMatricula | 'fotoCedula' | 'documentoAcademico', string> = {
   nombres: 'nombres',
   apellidoPaterno: 'apellido paterno',
   apellidoMaterno: 'apellido materno',
@@ -52,9 +52,10 @@ const ETIQUETAS: Record<keyof DatosMatricula | 'fotoCedula', string> = {
   anioTitulo: 'año de obtención del título',
   codigoPostal: 'código postal',
   fotoCedula: 'foto de su cédula o DNI',
+  documentoAcademico: 'documento académico (diploma o título)',
 };
 
-const CLAVES = Object.keys(ETIQUETAS).filter((k) => k !== 'fotoCedula') as Array<keyof DatosMatricula>;
+const CLAVES = Object.keys(ETIQUETAS).filter((k) => k !== 'fotoCedula' && k !== 'documentoAcademico') as Array<keyof DatosMatricula>;
 
 export type ResultadoMatricula = {
   ok: boolean;
@@ -145,7 +146,7 @@ export async function registrarDatosMatricula(
   datos: DatosMatricula,
   entities: CrmEntities,
   auth: Auth,
-  opts: { tieneFotoCedula?: boolean } = {},
+  opts: { tieneFotoCedula?: boolean; tieneDocumentoAcademico?: boolean; documentoQueCorresponde?: string } = {},
 ): Promise<ResultadoMatricula> {
   const contactId = entities.contact ?? null;
   if (!contactId) {
@@ -233,6 +234,10 @@ export async function registrarDatosMatricula(
     faltan.push(ETIQUETAS[k]);
   }
   if (!opts.tieneFotoCedula) faltan.push(ETIQUETAS.fotoCedula);
+  // El documento academico es el ultimo requisito y cambia segun el nivel: diploma de secundaria
+  // para una licenciatura, titulo profesional para una maestria. Se nombra el que corresponde,
+  // no uno generico: pedir "un documento academico" deja a la persona adivinando cual.
+  if (!opts.tieneDocumentoAcademico) faltan.push(opts.documentoQueCorresponde ?? ETIQUETAS.documentoAcademico);
   const completo = faltan.length === 0;
 
   return {

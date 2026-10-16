@@ -287,6 +287,11 @@ export const config = {
   // ARCHIVO por WhatsApp, no como enlace: un PDF se queda en el telefono, un enlace obliga a
   // salir a un navegador y mucha gente no lo hace. Vacio = se sigue entregando el enlace.
   driveFolderBrochuresCarver: Number(process.env.BITRIX_DRIVE_BROCHURES_CARVER ?? (esCarver ? 2514665 : 0)) || 0,
+  // Documento academico del postulante. Son DOS campos porque Carver pide distinto segun el
+  // nivel: diploma de secundaria para entrar a una licenciatura, titulo profesional para una
+  // maestria. Guardarlos en el mismo campo haria invisible cual falta.
+  ufTituloUniversitario: process.env.BITRIX_UF_TITULO_UNIVERSITARIO ?? (esCarver ? 'UF_CRM_66BA691F9AC01' : ''),
+  ufDiplomaSecundaria: process.env.BITRIX_UF_DIPLOMA_SECUNDARIA ?? (esCarver ? 'UF_CRM_1725553551' : ''),
   // MODO PRUEBA. Con numeros aqui, el bot SOLO le responde a esos y calla con todos los demas,
   // en cualquier canal y a cualquier hora. Vacio = atiende a todos, que es lo normal.
   // Ej.: BOT_SOLO_NUMEROS=+56912345678,+56987654321

@@ -606,3 +606,15 @@ test('Ergonomía declara 10 módulos, no 12: los meses no siempre son módulos',
   assert.equal(asig, 10);
   assert.equal(cred, 36, 'llega a 36 con un proyecto de 9 créditos');
 });
+
+test('el prompt distingue el documento academico del de identidad', async () => {
+  // Son herramientas distintas y guardar uno en el lugar del otro obliga a pedirlo de nuevo: son
+  // documentos que revisa gente distinta.
+  assert.match(SYSTEM_PROMPT, /registrar_documento_academico/);
+  assert.match(SYSTEM_PROMPT, /registrar_documento_identidad/);
+  assert.match(SYSTEM_PROMPT, /Son herramientas DISTINTAS y no se cruzan/);
+  // El documento depende del nivel, y hay que pedirlo por su nombre.
+  assert.match(SYSTEM_PROMPT, /diploma de enseñanza media/i);
+  assert.match(SYSTEM_PROMPT, /título profesional o grado académico/i);
+  assert.match(SYSTEM_PROMPT, /nunca "un documento académico" a secas/);
+});

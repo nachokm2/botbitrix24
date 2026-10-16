@@ -20,6 +20,7 @@ import { consultarEstadoEstudiante, crearTareaAdvisor } from '../crm/estudiantes
 import { enlaceDePago } from '../core/mediosPago';
 import { registrarDatosMatricula, moverAPendienteDeFirma } from '../crm/matricula';
 import { enviarBrochurePorWhatsApp } from '../core/brochureArchivo';
+import { registrarDocumentoAcademico, nivelDelPrograma, DOCUMENTO_DE } from '../crm/documentoAcademico';
 import { getDealInfo } from '../crm/directory';
 import { audit } from '../obs/audit';
 import { config } from '../config';
@@ -66,6 +67,8 @@ const ESTUDIANTE_KEY = (dialogId: string) => `estudiante:${dialogId}`;
 /** Marca que la foto de la cedula de ESTA conversacion ya se guardo. La ficha de matricula no se
  *  da por completa sin ella, y releer el campo archivo del deal en cada turno es caro. */
 const CEDULA_KEY = (dialogId: string) => `cedula:${dialogId}`;
+/** Igual que la cedula, para que la ficha de matricula sepa que ya llego. */
+const ACADEMICO_KEY = (dialogId: string) => `academico:${dialogId}`;
 // Canal oficial de Carver para consultas administrativas, tomado del conocimiento institucional ya
 // validado en el prompt (core/promptObjeciones.ts).
 const CONTACTO_GENERAL = 'admission@carver.university / +1 (321) 300-1034';
@@ -307,12 +310,56 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
         return r;
       }
 
+      case 'registrar_documento_academico': {
+        if (!ctx.pendingImage) {
+          return {
+            ok: false,
+            error: 'SIN_IMAGEN',
+            mensaje: 'No hay ninguna imagen nueva en este turno; solo puedes usar esto justo después de que la envíe.',
+          };
+        }
+        // El programa sale de la FICHA, no de lo que diga la persona: es lo que determina qué
+        // documento corresponde y dónde se archiva.
+        const prog = ctx.crmEntities?.deal && config.ufPrograma
+          ? String(((await callCrm('crm.deal.get', { id: ctx.crmEntities.deal, select: [config.ufPrograma] }, ctx.auth)) as any)?.[config.ufPrograma] ?? '')
+          : '';
+        const r = await registrarDocumentoAcademico(
+          { dealId: ctx.crmEntities?.deal, programa: prog, base64: ctx.pendingImage.base64, mediaType: ctx.pendingImage.mediaType },
+          ctx.auth,
+        );
+        if (r.ok) {
+          await setJson(ACADEMICO_KEY(ctx.conversationId), { at: Date.now() }, 30 * 24 * 3600);
+          return {
+            ok: true,
+            documento: r.documento,
+            mensaje: `Recibiste su ${r.documento}. Confírmaselo con calidez y sigue con los antecedentes que falten.`,
+          };
+        }
+        return {
+          ok: false,
+          motivo: r.motivo,
+          mensaje:
+            r.motivo === 'sin_programa'
+              ? 'Su ficha no dice a qué programa postula, y de eso depende qué documento corresponde. Pregúntaselo y pídele que reenvíe el documento después.'
+              : 'No pude guardar el documento en este momento. NO le digas que quedó registrado: pídele que lo reenvíe en un momento.',
+        };
+      }
+
       case 'registrar_datos_matricula': {
         // La foto de la cedula se guarda por su propia herramienta; aca solo se pregunta si ya llego,
         // porque sin ella la ficha no esta completa y la etapa no se mueve.
         const yaTieneFoto = await getJson<{ at: number }>(CEDULA_KEY(ctx.conversationId));
+        const yaTieneAcademico = await getJson<{ at: number }>(ACADEMICO_KEY(ctx.conversationId));
+        // Qué documento académico corresponde depende del nivel del programa, así que se nombra el
+        // concreto en vez de pedir "un documento académico" y dejar a la persona adivinando.
+        const progM = ctx.crmEntities?.deal && config.ufPrograma
+          ? String(((await callCrm('crm.deal.get', { id: ctx.crmEntities.deal, select: [config.ufPrograma] }, ctx.auth)) as any)?.[config.ufPrograma] ?? '')
+          : '';
+        const nivelM = nivelDelPrograma(progM);
         const r = await registrarDatosMatricula(input ?? {}, ctx.crmEntities ?? {}, ctx.auth, {
           tieneFotoCedula: Boolean(yaTieneFoto),
+          tieneDocumentoAcademico: Boolean(yaTieneAcademico),
+          documentoQueCorresponde: nivelM ? DOCUMENTO_DE[nivelM] : undefined,
         });
         let movido = false;
         if (r.completo && ctx.crmEntities?.deal) movido = await moverAPendienteDeFirma(ctx.crmEntities.deal, ctx.auth);

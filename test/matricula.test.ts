@@ -155,17 +155,30 @@ test('los campos personalizados van a los del portal, no a cualquiera', async ()
   assert.deepEqual(f.EMAIL, [{ VALUE: 'pedro@ejemplo.cl', VALUE_TYPE: 'HOME' }]);
 });
 
-test('SIN la foto de la cédula la ficha NO está completa, aunque estén los 13 datos', async () => {
-  // Es obligatoria: sin documento la matrícula no puede seguir de todos modos.
+test('faltando los documentos, la ficha NO está completa aunque estén los 13 datos', async () => {
+  // Los dos son obligatorios: sin ellos la matrícula no puede seguir de todos modos.
   reset();
   const r = await registrarDatosMatricula(COMPLETA, { contact: 50 }, auth);
   assert.equal(r.completo, false);
-  assert.deepEqual(r.faltan, ['foto de su cédula o DNI']);
+  assert.deepEqual(r.faltan, ['foto de su cédula o DNI', 'documento académico (diploma o título)']);
 });
 
-test('con los 13 datos Y la foto, la ficha queda completa', async () => {
+test('se nombra el documento académico que corresponde al nivel, no uno genérico', async () => {
+  // Pedir "un documento académico" deja a la persona adivinando cuál de los dos.
   reset();
-  const r = await registrarDatosMatricula(COMPLETA, { contact: 50 }, auth, { tieneFotoCedula: true });
+  const r = await registrarDatosMatricula(COMPLETA, { contact: 50 }, auth, {
+    tieneFotoCedula: true,
+    documentoQueCorresponde: 'título profesional o grado académico',
+  });
+  assert.deepEqual(r.faltan, ['título profesional o grado académico']);
+});
+
+test('con los 13 datos Y los dos documentos, la ficha queda completa', async () => {
+  reset();
+  const r = await registrarDatosMatricula(COMPLETA, { contact: 50 }, auth, {
+    tieneFotoCedula: true,
+    tieneDocumentoAcademico: true,
+  });
   assert.equal(r.completo, true);
   assert.deepEqual(r.faltan, []);
   assert.match(r.nota, /instrucciones de pago/);
@@ -181,7 +194,7 @@ test('sin contacto no se escribe nada ni se promete haberlo guardado', async () 
 test('si Bitrix rechaza la escritura NO se dice que se guardó', async () => {
   reset();
   fallaEscritura = true;
-  const r = await registrarDatosMatricula(COMPLETA, { contact: 50 }, auth, { tieneFotoCedula: true });
+  const r = await registrarDatosMatricula(COMPLETA, { contact: 50 }, auth, { tieneFotoCedula: true, tieneDocumentoAcademico: true });
   assert.equal(r.ok, false);
   assert.equal(r.completo, false, 'una escritura fallida no completa nada');
   assert.deepEqual(r.guardados, [], 'no puede decir que guardó algo');

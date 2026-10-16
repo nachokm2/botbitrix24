@@ -121,6 +121,17 @@ const TOOLS_CARVER = [
     },
   },
   {
+    name: 'registrar_documento_academico',
+    description:
+      'Guarda el documento ACADÉMICO del postulante: el diploma de enseñanza media si entra a una ' +
+      'licenciatura, o el título profesional si entra a una maestría. Úsala SOLO si estás viendo esa ' +
+      'imagen en ESTE mismo turno y reconoces que es un documento académico. Si lo que ves es una ' +
+      'cédula de identidad, usa "registrar_documento_identidad" en su lugar: son documentos distintos y ' +
+      'guardarlos cruzados obliga a pedirlos de nuevo. No recibe parámetros: el tipo lo determina el ' +
+      'programa de la persona.',
+    input_schema: { type: 'object', properties: {}, required: [] },
+  },
+  {
     name: 'registrar_datos_matricula',
     description:
       'Guarda en su ficha los antecedentes de matrícula y te dice QUÉ FALTA todavía. Úsala cada vez que la ' +
