@@ -287,6 +287,13 @@ export const config = {
   // ARCHIVO por WhatsApp, no como enlace: un PDF se queda en el telefono, un enlace obliga a
   // salir a un navegador y mucha gente no lo hace. Vacio = se sigue entregando el enlace.
   driveFolderBrochuresCarver: Number(process.env.BITRIX_DRIVE_BROCHURES_CARVER ?? (esCarver ? 2514665 : 0)) || 0,
+  // MODO PRUEBA. Con numeros aqui, el bot SOLO le responde a esos y calla con todos los demas,
+  // en cualquier canal y a cualquier hora. Vacio = atiende a todos, que es lo normal.
+  // Ej.: BOT_SOLO_NUMEROS=+56912345678,+56987654321
+  soloEstosNumeros: (process.env.BOT_SOLO_NUMEROS ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean),
   // HORARIO DE ASESORES. Mientras hay gente atendiendo, el bot NO se mete: calla y deja el chat a
   // los asesores. Fuera de ese horario —noches, madrugadas, sabados y domingos— responde el.
   // Activo solo donde se declare: Postgrados sigue atendiendo a toda hora.

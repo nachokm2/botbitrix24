@@ -15,6 +15,8 @@ import { audit } from '../obs/audit';
 import { log } from '../log';
 import { asignarAsesorPorTurno, derivarAResponsableFijo } from '../crm/asignacionAsesores';
 import { derivacionYaGestionada } from '../crm/embudos';
+import { listaBlancaActiva, puedeResponder } from '../core/listaBlanca';
+import type { Auth } from '../store';
 import { vigilarDerivacion, barrerVigilanciaDerivaciones } from '../crm/vigilanciaDerivaciones';
 import { primaryEntity, type CrmEntities } from '../crm/entities';
 
@@ -227,7 +229,14 @@ async function generarMensajeSeguimiento(dialogId: string, etapa: 1 | 2): Promis
 /** Motivo por el que un recordatorio vencido NO debe enviarse, o null si se puede enviar. Cada uno
  *  queda auditado: antes estos casos se descartaban sin dejar rastro y no había forma de saber si la
  *  secuencia se cumplía. */
-async function motivoParaNoEnviar(dialogId: string): Promise<string | null> {
+async function motivoParaNoEnviar(dialogId: string, auth?: Auth): Promise<string | null> {
+  // Modo prueba primero: si hay lista blanca, el bot no le escribe a nadie fuera de ella, ni
+  // siquiera para retomar una conversación que ya venía atendiendo. Este camino no pasa por el
+  // manejador de mensajes, así que el filtro de allá no lo cubre.
+  if (listaBlancaActiva() && auth) {
+    const chatId = /^chat(\d+)$/.exec(dialogId)?.[1];
+    if (!(await puedeResponder(chatId, auth))) return 'modo_prueba';
+  }
   const sess = await getSession(dialogId);
   if (sess.humanTookOver) return 'humano_a_cargo';
   const snap = await getJson<Snapshot>(SNAPSHOT_KEY(dialogId));
@@ -306,7 +315,7 @@ async function barrerRecordatorios(key: string, etapa: 1 | 2): Promise<void> {
         continue;
       }
 
-      const motivo = await motivoParaNoEnviar(dialogId);
+      const motivo = await motivoParaNoEnviar(dialogId, auth);
       if (motivo) {
         inc(`seguimiento_omitido:${motivo}`);
         await audit({ type: 'seguimiento_omitido', dialogId, detail: { etapa, motivo } });

@@ -20,6 +20,7 @@ import { esEmpleadoBitrix, getIdentidadAsesor, getDatosConocidosDeEntidades, get
 import { esAsesorValido } from '../crm/equipo';
 import { asesoresDisponibles, motivoHorario } from '../core/horarioAsesores';
 import { hayOperadorEnElChat } from '../crm/operadorEnChat';
+import { listaBlancaActiva, puedeResponder } from '../core/listaBlanca';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
@@ -148,6 +149,15 @@ async function handle(req: Request) {
       clientId: sess.clientId,
     });
   }
+  // Modo prueba: con una lista blanca configurada, el bot solo le responde a esos números. Va
+  // antes que cualquier otro filtro porque es el más fuerte: si este chat no está en la lista, da
+  // igual la hora, el traspaso o quién esté en el chat.
+  if (listaBlancaActiva() && !(await puedeResponder(chatId, auth))) {
+    inc('bot_en_silencio_lista_blanca');
+    void audit({ type: 'bot_en_silencio', dialogId, detail: { motivo: 'modo_prueba', chatId } });
+    return log.info('botMessage: modo prueba, número fuera de la lista; bot en silencio', { dialogId, chatId });
+  }
+
   if (sess.humanTookOver) {
     return log.info('botMessage: sesión atendida por humano; bot en silencio', { dialogId });
   }
