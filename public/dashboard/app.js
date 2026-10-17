@@ -190,8 +190,16 @@ function render(d){
   if(emb.length){ var emax=Math.max.apply(null,emb.map(function(x){return x.c;}))||1;
     embEl.innerHTML=emb.map(function(x){
       // La fila "ajenos" agrupa embudos de otra marca con los que el bot se topó: no es un embudo,
-      // es un aviso de que está tocando conversaciones que no le corresponden.
-      if (x.cat==='ajenos') return barRow('Otros embudos ('+x.ajenos+') · revisar', x.c, emax, '#f79009');
+      // es un aviso de que está tocando conversaciones que no le corresponden. Se nombran uno por
+      // uno debajo: decir solo cuántos son no permite distinguir una conversación de la otra marca
+      // (se arregla en el bot) de un embudo propio sin declarar (se arregla en la configuración).
+      if (x.cat==='ajenos'){
+        var det=(x.detalle||[]).map(function(dd){
+          return esc((labels[dd.cat]||('Embudo '+dd.cat))+' ('+dd.c+')');
+        }).join(' · ');
+        return barRow('Otros embudos ('+x.ajenos+') · revisar', x.c, emax, '#f79009')
+          + (det?'<div class="muted" style="margin:-4px 0 10px 0;font-size:12px">'+det+'</div>':'');
+      }
       var name=labels[x.cat]||('Embudo '+x.cat); var extra=(x.avg!=null)?(' · score prom '+x.avg):'';
       return barRow(name+extra, x.c, emax);
     }).join('');

@@ -5,6 +5,7 @@ import { snapshot } from '../obs/metrics';
 import { dbMetricsSummary, dbRecentAudit, dbEnabled, dbMarchaBlancaBot, dbPilotoProgresoReal, dbErroresRecientes, dbConversaciones, dbConversacion, dbTokensSumados, dbHallazgosRecientes } from '../store/db';
 import { kvKind } from '../store/kv';
 import { getState } from '../store';
+import { nombresDeEmbudos } from '../crm/embudosNombres';
 import { getUsuarios } from '../crm/directory';
 import { bitrixMarchaBlancaScorecard, resolverDialogosPorProgramaPiloto, type ProgramaScorecard } from '../crm/marchaBlanca';
 import { vistaPorAsesor, type VistaAsesores } from '../crm/vistaAsesores';
@@ -132,6 +133,8 @@ export async function metricsSummary(req: Request, res: Response) {
     bot: marchaBlancaBot.find((b) => b.key === prog.key) ?? null,
   }));
 
+  // Las etiquetas configuradas a mano mandan; abajo se completan con los nombres reales de Bitrix.
+  const etiquetas: Record<string, string> = { ...config.funnelLabels };
   // "Por embudo" solo muestra los embudos de esta marca. Los dos bots comparten portal, así que en
   // el panel de Carver aparecían Diplomados, Magísteres e IPG — embudos de Postgrados con los que
   // el bot se topó. Lo ajeno no se oculta en silencio: se agrupa en una fila, porque que aparezca
@@ -145,9 +148,32 @@ export async function metricsSummary(req: Request, res: Response) {
         c: ajenos.reduce((n: number, r: any) => n + Number(r.c ?? 0), 0),
         avg: null,
         ajenos: ajenos.length,
+        // Decir CUÁLES, no solo cuántos: "revisar" sin el detalle no se puede revisar. Y el detalle
+        // distingue los dos casos que la fila mezcla — una conversación de la otra marca que se coló
+        // (se arregla en el bot) de un embudo propio que falta declarar (se arregla en la config).
+        detalle: ajenos
+          .map((r: any) => ({ cat: Number(r.cat), c: Number(r.c ?? 0) }))
+          .sort((a: any, b: any) => b.c - a.c),
       });
     }
     agg.porEmbudo = propios;
+  }
+
+  // Nombres de los embudos, del propio Bitrix: el panel mostraba "Embudo 73" y "Embudo 135" porque
+  // BITRIX_FUNNEL_LABELS solo tiene los de Postgrados. Lo leído no pisa lo configurado a mano.
+  if (agg?.porEmbudo?.length && st.auth) {
+    try {
+      const nombres = await nombresDeEmbudos(st.auth);
+      const ids = agg.porEmbudo.flatMap((r: any) =>
+        r.cat === 'ajenos' ? (r.detalle ?? []).map((d: any) => d.cat) : [Number(r.cat)],
+      );
+      for (const id of ids) {
+        const nombre = nombres.get(Number(id));
+        if (nombre && !etiquetas[String(id)]) etiquetas[String(id)] = nombre;
+      }
+    } catch {
+      /* sin nombres el panel cae a "Embudo N": se degrada, no se cae */
+    }
   }
 
   // Resuelve el nombre de cada asesor responsable (por su ASSIGNED_BY_ID) para el desglose "Por asesor".
@@ -246,7 +272,7 @@ export async function metricsSummary(req: Request, res: Response) {
     // aparentar que son todas.
     conversaciones: conversaciones.filas,
     conversacionesTotal: conversaciones.total,
-    funnelLabels: config.funnelLabels,
+    funnelLabels: etiquetas,
     marchaBlanca,
     marchaBlancaStart: config.marchaBlancaStart,
     bitrixDomain: st.auth?.domain ?? null, // para armar el link directo a cada deal (ver "Deals escalados a asesor")
