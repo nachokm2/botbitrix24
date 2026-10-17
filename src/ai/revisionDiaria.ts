@@ -1,4 +1,5 @@
 import { anthropic, CLASSIFIER } from './client';
+import { recortar } from '../core/textoSeguro';
 import { dbTranscripcionesRecientes } from '../store/db';
 import { callBitrix } from '../bitrix/client';
 import { getState } from '../store';
@@ -70,7 +71,7 @@ export async function revisarConversacion(texto: string): Promise<Hallazgo[]> {
       .map((p: any) => ({
         tipo: String(p.tipo),
         gravedad: GRAVEDADES.has(String(p?.gravedad)) ? String(p.gravedad) : 'media',
-        detalle: String(p?.detalle ?? '').slice(0, 400),
+        detalle: recortar(String(p?.detalle ?? ''), 400, ''),
       }));
   } catch (e) {
     log.warn('revisarConversacion falló', { err: String(e) });

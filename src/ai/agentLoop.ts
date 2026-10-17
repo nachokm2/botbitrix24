@@ -1,4 +1,5 @@
 import { anthropic, CLASSIFIER } from './client';
+import { repararEnSitio } from '../core/textoSeguro';
 import { tools } from './tools';
 import { marca } from '../marca';
 import { dbAcumularTokens } from '../store/db';
@@ -214,6 +215,10 @@ export async function runConversation(
   let reintentoPorVacio = false;
 
   for (let step = 0; step < MAX_STEPS; step++) {
+    // Último filtro antes de salir: una mitad de emoji suelta —en el mensaje del cliente, en un
+    // recorte del historial o en lo que devolvió una herramienta— invalida el cuerpo JSON COMPLETO
+    // y tumba el turno entero con un 400. Se repara en sitio para que tampoco llegue a Redis.
+    repararEnSitio(messages);
     const t0 = Date.now();
     const resp = await anthropic.messages.create({
       model: profile.model,
@@ -297,6 +302,10 @@ export async function runConversationStream(
   let lastFiller = -1; // último relleno usado en esta llamada, para no repetirlo seguido
 
   for (let step = 0; step < MAX_STEPS; step++) {
+    // Último filtro antes de salir: una mitad de emoji suelta —en el mensaje del cliente, en un
+    // recorte del historial o en lo que devolvió una herramienta— invalida el cuerpo JSON COMPLETO
+    // y tumba el turno entero con un 400. Se repara en sitio para que tampoco llegue a Redis.
+    repararEnSitio(messages);
     const t0 = Date.now();
     let stepText = '';
     const stream = anthropic.messages.stream({

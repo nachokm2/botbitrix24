@@ -1,6 +1,7 @@
 import { callBitrix } from '../bitrix/client';
 import type { Auth } from '../store';
 import { log } from '../log';
+import { recortar } from '../core/textoSeguro';
 
 /**
  * Lee lo que ya se habló en un chat ANTES de que el bot entrara.
@@ -72,7 +73,8 @@ export async function leerHistorialPrevio(
     const autor = String(m.author_id ?? m.AUTHOR_ID ?? '');
     const esCliente = Boolean(clientId) && autor === clientId;
     if (!esCliente) huboEquipo = true;
-    const recorte = texto.length > LARGO_MAX_MENSAJE ? texto.slice(0, LARGO_MAX_MENSAJE) + '…' : texto;
+    // Con `recortar` y no con `slice`: el corte no puede caer en medio de un emoji (ver core/textoSeguro.ts).
+    const recorte = recortar(texto, LARGO_MAX_MENSAJE);
     lineas.push(`${esCliente ? 'Cliente' : 'Equipo'}: ${recorte}`);
   }
   if (!lineas.length) return null;
