@@ -23,18 +23,23 @@ async function bindPage(
   // Propaga el token del panel en la URL del placement (?k=) para que el iframe autentique sus fetch.
   const tokenQs = config.dashboardToken ? `?k=${encodeURIComponent(config.dashboardToken)}` : '';
   const handler = `${config.baseUrl}${path}${tokenQs}`;
+  // El token viaja solo a Bitrix. En el log y en lo que se devuelve va tapado: antes quedaba entero en
+  // los logs de Railway (cada instalación y cada /setup/bind-*), y con él se leen todas las
+  // conversaciones del panel.
+  const handlerVisible = tokenQs ? `${config.baseUrl}${path}?k=***` : handler;
   try {
     await callBitrix('placement.bind', { PLACEMENT, HANDLER: handler, TITLE: title, DESCRIPTION: description }, auth);
-    log.info('placement.bind OK', { placement: PLACEMENT, handler });
-    return { ok: true, placement: PLACEMENT, handler };
+    log.info('placement.bind OK', { placement: PLACEMENT, handler: handlerVisible });
+    return { ok: true, placement: PLACEMENT, handler: handlerVisible };
   } catch (e) {
-    const err = String(e);
+    // Por si la descripción de error de Bitrix repite el HANDLER.
+    const err = tokenQs ? String(e).split(tokenQs).join('?k=***') : String(e);
     if (/already/i.test(err)) {
-      log.info('placement ya estaba enlazado', { placement: PLACEMENT, handler });
-      return { ok: true, placement: PLACEMENT, handler }; // idempotente
+      log.info('placement ya estaba enlazado', { placement: PLACEMENT, handler: handlerVisible });
+      return { ok: true, placement: PLACEMENT, handler: handlerVisible }; // idempotente
     }
     log.warn('placement.bind falló', { placement: PLACEMENT, err });
-    return { ok: false, placement: PLACEMENT, handler, error: err };
+    return { ok: false, placement: PLACEMENT, handler: handlerVisible, error: err };
   }
 }
 
