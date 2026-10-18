@@ -275,3 +275,33 @@ test('barrerSeguimientosVencidos: si el envío del recordatorio FALLA, queda aud
   assert.equal((err!.detail as any)?.etapa, 'recordatorio_1');
   assert.ok(!auditCalls.some((a) => a.type === 'seguimiento'), 'y NO debe contarse como recordatorio enviado');
 });
+
+test('barrerSeguimientosVencidos: a quien pidió la baja NO se le manda el recordatorio (CONF-03)', async () => {
+  calls.length = 0;
+  auditCalls.length = 0;
+  // El contacto 777 pidió la baja: su clave de exclusión por contacto está en Redis (claves).
+  claves.set('exclusion:contacto:777', 'no_molestar');
+  // Entidades del diálogo (las guarda programarSeguimiento en ENTITIES_KEY → kvStore) con ese contacto.
+  kvStore.set('seguimiento:entidades:dlg-excluido', JSON.stringify({ contact: 777 }));
+  kvStore.set('mem:dlg-excluido', JSON.stringify([
+    { role: 'user', content: 'hola' },
+    { role: 'assistant', content: 'Con gusto le cuento.' },
+  ]));
+  zsets.set('seguimiento:due', new Map([['dlg-excluido', Date.now() - 1000]]));
+
+  const horaInicio = config.seguimientoHoraInicio;
+  const horaFin = config.seguimientoHoraFin;
+  (config as any).seguimientoHoraInicio = 0;
+  (config as any).seguimientoHoraFin = 24;
+  try {
+    await barrerSeguimientosVencidos();
+  } finally {
+    (config as any).seguimientoHoraInicio = horaInicio;
+    (config as any).seguimientoHoraFin = horaFin;
+  }
+
+  assert.ok(!calls.some((c) => c.method === 'imbot.message.add'), 'no se le envía ningún mensaje');
+  const omitido = auditCalls.find((a) => a.type === 'seguimiento_omitido');
+  assert.ok(omitido, 'queda auditado el motivo de la omisión');
+  assert.equal((omitido!.detail as any)?.motivo, 'excluido');
+});

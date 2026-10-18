@@ -15,6 +15,7 @@ import { audit } from '../obs/audit';
 import { log } from '../log';
 import { asignarAsesorPorTurno, derivarAResponsableFijo } from '../crm/asignacionAsesores';
 import { derivacionYaGestionada } from '../crm/embudos';
+import { estaExcluido } from '../crm/exclusion';
 import { listaBlancaActiva, puedeResponder } from '../core/listaBlanca';
 import type { Auth } from '../store';
 import { vigilarDerivacion, barrerVigilanciaDerivaciones } from '../crm/vigilanciaDerivaciones';
@@ -239,6 +240,12 @@ async function motivoParaNoEnviar(dialogId: string, auth?: Auth): Promise<string
   }
   const sess = await getSession(dialogId);
   if (sess.humanTookOver) return 'humano_a_cargo';
+  // Respeta la baja ("no me escriban más"): si el contacto de este chat pidió que no le escriban, no
+  // se le manda el recordatorio. La baja se registra por contacto (ver crm/exclusion.ts) al detectar
+  // la frase en el mensaje; aquí se consulta por el contacto que quedó en las entidades del diálogo.
+  // (La derivación por silencio —barrerTransferenciasVencidas— es otra vía y se trata aparte.)
+  const ents = await getJson<CrmEntities>(ENTITIES_KEY(dialogId));
+  if (ents?.contact && (await estaExcluido({ contactId: ents.contact }))) return 'excluido';
   const snap = await getJson<Snapshot>(SNAPSHOT_KEY(dialogId));
   if (await traspasoVigente(dialogId, snap?.sesion ?? null)) return 'traspaso_a_persona';
   if (snap && Date.now() - snap.clienteAt > VENTANA_WHATSAPP_MS) return 'fuera_ventana_24h';
