@@ -40,6 +40,15 @@ export function programaCoincide(texto: string, prog: MarchaBlancaPrograma): boo
   return true;
 }
 
+/** Olvida la marca "este deal no es del piloto". Se llama al capturar el programa de interés
+ *  (crm/crmWrite.ts): si se había cacheado "no piloto" en un turno sin programa, esa marca dejaba de
+ *  permitir la asignación durante 24 h aunque el cliente declarara después un programa piloto. */
+export async function olvidarNoPiloto(dealId: number): Promise<void> {
+  const r = getRedisClient();
+  if (!r || !dealId) return;
+  await r.del(`asignacion:nopiloto:deal#${dealId}`).catch(() => {});
+}
+
 /**
  * Si el deal pertenece a uno de los 2 programas piloto: asigna el turno que corresponda (alterna
  * Norte/Sur, contador en Redis) y crea una tarea de seguimiento con plazo
@@ -121,8 +130,11 @@ export async function asignarAsesorPorTurno(
       ? config.marchaBlancaProgramas.find((p) => programaCoincide(programaTexto, p))
       : undefined;
     if (!prog || !prog.asesorNorteId || !prog.asesorSurId) {
-      // No es del piloto: recuérdalo un rato para no volver a consultarlo en cada turno.
-      await redis.set(NO_PILOTO, '1', 'EX', 24 * 3600).catch(() => {});
+      // No es del piloto: recuérdalo un rato para no volver a consultarlo en cada turno. PERO solo si
+      // YA se conoce el programa; con programaTexto vacío (el bot aún no lo capturó) cachear "no
+      // piloto" bloqueaba 24 h la asignación cuando el cliente declaraba después un programa piloto
+      // (se fijaba en el primer mensaje, antes de conocerlo). Sin programa, no se cachea nada.
+      if (programaTexto) await redis.set(NO_PILOTO, '1', 'EX', 24 * 3600).catch(() => {});
       return false;
     }
 

@@ -35,6 +35,7 @@ mock.module('../src/crm/asignacionAsesores.ts', {
       asignaciones.push(entities);
       return true;
     },
+    olvidarNoPiloto: async () => {},
     // Sin punto de entrada único configurado devuelve false y rige el reparto por turno
     // (ver crm/asignacionAsesores.ts:derivarAResponsableFijo).
     derivarAResponsableFijo: async () => false,

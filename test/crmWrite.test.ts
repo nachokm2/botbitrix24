@@ -52,6 +52,7 @@ mock.module('../src/crm/asignacionAsesores.ts', {
       asignacionCalls.push({ entities, motivo });
       return false;
     },
+    olvidarNoPiloto: async () => {},
   },
 });
 

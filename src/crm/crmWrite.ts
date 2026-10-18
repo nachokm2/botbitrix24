@@ -11,7 +11,7 @@ import type { BitrixContact, BitrixLead, BitrixMultifield } from '../bitrix/type
 import { buscarBrochureDrive, detectarTipo, type BrochureEncontrado } from './driveBrochure';
 import { agregarProgramaAcumulado, fusionarBrochures, renderCuerpoBrochureEmail } from './brochureEmail';
 import { guardarVinculoChat, obtenerVinculoChat, borrarVinculoChat } from './chat';
-import { asignarAsesorPorTurno } from './asignacionAsesores';
+import { asignarAsesorPorTurno, olvidarNoPiloto } from './asignacionAsesores';
 import { getDealInfo, getUsuarios } from './directory';
 import { once } from '../store/kv';
 
@@ -349,7 +349,9 @@ async function migrarSiCambioDeEntidad(chatId: any, entities: CrmEntities, auth:
         });
       }
       // Mismo motivo que en actualizarDatosCliente: apenas el deal tiene programa, se asigna al
-      // asesor por turno (si es piloto) — no espera a que el bot escale.
+      // asesor por turno (si es piloto) — no espera a que el bot escale. Se invalida antes la caché
+      // "no es del piloto" por si se fijó en un turno anterior sin programa (ver olvidarNoPiloto).
+      await olvidarNoPiloto(entities.deal);
       void asignarAsesorPorTurno({ deal: entities.deal }, auth, 'automatico');
     }
 
@@ -436,6 +438,9 @@ export async function actualizarDatosCliente(
       // espera a que el bot escale: sin esto, un deal que el cliente conversa con el bot sin pedir
       // nunca un humano se queda con el responsable por defecto (no es un asesor real). Fire-and-
       // forget: no bloquea la captura de datos, e idempotente (una sola vez por deal).
+      // Antes se invalida la caché "no es del piloto": si se fijó en un turno previo (sin programa
+      // aún), bloqueaba esta asignación 24 h justo cuando el programa recién capturado SÍ es piloto.
+      await olvidarNoPiloto(e.deal);
       void asignarAsesorPorTurno({ deal: e.deal }, auth, 'automatico');
       // Brochure(s) del/los programa(s) de interés — se ACUMULAN durante toda la conversación: si
       // la persona menciona un programa nuevo, se manda UN correo con TODOS los brochures juntos,
