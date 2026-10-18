@@ -31,6 +31,7 @@ import { campaignEnroll, campaignStatus, campaignData, campaignDashboard } from 
 import { verifyBitrixEvent } from './bitrix/verifyEvent';
 import { rateLimit } from './routes/rateLimit';
 import { manejarAsync, manejadorDeErrores } from './routes/errores';
+import { paginaStats } from './routes/stats';
 
 const app = express();
 app.set('trust proxy', 1); // detrás del proxy de Railway → req.ip refleja X-Forwarded-For
@@ -126,21 +127,7 @@ app.get('/metrics', requireDashboardToken, manejarAsync(async (_req, res) => {
 app.get('/stats', requireDashboardToken, manejarAsync(async (_req, res) => {
   const m = await snapshot();
   const audits = await dbRecentAudit(25);
-  const rows = audits
-    .map(
-      (a: any) =>
-        `<tr><td>${a.ts}</td><td>${a.type}</td><td>${a.dialog_id ?? ''}</td><td>${a.crm_entity ?? ''}</td></tr>`,
-    )
-    .join('');
-  res.send(
-    `<!doctype html><meta charset="utf-8"><body style="font-family:system-ui,sans-serif;padding:1.5rem;line-height:1.4">` +
-      `<h2>PoC Agente — Observabilidad</h2>` +
-      `<p>KV: <b>${kvKind}</b> · DB: <b>${dbEnabled() ? 'postgres' : 'off'}</b> · activo desde ${m.startedAt}</p>` +
-      `<h3>Métricas</h3><pre>${JSON.stringify(m, null, 2)}</pre>` +
-      `<h3>Auditoría reciente${dbEnabled() ? '' : ' (sin Postgres: solo en logs)'}</h3>` +
-      `<table border="1" cellpadding="6" style="border-collapse:collapse"><tr><th>ts</th><th>type</th><th>dialog</th><th>crm</th></tr>${rows}</table>` +
-      `</body>`,
-  );
+  res.send(paginaStats(m, audits, kvKind, dbEnabled())); // escapa todo: ver routes/stats.ts
 }));
 
 // Instalación del app local (registra el bot)

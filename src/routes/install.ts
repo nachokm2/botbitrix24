@@ -7,6 +7,7 @@ import { setAuth, setBotId, setAppToken } from '../store';
 import { config } from '../config';
 import { marca } from '../marca';
 import { log } from '../log';
+import { escaparHtml } from '../util/html';
 
 /**
  * Handler de instalación del app local. Bitrix lo llama al instalar (con auth).
@@ -29,7 +30,8 @@ export async function installHandler(req: Request, res: Response) {
       log.info('install: auth obtenido por canje de código OAuth', { domain: auth.domain });
     } catch (e) {
       log.error('install: no se pudo canjear el código', { err: String(e) });
-      return res.status(400).send(page(`❌ No se pudo canjear el código de autorización:<br><code>${String(e)}</code>`));
+      // Escapado: el texto del error viene de fuera (la respuesta de OAuth) y esta página es HTML.
+      return res.status(400).send(page(`❌ No se pudo canjear el código de autorización:<br><code>${escaparHtml(e)}</code>`));
     }
   }
 
@@ -64,14 +66,14 @@ export async function installHandler(req: Request, res: Response) {
         `✅ PoC instalado y finalizado. Bot de Open Lines registrado (BOT_ID=${botId}).<br>` +
           // El nombre sale de la marca, igual que el del placement: estaba fijo en "Agente Postgrados"
           // y en la instalación de Carver el mensaje decía un nombre distinto del que quedó en el menú.
-          `Panel de métricas: ${panel.ok ? `✅ agregado al menú («Agente ${marca.etiquetaPanel}»)` : '⚠️ no se pudo enlazar (' + (panel.error ?? '') + ') — reintenta en /setup/bind-dashboard'}.<br><br>` +
+          `Panel de métricas: ${panel.ok ? `✅ agregado al menú («Agente ${marca.etiquetaPanel}»)` : '⚠️ no se pudo enlazar (' + escaparHtml(panel.error ?? '') + ') — reintenta en /setup/bind-dashboard'}.<br><br>` +
           `Ya puedes probar: inicia una conversación NUEVA en el canal y el bot debería responder.`,
         true,
       ),
     );
   } catch (e) {
     log.error('install: error registrando bot', { err: String(e) });
-    return res.status(500).send(page(`❌ Error registrando el bot: ${String(e)}`));
+    return res.status(500).send(page(`❌ Error registrando el bot: ${escaparHtml(e)}`));
   }
 }
 
