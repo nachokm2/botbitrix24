@@ -7,8 +7,8 @@ import type { Request, Response } from 'express';
 // en despliegues que aún no configuraron la allowlist). Va en un archivo aparte porque
 // config.webchatAllowedOrigins se fija una sola vez al importar src/config.ts.
 process.env.NODE_ENV = 'test';
-// OJO: asignar '' en vez de "delete" — config.ts hace `import 'dotenv/config'`, que solo rellena
-// variables AUSENTES desde el .env real del repo; si se borraran, dotenv las repondría igual.
+// Se asigna '' en vez de "delete": así la variable queda definida y vacía aunque alguien corra esto
+// fuera del runner, donde env.ts sí carga el .env (y dotenv solo rellena las variables AUSENTES).
 process.env.BASE_URL = '';
 process.env.WEBCHAT_ALLOWED_ORIGINS = '';
 

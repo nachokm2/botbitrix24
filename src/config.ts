@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './env'; // primero: carga el .env (salvo en pruebas) antes de que marca.ts lea MARCA
 import { marca } from './marca'; // marca.ts no importa nada: no hay ciclo
 
 // Mapa de etapas por embudo para el movimiento por score, ej:
