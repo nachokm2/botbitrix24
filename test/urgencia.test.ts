@@ -36,6 +36,7 @@ mock.module('../src/store/kv.ts', {
       hincrby: async () => 1,
     }),
     getJson: async () => null,
+    getJsonOrThrow: async () => null,
     setJson: async () => {},
     kvDel: async () => {},
     once: async () => true,

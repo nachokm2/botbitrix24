@@ -1,5 +1,6 @@
-import { getJson, setJson } from './store/kv';
+import { getJson, getJsonOrThrow, setJson } from './store/kv';
 import { encryptToken, decryptToken } from './store/tokenCrypto';
+import { log } from './log';
 
 /** Credenciales OAuth de Bitrix24 (vienen con cada evento y en la instalación). */
 export type Auth = {
@@ -21,9 +22,10 @@ type State = { auth?: Auth; botId?: number; appToken?: string; usuariosSinAcceso
 // que llega en cada evento, esto ayuda a /setup, scripts y refresh.
 const KEY = 'app:state';
 
-/** Lee el estado y DESCIFRA los tokens (uso interno + getState público). */
-async function readState(): Promise<State> {
-  const s = (await getJson<State>(KEY)) ?? {};
+/** Lee el estado y DESCIFRA los tokens. Con `estricto`, propaga un fallo del backend en vez de tratarlo
+ *  como estado vacío — lo usan los escritores para no pisar lo guardado cuando la lectura falla. */
+async function readState(estricto = false): Promise<State> {
+  const s = (estricto ? await getJsonOrThrow<State>(KEY) : await getJson<State>(KEY)) ?? {};
   if (s.auth) {
     s.auth = {
       ...s.auth,
@@ -32,6 +34,24 @@ async function readState(): Promise<State> {
     };
   }
   return s;
+}
+
+/**
+ * Read-modify-write seguro del estado: lee en modo estricto y, si la lectura del backend falla, ABORTA
+ * sin escribir. Antes, un fallo transitorio de Redis durante un setAuth/marcarSinAcceso/setBotId del
+ * camino caliente leía {} y reescribía el estado desnudo, borrando el application_token (en Carver vive
+ * solo en Redis) y el botId. Mejor no tocar nada: el próximo evento lo reintenta.
+ */
+async function actualizarEstado(mut: (s: State) => void | boolean, op: string): Promise<void> {
+  let s: State;
+  try {
+    s = await readState(true);
+  } catch (e) {
+    log.warn(`store: ${op} abortado, no se pudo leer el estado (se evita pisarlo)`, { err: String(e) });
+    return;
+  }
+  if (mut(s) === false) return; // el mutador decidió que no hay nada que escribir
+  await writeState(s);
 }
 
 /** Escribe el estado CIFRANDO los tokens en reposo. */
@@ -77,35 +97,37 @@ export async function requireAuth(): Promise<Auth | null> {
  * tiene acceso, ese token queda guardado.
  */
 export async function setAuth(auth: Auth): Promise<void> {
-  const s = await readState();
-  const sinAcceso = s.usuariosSinAcceso ?? [];
-  if (auth.user_id && sinAcceso.includes(auth.user_id)) return; // ya sabemos que ese token no sirve
-  s.auth = auth;
-  await writeState(s);
+  // La exclusión por usuario-sin-acceso necesita el estado actual; si no se puede leer, se aborta dentro
+  // de actualizarEstado en vez de arriesgar guardar un token que quizá ya sabíamos que no sirve.
+  await actualizarEstado((s) => {
+    const sinAcceso = s.usuariosSinAcceso ?? [];
+    if (auth.user_id && sinAcceso.includes(auth.user_id)) return false; // ya sabemos que ese token no sirve
+    s.auth = auth;
+  }, 'setAuth');
 }
 
 /** Registra que el token de ese usuario no sirve para los métodos del app, y lo descarta si es el
  *  que estaba guardado — así el próximo evento de alguien con acceso lo reemplaza. */
 export async function marcarSinAcceso(userId?: number): Promise<void> {
   if (!userId) return;
-  const s = await readState();
-  const sinAcceso = new Set(s.usuariosSinAcceso ?? []);
-  if (sinAcceso.has(userId) && s.auth?.user_id !== userId) return;
-  sinAcceso.add(userId);
-  s.usuariosSinAcceso = [...sinAcceso].slice(-50); // acotado: no crece sin límite
-  if (s.auth?.user_id === userId) s.auth = undefined;
-  await writeState(s);
+  await actualizarEstado((s) => {
+    const sinAcceso = new Set(s.usuariosSinAcceso ?? []);
+    if (sinAcceso.has(userId) && s.auth?.user_id !== userId) return false;
+    sinAcceso.add(userId);
+    s.usuariosSinAcceso = [...sinAcceso].slice(-50); // acotado: no crece sin límite
+    if (s.auth?.user_id === userId) s.auth = undefined;
+  }, 'marcarSinAcceso');
 }
 
 export async function setBotId(botId: number): Promise<void> {
-  const s = await readState();
-  s.botId = botId;
-  await writeState(s);
+  await actualizarEstado((s) => {
+    s.botId = botId;
+  }, 'setBotId');
 }
 
 /** Persiste el application_token capturado en la instalación (para verificar eventos posteriores). */
 export async function setAppToken(appToken: string): Promise<void> {
-  const s = await readState();
-  s.appToken = appToken;
-  await writeState(s);
+  await actualizarEstado((s) => {
+    s.appToken = appToken;
+  }, 'setAppToken');
 }

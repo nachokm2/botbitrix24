@@ -136,6 +136,23 @@ export async function getJson<T>(key: string): Promise<T | null> {
   }
 }
 
+/**
+ * Como getJson, pero PROPAGA el error del backend en vez de tragarlo. Sirve para un read-modify-write
+ * que no debe pisar el estado cuando la lectura falló: un fallo transitorio de Redis haría que getJson
+ * devolviera null y el escritor guardara un estado desnudo, borrando lo que sí había (p. ej. el
+ * application_token). Una clave ausente sigue siendo null, y un JSON corrupto se trata como ausente
+ * (es irrecuperable de todas formas); solo el fallo del backend se distingue, lanzando.
+ */
+export async function getJsonOrThrow<T>(key: string): Promise<T | null> {
+  const raw = await backend.get(key); // sin try/catch: si el backend falla, lanza
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
 export async function setJson(key: string, val: unknown, ttlSec?: number): Promise<void> {
   await kvSet(key, JSON.stringify(val), ttlSec);
 }

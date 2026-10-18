@@ -13,6 +13,7 @@ const kv = new Map<string, any>();
 mock.module('../src/store/kv.ts', {
   namedExports: {
     getJson: async (k: string) => kv.get(k) ?? null,
+    getJsonOrThrow: async (k: string) => kv.get(k) ?? null, // igual que getJson: este test no simula fallo de backend
     setJson: async (k: string, v: unknown) => {
       kv.set(k, JSON.parse(JSON.stringify(v)));
     },

@@ -27,6 +27,7 @@ mock.module('../src/store/kv.ts', {
       return true;
     },
     getJson: async () => null,
+    getJsonOrThrow: async () => null,
     setJson: async () => {},
     kvDel: async () => {},
   },

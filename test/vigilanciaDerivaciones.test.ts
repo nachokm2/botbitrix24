@@ -100,6 +100,7 @@ mock.module('../src/store/kv.ts', {
   namedExports: {
     getRedisClient: () => fakeRedis,
     getJson: async () => null,
+    getJsonOrThrow: async () => null,
     setJson: async () => {},
     kvDel: async () => {},
     once: async () => true,

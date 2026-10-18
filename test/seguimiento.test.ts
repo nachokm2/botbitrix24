@@ -104,6 +104,7 @@ mock.module('../src/store/kv.ts', {
   namedExports: {
     getRedisClient: () => fakeRedis,
     getJson: async (key: string) => (kvStore.has(key) ? JSON.parse(kvStore.get(key)!) : null),
+    getJsonOrThrow: async (key: string) => (kvStore.has(key) ? JSON.parse(kvStore.get(key)!) : null),
     setJson: async (key: string, val: unknown) => {
       kvStore.set(key, JSON.stringify(val));
     },
