@@ -92,8 +92,11 @@ ${finish ? `<script>try{BX24.init(function(){BX24.installFinish();});}catch(e){c
  * Middleware para la ruta del controlador (/app): si Bitrix redirigió ahí con ?code=, completa la
  * instalación en vez de intentar abrir el panel. Sin esto, la autorización terminaba en un
  * {"ok":false,"error":"unauthorized"} del guardia de token, con el código OAuth ya en la URL.
+ *
+ * Devuelve la promesa de la instalación (antes la descartaba con `void`) para que manejarAsync capture
+ * su rechazo: descartada, un error en la instalación quedaba sin manejar y Node terminaba el proceso.
  */
 export function oauthCodeOrNext(req: Request, res: Response, next: () => void) {
-  if (typeof req.query?.code === 'string' && req.query.code) return void installHandler(req, res);
+  if (typeof req.query?.code === 'string' && req.query.code) return installHandler(req, res);
   next();
 }

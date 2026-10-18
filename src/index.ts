@@ -30,6 +30,7 @@ import { startCampaignScheduler } from './campaign/scheduler';
 import { campaignEnroll, campaignStatus, campaignData, campaignDashboard } from './routes/campaign';
 import { verifyBitrixEvent } from './bitrix/verifyEvent';
 import { rateLimit } from './routes/rateLimit';
+import { manejarAsync, manejadorDeErrores } from './routes/errores';
 
 const app = express();
 app.set('trust proxy', 1); // detrás del proxy de Railway → req.ip refleja X-Forwarded-For
@@ -107,20 +108,22 @@ app.use('/assets/calls', express.static(fileURLToPath(new URL('../public/calls',
 app.use('/assets/email', express.static(fileURLToPath(new URL('../public/email', import.meta.url))));
 
 // Panel de métricas embebible en Bitrix24 (placement) + su API de datos.
-app.all('/app', oauthCodeOrNext, requireDashboardToken, dashboardPage); // Bitrix abre la página del placement (GET/POST con auth); con ?code= completa la instalación
-app.get('/metrics/summary', requireDashboardToken, metricsSummary);
-app.get('/metrics/conversacion', requireDashboardToken, conversacionDetalle); // intercambio completo de UN diálogo
+// Los handlers async van envueltos en manejarAsync: Express 4 no captura su rechazo y Node terminaría
+// el proceso (ver routes/errores.ts).
+app.all('/app', manejarAsync(oauthCodeOrNext), requireDashboardToken, dashboardPage); // Bitrix abre la página del placement (GET/POST con auth); con ?code= completa la instalación
+app.get('/metrics/summary', requireDashboardToken, manejarAsync(metricsSummary));
+app.get('/metrics/conversacion', requireDashboardToken, manejarAsync(conversacionDetalle)); // intercambio completo de UN diálogo
 
 // Módulo de analítica de llamadas (telefonía Bitrix24): página embebible + su API de datos.
 app.all('/calls', requireDashboardToken, callsPage);
-app.get('/calls/data', requireDashboardToken, callsData);
+app.get('/calls/data', requireDashboardToken, manejarAsync(callsData));
 
 // Observabilidad: métricas (JSON) y panel de estadísticas (HTML).
-app.get('/metrics', requireDashboardToken, async (_req, res) => {
+app.get('/metrics', requireDashboardToken, manejarAsync(async (_req, res) => {
   const s = await snapshot();
   res.json({ ...s, kv: kvKind, db: dbEnabled() ? 'postgres' : 'off' });
-});
-app.get('/stats', requireDashboardToken, async (_req, res) => {
+}));
+app.get('/stats', requireDashboardToken, manejarAsync(async (_req, res) => {
   const m = await snapshot();
   const audits = await dbRecentAudit(25);
   const rows = audits
@@ -138,73 +141,76 @@ app.get('/stats', requireDashboardToken, async (_req, res) => {
       `<table border="1" cellpadding="6" style="border-collapse:collapse"><tr><th>ts</th><th>type</th><th>dialog</th><th>crm</th></tr>${rows}</table>` +
       `</body>`,
   );
-});
+}));
 
 // Instalación del app local (registra el bot)
-app.all('/install', installHandler);
+app.all('/install', manejarAsync(installHandler));
 
 // Eventos del bot de Open Lines (rate-limit estricto + verificación del application_token de Bitrix).
-app.post('/events/bot/message', strictLimiter, verifyBitrixEvent, botMessageHandler);
+app.post('/events/bot/message', strictLimiter, verifyBitrixEvent, manejarAsync(botMessageHandler));
 app.post('/events/bot/welcome', strictLimiter, verifyBitrixEvent, botWelcomeHandler);
 app.post('/events/bot/delete', strictLimiter, verifyBitrixEvent, botDeleteHandler);
 
 // Utilidades de setup manual (protegidas con ADMIN_TOKEN).
 app.use('/setup', requireAdminToken);
-app.get('/setup/register-bot', registerBotManual);
-app.get('/setup/update-bot', updateBotManual);
-app.get('/setup/test-brochure', triggerBrochureManual);
-app.get('/setup/unregister-bot', unregisterBotManual);
-app.get('/setup/deal-stages', listDealStages);
-app.get('/setup/deal-fields', listDealFields);
-app.get('/setup/deal-responsable', dealResponsable);
-app.get('/setup/bind-dashboard', bindDashboardManual);
-app.get('/setup/placement-info', placementInfo);
-app.get('/setup/dialogos', dialogosListar); // lista los diálogos registrados
-app.get('/setup/dialogos/borrar', dialogosBorrar); // borra los indicados (irreversible) // diagnóstico: qué ve Bitrix de esta app
-app.get('/setup/chatapp-plantillas', chatappPlantillas); // qué plantillas hay y con qué UUID
-app.get('/setup/chatapp-prueba', chatappPrueba); // envío de prueba a UN número, antes de encender
-app.get('/setup/primer-contacto-resultado', primerContactoResultado); // cuántos contestaron, por plantilla
-app.get('/setup/calidad-datos', calidadDatos);
-app.get('/setup/mover-derivados', moverDerivados); // simula por defecto; ?ejecutar=1 escribe // teléfonos y fichas defectuosas, que ahora cuestan dinero
-app.get('/setup/bind-calls', bindCallsManual);
-app.get('/setup/sync-calls', syncCallsManual);
+app.get('/setup/register-bot', manejarAsync(registerBotManual));
+app.get('/setup/update-bot', manejarAsync(updateBotManual));
+app.get('/setup/test-brochure', manejarAsync(triggerBrochureManual));
+app.get('/setup/unregister-bot', manejarAsync(unregisterBotManual));
+app.get('/setup/deal-stages', manejarAsync(listDealStages));
+app.get('/setup/deal-fields', manejarAsync(listDealFields));
+app.get('/setup/deal-responsable', manejarAsync(dealResponsable));
+app.get('/setup/bind-dashboard', manejarAsync(bindDashboardManual));
+app.get('/setup/placement-info', manejarAsync(placementInfo));
+app.get('/setup/dialogos', manejarAsync(dialogosListar)); // lista los diálogos registrados
+app.get('/setup/dialogos/borrar', manejarAsync(dialogosBorrar)); // borra los indicados (irreversible) // diagnóstico: qué ve Bitrix de esta app
+app.get('/setup/chatapp-plantillas', manejarAsync(chatappPlantillas)); // qué plantillas hay y con qué UUID
+app.get('/setup/chatapp-prueba', manejarAsync(chatappPrueba)); // envío de prueba a UN número, antes de encender
+app.get('/setup/primer-contacto-resultado', manejarAsync(primerContactoResultado)); // cuántos contestaron, por plantilla
+app.get('/setup/calidad-datos', manejarAsync(calidadDatos));
+app.get('/setup/mover-derivados', manejarAsync(moverDerivados)); // simula por defecto; ?ejecutar=1 escribe // teléfonos y fichas defectuosas, que ahora cuestan dinero
+app.get('/setup/bind-calls', manejarAsync(bindCallsManual));
+app.get('/setup/sync-calls', manejarAsync(syncCallsManual));
 
 // Campaña de voz saliente. Panel y datos con DASHBOARD_TOKEN (embebible en Bitrix); acciones
 // administrativas (enrolar) con ADMIN_TOKEN. Las rutas del panel se registran ANTES del guard admin.
 app.all('/campaign/dashboard', requireDashboardToken, campaignDashboard);
-app.get('/campaign/data', requireDashboardToken, campaignData);
+app.get('/campaign/data', requireDashboardToken, manejarAsync(campaignData));
 app.use('/campaign', requireAdminToken);
-app.post('/campaign/enroll', campaignEnroll);
-app.get('/campaign/status', campaignStatus);
+app.post('/campaign/enroll', manejarAsync(campaignEnroll));
+app.get('/campaign/status', manejarAsync(campaignStatus));
 
 // Canales ADEMÁS de WhatsApp: solo se registran si la marca los expone (ver marca.ts). Una marca de
 // un solo canal, como Carver, no debe tener vivos estos endpoints: son superficie pública sin uso y
 // responden con la identidad de Postgrados, porque sus prompts no están parametrizados por marca.
 if (marca.tieneVoz) {
   // Fase 2: agente de voz con Vapi
-  app.post('/vapi/events', verifyVapiSecret, vapiEvents); // webhook de Vapi (tool-calls, end-of-call-report)
-  app.post('/voice/outbound', strictLimiter, verifyVapiSecret, voiceOutbound); // dispara una llamada saliente con Vapi
+  app.post('/vapi/events', verifyVapiSecret, manejarAsync(vapiEvents)); // webhook de Vapi (tool-calls, end-of-call-report)
+  app.post('/voice/outbound', strictLimiter, verifyVapiSecret, manejarAsync(voiceOutbound)); // dispara una llamada saliente con Vapi
 // Callback de WhatsApp Calling: el SBC Asterisk detecta la entrante y golpea este endpoint (GET/POST con
 // ?secret=&from=) para que Sofía DEVUELVA la llamada por el trunk de WhatsApp (la entrante directa no se
 // puede atender por un límite de media de Vapi). Auth propia por secreto dedicado dentro del handler.
-  app.get('/whatsapp/inbound-call', strictLimiter, whatsappInboundCall);
-  app.post('/whatsapp/inbound-call', strictLimiter, whatsappInboundCall);
+  app.get('/whatsapp/inbound-call', strictLimiter, manejarAsync(whatsappInboundCall));
+  app.post('/whatsapp/inbound-call', strictLimiter, manejarAsync(whatsappInboundCall));
 // M2: modo Custom LLM (Vapi hace STT/TTS y delega el "cerebro" a nuestro motor, con el perfil de voz).
 // Vapi llama a {model.url}/chat/completions; aceptamos también /vapi/llm por conveniencia.
-  app.post('/vapi/llm/chat/completions', strictLimiter, verifyVapiSecret, vapiChatCompletions);
-  app.post('/vapi/llm', strictLimiter, verifyVapiSecret, vapiChatCompletions);
+  app.post('/vapi/llm/chat/completions', strictLimiter, verifyVapiSecret, manejarAsync(vapiChatCompletions));
+  app.post('/vapi/llm', strictLimiter, verifyVapiSecret, manejarAsync(vapiChatCompletions));
 }
 
 if (marca.otrosCanales) {
   // M3: canal Web Chat — widget embebible + su API. Público (chat de sitio) con rate-limit estricto por IP.
   app.get('/webchat', webchatPage);
-  app.post('/webchat/message', strictLimiter, requireAllowedOrigin, webchatMessage);
+  app.post('/webchat/message', strictLimiter, requireAllowedOrigin, manejarAsync(webchatMessage));
 
   // M4: canales Instagram/Messenger (Meta Graph API). GET = handshake de verificación (sin rate-limit,
   // Meta lo llama una sola vez al suscribir). POST = webhook de mensajes, con verificación de firma.
   app.get('/webhooks/meta', metaVerify);
-  app.post('/webhooks/meta', strictLimiter, verifyMetaSignature, metaWebhook);
+  app.post('/webhooks/meta', strictLimiter, verifyMetaSignature, manejarAsync(metaWebhook));
 }
+
+// Errores de cualquier ruta, incluido el rechazo de un handler async: se registran y se responde 500.
+app.use(manejadorDeErrores);
 
 // Inicializa Postgres (auditoría + espejo de llamadas) y arranca el scheduler de sync de llamadas.
 initDb()
