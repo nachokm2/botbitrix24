@@ -150,6 +150,11 @@ export async function vistaPorAsesor(auth: Auth, range = 'all'): Promise<VistaAs
     .sort((x, y) => y.pendientes - x.pendientes || y.derivados - x.derivados);
   for (const c of casos) c.asesor = nombres.get(Number(c.asesor)) ?? `Asesor ${c.asesor}`;
   // Sin tomar primero, y dentro de eso lo más reciente: así la primera pantalla es la accionable.
-  casos.sort((a, b) => Number(a.atendido) - Number(b.atendido) || b.derivadoEn.localeCompare(a.derivadoEn));
+  // Se compara por tiempo, no con localeCompare: der.ts viene de dbDerivaciones y pg lo entrega como
+  // Date (no string) pese a que el tipo diga string; Date no tiene localeCompare, así que al desempatar
+  // dos casos con el mismo "atendido" se lanzaba un TypeError que dejaba vacías "Seguimiento por asesor"
+  // y "Casos derivados" del panel. new Date(...) acepta tanto el string como el Date real.
+  const ms = (x: CasoDerivado['derivadoEn']): number => new Date(x).getTime() || 0;
+  casos.sort((a, b) => Number(a.atendido) - Number(b.atendido) || ms(b.derivadoEn) - ms(a.derivadoEn));
   return { filas, porMotivo, casos };
 }
