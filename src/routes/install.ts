@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { extractAuth } from '../bitrix/auth';
+import { callBitrix } from '../bitrix/client';
 import { exchangeCode } from '../bitrix/refresh';
 import { registerBot } from '../bot/register';
 import { bindDashboard } from '../bitrix/placement';
@@ -40,8 +41,36 @@ export async function installHandler(req: Request, res: Response) {
     return res.status(400).send(page('❌ No se recibió auth de Bitrix24.'));
   }
 
+  // Solo el portal propio. Esta ruta no exige autenticación porque la llama Bitrix al instalar, y antes
+  // guardaba las credenciales de CUALQUIER dominio que viniera en el cuerpo y después le hacía
+  // peticiones a ese dominio, incluido placement.bind con el DASHBOARD_TOKEN en la URL. Así cualquiera
+  // podía reemplazar el estado del app, quedarse con el token del panel y —sin BITRIX_APPLICATION_TOKEN,
+  // como en Carver— cambiar el token que verifica los eventos y dejar sordo al bot.
+  const dominio = typeof auth.domain === 'string' ? auth.domain.trim().toLowerCase() : '';
+  if (!config.bitrixPortalDomain) {
+    if (process.env.NODE_ENV === 'production') {
+      log.error('install: sin BITRIX_PORTAL_DOMAIN ni BITRIX_WEBHOOK_URL no se puede validar el portal');
+      return res.status(503).send(page('❌ Portal de Bitrix24 no configurado.'));
+    }
+    log.warn('install: sin portal configurado; se acepta solo fuera de producción', { dominio });
+  } else if (dominio !== config.bitrixPortalDomain) {
+    log.warn('install: portal no autorizado', { dominio });
+    return res.status(403).send(page('❌ Portal no autorizado.'));
+  }
+
+  // Y el token tiene que funcionar en ese portal ANTES de guardar nada: es lo que Bitrix recomienda para
+  // la instalación (verificar el access_token y recién entonces retener el application_token).
+  try {
+    await callBitrix('app.info', {}, auth);
+  } catch (e) {
+    log.warn('install: el token no funciona en el portal', { dominio, err: String(e) });
+    return res.status(401).send(page('❌ Credenciales de Bitrix24 no válidas.'));
+  }
+
   // application_token de esta instalación: se usa para verificar el origen de los eventos posteriores.
-  const appToken = String((req.body as any)?.auth?.application_token ?? (req.body as any)?.application_token ?? '');
+  // Solo si es texto: el parser urlencoded puede entregarlo como objeto (qs con allowPrototypes).
+  const appTokenCrudo = (req.body as any)?.auth?.application_token ?? (req.body as any)?.application_token;
+  const appToken = typeof appTokenCrudo === 'string' ? appTokenCrudo : '';
   if (config.bitrixAppToken && appToken && appToken !== config.bitrixAppToken) {
     log.warn('install: application_token no coincide con BITRIX_APPLICATION_TOKEN');
     return res.status(401).send(page('❌ application_token inválido.'));

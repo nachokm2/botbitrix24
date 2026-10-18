@@ -21,6 +21,15 @@ function originOf(url: string): string {
   }
 }
 
+// Host (sin esquema ni puerto) de una URL completa, en minúsculas; '' si no es una URL válida.
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
 // Mapa simple embudo→etapa (un solo STAGE_ID por embudo), ej: {"1":"C1:UC_ABC","3":"C3:UC_XYZ"}
 function parseSimpleStageMap(s?: string): Record<string, string> {
   if (!s) return {};
@@ -135,6 +144,10 @@ export const config = {
   bitrixClientSecret: process.env.BITRIX_CLIENT_SECRET ?? '',
   // application_token que Bitrix envía en cada evento/instalación (verificación de origen del webhook).
   bitrixAppToken: process.env.BITRIX_APPLICATION_TOKEN ?? '',
+  // Dominio del portal de Bitrix24 (p.ej. "uachile.bitrix24.es"). /install solo acepta credenciales de
+  // este portal: antes guardaba las de cualquier dominio que llegara en el cuerpo y, al enlazar el
+  // panel, le enviaba el DASHBOARD_TOKEN a ese dominio. Por defecto, el host de BITRIX_WEBHOOK_URL.
+  bitrixPortalDomain: (process.env.BITRIX_PORTAL_DOMAIN?.trim().toLowerCase() || hostOf(process.env.BITRIX_WEBHOOK_URL ?? '')),
   // Secretos propios del backend para proteger paneles (DASHBOARD_TOKEN) y utilidades admin (ADMIN_TOKEN).
   dashboardToken: process.env.DASHBOARD_TOKEN ?? '',
   adminToken: process.env.ADMIN_TOKEN ?? '',
