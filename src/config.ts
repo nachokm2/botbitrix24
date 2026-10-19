@@ -343,6 +343,18 @@ export const config = {
       .filter((x) => /^C\d+:.+$/.test(x))
       .map((x) => [Number(x.slice(1, x.indexOf(':'))), x]),
   ) as Record<number, string>,
+  // Etapas que el bot NUNCA debe mover hacia atrás al derivar (a "Derivados Bot"). moverAEtapaDerivado
+  // ya respeta las cerradas (:WON/:LOSE), pero las de matrícula en curso —Pendiente de Firma/Pago,
+  // Firma/Firmó contrato, Pagado, Flywire, Validación Académica— no están cerradas y se devolvían a
+  // "Derivados Bot", deshaciendo el avance que un asesor ya había logrado. Son los STATUS_ID exactos de
+  // los embudos 73 y 135 (verificados en Bitrix el 2026-10-18). Vacío = sin protección extra.
+  stageProtegidasDerivacion: (process.env.BITRIX_STAGE_PROTEGIDAS ??
+    (esCarver
+      ? 'C73:EXECUTING,C73:FINAL_INVOICE,C73:UC_T3SAID,C73:UC_6VN64I,C73:UC_8Y04DB,C73:UC_6H038F,C73:UC_K8O282,C135:1,C135:2,C135:3,C135:4,C135:5,C135:6,C135:7'
+      : ''))
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean),
   // Distintivo que se antepone al título de las negociaciones que el bot escala por puntaje alto,
   // para que el asesor sepa cuál mirar primero. Vacío = no se marca nada.
   marcaUrgente: process.env.BITRIX_MARCA_URGENTE ?? '🔥 URGENTE · ',

@@ -111,6 +111,12 @@ export async function moverAEtapaDerivado(dealId: number, auth: Auth): Promise<b
       log.info('no se mueve de etapa: la negociación ya está cerrada', { dealId, actual });
       return false;
     }
+    // Etapas de matrícula en curso (firma/pago/validación): no están cerradas pero mover el caso a
+    // "Derivados Bot" borra un avance real del asesor. Se dejan donde están.
+    if (config.stageProtegidasDerivacion.includes(actual)) {
+      log.info('no se mueve de etapa: la negociación está en una etapa protegida', { dealId, actual });
+      return false;
+    }
     await callCrm('crm.deal.update', { id: dealId, fields: { STAGE_ID: destino } }, auth);
     // Se deja la marca DESPUÉS del movimiento, para que quede por encima del MOVED_TIME que acaba de
     // escribir Bitrix por este mismo cambio: así el propio movimiento del bot no se confunde después

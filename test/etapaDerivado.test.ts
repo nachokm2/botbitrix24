@@ -35,6 +35,11 @@ function reset() {
   fallar = false;
   deal = { CATEGORY_ID: '73', STAGE_ID: 'C73:NEW', CLOSED: 'N' };
   config.stageDerivado = { 73: 'C73:UC_9HGHNN' };
+  // El default poblado solo existe con MARCA=carver; aquí se fija a mano (mismo conjunto que config.ts).
+  config.stageProtegidasDerivacion = [
+    'C73:EXECUTING', 'C73:FINAL_INVOICE', 'C73:UC_T3SAID', 'C73:UC_6VN64I', 'C73:UC_8Y04DB', 'C73:UC_6H038F', 'C73:UC_K8O282',
+    'C135:1', 'C135:2', 'C135:3', 'C135:4', 'C135:5', 'C135:6', 'C135:7',
+  ];
 }
 
 test('mueve la negociación del embudo configurado', async () => {
@@ -68,6 +73,31 @@ test('tampoco una perdida', async () => {
   reset();
   deal = { CATEGORY_ID: '73', STAGE_ID: 'C73:LOSE', CLOSED: 'Y' };
   assert.equal(await moverAEtapaDerivado(504, auth), false);
+});
+
+test('no toca una negociación en una etapa protegida de matrícula (Pendiente de Firma, 73)', async () => {
+  reset();
+  deal = { CATEGORY_ID: '73', STAGE_ID: 'C73:EXECUTING', CLOSED: 'N' }; // Pendiente de Firma
+  assert.equal(await moverAEtapaDerivado(507, auth), false);
+  assert.equal(movida(), undefined, 'devolverla a Derivados Bot borraría el avance del asesor');
+});
+
+test('protege también Pagado (73) y Pendiente de Pago del embudo 135', async () => {
+  reset();
+  deal = { CATEGORY_ID: '73', STAGE_ID: 'C73:UC_8Y04DB', CLOSED: 'N' }; // Pagado
+  assert.equal(await moverAEtapaDerivado(508, auth), false);
+  reset();
+  config.stageDerivado = { 135: 'C135:UC_9HGHNN' };
+  deal = { CATEGORY_ID: '135', STAGE_ID: 'C135:2', CLOSED: 'N' }; // Pendiente de Pago (135)
+  assert.equal(await moverAEtapaDerivado(509, auth), false);
+  assert.equal(movida(), undefined);
+});
+
+test('una etapa NO protegida (Contactando) sí se mueve', async () => {
+  reset();
+  deal = { CATEGORY_ID: '73', STAGE_ID: 'C73:UC_KY8NN7', CLOSED: 'N' }; // Contactando
+  assert.equal(await moverAEtapaDerivado(510, auth), true);
+  assert.equal(movida()!.params.fields.STAGE_ID, 'C73:UC_9HGHNN');
 });
 
 test('sin configuración no consulta siquiera a Bitrix', async () => {
