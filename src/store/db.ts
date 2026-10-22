@@ -275,36 +275,54 @@ export function dbEnabled(): boolean {
   return pool !== null;
 }
 
-/** Borra auditoría más antigua que `days` días. Devuelve cuántas filas se borraron. */
-export async function dbPurgeOldAudit(days: number): Promise<number> {
-  if (!pool || days <= 0) return 0;
-  try {
-    const r = await pool.query(`DELETE FROM audit_log WHERE ts < now() - ($1 || ' days')::interval`, [String(days)]);
-    return r.rowCount ?? 0;
-  } catch (e) {
-    log.warn('dbPurgeOldAudit falló', { err: String(e) });
-    return 0;
+/** Tablas de histórico con datos personales que la retención purga por antigüedad, y su columna de
+ *  tiempo. NO incluye campaign_target A PROPÓSITO: no es histórico sino estado operativo de la campaña
+ *  (status, opted_out, next_attempt_at…), y borrar una fila ahí re-habilitaría llamadas a quien se dio
+ *  de baja o re-enrolaría un deal. Su minimización, si hace falta, es anonimizar el teléfono, no borrar
+ *  la fila — queda como decisión aparte. */
+const TABLAS_RETENCION: ReadonlyArray<{ tabla: string; col: string }> = [
+  { tabla: 'audit_log', col: 'ts' }, // transcripciones y detalle de cada turno
+  { tabla: 'calls', col: 'ts' }, // espejo de telefonía: teléfono, grabación
+  { tabla: 'call_attempt', col: 'created_at' }, // intentos de campaña: grabación, transcripción, resumen
+];
+
+/** Borra datos más antiguos que `days` días de las tablas de histórico. Devuelve cuántas filas se
+ *  borraron por tabla. Cada tabla se purga por separado: un fallo en una no impide purgar las demás. */
+export async function dbPurgeOldData(days: number): Promise<Record<string, number>> {
+  const borradas: Record<string, number> = {};
+  if (!pool || days <= 0) return borradas;
+  for (const { tabla, col } of TABLAS_RETENCION) {
+    try {
+      // tabla/col son literales fijos de TABLAS_RETENCION (no entrada externa); days va parametrizado.
+      const r = await pool.query(`DELETE FROM ${tabla} WHERE ${col} < now() - ($1 || ' days')::interval`, [String(days)]);
+      if (r.rowCount) borradas[tabla] = r.rowCount;
+    } catch (e) {
+      log.warn('dbPurgeOldData falló en una tabla', { tabla, err: String(e) });
+    }
   }
+  return borradas;
 }
 
 /**
- * Arranca el barrido de retención de auditoría (si AUDIT_RETENTION_DAYS>0 y hay Postgres).
- * Corre ~1 vez al día, con lock distribuido (once) para que solo una réplica purgue.
+ * Arranca el barrido de retención (si AUDIT_RETENTION_DAYS>0 y hay Postgres). Purga las tablas de
+ * histórico con datos personales (audit_log, calls, call_attempt). Corre ~1 vez al día, con lock
+ * distribuido (once) para que solo una réplica purgue.
  */
 export function startRetentionSweep(): void {
   const days = config.auditRetentionDays;
   if (!pool || days <= 0) {
-    log.info('retención de auditoría: desactivada (define AUDIT_RETENTION_DAYS>0).');
+    log.info('retención: desactivada (define AUDIT_RETENTION_DAYS>0).');
     return;
   }
   const run = async () => {
     if (!(await once('lock:audit-purge', 23 * 3600))) return; // ~1 vez/día entre réplicas
-    const deleted = await dbPurgeOldAudit(days);
-    if (deleted) log.info('retención de auditoría: filas borradas', { deleted, days });
+    const borradas = await dbPurgeOldData(days);
+    const total = Object.values(borradas).reduce((a, b) => a + b, 0);
+    if (total) log.info('retención: filas borradas', { porTabla: borradas, total, days });
   };
   setTimeout(run, 60_000); // primera pasada al minuto del arranque
   setInterval(run, 24 * 3600 * 1000);
-  log.info('retención de auditoría: activa', { retencionDias: days });
+  log.info('retención: activa', { retencionDias: days, tablas: TABLAS_RETENCION.map((t) => t.tabla) });
 }
 
 // ─────────────────────────── Espejo de llamadas (analítica exacta) ───────────────────────────
