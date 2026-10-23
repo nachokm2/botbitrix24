@@ -15,7 +15,7 @@ import { webchatMessage, webchatPage } from './routes/webchat';
 import { metaVerify, verifyMetaSignature, metaWebhook } from './routes/meta';
 import { dashboardPage, metricsSummary, conversacionDetalle } from './routes/dashboard';
 import { callsPage, callsData } from './routes/calls';
-import { initDb, dbRecentAudit, dbEnabled, startRetentionSweep } from './store/db';
+import { initDb, dbRecentAudit, dbEnabled, dbHealth, startRetentionSweep } from './store/db';
 import { iniciarRevisionDiaria } from './ai/revisionDiaria';
 import { iniciarResumenSemanal } from './ai/resumenSemanal';
 import { iniciarVigilanciaCanal } from './ai/vigilanciaCanal';
@@ -24,7 +24,7 @@ import { iniciarPrimerContacto } from './crm/primerContacto';
 import { iniciarReactivacion } from './crm/reactivacion';
 import { iniciarBarridoSeguimientos } from './ai/seguimiento';
 import { snapshot } from './obs/metrics';
-import { kvKind } from './store/kv';
+import { kvKind, redisHealth } from './store/kv';
 import { requireDashboardToken, requireAdminToken, requireAllowedOrigin } from './routes/guard';
 import { startCampaignScheduler } from './campaign/scheduler';
 import { campaignEnroll, campaignStatus, campaignData, campaignDashboard } from './routes/campaign';
@@ -69,9 +69,30 @@ app.all('/', (_req, res) =>
       `</body>`,
   ),
 );
-app.get('/health', (_req, res) =>
-  res.json({ ok: true, kv: kvKind, persistent: kvKind === 'redis', t: new Date().toISOString() }),
-);
+// Liveness + estado de dependencias (INF-07). SIEMPRE responde 200: si este handler corre, el proceso
+// está vivo y Railway NO debe reiniciarlo (healthcheckPath=/health). El estado de Postgres/Redis va en
+// el cuerpo —`postgres`/`redis` ('up'|'down'|'off') y `degraded`— para que una caída de dependencia se
+// NOTE y se pueda alertar, en vez de seguir diciendo "ok" en silencio (el incidente del 2026-10-23
+// tuvo /health "ok" con Postgres caído una hora).
+app.get('/health', async (_req, res) => {
+  let postgres: 'up' | 'down' | 'off' = 'off';
+  try {
+    postgres = await dbHealth();
+  } catch {
+    postgres = 'down';
+  }
+  const redis = redisHealth();
+  const degraded = postgres === 'down' || redis === 'down';
+  res.json({
+    ok: true,
+    degraded,
+    postgres,
+    redis,
+    kv: kvKind,
+    persistent: kvKind === 'redis',
+    t: new Date().toISOString(),
+  });
+});
 
 // Diagnóstico: confirma qué configuración ve la instancia (sin exponer secretos).
 app.get('/debug/config', requireDashboardToken, (_req, res) =>
@@ -199,11 +220,16 @@ if (marca.otrosCanales) {
 // Errores de cualquier ruta, incluido el rechazo de un handler async: se registran y se responde 500.
 app.use(manejadorDeErrores);
 
-// Inicializa Postgres (auditoría + espejo de llamadas) y arranca el scheduler de sync de llamadas.
-initDb()
+// Inicializa Postgres (auditoría + espejo de llamadas). Las tareas que necesitan el pool YA al armarse
+// (sync de llamadas y retención, que hacen return si !pool) se arrancan desde onReady: así se arman
+// cuando Postgres queda listo, sea en el arranque o más tarde si estaba caído y reconectó (INF-05). El
+// resto de schedulers comprueban el pool en cada tick, así que se recuperan solos y quedan aquí.
+const arrancarTareasConPostgres = () => {
+  startCallSync();
+  startRetentionSweep();
+};
+initDb(arrancarTareasConPostgres)
   .then(() => {
-    startCallSync();
-    startRetentionSweep();
     startCampaignScheduler(); // no-op si no hay programas activos (CAMPAIGN_<code>_ACTIVO=true)
     iniciarRevisionDiaria(); // lee las conversaciones del día y deja hallazgos — necesita Postgres
     iniciarResumenSemanal(); // no-op sin RESUMEN_SEMANAL_USUARIOS

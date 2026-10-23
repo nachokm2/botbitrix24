@@ -101,6 +101,15 @@ export function getRedisClient(): Redis | null {
   return redisClient;
 }
 
+/**
+ * Estado de Redis para /health (INF-07). 'off' = modo memoria (sin REDIS_URL); 'up'/'down' según la
+ * conexión en vivo de ioredis. No bloquea: lee el `status` que ioredis ya mantiene, sin hacer PING.
+ */
+export function redisHealth(): 'up' | 'down' | 'off' {
+  if (!redisClient) return 'off';
+  return redisClient.status === 'ready' ? 'up' : 'down';
+}
+
 export async function kvGet(key: string): Promise<string | null> {
   try {
     return await backend.get(key);

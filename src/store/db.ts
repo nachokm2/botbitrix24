@@ -16,11 +16,7 @@ export type AuditEntry = {
   detail?: unknown;
 };
 
-export async function initDb(): Promise<void> {
-  if (!config.databaseUrl) {
-    log.info('DB: sin DATABASE_URL → auditoría solo en logs');
-    return;
-  }
+async function intentarConexion(): Promise<boolean> {
   try {
     pool = new pg.Pool({
       connectionString: config.databaseUrl,
@@ -125,10 +121,63 @@ export async function initDb(): Promise<void> {
     await pool.query(`CREATE INDEX IF NOT EXISTS ca_deal_idx ON call_attempt (deal_id, attempt_no);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS ca_vapi_idx ON call_attempt (vapi_call_id);`);
     log.info('DB: Postgres conectado y tablas audit_log/calls/campaign_target/call_attempt listas');
+    notificarReady();
+    return true;
   } catch (e) {
-    log.error('DB: init falló, auditoría solo en logs', { err: String(e) });
+    log.error('DB: init falló, auditoría solo en logs (se reintentará)', { err: String(e) });
+    if (pool) await pool.end().catch(() => {}); // no fugar el pool a medio abrir entre reintentos
     pool = null;
+    return false;
   }
+}
+
+// Reconexión en segundo plano (INF-05): si Postgres no está disponible al arrancar (p. ej. Railway
+// reinició la BD), antes el pool quedaba en null para siempre y había que reiniciar el bot a mano —
+// el panel mostraba "Requiere Postgres" sin un solo error en los logs. Ahora se reintenta cada 30 s
+// hasta conectar; al quedar listo se dispara onReady UNA vez, para armar las tareas que necesitan el
+// pool ya al arrancar (sync de llamadas y retención, que hacen return si !pool). El resto de
+// schedulers comprueban el pool en cada tick, así que se recuperan solos sin necesidad de onReady.
+let reconexionTimer: ReturnType<typeof setInterval> | null = null;
+let onReadyCb: (() => void) | null = null;
+let readyNotificado = false;
+const MS_REINTENTO_DB = 30_000;
+
+function notificarReady(): void {
+  if (readyNotificado) return;
+  readyNotificado = true;
+  try {
+    onReadyCb?.();
+  } catch (e) {
+    log.error('initDb onReady falló', { err: String(e) });
+  }
+}
+
+function programarReintento(): void {
+  if (reconexionTimer) return;
+  reconexionTimer = setInterval(() => {
+    void intentarConexion().then((ok) => {
+      if (ok && reconexionTimer) {
+        clearInterval(reconexionTimer);
+        reconexionTimer = null;
+      }
+    });
+  }, MS_REINTENTO_DB);
+  reconexionTimer.unref?.(); // no mantener vivo el proceso solo por este timer
+}
+
+/**
+ * Conecta a Postgres y crea las tablas. Sin DATABASE_URL queda en modo "solo logs". Si la conexión
+ * inicial falla, NO se rinde: reintenta en segundo plano hasta lograrlo (INF-05). `onReady` se invoca
+ * una sola vez, cuando el pool queda listo (en el arranque o tras una reconexión posterior).
+ */
+export async function initDb(onReady?: () => void): Promise<void> {
+  onReadyCb = onReady ?? null;
+  if (!config.databaseUrl) {
+    log.info('DB: sin DATABASE_URL → auditoría solo en logs');
+    return;
+  }
+  const ok = await intentarConexion();
+  if (!ok) programarReintento();
 }
 
 export async function dbInsertAudit(e: AuditEntry): Promise<void> {
@@ -273,6 +322,31 @@ export async function dbRecentAudit(limit = 20): Promise<any[]> {
 
 export function dbEnabled(): boolean {
   return pool !== null;
+}
+
+/**
+ * Estado de Postgres para /health (INF-07). 'off' = no configurado (sin DATABASE_URL); 'down' =
+ * configurado pero sin conexión usable (BD caída o aún reconectando); 'up' = responde una consulta
+ * trivial. No lanza y tiene un tope de 2 s para que /health nunca quede pegado si PG no responde.
+ */
+export async function dbHealth(): Promise<'up' | 'down' | 'off'> {
+  if (!config.databaseUrl) return 'off';
+  const p = pool;
+  if (!p) return 'down';
+  let t: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      p.query('SELECT 1'),
+      new Promise((_, rej) => {
+        t = setTimeout(() => rej(new Error('timeout')), 2000);
+      }),
+    ]);
+    return 'up';
+  } catch {
+    return 'down';
+  } finally {
+    if (t) clearTimeout(t);
+  }
 }
 
 /** Tablas de histórico con datos personales que la retención purga por antigüedad, y su columna de
