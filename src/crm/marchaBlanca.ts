@@ -241,31 +241,42 @@ async function nombresDeEtapa(categoryId: number, auth: Auth): Promise<Map<strin
  * Se reporta MEDIANA, no promedio: con casos de 7 y 20 días el promedio deja de describir el caso
  * típico (promedio 1,4 d contra mediana 5,2 h sobre los mismos datos).
  */
-/** Cuántas negociaciones movidas por la MISMA persona, el MISMO día y a la MISMA etapa dejan de
- *  parecer atención individual y pasan a ser un barrido. Tres ya es un patrón; un asesor que atiende
- *  tres casos derivados el mismo día normalmente los deja en etapas distintas según cómo fue cada
- *  conversación. */
+/** Cuántas negociaciones movidas por la MISMA persona, al MISMO destino y CASI EN EL MISMO INSTANTE
+ *  (ver VENTANA_BARRIDO_MS) dejan de parecer atención individual y pasan a ser un barrido. */
 const BARRIDO_MINIMO = 3;
+
+/** Un barrido lo hace una automatización (o alguien con una acción en bloque): mueve muchos casos
+ *  casi en el mismo instante. Un asesor que atiende su cola los va moviendo uno por uno, con minutos
+ *  entre cada uno. Esta ventana separa las dos cosas: solo cuentan como barrido los movimientos que
+ *  caen dentro del mismo bloque de tiempo. Antes se agrupaba por DÍA, y eso contaba el trabajo de una
+ *  jornada entera como un solo barrido: un asesor que movió 37 casos derivados a "Contactando" a lo
+ *  largo de una tarde (uno cada 1–2 min) aparecía con 0 atendidos. */
+const VENTANA_BARRIDO_MS = 10_000; // 10 s
 
 export type MovimientoDeal = { MOVED_BY_ID?: string; MOVED_TIME?: string; STAGE_ID?: string };
 
 /**
  * Devuelve los deals que NO deben contarse como atendidos porque se movieron en bloque.
  *
- * Un barrido manual se reconoce por su forma, no por el nombre de la etapa: la misma persona,
- * el mismo día, muchas negociaciones al mismo destino. Pasó el 2026-10-06, cuando alguien movió
- * 24 casos derivados a Remarketing de una vez, 23 días después de la derivación. Contarlos como
- * atención hacía saltar la columna de 5 a 28 y reportar una mediana de 23 días: un número que se
- * ve bien y no describe nada. Mirar el nombre de la etapa no sirve — "No interesado" también es
- * una etapa de cierre y ahí sí hubo un asesor decidiendo caso por caso.
+ * Un barrido se reconoce por su forma, no por el nombre de la etapa: la misma persona, el mismo
+ * destino, muchas negociaciones en un instante. Pasó el 2026-10-06, cuando alguien movió 24 casos
+ * derivados a Remarketing de una vez, 23 días después de la derivación. Contarlos como atención hacía
+ * saltar la columna de 5 a 28 y reportar una mediana de 23 días: un número que se ve bien y no
+ * describe nada. Mirar el nombre de la etapa no sirve — "No interesado" también es una etapa de cierre
+ * y ahí sí hubo un asesor decidiendo caso por caso. La clave es el INSTANTE: un barrido mueve todo
+ * junto; un asesor lo espacia.
  */
 export function detectarBarridosEnBloque(dealIds: number[], dealsPorId: Map<number, MovimientoDeal>): Set<number> {
   const grupos = new Map<string, number[]>();
   for (const dealId of dealIds) {
     const d = dealsPorId.get(dealId);
     if (!d?.MOVED_TIME || !d.MOVED_BY_ID) continue;
-    const dia = String(d.MOVED_TIME).slice(0, 10);
-    const clave = `${d.MOVED_BY_ID}|${dia}|${d.STAGE_ID ?? ''}`;
+    const t = new Date(d.MOVED_TIME).getTime();
+    if (!Number.isFinite(t)) continue;
+    // Bloque de tiempo (no el día): un asesor que trabaja su cola cae en bloques distintos; un
+    // barrido instantáneo, en el mismo bloque.
+    const bloque = Math.floor(t / VENTANA_BARRIDO_MS);
+    const clave = `${d.MOVED_BY_ID}|${bloque}|${d.STAGE_ID ?? ''}`;
     grupos.set(clave, [...(grupos.get(clave) ?? []), dealId]);
   }
   const enBarrido = new Set<number>();

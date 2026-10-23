@@ -353,12 +353,13 @@ test('bitrixMarchaBlancaScorecard: un barrido manual en bloque NO cuenta como at
   const T0 = Date.parse('2026-09-10T12:00:00.000Z');
   const mas = (h: number) => new Date(T0 + h * 3600_000).toISOString();
   dealesPorId = {
-    // Cuatro movidas por la misma persona, el mismo día y a la misma etapa: barrido.
+    // Cuatro movidas por la misma persona, a la misma etapa y EN EL MISMO INSTANTE (23 días después
+    // de derivar): la forma de un barrido automático.
     901: { STAGE_ID: 'C1:APOLOGY', MOVED_BY_ID: '555', MOVED_TIME: mas(550) },
-    902: { STAGE_ID: 'C1:APOLOGY', MOVED_BY_ID: '555', MOVED_TIME: mas(551) },
-    903: { STAGE_ID: 'C1:APOLOGY', MOVED_BY_ID: '555', MOVED_TIME: mas(552) },
-    904: { STAGE_ID: 'C1:APOLOGY', MOVED_BY_ID: '555', MOVED_TIME: mas(553) },
-    // Dos de un asesor real, el mismo día pero a etapas DISTINTAS: trabajo caso a caso.
+    902: { STAGE_ID: 'C1:APOLOGY', MOVED_BY_ID: '555', MOVED_TIME: mas(550) },
+    903: { STAGE_ID: 'C1:APOLOGY', MOVED_BY_ID: '555', MOVED_TIME: mas(550) },
+    904: { STAGE_ID: 'C1:APOLOGY', MOVED_BY_ID: '555', MOVED_TIME: mas(550) },
+    // Dos de un asesor real, a etapas DISTINTAS y en momentos distintos: trabajo caso a caso.
     905: { STAGE_ID: 'C1:WON', MOVED_BY_ID: '346393', MOVED_TIME: mas(4) },
     906: { STAGE_ID: 'C1:LOSE', MOVED_BY_ID: '346393', MOVED_TIME: mas(6) },
   };
