@@ -20,7 +20,7 @@ import { esEmpleadoBitrix, getIdentidadAsesor, getDatosConocidosDeEntidades, get
 import { esAsesorValido } from '../crm/equipo';
 import { asesoresDisponibles, motivoHorario } from '../core/horarioAsesores';
 import { hayOperadorEnElChat } from '../crm/operadorEnChat';
-import { listaBlancaActiva, puedeResponder } from '../core/listaBlanca';
+import { listaBlancaActiva, puedeResponder, lineaDelChat } from '../core/listaBlanca';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
@@ -98,6 +98,19 @@ async function handle(req: Request) {
   const msgId = params.MESSAGE_ID;
   if (msgId && !(await once(`evt:msg:${msgId}`, 3600))) {
     return log.info('botMessage: evento duplicado ignorado', { msgId });
+  }
+
+  // Compuerta de líneas: si config.openlinesLineasPermitidas está definida, el bot solo responde en esas
+  // líneas de Open Lines y calla en el resto —incluidas conversaciones ya abiertas—, sin depender de la
+  // config de Bitrix (p. ej. Carver solo en la 93; deja de atender WhatsApp línea 31). Vacía = sin
+  // restricción (Postgrados). Fail-closed: si no se puede determinar la línea, no responde; la lista
+  // existe justamente para restringir, y mejor un silencio de más que atender un canal que no debía.
+  if (config.openlinesLineasPermitidas.length) {
+    const linea = await lineaDelChat(chatId, auth);
+    if (!linea || !config.openlinesLineasPermitidas.includes(linea)) {
+      void audit({ type: 'bot_en_silencio', dialogId, detail: { motivo: 'linea_no_permitida', chatId, linea: linea ?? null } });
+      return log.info('botMessage: línea fuera de la lista permitida; bot en silencio', { dialogId, chatId, linea });
+    }
   }
 
   // Sesión de Open Lines del mensaje: un traspaso a una persona vale mientras dure ESTA sesión.

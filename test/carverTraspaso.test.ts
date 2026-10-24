@@ -22,10 +22,13 @@ let participantes: any[] = [
   { id: 800185, bot: true, name: 'Carver University' },
   { id: 767389, extranet: true, name: 'cliente' },
 ];
+/** entity_id que devuelve im.dialog.get (conector|LÍNEA|teléfono|user); vacío por defecto. */
+let dialogEntityId = '';
 const crm = async (method: string, params: any, auth?: any) => {
   llamadas.push({ method, params, auth });
   if (method === 'user.get') return usuarioDelPortal;
   if (method === 'im.dialog.users.list') return participantes;
+  if (method === 'im.dialog.get') return { entity_id: dialogEntityId };
   return {};
 };
 mock.module('../src/bitrix/client.ts', {
@@ -249,5 +252,49 @@ test('usa el token del instalador (installAuth) para enviar, no el del evento', 
   const envio = llamadas.find((c) => c.method === 'imbot.message.add');
   assert.ok(envio, 'el bot envió la respuesta al cliente');
   assert.equal(envio.auth?.access_token, 'tok-instalador', 'envió con el token del instalador, no con el del evento ("tok")');
+  _limpiarCacheOperadores();
+});
+
+// ── Compuerta de líneas de Open Lines ────────────────────────────────────────────────────────────
+// Carver debe atender SOLO en la línea 93 (Live Chat "Canal bot Carver AI") e ignorar el resto —p. ej.
+// WhatsApp línea 31— aunque Bitrix lo tenga asignado. La restricción la impone el código, no Bitrix.
+test('con líneas permitidas, responde solo en la línea de la lista y calla en las demás', async () => {
+  const { config } = await import('../src/config');
+  const { _limpiarCacheListaBlanca } = await import('../src/core/listaBlanca');
+  const { _limpiarCacheOperadores } = await import('../src/crm/operadorEnChat');
+  const antes = config.openlinesLineasPermitidas;
+  config.openlinesLineasPermitidas = ['93'];
+  usuarioDelPortal = []; // el remitente es el cliente
+  participantes = [
+    { id: 800185, bot: true, name: 'Carver University' },
+    { id: 767389, extranet: true, name: 'cliente' },
+  ];
+
+  // Línea 31 (WhatsApp): fuera de la lista → el bot calla y lo audita.
+  _limpiarCacheListaBlanca();
+  _limpiarCacheOperadores();
+  dialogEntityId = 'ank_chats_app24_ca_whats_app|31|56900000000|805047';
+  turnos = 0;
+  llamadas.length = 0;
+  auditorias.length = 0;
+  botMessageHandler(eventoDe(60, '1700001', '767389', 'chat-linea-31') as any, res);
+  await esperar(() => auditorias.some((a) => a.type === 'bot_en_silencio' && a.detail?.motivo === 'linea_no_permitida'));
+  assert.equal(turnos, 0, 'no corre el motor en una línea no permitida');
+  assert.equal(llamadas.filter((c) => c.method === 'imbot.message.add').length, 0, 'no le escribe al cliente');
+
+  // Línea 93 (Live Chat): en la lista → atiende normalmente.
+  _limpiarCacheListaBlanca();
+  _limpiarCacheOperadores();
+  dialogEntityId = 'livechat|93|0|805047';
+  turnos = 0;
+  llamadas.length = 0;
+  auditorias.length = 0;
+  botMessageHandler(eventoDe(61, '1700002', '767389', 'chat-linea-93') as any, res);
+  await esperar(() => turnos > 0);
+  assert.equal(turnos, 1, 'atiende en la línea permitida');
+
+  config.openlinesLineasPermitidas = antes;
+  dialogEntityId = '';
+  _limpiarCacheListaBlanca();
   _limpiarCacheOperadores();
 });

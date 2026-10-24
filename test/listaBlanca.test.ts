@@ -33,7 +33,7 @@ mock.module('../src/bitrix/client.ts', {
   },
 });
 
-const { puedeResponder, telefonoDelChat, listaBlancaActiva, _limpiarCacheListaBlanca } = await import(
+const { puedeResponder, telefonoDelChat, lineaDelChat, listaBlancaActiva, _limpiarCacheListaBlanca } = await import(
   '../src/core/listaBlanca'
 );
 const { config } = await import('../src/config');
@@ -105,4 +105,22 @@ test('no consulta a Bitrix una vez por mensaje: cachea el número del chat', asy
   await puedeResponder('9001', auth);
   await puedeResponder('9001', auth);
   assert.equal(consultas.length, tras1, 'las siguientes salen de la caché');
+});
+
+// lineaDelChat: el ID de línea sale del mismo identificador (conector|LÍNEA|...). Lo usa la compuerta
+// de líneas permitidas para dejar el bot solo en un canal (p. ej. Carver en la 93).
+test('lineaDelChat devuelve el ID de línea del chat (WhatsApp y Live Chat)', async () => {
+  conLista([]);
+  CHATS['chat9004'] = 'livechat|93|0|805047';
+  _limpiarCacheListaBlanca();
+  assert.equal(await lineaDelChat('9001', auth), '31', 'WhatsApp línea 31');
+  assert.equal(await lineaDelChat('9004', auth), '93', 'Live Chat línea 93');
+  assert.equal(await lineaDelChat('9002', auth), '31');
+});
+
+test('lineaDelChat: si Bitrix falla, devuelve null (la compuerta falla cerrada)', async () => {
+  conLista([]);
+  fallaBitrix = true;
+  _limpiarCacheListaBlanca();
+  assert.equal(await lineaDelChat('9001', auth), null);
 });

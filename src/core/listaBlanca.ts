@@ -18,7 +18,13 @@ import type { Auth } from '../store';
  */
 
 const CACHE_MS = 10 * 60_000;
-const cache = new Map<string, { tel: string | null; hasta: number }>();
+/** Datos que trae el identificador del chat de Open Lines: conector | LÍNEA | teléfono | user
+ *  (ej. "ank_chats_app24_ca_whats_app|31|56923883848|805047"). Se cachea el parseo completo para no
+ *  consultar a Bitrix una vez por mensaje; lo usan la lista blanca (teléfono) y la compuerta de líneas
+ *  (routes/botEvents.ts). */
+type EntidadChat = { connector: string | null; linea: string | null; telefono: string | null };
+const cache = new Map<string, { datos: EntidadChat; hasta: number }>();
+const VACIO: EntidadChat = { connector: null, linea: null, telefono: null };
 
 /** Solo dígitos, para comparar "+56 9 2388 3848" con "56923883848". */
 const soloDigitos = (s: string) => String(s ?? '').replace(/\D/g, '');
@@ -28,29 +34,45 @@ export function listaBlancaActiva(): boolean {
 }
 
 /**
- * El teléfono desde el que escribe la persona, leído del propio chat de Open Lines.
+ * Lee (y cachea) conector/línea/teléfono del chat desde su identificador de Open Lines.
  *
- * El identificador del chat trae el conector, la línea y el número:
- *   ank_chats_app24_ca_whats_app|31|56923883848|805047
- * Se usa esa fuente y no la ficha del CRM porque en modo prueba lo que importa es de qué WhatsApp
- * llegó el mensaje, no a qué contacto lo asoció Bitrix — que puede ser otro, o ninguno.
+ * Se usa esa fuente y no la ficha del CRM porque lo que importa es de qué canal/número llegó el
+ * mensaje, no a qué contacto lo asoció Bitrix — que puede ser otro, o ninguno. Solo cachea lecturas
+ * EXITOSAS: si Bitrix falla, devuelve todo null y el próximo mensaje reintenta (no deja un chat
+ * mudo 10 min por un fallo transitorio).
  */
-export async function telefonoDelChat(chatId: string | number | undefined, auth: Auth): Promise<string | null> {
-  if (!chatId) return null;
+async function entidadDelChat(chatId: string | number | undefined, auth: Auth): Promise<EntidadChat> {
+  if (!chatId) return VACIO;
   const clave = String(chatId);
   const ahora = Date.now();
   const guardado = cache.get(clave);
-  if (guardado && guardado.hasta > ahora) return guardado.tel;
+  if (guardado && guardado.hasta > ahora) return guardado.datos;
   try {
     const r: any = await callBitrix('im.dialog.get', { DIALOG_ID: `chat${clave}` }, auth);
     const partes = String(r?.entity_id ?? '').split('|');
-    const tel = partes.length >= 3 ? soloDigitos(partes[2]) || null : null;
-    cache.set(clave, { tel, hasta: ahora + CACHE_MS });
-    return tel;
+    const datos: EntidadChat = {
+      connector: partes[0] || null,
+      linea: partes.length >= 2 ? partes[1] || null : null,
+      telefono: partes.length >= 3 ? soloDigitos(partes[2]) || null : null,
+    };
+    cache.set(clave, { datos, hasta: ahora + CACHE_MS });
+    return datos;
   } catch (e) {
-    log.warn('listaBlanca: no se pudo leer el teléfono del chat', { err: String(e), chatId: clave });
-    return null;
+    log.warn('listaBlanca: no se pudo leer el chat de Open Lines', { err: String(e), chatId: clave });
+    return VACIO; // no se cachea el fallo: el próximo mensaje reintenta
   }
+}
+
+/** El teléfono desde el que escribe la persona, leído del propio chat de Open Lines. */
+export async function telefonoDelChat(chatId: string | number | undefined, auth: Auth): Promise<string | null> {
+  return (await entidadDelChat(chatId, auth)).telefono;
+}
+
+/** El ID de la LÍNEA de Open Lines del chat (p. ej. "31" WhatsApp, "93" Live Chat). Lo usa la
+ *  compuerta de líneas permitidas (config.openlinesLineasPermitidas) en routes/botEvents.ts. null si
+ *  no se pudo determinar. */
+export async function lineaDelChat(chatId: string | number | undefined, auth: Auth): Promise<string | null> {
+  return (await entidadDelChat(chatId, auth)).linea;
 }
 
 /** ¿Este chat puede recibir respuesta? Con la lista vacía, siempre. */

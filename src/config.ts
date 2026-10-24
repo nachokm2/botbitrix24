@@ -417,6 +417,14 @@ export const config = {
   // Postgrados estuvo cinco días mudo sin que nadie lo notara: no falló el código ni el servidor,
   // dejó de entregar el canal de WhatsApp, y por eso nada de lo que vigilábamos se quejó. 0 = off.
   canalSilencioHoras: Number(process.env.CANAL_SILENCIO_HORAS ?? 6) || 0,
+  // Líneas de Open Lines donde el bot responde. Vacía = todas (sin restricción). Permite acotar el bot
+  // a un canal concreto (p. ej. Carver solo en la línea 93 de Live Chat), ignorando el resto de líneas
+  // aunque Bitrix las tenga asignadas, incluidas conversaciones ya abiertas. Se compara como texto con
+  // el ID de línea que trae el identificador del chat (conector|LÍNEA|...). Ver routes/botEvents.ts.
+  openlinesLineasPermitidas: (process.env.OPENLINES_LINEAS_PERMITIDAS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
   // Comprobación horaria de que los DOS caminos hacia Bitrix siguen vivos (webhook y OAuth). El
   // OAuth de Postgrados llevaba días sin poder renovarse y nada lo decía: las conversaciones
   // andaban, pero todo lo proactivo fallaba en silencio.
