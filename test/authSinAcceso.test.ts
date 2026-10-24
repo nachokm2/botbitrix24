@@ -30,7 +30,7 @@ mock.module('../src/store/tokenCrypto.ts', {
   namedExports: { encryptToken: (t?: string) => t, decryptToken: (t?: string) => t },
 });
 
-const { setAuth, getState, marcarSinAcceso } = await import('../src/store');
+const { setAuth, setInstallAuth, getState, marcarSinAcceso } = await import('../src/store');
 
 const auth = (user_id: number, token = `tok-${user_id}`) => ({ domain: 'x.bitrix24.com', access_token: token, user_id });
 
@@ -86,4 +86,23 @@ test('la lista de usuarios sin acceso no crece sin límite', async () => {
   for (let i = 1; i <= 70; i++) await marcarSinAcceso(i);
   const guardado = kv.get('app:state');
   assert.ok(guardado.usuariosSinAcceso.length <= 50);
+});
+
+// installAuth (token del instalador) vive en un slot propio: es el que el bot usa para imbot.message.add,
+// porque el token que viene en cada evento puede ser de un usuario sin la app concedida (incidente Carver).
+test('setInstallAuth guarda el token del instalador y getState lo devuelve', async () => {
+  kv.clear();
+  await setInstallAuth({ domain: 'x.bitrix24.com', access_token: 'tok-instalador' });
+  assert.equal((await getState()).installAuth?.access_token, 'tok-instalador');
+});
+
+test('los eventos NO pisan installAuth: sobrevive a setAuth y a marcarSinAcceso', async () => {
+  kv.clear();
+  await setInstallAuth({ domain: 'x.bitrix24.com', access_token: 'tok-instalador' });
+  // Llegan eventos de usuarios cualesquiera y hasta se marca a uno sin acceso: installAuth no se toca.
+  await setAuth(auth(5, 'tok-evento'));
+  await marcarSinAcceso(5);
+  const st = await getState();
+  assert.equal(st.installAuth?.access_token, 'tok-instalador', 'installAuth sobrevive a los eventos');
+  assert.equal(st.auth, undefined, 'el token del evento sin acceso sí se descartó, como antes');
 });

@@ -15,7 +15,7 @@ export type Auth = {
   user_id?: number;
 };
 
-type State = { auth?: Auth; botId?: number; appToken?: string; usuariosSinAcceso?: number[] };
+type State = { auth?: Auth; installAuth?: Auth; botId?: number; appToken?: string; usuariosSinAcceso?: number[] };
 
 // Estado del app (auth + botId + application_token) persistido en KV (Redis o memoria).
 // Los tokens OAuth se cifran en reposo (ver tokenCrypto); el bot igual funciona con el auth
@@ -31,6 +31,13 @@ async function readState(estricto = false): Promise<State> {
       ...s.auth,
       access_token: decryptToken(s.auth.access_token) ?? s.auth.access_token,
       refresh_token: decryptToken(s.auth.refresh_token),
+    };
+  }
+  if (s.installAuth) {
+    s.installAuth = {
+      ...s.installAuth,
+      access_token: decryptToken(s.installAuth.access_token) ?? s.installAuth.access_token,
+      refresh_token: decryptToken(s.installAuth.refresh_token),
     };
   }
   return s;
@@ -56,15 +63,19 @@ async function actualizarEstado(mut: (s: State) => void | boolean, op: string): 
 
 /** Escribe el estado CIFRANDO los tokens en reposo. */
 async function writeState(s: State): Promise<void> {
-  let toStore: State = s;
+  const toStore: State = { ...s };
   if (s.auth) {
-    toStore = {
-      ...s,
-      auth: {
-        ...s.auth,
-        access_token: encryptToken(s.auth.access_token) ?? s.auth.access_token,
-        refresh_token: encryptToken(s.auth.refresh_token),
-      },
+    toStore.auth = {
+      ...s.auth,
+      access_token: encryptToken(s.auth.access_token) ?? s.auth.access_token,
+      refresh_token: encryptToken(s.auth.refresh_token),
+    };
+  }
+  if (s.installAuth) {
+    toStore.installAuth = {
+      ...s.installAuth,
+      access_token: encryptToken(s.installAuth.access_token) ?? s.installAuth.access_token,
+      refresh_token: encryptToken(s.installAuth.refresh_token),
     };
   }
   await setJson(KEY, toStore);
@@ -104,6 +115,20 @@ export async function setAuth(auth: Auth): Promise<void> {
     if (auth.user_id && sinAcceso.includes(auth.user_id)) return false; // ya sabemos que ese token no sirve
     s.auth = auth;
   }, 'setAuth');
+}
+
+/**
+ * Guarda el token del INSTALADOR en un slot propio que los EVENTOS no pisan.
+ *
+ * `s.auth` lo reescribe cada evento con el token del usuario que lo disparó, que puede ser de alguien
+ * sin la aplicación concedida. El bot necesita, para SUS métodos (imbot.message.add, lecturas de
+ * diálogo), un token que sí tenga la app: el del instalador. Por eso vive aparte y solo lo escribe la
+ * instalación. No filtra por usuariosSinAcceso: quien instala tiene la app por definición.
+ */
+export async function setInstallAuth(auth: Auth): Promise<void> {
+  await actualizarEstado((s) => {
+    s.installAuth = auth;
+  }, 'setInstallAuth');
 }
 
 /** Registra que el token de ese usuario no sirve para los métodos del app, y lo descarta si es el

@@ -22,8 +22,8 @@ let participantes: any[] = [
   { id: 800185, bot: true, name: 'Carver University' },
   { id: 767389, extranet: true, name: 'cliente' },
 ];
-const crm = async (method: string, params: any) => {
-  llamadas.push({ method, params });
+const crm = async (method: string, params: any, auth?: any) => {
+  llamadas.push({ method, params, auth });
   if (method === 'user.get') return usuarioDelPortal;
   if (method === 'im.dialog.users.list') return participantes;
   return {};
@@ -52,6 +52,7 @@ mock.module('../src/ai/scoring.ts', { namedExports: { procesarScoring: async () 
 
 const { botMessageHandler } = await import('../src/routes/botEvents');
 const { marcarTraspaso } = await import('../src/session');
+const { setInstallAuth } = await import('../src/store');
 
 const evento = (msgId: number, sesion: string) => ({
   body: {
@@ -223,4 +224,30 @@ test('en horario de asesores el bot ENTREGA la sesión a la cola, no solo calla'
   assert.equal(a.detail.entregada, true);
 
   Object.assign(config, { horarioAsesoresActivo: antes.act, horarioAsesoresInicio: antes.ini, horarioAsesoresFin: antes.fin, horarioAsesoresDias: antes.dias });
+});
+
+// ── El bot envía con el token del INSTALADOR, no con el del evento ────────────────────────────────
+// Incidente Carver 2026-10-24: el token que Bitrix mete en cada evento era de un usuario sin la app
+// concedida, así que imbot.message.add fallaba con "user_access_error: The user does not have access to
+// the application" y el cliente quedaba sin respuesta. El bot debe usar el token del instalador
+// (installAuth), que vive en su propio slot y los eventos no pisan.
+test('usa el token del instalador (installAuth) para enviar, no el del evento', async () => {
+  await setInstallAuth({ domain: 'test.bitrix24.com', access_token: 'tok-instalador', user_id: 1 });
+  const { _limpiarCacheOperadores } = await import('../src/crm/operadorEnChat');
+  _limpiarCacheOperadores();
+  usuarioDelPortal = []; // el remitente es el cliente, no un empleado del portal
+  turnos = 0;
+  llamadas.length = 0;
+  participantes = [
+    { id: 800185, bot: true, name: 'Carver University' },
+    { id: 767389, extranet: true, name: 'cliente' },
+  ];
+
+  botMessageHandler(eventoDe(50, '1600001', '767389', 'chat-installauth') as any, res);
+  await esperar(() => llamadas.some((c) => c.method === 'imbot.message.add'));
+
+  const envio = llamadas.find((c) => c.method === 'imbot.message.add');
+  assert.ok(envio, 'el bot envió la respuesta al cliente');
+  assert.equal(envio.auth?.access_token, 'tok-instalador', 'envió con el token del instalador, no con el del evento ("tok")');
+  _limpiarCacheOperadores();
 });

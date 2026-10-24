@@ -4,7 +4,7 @@ import { callBitrix } from '../bitrix/client';
 import { exchangeCode } from '../bitrix/refresh';
 import { registerBot } from '../bot/register';
 import { bindDashboard } from '../bitrix/placement';
-import { setAuth, setBotId, setAppToken } from '../store';
+import { setAuth, setInstallAuth, setBotId, setAppToken } from '../store';
 import { config } from '../config';
 import { marca } from '../marca';
 import { log } from '../log';
@@ -78,6 +78,10 @@ export async function installHandler(req: Request, res: Response) {
 
   if (!auth.domain && typeof req.query?.domain === 'string') auth.domain = req.query.domain;
   await setAuth(auth);
+  // El token del instalador va además a un slot propio que los eventos NO pisan: es el que el bot usa
+  // para sus métodos (imbot.message.add, etc.), porque el token que viene en cada evento puede ser de
+  // un usuario sin la app concedida y Bitrix lo rechaza con user_access_error (ver store.setInstallAuth).
+  await setInstallAuth(auth);
   if (appToken) await setAppToken(appToken);
 
   try {

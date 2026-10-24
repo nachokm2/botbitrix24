@@ -77,8 +77,16 @@ async function handle(req: Request) {
     params.CHAT_ENTITY_TYPE ?? params?.CHAT?.CHAT_ENTITY_TYPE;
   const fromUserId = params.FROM_USER_ID;
 
-  const auth = extractAuth(req);
-  const botId = firstBotId(body?.data?.BOT) ?? (await getState()).botId ?? config.botId;
+  const authEvento = extractAuth(req);
+  const st = await getState();
+  const botId = firstBotId(body?.data?.BOT) ?? st.botId ?? config.botId;
+  // El bot habla con Bitrix usando el token del INSTALADOR (tiene la aplicación concedida), no el que
+  // viene en el evento: ese es del usuario que lo disparó y, si no tiene la app, Bitrix rechaza
+  // imbot.message.add con "user_access_error" y el cliente queda sin respuesta (incidente Carver
+  // 2026-10-24: el token del evento venía de un usuario sin acceso y NINGÚN mensaje se podía enviar).
+  // Sin token de instalación guardado (instalaciones viejas, hasta el próximo reinstall) cae al del
+  // evento, como antes. El token del evento igual se persiste más abajo para /setup y lo proactivo.
+  const auth = st.installAuth ?? authEvento;
 
   log.info('INBOUND bot message', { event: body.event, dialogId, chatId, entity, fromUserId, botId, msgLen: message?.length ?? 0 });
 
@@ -168,7 +176,7 @@ async function handle(req: Request) {
   // chat: ese token es SUYO y, si no tiene concedida la aplicación, no sirve para imbot.message.add.
   // Todo lo proactivo salía con él y Bitrix lo rechazaba, mientras las respuestas en vivo seguían
   // bien porque usan el token del propio evento. Costó 11 recordatorios en Carver.
-  void setAuth(auth).catch(() => {}); // mantiene el token fresco en KV para /setup y scripts
+  if (authEvento) void setAuth(authEvento).catch(() => {}); // persiste el token del evento en KV (self-healing de s.auth) para /setup y scripts; las llamadas del bot usan installAuth
   // El estado de arriba vive 6 h; el traspaso, toda la sesión de Open Lines. Sin esto el bot volvía a
   // contestar —hablando como el asesor— en chats que ya atendía una persona (piloto de Carver).
   if (marca.traspasoPorSesion) {
