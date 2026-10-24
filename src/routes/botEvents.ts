@@ -21,6 +21,7 @@ import { esAsesorValido } from '../crm/equipo';
 import { asesoresDisponibles, motivoHorario } from '../core/horarioAsesores';
 import { hayOperadorEnElChat } from '../crm/operadorEnChat';
 import { listaBlancaActiva, puedeResponder, lineaDelChat } from '../core/listaBlanca';
+import { esperarComoHumano } from '../core/ritmoHumano';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
@@ -329,8 +330,9 @@ async function handle(req: Request) {
       ])
     : ['', null];
 
-  // Indicador de "escribiendo..." mientras razona el agente (no crítico).
-  await callBitrix('imbot.chat.sendTyping', { BOT_ID: botId, DIALOG_ID: dialogId }, auth).catch(() => {});
+  // "Escribiendo…" + espera de ritmo humano: el bot no contesta al instante (parece menos robot). Con
+  // el delay desactivado (config por defecto) solo muestra el indicador, como antes. Ver core/ritmoHumano.ts.
+  await esperarComoHumano(botId, dialogId, auth);
 
   // Agente real: motor conversacional único, con el perfil del canal WhatsApp (Open Lines).
   // turnContent (bloques con imagen) tiene prioridad; si no, el texto (incluye audios transcritos).

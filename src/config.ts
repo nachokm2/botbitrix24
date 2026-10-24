@@ -425,6 +425,11 @@ export const config = {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean),
+  // "Ritmo humano": antes de responder, el bot muestra "escribiendo…" y espera un tiempo ALEATORIO en
+  // [min, max] segundos, para que no parezca un bot que contesta al instante. max<=0 lo desactiva
+  // (responde de inmediato, como antes). Ver core/ritmoHumano.ts.
+  respuestaDelayMinS: Number(process.env.RESPUESTA_DELAY_MIN_S ?? 0) || 0,
+  respuestaDelayMaxS: Number(process.env.RESPUESTA_DELAY_MAX_S ?? 0) || 0,
   // Comprobación horaria de que los DOS caminos hacia Bitrix siguen vivos (webhook y OAuth). El
   // OAuth de Postgrados llevaba días sin poder renovarse y nada lo decía: las conversaciones
   // andaban, pero todo lo proactivo fallaba en silencio.
