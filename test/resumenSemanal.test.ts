@@ -10,11 +10,15 @@ process.env.RESUMEN_SEMANAL_USUARIOS = '1313,99';
 
 let agg: any = null;
 let hallazgos: any[] = [];
+const embudoCero = { atendidas: 0, captura: 0, escal: 0, matriculaInicia: 0, enlacePago: 0, interesPerdido: 0 };
+let embudoCur: any = { ...embudoCero };
+let embudoPrev: any = { ...embudoCero };
 mock.module('../src/store/db.ts', {
   namedExports: {
     dbUltimaDerivacion: async () => null,
     dbMetricsSummary: async () => agg,
     dbHallazgosRecientes: async () => hallazgos,
+    dbEmbudoCierre: async (_dias: number, offset: number) => (offset === 0 ? embudoCur : embudoPrev),
     dbDerivaciones: async () => [],
     dbInsertAudit: async () => {},
     dbHuboOperadorDespuesDe: async () => false,
@@ -71,6 +75,24 @@ test('informa volumen y porcentajes de captura y derivación', async () => {
   assert.match(t, /derivadas a un asesor 10 \(25%\)/);
 });
 
+test('bloque de cierre: muestra la tendencia de captura y derivación vs la semana previa', () => {
+  const t = redactarResumen({
+    ...base,
+    cierre: {
+      cur: { atendidas: 40, captura: 20, escal: 10, matriculaInicia: 0, enlacePago: 0, interesPerdido: 6 },
+      prev: { atendidas: 40, captura: 16, escal: 12, matriculaInicia: 0, enlacePago: 0, interesPerdido: 9 },
+    },
+  });
+  assert.match(t, /Cierre vs\. semana previa/);
+  assert.match(t, /captura 50% \(\+10 pp\)/); // 50% vs 40%
+  assert.match(t, /derivación 25% \(-5 pp\)/); // 25% vs 30%
+  assert.match(t, /Interés perdido .*: 6 \(-3\)/); // 6 vs 9
+});
+
+test('sin datos de cierre no agrega el bloque (compatibilidad)', () => {
+  assert.doesNotMatch(redactarResumen({ ...base }), /Cierre vs\. semana previa/);
+});
+
 test('los casos sin trabajar van con nombre: es lo único accionable hoy', async () => {
   const t = redactarResumen({
     ...base,
@@ -107,6 +129,8 @@ test('se envía a cada destinatario configurado', async () => {
   agg = { conversaciones: 10, capturaConvs: 5, escalConvs: 3, errores: 0, topProgramas: [{ k: 'Psicología', c: 4 }] };
   hallazgos = [{ gravedad: 'alta' }, { gravedad: 'baja' }];
   asesores = [{ nombre: 'Ignacio Ribera', pendientes: 2 }];
+  embudoCur = { atendidas: 10, captura: 5, escal: 3, matriculaInicia: 2, enlacePago: 1, interesPerdido: 1 };
+  embudoPrev = { ...embudoCero };
 
   const texto = await enviarResumenSemanal();
   assert.ok(texto);

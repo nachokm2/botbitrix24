@@ -1466,6 +1466,45 @@ export async function dbHallazgosRecientes(limit = 30): Promise<any[]> {
   }
 }
 
+export type EmbudoCierre = {
+  atendidas: number;
+  captura: number;
+  escal: number;
+  matriculaInicia: number;
+  enlacePago: number;
+  interesPerdido: number;
+};
+
+/** Embudo de cierre de una ventana semanal, para la revisión de cierre del resumen semanal
+ *  (ai/resumenSemanal.ts). `offset` corre la ventana hacia atrás: offset=0 = últimos `dias`,
+ *  offset=7 = los 7 días previos — así se compara semana contra semana. Todo sale del audit_log
+ *  del propio servicio, sin filtrar por marca (cada bot tiene su base). */
+export async function dbEmbudoCierre(dias = 7, offset = 0): Promise<EmbudoCierre> {
+  const vacio: EmbudoCierre = { atendidas: 0, captura: 0, escal: 0, matriculaInicia: 0, enlacePago: 0, interesPerdido: 0 };
+  if (!pool) return vacio;
+  const d = Math.max(1, Math.trunc(dias));
+  const o = Math.max(0, Math.trunc(offset));
+  const W = `ts >= now() - interval '${d + o} days' AND ts < now() - interval '${o} days'`;
+  const uno = async (sql: string): Promise<number> => {
+    try {
+      const r = await pool!.query(sql);
+      return Number(r.rows[0]?.c ?? 0) || 0;
+    } catch (err) {
+      log.warn('dbEmbudoCierre falló', { err: String(err) });
+      return 0;
+    }
+  };
+  const [atendidas, captura, escal, matriculaInicia, enlacePago, interesPerdido] = await Promise.all([
+    uno(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE type='turn' AND dialog_id IS NOT NULL AND ${W}`),
+    uno(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE type='tool_call' AND detail->>'name'='registrar_interes_crm' AND detail->>'ok'='true' AND ${W}`),
+    uno(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE ((type='auto_escalation') OR (type='tool_call' AND detail->>'name'='escalar_a_humano')) AND ${W}`),
+    uno(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE type='tool_call' AND detail->>'name'='registrar_datos_matricula' AND ${W}`),
+    uno(`SELECT count(DISTINCT dialog_id)::int c FROM audit_log WHERE type='tool_call' AND detail->>'name'='obtener_enlace_de_pago' AND detail->>'ok'='true' AND ${W}`),
+    uno(`SELECT count(*)::int c FROM audit_log WHERE type='revision_hallazgo' AND detail->>'tipo'='interes_perdido' AND ${W}`),
+  ]);
+  return { atendidas, captura, escal, matriculaInicia, enlacePago, interesPerdido };
+}
+
 /** Cuándo entró el último mensaje de un cliente, en minutos. null si no hay base o nunca hubo uno.
  *  Es la señal de vida del canal: la usa la alarma de silencio (ai/vigilanciaCanal.ts). */
 export async function dbMinutosDesdeUltimoTurno(): Promise<number | null> {

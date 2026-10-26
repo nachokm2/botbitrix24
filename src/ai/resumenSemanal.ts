@@ -1,5 +1,5 @@
 import { callBitrix } from '../bitrix/client';
-import { dbMetricsSummary, dbHallazgosRecientes } from '../store/db';
+import { dbMetricsSummary, dbHallazgosRecientes, dbEmbudoCierre, type EmbudoCierre } from '../store/db';
 import { vistaPorAsesor } from '../crm/vistaAsesores';
 import { getState } from '../store';
 import { once } from '../store/kv';
@@ -29,6 +29,16 @@ export function diaEnChile(fecha: Date): number {
 
 const pct = (parte: number, total: number) => (total > 0 ? Math.round((parte / total) * 100) : 0);
 
+// Tendencia semana contra semana, en texto corto para la notificación de Bitrix.
+const ppDelta = (curP: number, curT: number, prevP: number, prevT: number): string => {
+  const delta = pct(curP, curT) - pct(prevP, prevT);
+  return delta === 0 ? 'igual' : `${delta > 0 ? '+' : ''}${delta} pp`;
+};
+const nDelta = (cur: number, prev: number): string => {
+  const delta = cur - prev;
+  return delta === 0 ? 'igual' : `${delta > 0 ? '+' : ''}${delta}`;
+};
+
 export type DatosResumen = {
   conversaciones: number;
   capturaConvs: number;
@@ -37,6 +47,8 @@ export type DatosResumen = {
   pendientesPorAsesor: Array<{ nombre: string; pendientes: number }>;
   hallazgosGraves: number;
   topProgramas: Array<{ k: string; c: number }>;
+  // Revisión de cierre: el embudo de esta semana y el de la previa, para mostrar la tendencia.
+  cierre?: { cur: EmbudoCierre; prev: EmbudoCierre };
 };
 
 /** Arma el texto del mensaje. Pura, para poder revisar la redacción sin tocar Bitrix. */
@@ -53,6 +65,27 @@ export function redactarResumen(d: DatosResumen): string {
       `Datos capturados en ${d.capturaConvs} (${pct(d.capturaConvs, d.conversaciones)}%), ` +
       `derivadas a un asesor ${d.escalConvs} (${pct(d.escalConvs, d.conversaciones)}%).`,
   );
+
+  // Revisión de cierre: lo que importa para subir las matrículas es si la captura y la derivación
+  // mejoran semana a semana, y si el interés perdido baja. Por eso va con la tendencia al lado.
+  if (d.cierre) {
+    const { cur, prev } = d.cierre;
+    l.push(
+      `[B]Cierre vs. semana previa:[/B] ` +
+        `captura ${pct(cur.captura, cur.atendidas)}% (${ppDelta(cur.captura, cur.atendidas, prev.captura, prev.atendidas)}), ` +
+        `derivación ${pct(cur.escal, cur.atendidas)}% (${ppDelta(cur.escal, cur.atendidas, prev.escal, prev.atendidas)}).`,
+    );
+    l.push(
+      `Interés perdido (interesado que se fue sin captura ni derivación): ` +
+        `${cur.interesPerdido} (${nDelta(cur.interesPerdido, prev.interesPerdido)}).`,
+    );
+    if (marca.matriculaEnChat) {
+      l.push(
+        `Matrícula en el chat: ${cur.matriculaInicia} iniciaron la ficha, ` +
+          `${cur.enlacePago} con enlace de pago entregado.`,
+      );
+    }
+  }
 
   const sinTomar = d.pendientesPorAsesor.filter((a) => a.pendientes > 0);
   if (sinTomar.length) {
@@ -86,10 +119,12 @@ export async function enviarResumenSemanal(): Promise<string | null> {
   const st = await getState();
   if (!st.auth) return null;
 
-  const [agg, hallazgos, asesores] = await Promise.all([
+  const [agg, hallazgos, asesores, cierreCur, cierrePrev] = await Promise.all([
     dbMetricsSummary('7d'),
     dbHallazgosRecientes(100),
     vistaPorAsesor(st.auth, '7d').catch(() => ({ filas: [], porMotivo: {}, casos: [] })),
+    dbEmbudoCierre(7, 0),
+    dbEmbudoCierre(7, 7),
   ]);
   if (!agg) return null;
 
@@ -101,6 +136,7 @@ export async function enviarResumenSemanal(): Promise<string | null> {
     pendientesPorAsesor: asesores.filas.map((a) => ({ nombre: a.nombre, pendientes: a.pendientes })),
     hallazgosGraves: hallazgos.filter((h: any) => h.gravedad === 'alta').length,
     topProgramas: agg.topProgramas ?? [],
+    cierre: { cur: cierreCur, prev: cierrePrev },
   });
 
   for (const userId of destinatarios) {
