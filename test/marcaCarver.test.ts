@@ -491,6 +491,32 @@ test('los creditos se nombran Carnegie, nunca a secas ni como ECTS', async () =>
   assert.match(SYSTEM_PROMPT, /la resuelve la autoridad competente de su país/);
 });
 
+// Mejoras del análisis de conversaciones (18-24 oct 2026). El patrón dominante en la autoauditoría
+// del propio bot (revision_hallazgo) era "interes_perdido": informaba bien y dejaba ir al interesado
+// sin capturar correo ni derivar. Más: el botón "Más información" se respondía con una repregunta, se
+// contestaba otra cosa de la que se preguntaba, y el reconocimiento por país se esquivaba hablando de EE.UU.
+test('no pierde al interesado: ante señales de compra, captura o deriva en vez de solo quedar atento', async () => {
+  assert.match(SYSTEM_PROMPT, /NO PIERDAS AL INTERESADO/);
+  assert.match(SYSTEM_PROMPT, /su teléfono de contacto SIEMPRE lo tienes, es el WhatsApp/);
+  assert.match(SYSTEM_PROMPT, /NO cierres con un simple "quedo atento": deriva con escalar_a_humano/);
+});
+
+test('el botón "Más información" se responde con info del programa, no con una repregunta', async () => {
+  assert.match(SYSTEM_PROMPT, /es un botón de la plantilla, no una pregunta nueva/);
+  assert.match(SYSTEM_PROMPT, /NO repreguntes "¿en qué le ayudo\?"/);
+});
+
+test('responde primero lo que preguntaron (malla, certificado) antes de ofrecer el siguiente paso', async () => {
+  assert.match(SYSTEM_PROMPT, /Responde PRIMERO exactamente lo que te preguntaron/);
+  assert.match(SYSTEM_PROMPT, /si piden la malla, dales la malla/);
+});
+
+test('reconocimiento por país: responde directo y cumple el seguimiento que promete', async () => {
+  assert.match(SYSTEM_PROMPT, /RECONOCIMIENTO EN UN PAÍS CONCRETO/);
+  assert.match(SYSTEM_PROMPT, /NO desvíes la respuesta hablando solo de la validez en EE\.UU\./);
+  assert.match(SYSTEM_PROMPT, /NUNCA prometas "lo averiguo y le aviso" para luego cerrar sin derivar/);
+});
+
 test('la ficha de cada programa dice Carnegie, no solo el prompt', async () => {
   // El prompt se puede ignorar; el dato que entrega la herramienta no. Los 16 programas con grado
   // declarado tienen que traerlo ya escrito.

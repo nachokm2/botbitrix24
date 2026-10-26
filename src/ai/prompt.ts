@@ -82,7 +82,7 @@ const esCarver = marca.key === 'carver';
 // Hallazgo 3: el inicio preguntaba "área de interés, modalidad y situación" de una vez. La modalidad
 // no aplica en Carver (todo es en línea) y tres preguntas juntas son un formulario, no una conversación.
 const OBJ_INICIO = esCarver
-  ? 'Saluda y entiende qué busca la persona con preguntas pertinentes, UNA por mensaje y en orden: si ya nombró un programa (o el CRM lo trae), ve directo a ese programa; si no lo sabe, pregúntale por su área o lo que quiere lograr; recién después, su situación. NO preguntes por modalidad: todo es 100% en línea.'
+  ? 'Saluda y entiende qué busca la persona con preguntas pertinentes, UNA por mensaje y en orden: si ya nombró un programa (o el CRM lo trae), ve directo a ese programa; si no lo sabe, pregúntale por su área o lo que quiere lograr; recién después, su situación. NO preguntes por modalidad: todo es 100% en línea. Si la persona solo responde "Más información", "Más info" o "información" (es un botón de la plantilla, no una pregunta nueva), NO repreguntes "¿en qué le ayudo?": entrégale de una vez lo más relevante del programa que trae el CRM —qué es, cuánto dura y que es 100% en línea con clases en vivo— y cierra con UNA pregunta útil.'
   : 'Saluda y entiende qué busca la persona: área de interés, modalidad y su situación.';
 
 // Hallazgo 4: en WhatsApp el teléfono ya se conoce, y lo que el CRM ya sabe se confirma, no se pide.
@@ -106,7 +106,7 @@ const OFERTA_FALTANTES = marca.baseConocimiento
 
 // Hallazgo 11: respuestas largas y repetidas. El largo además se impone en código (guardRespuesta).
 const REGLA_BREVEDAD = esCarver
-  ? 'Respuestas breves: hasta 4 frases y no más de unos 600 caracteres. UNA sola pregunta por mensaje, al final. No repitas datos, bloques ni preguntas que ya enviaste: si la persona vuelve a preguntar lo mismo, responde solo el dato puntual en una o dos frases.'
+  ? 'Respuestas breves: hasta 4 frases y no más de unos 600 caracteres. UNA sola pregunta por mensaje, al final. No repitas datos, bloques ni preguntas que ya enviaste: si la persona vuelve a preguntar lo mismo, responde solo el dato puntual en una o dos frases. Responde PRIMERO exactamente lo que te preguntaron y recién después ofrece el siguiente paso: si piden la malla, dales la malla; si preguntan por el certificado o el título, respóndelo; nunca contestes con fechas o pasos que no preguntaron.'
   : 'Respuestas breves y claras (2 a 5 frases). Haz una sola pregunta a la vez.';
 
 // Hallazgo 10: un estudiante matriculado no es un prospecto.
