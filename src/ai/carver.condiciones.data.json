@@ -182,21 +182,21 @@
   {
    "nombre": "Maestría en Ergonomía Ocupacional y Gestión",
    "tipo": "maestria",
-   "arancelLista": 3600,
+   "arancelLista": 6000,
    "becaPct": 50,
-   "arancelConBeca": 1800,
+   "arancelConBeca": 3000,
    "matricula": 50,
    "matriculaRegular": 150,
    "mensualidades": {
     "n": 12,
-    "monto": 150
+    "monto": 250
    },
    "semestral": {
     "n": 2,
-    "monto": 630
+    "monto": 1300
    },
    "contado": {
-    "total": 900
+    "total": 2300
    },
    "cotizable": true
   },
@@ -225,21 +225,21 @@
   {
    "nombre": "Maestría en Gestión de Seguridad y Salud Ocupacional",
    "tipo": "maestria",
-   "arancelLista": 3600,
+   "arancelLista": 6000,
    "becaPct": 50,
-   "arancelConBeca": 1800,
+   "arancelConBeca": 3000,
    "matricula": 50,
    "matriculaRegular": 150,
    "mensualidades": {
     "n": 12,
-    "monto": 150
+    "monto": 250
    },
    "semestral": {
     "n": 2,
-    "monto": 630
+    "monto": 1300
    },
    "contado": {
-    "total": 900
+    "total": 2300
    },
    "cotizable": true
   },
