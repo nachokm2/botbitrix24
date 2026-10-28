@@ -245,7 +245,7 @@
       "vigenteHasta": "2027-06-30",
       "actualizado": "2026-10-28",
       "formato": "Una entrada por país (más una entrada 'general' aplicable a todos). 'puedeAfirmar' es lo que el agente SÍ puede decir; 'noAfirmar' es lo que NUNCA debe afirmar; 'verificacion' trae un enlace solo donde la dirección lo aprobó para envío.",
-      "_notaEnvioDocumentos": "La dirección aprobó para ENVÍO solo dos documentos: la licencia estatal de Florida (CIE, en la entrada 'general') y el memorando SUNEDU (entrada 'Perú'). Por eso solo esas entradas llevan 'verificacion' con enlace. Para el resto de los países el agente nombra la autoridad y el procedimiento SIN pegar enlaces, y deriva con escalar_a_humano si la persona necesita el respaldo documental. Los PDF normativos de otros países se incorporarán cuando la dirección los apruebe.",
+      "_notaEnvioDocumentos": "La dirección aprobó para ENVÍO solo dos documentos: la licencia estatal de Florida (CIE, en la entrada 'general') y el memorando SUNEDU (entrada 'Perú', solo para personas de Perú). Por eso solo esas entradas llevan 'verificacion' con enlace. Para el resto de los países el agente nombra la autoridad y el procedimiento SIN pegar enlaces ni prometer un documento: Admisión confirmó el 28-10-2026 que NO existen documentos equivalentes de otros países, así que el agente nunca debe ofrecer enviarlos. Si la persona necesita respaldo documental de su país, deriva con escalar_a_humano.",
       "camposObligatorios": [
         "pais",
         "puedeAfirmar",
@@ -351,8 +351,8 @@
       "entradas": [
         {
           "tema": "Horario de clases y estructura de cohortes",
-          "respuesta": "En Carver las clases son 100% online, en vivo y en horario de tarde, pensadas para que puedas avanzar sin dejar tu trabajo, tu familia ni tus responsabilidades personales. Los días y horarios exactos dependen del programa y la cohorte, así que tu asesor de admisión te confirma la programación antes de matricularte.",
-          "instruccionInterna": "Si piden los días, las horas exactas o la zona horaria, NO los inventes: ofrece confirmarlos con el asesor según la programación de la cohorte."
+          "respuesta": "En Carver las clases son 100% online, en vivo y en horario de tarde, pensadas para que puedas avanzar sin dejar tu trabajo, tu familia ni tus responsabilidades personales. Los días y horarios exactos se definen cerca del inicio de cada ciclo y pueden variar de una cohorte a otra, así que tu asesor de admisión te comparte la programación en cuanto queda confirmada.",
+          "instruccionInterna": "Los horarios por cohorte no están definidos con anticipación: recién se confirman próximos al inicio de clases y cambian ciclo a ciclo. Si piden días, horas exactas o zona horaria, NO los inventes ni prometas una fecha concreta: explica que se confirman cerca del inicio y ofrece que el asesor los comparta cuando estén."
         },
         {
           "tema": "Calendario de pagos (primera cuota)",
@@ -368,8 +368,8 @@
         },
         {
           "tema": "Programas en inglés",
-          "respuesta": "Sí, Carver cuenta con programas en inglés; para ellos debes acreditar tu suficiencia en el idioma con un examen externo como el TOEFL. Actualmente estos programas tienen sus matrículas completas, así que no hay cupos disponibles.",
-          "instruccionInterna": "El dato de 'sin cupos' en inglés es de disponibilidad y puede cambiar: si no está vigente, no lo afirmes y ofrece confirmarlo con el asesor."
+          "respuesta": "Sí, la oferta académica en inglés es la misma que en español: son los mismos programas, disponibles también en inglés. Para cursar en inglés se acredita la suficiencia en el idioma con un examen externo como el TOEFL.",
+          "instruccionInterna": "Admisión confirmó (28-10-2026) que la oferta en inglés es la misma que en español. No afirmes disponibilidad de cupos ni 'matrículas completas' (dato no vigente); si preguntan por un programa puntual en inglés o por cupos, ofrece confirmarlo con el asesor."
         }
       ]
     },
