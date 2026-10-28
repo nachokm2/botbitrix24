@@ -236,6 +236,189 @@
           "montoDependeDelPrograma": true
         }
       ]
+    },
+    "reconocimiento_titulo": {
+      "titulo": "Reconocimiento del título por país",
+      "estado": "validado",
+      "fuente": "Carver_01_Reconocimiento_de_Titulos_por_Pais.docx (área de admisión / dirección Carver)",
+      "responsable": "Área de Admisión Carver University",
+      "vigenteHasta": "2027-06-30",
+      "actualizado": "2026-10-28",
+      "formato": "Una entrada por país (más una entrada 'general' aplicable a todos). 'puedeAfirmar' es lo que el agente SÍ puede decir; 'noAfirmar' es lo que NUNCA debe afirmar; 'verificacion' trae un enlace solo donde la dirección lo aprobó para envío.",
+      "_notaEnvioDocumentos": "La dirección aprobó para ENVÍO solo dos documentos: la licencia estatal de Florida (CIE, en la entrada 'general') y el memorando SUNEDU (entrada 'Perú'). Por eso solo esas entradas llevan 'verificacion' con enlace. Para el resto de los países el agente nombra la autoridad y el procedimiento SIN pegar enlaces, y deriva con escalar_a_humano si la persona necesita el respaldo documental. Los PDF normativos de otros países se incorporarán cuando la dirección los apruebe.",
+      "camposObligatorios": [
+        "pais",
+        "puedeAfirmar",
+        "noAfirmar"
+      ],
+      "entradas": [
+        {
+          "pais": "general (aplica a todos los países)",
+          "puedeAfirmar": "Carver University es una institución oficial estadounidense con sede en Florida, autorizada por la Commission for Independent Education (CIE) del Estado de Florida bajo la Licencia N.º 12743. Sus programas de licenciatura y maestría son válidos y oficiales en EE.UU. y otorgan grado académico. Los títulos se emiten con apostilla de La Haya (certifica la autenticidad del documento) en formato digital, con opción de emisión física apostillada. El reconocimiento, homologación, revalidación o convalidación en otro país lo resuelve la autoridad competente de ese país según su normativa, no Carver.",
+          "noAfirmar": "No afirmes que Carver cuenta hoy con acreditación institucional estadounidense; que la autorización estatal de Florida equivale a una acreditación; que los títulos tienen reconocimiento internacional automático; que la apostilla garantiza el reconocimiento académico o profesional; ni que habilitan automáticamente para ejercer profesiones reguladas.",
+          "verificacion": "Registro público oficial de la CIE: https://web02.fldoe.org/CIE/SearchSchools/SchoolSearchDetail.aspx?schoolID=12743 — y cómo verificar la licencia paso a paso: https://www.instagram.com/reel/DZs3mWmJtiw/"
+        },
+        {
+          "pais": "Perú (SUNEDU)",
+          "puedeAfirmar": "Perú reconoce títulos extranjeros a través de la SUNEDU. Existe el Memorando N.º 01166-2025-SUNEDU-DS-DIRGRATU-URGRATE, del 30 de diciembre de 2025, en el que la SUNEDU confirmó la licencia estatal de Carver University y señaló que sus títulos podrían ser evaluados para reconocimiento bajo el criterio de tratado internacional vigente entre Perú y Estados Unidos. Está firmado digitalmente y tiene código QR.",
+          "noAfirmar": "No afirmes que la SUNEDU ya reconoció los títulos de Carver ni que el reconocimiento está garantizado: el memorando es un pronunciamiento orientativo, no una resolución individual de reconocimiento. Considera además la actualización reglamentaria de junio de 2026.",
+          "verificacion": "Verificación del memorando SUNEDU: https://sgdconsulta.sunedu.gob.pe/consultar (clave: 8MwyMeBS8s)"
+        },
+        {
+          "pais": "Ecuador (SENESCYT)",
+          "puedeAfirmar": "Ecuador cuenta con un procedimiento oficial de reconocimiento y registro de títulos extranjeros a través de la SENESCYT, sujeto a la evaluación de la institución emisora, el programa y la modalidad de estudios.",
+          "noAfirmar": "No afirmes que la SENESCYT ya reconoció títulos de Carver; que la licencia de Florida cumple automáticamente los requisitos ecuatorianos de acreditación o equivalente; ni que todos los programas online son susceptibles de registro."
+        },
+        {
+          "pais": "Colombia (Ministerio de Educación Nacional)",
+          "puedeAfirmar": "Colombia contempla un procedimiento oficial de convalidación de títulos de educación superior extranjeros, con criterios que consideran los antecedentes de la institución y del programa académico.",
+          "noAfirmar": "No afirmes que los títulos de Carver ya están convalidados ni que existe equivalencia automática con títulos colombianos."
+        },
+        {
+          "pais": "Chile (reconocimiento y revalidación)",
+          "puedeAfirmar": "Chile cuenta con procedimientos de reconocimiento y revalidación de títulos y grados académicos extranjeros. Desde agosto de 2026 rige el Decreto N.º 174, que regula estos procesos ante las instituciones habilitadas.",
+          "noAfirmar": "No afirmes que los títulos de Carver están automáticamente reconocidos en Chile ni que una licenciatura estadounidense equivale directamente a un título profesional chileno."
+        },
+        {
+          "pais": "Paraguay (CONES y MEC)",
+          "puedeAfirmar": "Paraguay dispone de un procedimiento oficial de reconocimiento de títulos extranjeros ante el Consejo Nacional de Educación Superior (CONES), previo al registro ante el Ministerio de Educación y Ciencias.",
+          "noAfirmar": "No afirmes que el CONES ya reconoció títulos de Carver ni que su registro es automático."
+        },
+        {
+          "pais": "República Dominicana (MESCyT)",
+          "puedeAfirmar": "República Dominicana cuenta con procedimientos de legalización documental y de reconocimiento o reválida de títulos extranjeros ante las autoridades competentes (MESCyT), según corresponda.",
+          "noAfirmar": "No afirmes que los títulos de Carver ya fueron reconocidos ni que la legalización documental equivale a una reválida académica."
+        },
+        {
+          "pais": "Bolivia (Ministerio de Educación)",
+          "puedeAfirmar": "Bolivia contempla mecanismos de homologación y revalidación de títulos extranjeros ante el Ministerio de Educación (incluida la Resolución Ministerial N.º 0548/2023).",
+          "noAfirmar": "No afirmes que los títulos de Carver ya fueron homologados o revalidados."
+        },
+        {
+          "pais": "Costa Rica (CONARE y universidades públicas)",
+          "puedeAfirmar": "Costa Rica dispone de procedimientos de reconocimiento y equiparación de títulos extranjeros a través de las universidades públicas, en coordinación con CONARE.",
+          "noAfirmar": "No afirmes que los títulos de Carver son automáticamente equivalentes a los títulos costarricenses."
+        },
+        {
+          "pais": "El Salvador (Ministerio de Educación)",
+          "puedeAfirmar": "El Salvador contempla un procedimiento de incorporación de títulos extranjeros, regulado por la Ley de Educación Superior y normativa complementaria.",
+          "noAfirmar": "No afirmes que los títulos de Carver cuentan con incorporación automática."
+        },
+        {
+          "pais": "Estados Unidos",
+          "puedeAfirmar": "Carver University es una institución estadounidense autorizada por la CIE de Florida, bajo la Licencia N.º 12743. La aceptación de sus títulos para fines académicos, laborales o profesionales depende de las instituciones y entidades receptoras.",
+          "noAfirmar": "No afirmes que Carver cuenta hoy con acreditación institucional estadounidense ni que una universidad, empleador o junta profesional deba aceptar sus títulos."
+        },
+        {
+          "pais": "Guatemala (USAC)",
+          "puedeAfirmar": "Guatemala contempla procedimientos de incorporación de títulos extranjeros, en los que participa la Universidad de San Carlos de Guatemala (USAC).",
+          "noAfirmar": "No afirmes que los títulos de Carver cuentan con incorporación automática."
+        },
+        {
+          "pais": "Honduras (UNAH y Consejo de Educación Superior)",
+          "puedeAfirmar": "Honduras dispone de procedimientos de reconocimiento e incorporación de títulos extranjeros dentro de su sistema de educación superior.",
+          "noAfirmar": "No afirmes que los títulos de Carver ya cuentan con reconocimiento formal."
+        },
+        {
+          "pais": "Nicaragua (Ley N.º 1088)",
+          "puedeAfirmar": "Nicaragua regula el reconocimiento de títulos y grados académicos extranjeros mediante la Ley N.º 1088.",
+          "noAfirmar": "No afirmes que el reconocimiento de los títulos de Carver está garantizado."
+        },
+        {
+          "pais": "Puerto Rico",
+          "puedeAfirmar": "En Puerto Rico la aceptación de títulos académicos depende de las instituciones educativas, empleadores o juntas profesionales correspondientes, según la finalidad de su uso.",
+          "noAfirmar": "No afirmes que la licencia de Florida garantiza la aceptación automática de los títulos para cualquier finalidad."
+        },
+        {
+          "pais": "Venezuela (reválida, Ley de Universidades)",
+          "puedeAfirmar": "Venezuela contempla procedimientos universitarios de reválida de títulos extranjeros conforme a su legislación.",
+          "noAfirmar": "No afirmes que los títulos de Carver cuentan con reválida automática o reconocimiento general."
+        }
+      ]
+    },
+    "datos_operativos": {
+      "titulo": "Puntos operativos aprobados (horario, pagos, convalidación, certificado, inglés)",
+      "estado": "validado",
+      "fuente": "Carver_02_Puntos_Operativos_Chatbot.docx (área de admisión / dirección Carver)",
+      "responsable": "Área de Admisión Carver University",
+      "vigenteHasta": "2027-06-30",
+      "actualizado": "2026-10-28",
+      "formato": "Una respuesta aprobada por entrada, de uso directo en conversación. 'instruccionInterna' es guía para el agente, no se le dice a la persona.",
+      "camposObligatorios": [
+        "tema",
+        "respuesta"
+      ],
+      "entradas": [
+        {
+          "tema": "Horario de clases y estructura de cohortes",
+          "respuesta": "En Carver las clases son 100% online, en vivo y en horario de tarde, pensadas para que puedas avanzar sin dejar tu trabajo, tu familia ni tus responsabilidades personales. Los días y horarios exactos dependen del programa y la cohorte, así que tu asesor de admisión te confirma la programación antes de matricularte.",
+          "instruccionInterna": "Si piden los días, las horas exactas o la zona horaria, NO los inventes: ofrece confirmarlos con el asesor según la programación de la cohorte."
+        },
+        {
+          "tema": "Calendario de pagos (primera cuota)",
+          "respuesta": "La fecha de vencimiento de la primera cuota depende de la fecha de matrícula: si te matriculas entre el día 1 y el 19 del mes, el primer vencimiento es el día 30 de ese mismo mes; si te matriculas entre el día 20 y el último día del mes, el primer vencimiento es el último día del mes siguiente."
+        },
+        {
+          "tema": "Reconocimiento de materias o créditos previos",
+          "respuesta": "Sí, puedes solicitar el reconocimiento de asignaturas o créditos ya cursados. Entregas tu título y tu concentración de notas al asesor de admisión, que envía los antecedentes al área académica para su evaluación y luego te comunican el resultado. El proceso no tiene costo si te matriculas durante el ciclo vigente."
+        },
+        {
+          "tema": "Certificado de egreso, título y transcript",
+          "respuesta": "Al terminar tus estudios puedes solicitar tu certificado de egreso y, una vez titulado, recibes tu diploma y tu transcript (concentración de notas) en formato digital. Si necesitas los documentos físicos apostillados, la universidad te apoya con el proceso y los costos de emisión y tramitación corren por tu cuenta."
+        },
+        {
+          "tema": "Programas en inglés",
+          "respuesta": "Sí, Carver cuenta con programas en inglés; para ellos debes acreditar tu suficiencia en el idioma con un examen externo como el TOEFL. Actualmente estos programas tienen sus matrículas completas, así que no hay cupos disponibles.",
+          "instruccionInterna": "El dato de 'sin cupos' en inglés es de disponibilidad y puede cambiar: si no está vigente, no lo afirmes y ofrece confirmarlo con el asesor."
+        }
+      ]
+    },
+    "prueba_social": {
+      "titulo": "Prueba social aprobada (testimonios con texto exacto y enlace)",
+      "estado": "validado",
+      "fuente": "Carver_03_Prueba_Social_Aprobada.docx (área de admisión / dirección Carver)",
+      "responsable": "Área de Admisión Carver University",
+      "vigenteHasta": "2027-10-28",
+      "actualizado": "2026-10-28",
+      "formato": "Un testimonio por entrada. Comparte ÚNICAMENTE el 'texto' aprobado tal cual y su 'enlace'. 'programa' ayuda a elegir el testimonio según el interés de la persona.",
+      "_condicionesDeUso": "Solo estos textos y enlaces. No inventes testimonios, citas, experiencias ni resultados. Las experiencias individuales no son resultados garantizados para todos. Los testimonios NO son prueba de reconocimiento oficial de títulos ante autoridades extranjeras.",
+      "camposObligatorios": [
+        "titulo",
+        "texto",
+        "enlace"
+      ],
+      "entradas": [
+        {
+          "titulo": "Video institucional (Instagram)",
+          "texto": "Te comparto este video publicado en nuestro Instagram para que puedas conocer más sobre Carver University.",
+          "enlace": "https://www.instagram.com/reels/DR1wWAhDnPy/",
+          "programa": "general"
+        },
+        {
+          "titulo": "Claudia García — Maestría en Psicología",
+          "texto": "Conoce la experiencia de Claudia García, estudiante de la Maestría en Psicología de Carver University, quien comparte cómo nuestra modalidad online le ha permitido organizar sus tiempos, compatibilizar sus responsabilidades personales y académicas, y continuar fortaleciendo su desarrollo profesional.",
+          "enlace": "https://carver.university/es/testimonios/claudia-garcia/",
+          "programa": "Psicología (maestría)"
+        },
+        {
+          "titulo": "Cristóbal de Ugarte — Egresado del MBA",
+          "texto": "Te invito a conocer la experiencia de Cristóbal de Ugarte, egresado del MBA de Carver University, quien comparte cómo las clases online en vivo y el enfoque práctico del programa le permitieron compatibilizar sus estudios con el trabajo y aplicar sus aprendizajes directamente en su desarrollo profesional.",
+          "enlace": "https://carver.university/es/testimonios/Cristobal-De-Ugarte-MBA-Carver-Testimonio/",
+          "programa": "MBA"
+        },
+        {
+          "titulo": "Emmanuel Sánchez — Egresado del MBA",
+          "texto": "Conoce la experiencia de Emmanuel Sánchez, egresado del MBA de Carver University, quien comparte cómo el programa fortaleció sus conocimientos de liderazgo, administración y gestión, permitiéndole aplicar lo aprendido en sus responsabilidades profesionales en los ámbitos de la salud y la educación.",
+          "enlace": "https://carver.university/es/testimonios/Emmanuel-Sanchez-MBA-Carver-Testimonio/",
+          "programa": "MBA"
+        },
+        {
+          "titulo": "Henry Jiménez — Licenciatura en Psicología",
+          "texto": "Conoce la experiencia de Henry Jiménez, estudiante de la Licenciatura en Psicología de Carver University, quien destaca la flexibilidad de la modalidad online, las clases en vivo y el acompañamiento académico que le han permitido compatibilizar sus estudios con sus responsabilidades laborales.",
+          "enlace": "https://carver.university/es/testimonios/henry-jimenez/",
+          "programa": "Psicología (licenciatura)"
+        }
+      ]
     }
   },
   "_sobreLaPostulacion": "No hay tema de \"enlace de postulacion\" y es a proposito: cada asesor tenia su formulario externo, y ahora el bot pide los 14 antecedentes en la propia conversacion y los deja en el CRM (ver src/crm/matricula.ts). Mandar a la persona a otra pagina es donde se cae la mitad de la gente."

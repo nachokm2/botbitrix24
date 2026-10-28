@@ -21,6 +21,9 @@ export const TEMAS = [
   'argumentos_venta',
   'proceso_admision',
   'medios_de_pago',
+  'reconocimiento_titulo',
+  'datos_operativos',
+  'prueba_social',
 ] as const;
 export type Tema = (typeof TEMAS)[number];
 

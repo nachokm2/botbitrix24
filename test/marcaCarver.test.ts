@@ -64,6 +64,19 @@ test('marca=carver: el prompt cotiza con la planilla y protege las reglas de las
   assert.match(SYSTEM_PROMPT, /NO los menciones por iniciativa propia/);
 });
 
+// Contenido que entregó Admisión (oct 2026): el prompt enruta las tres prioridades a la base
+// verificable y ya NO afirma que los testimonios no existan.
+test('marca=carver: el prompt enruta reconocimiento, operativos y testimonios a la base verificable', () => {
+  assert.match(SYSTEM_PROMPT, /reconocimiento_titulo/);
+  assert.match(SYSTEM_PROMPT, /datos_operativos/);
+  assert.match(SYSTEM_PROMPT, /prueba_social/);
+  // El bloque de testimonios cambió de "no hay testimonios" a "hay testimonios aprobados".
+  assert.match(SYSTEM_PROMPT, /testimonios\s+AUTORIZADOS por la dirección/);
+  assert.doesNotMatch(SYSTEM_PROMPT, /no hay una página de testimonios/);
+  // El guardarraíl de cumplimiento se mantiene: nunca inventar un testimonio.
+  assert.match(SYSTEM_PROMPT, /NUNCA inventes un testimonio/);
+});
+
 // La cotización real, contra la planilla validada: los números deben calzar con los que la asesora
 // le dio a una clienta en la conversación que originó esta carga.
 test('marca=carver: cotiza Licenciatura en Psicología con las cifras de la planilla', async () => {
@@ -406,14 +419,16 @@ test('marca=carver: el prompt pone un tope a cuántas veces pide un dato', () =>
 
 // Un cliente preguntó por testimonios y por Instagram, y el bot respondió "no manejo las redes
 // sociales desde acá, pero es buena idea buscarlas": le pasó la tarea justo cuando pedía pruebas
-// para decidirse. Las redes salieron del sitio oficial de Carver.
-test('marca=carver: conoce las redes oficiales y no inventa testimonios', () => {
+// para decidirse. Las redes salieron del sitio oficial de Carver. Desde que Admisión entregó la
+// prueba social aprobada, el bot comparte los testimonios autorizados en vez de derivar la consulta.
+test('marca=carver: conoce las redes oficiales y comparte solo testimonios aprobados', () => {
   assert.match(SYSTEM_PROMPT, /instagram\.com\/carver\.university\.us/);
   assert.match(SYSTEM_PROMPT, /youtube\.com\/@CarverUniversity/);
   assert.match(SYSTEM_PROMPT, /linkedin\.com\/school\/carver-university-us/);
   assert.match(SYSTEM_PROMPT, /facebook\.com\/carver\.university\.us/);
   assert.match(SYSTEM_PROMPT, /NUNCA inventes un testimonio/);
-  assert.match(SYSTEM_PROMPT, /casos VERIFICABLES de egresados/);
+  // Antes derivaba "casos verificables"; ahora los entrega desde la prueba social aprobada.
+  assert.match(SYSTEM_PROMPT, /tema "prueba_social"/);
 });
 
 // Flywire es la plataforma de pagos de Carver — aparece además como etapa propia en sus dos embudos

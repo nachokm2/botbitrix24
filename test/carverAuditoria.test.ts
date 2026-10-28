@@ -16,6 +16,7 @@ const { marca } = await import('../src/marca');
 const { config } = await import('../src/config');
 const { obtenerBrochure, archivoCorrespondeAPrograma, _limpiarCacheBrochures } = await import('../src/core/brochures');
 const { consultarInformacionInstitucional, BASE_CONOCIMIENTO, estadoTemas, TEMAS } = await import('../src/core/conocimientoComercial');
+const { urlsEn } = await import('../src/core/guardRespuesta');
 const { perteneceAlEquipo, esAsesorValido } = await import('../src/crm/equipo');
 const { sesionOpenLines, marcarTraspaso, traspasoVigente } = await import('../src/session');
 
@@ -318,4 +319,51 @@ test('pagos: con los datos reales de Carver, ningún enlace entregado lleva mont
   assert.ok(pp, 'PayPal es uno de los dos medios oficiales');
   assert.equal(pp.url, undefined);
   assert.match(pp.descripcion, /comisión/i);
+});
+
+// ── Contenido que cargó Admisión (oct 2026): reconocimiento por país, operativos y prueba social ───
+// Son las tres prioridades que levantó el análisis de conversaciones. Se cargan como temas validados
+// para que el bot solo entregue lo aprobado y jamás invente un país, un dato ni un testimonio.
+test('reconocimiento_titulo: cada país trae qué afirmar y qué NO afirmar (guardarraíl de cumplimiento)', () => {
+  const r: any = consultarInformacionInstitucional('reconocimiento_titulo');
+  assert.equal(r.disponible, true);
+  assert.ok(r.contenido.length >= 15, 'están cargados los países del documento');
+  for (const e of r.contenido) assert.ok(e.puedeAfirmar && e.noAfirmar, `${e.pais} sin puede/no afirmar`);
+  const peru = r.contenido.find((e: any) => /Perú/.test(e.pais));
+  assert.match(peru.verificacion, /sunedu\.gob\.pe/i, 'Perú trae la verificación de SUNEDU');
+  const general = r.contenido.find((e: any) => /general/i.test(e.pais));
+  assert.match(general.verificacion, /fldoe\.org/i, 'la licencia de la CIE es verificable para todos');
+  // Un país cuyo documento aún no está aprobado para envío no inventa un enlace.
+  const ecuador = r.contenido.find((e: any) => /Ecuador/.test(e.pais));
+  assert.equal(ecuador.verificacion, undefined, 'Ecuador todavía sin enlace aprobado');
+});
+
+test('reconocimiento_titulo: solo los enlaces aprobados quedan habilitados para enviarse', () => {
+  const permitidas = urlsEn(consultarInformacionInstitucional('reconocimiento_titulo'));
+  assert.ok(permitidas.some((u: string) => /fldoe\.org/.test(u)), 'el registro de la CIE es enviable');
+  assert.ok(permitidas.some((u: string) => /sunedu\.gob\.pe/.test(u)), 'la verificación de SUNEDU es enviable');
+  assert.ok(
+    !permitidas.some((u: string) => /senescyt|mineducacion|cones\.gov|mescyt/.test(u)),
+    'ningún enlace de gobierno no aprobado se cuela como enviable',
+  );
+});
+
+test('datos_operativos: las cinco respuestas aprobadas están disponibles', () => {
+  const r: any = consultarInformacionInstitucional('datos_operativos');
+  assert.equal(r.disponible, true);
+  assert.equal(r.contenido.length, 5);
+  const pagos = r.contenido.find((e: any) => /primera cuota/i.test(e.tema));
+  assert.match(pagos.respuesta, /día 30|mes siguiente/i, 'la regla de vencimiento de la primera cuota está');
+});
+
+test('prueba_social: cinco testimonios aprobados, con texto y enlace enviable', () => {
+  const r: any = consultarInformacionInstitucional('prueba_social');
+  assert.equal(r.disponible, true);
+  assert.equal(r.contenido.length, 5);
+  for (const e of r.contenido) assert.match(e.enlace, /^https:\/\//, `${e.titulo} sin enlace https`);
+  const permitidas = urlsEn(r);
+  assert.ok(
+    permitidas.some((u: string) => /carver\.university\/es\/testimonios/.test(u)),
+    'los testimonios de la universidad quedan habilitados para enviarse',
+  );
 });
