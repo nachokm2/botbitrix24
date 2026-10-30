@@ -7,7 +7,7 @@ import { log } from './log';
 import { runWithRequestContext } from './obs/requestContext';
 import { installHandler, oauthCodeOrNext } from './routes/install';
 import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes/botEvents';
-import { registerBotManual, unregisterBotManual, updateBotManual, triggerBrochureManual, listDealFields, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, bindPanelManual, syncCallsManual, placementInfo, dialogosListar, dialogosBorrar, chatappPlantillas, chatappPrueba, primerContactoResultado, calidadDatos, moverDerivados } from './routes/setup';
+import { registerBotManual, unregisterBotManual, updateBotManual, triggerBrochureManual, listDealFields, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, bindPanelManual, limpiarPlacementsManual, syncCallsManual, placementInfo, dialogosListar, dialogosBorrar, chatappPlantillas, chatappPrueba, primerContactoResultado, calidadDatos, moverDerivados } from './routes/setup';
 import { startCallSync } from './crm/callSync';
 import { vapiEvents, voiceOutbound, verifyVapiSecret, whatsappInboundCall } from './routes/vapi';
 import { vapiChatCompletions } from './routes/vapiLlm';
@@ -206,6 +206,7 @@ app.get('/setup/calidad-datos', manejarAsync(calidadDatos));
 app.get('/setup/mover-derivados', manejarAsync(moverDerivados)); // simula por defecto; ?ejecutar=1 escribe // teléfonos y fichas defectuosas, que ahora cuestan dinero
 app.get('/setup/bind-calls', manejarAsync(bindCallsManual));
 app.get('/setup/bind-panel', manejarAsync(bindPanelManual)); // pestaña "Configuración bot" dentro de Bitrix24
+app.get('/setup/limpiar-placements', manejarAsync(limpiarPlacementsManual)); // quita paneles con token viejo del menú
 app.get('/setup/sync-calls', manejarAsync(syncCallsManual));
 
 // Campaña de voz saliente. Panel y datos con DASHBOARD_TOKEN (embebible en Bitrix); acciones

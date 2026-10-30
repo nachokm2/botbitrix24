@@ -61,6 +61,44 @@ export function bindPanelConfig(auth: Auth) {
   return bindPage(auth, '/panel', `Configuración bot ${marca.etiquetaPanel}`, `Horarios y comportamiento del bot · ${marca.organizacion}`, false);
 }
 
+/**
+ * Quita las entradas del menú que abren un panel (/app, /calls) con un token viejo o sin token.
+ *
+ * Cada rotación del DASHBOARD_TOKEN dejaba enlazada la entrada anterior: Bitrix muestra un ítem por
+ * cada una, así que el menú terminó con dos "Agente Carver" y tres "Agente Postgrados", y los viejos
+ * respondían {"ok":false,"error":"unauthorized"}. Se conserva la que lleva el token vigente y no se
+ * toca nada que no apunte a este mismo servidor (ni el panel de configuración, que no lleva token).
+ */
+export async function limpiarPlacementsViejos(auth: Auth): Promise<{ quitados: number; conservados: number; errores: number }> {
+  const lista = await callBitrix<Array<{ placement?: string; handler?: string }>>('placement.get', {}, auth);
+  const out = { quitados: 0, conservados: 0, errores: 0 };
+  if (!config.baseUrl) return out;
+  for (const p of Array.isArray(lista) ? lista : []) {
+    const handler = String(p.handler ?? '');
+    let u: URL;
+    try {
+      u = new URL(handler);
+    } catch {
+      continue;
+    }
+    if (u.origin !== new URL(config.baseUrl).origin || !['/app', '/calls'].includes(u.pathname)) continue;
+    if (config.dashboardToken && u.searchParams.get('k') === config.dashboardToken) {
+      out.conservados++;
+      continue;
+    }
+    try {
+      await callBitrix('placement.unbind', { PLACEMENT: p.placement ?? PLACEMENT, HANDLER: handler }, auth);
+      out.quitados++;
+    } catch (e) {
+      out.errores++;
+      // El error de Bitrix puede repetir el HANDLER, que trae el token viejo: va tapado.
+      log.warn('placement.unbind falló', { ruta: u.pathname, err: String(e).replace(/k=[^&\s"]+/g, 'k=***') });
+    }
+  }
+  log.info('placements viejos quitados', out);
+  return out;
+}
+
 export async function unbindDashboard(auth: Auth): Promise<void> {
   if (!config.baseUrl) return;
   try {

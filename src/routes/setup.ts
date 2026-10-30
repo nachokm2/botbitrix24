@@ -4,7 +4,7 @@ import { getState, setBotId, EMPTY_AUTH } from '../store';
 import { registerBot, unregisterBot, updateBot } from '../bot/register';
 import { callBitrix, callWebhook } from '../bitrix/client';
 import { getDealAsesores } from '../crm/directory';
-import { bindDashboard, bindCalls, bindPanelConfig } from '../bitrix/placement';
+import { bindDashboard, bindCalls, bindPanelConfig, limpiarPlacementsViejos } from '../bitrix/placement';
 import { syncCalls } from '../crm/callSync';
 import { dbEnabled, dbDialogosTodos, dbBorrarDialogos } from '../store/db';
 import { config } from '../config';
@@ -31,6 +31,19 @@ export async function bindPanelManual(_req: Request, res: Response) {
   if (!auth) return res.status(400).json({ ok: false, error: 'No hay auth. Instala el app (/install) primero.' });
   const r = await bindPanelConfig(auth);
   return res.status(r.ok ? 200 : 500).json(r);
+}
+
+/** Quita del menú de Bitrix24 los paneles enlazados con un token viejo o sin token (quedaban de
+ *  rotaciones del DASHBOARD_TOKEN y respondían "unauthorized"). GET /setup/limpiar-placements */
+export async function limpiarPlacementsManual(_req: Request, res: Response) {
+  const st = await getState();
+  const auth = st.installAuth ?? st.auth;
+  if (!auth) return res.status(400).json({ ok: false, error: 'No hay auth. Instala el app (/install) primero.' });
+  try {
+    return res.json({ ok: true, ...(await limpiarPlacementsViejos(auth)) });
+  } catch (e) {
+    return res.status(502).json({ ok: false, error: 'No se pudo leer la lista de Bitrix24.' });
+  }
 }
 
 /** (Re)enlaza la página de Analítica de Llamadas dentro de Bitrix24. GET /setup/bind-calls */
