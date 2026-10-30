@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { equivalencias } from './tipoCambio';
 import { esTipoComercializable, MENSAJE_NO_COMERCIALIZABLE } from './oferta';
+import { condicionVigente } from './ajustes';
+import { REABRE_POR_DEFECTO } from './ajustesProgramas';
 
 // Planilla comercial de Carver, validada con la dirección. La genera scripts/build-carver-precios.ts
 // desde data/carver/precios-carver.csv — ver ese script antes de tocar nada acá.
@@ -27,11 +29,17 @@ export type ProgramaCarver = {
   contado?: { total: number; porAnio?: number; anios?: number };
   cotizable: boolean;
   motivoNoCotizable?: string;
+  /** Con cupos completos: cuándo reabre la matrícula, en palabras. Lo fija el panel de configuración. */
+  reabre?: string;
 };
 
 const DATA = JSON.parse(
   readFileSync(fileURLToPath(new URL('../ai/carver.condiciones.data.json', import.meta.url)), 'utf8'),
 ) as { programas: ProgramaCarver[] };
+
+/** La planilla con lo publicado en el panel (precios y disponibilidad). Se arma en cada consulta para
+ *  que un cambio publicado rija en la conversación siguiente, sin reiniciar el bot. */
+const programasVigentes = () => DATA.programas.map(condicionVigente);
 
 /** Costos que NO están en el arancel y que la gente pregunta al pedir el total (ver la conversación
  *  real que originó el conocimiento institucional, en core/promptObjeciones.ts). */
@@ -44,13 +52,19 @@ const norm = (s: string) =>
 export function matchProgramaCarver(nombre: string): ProgramaCarver[] {
   const n = norm(nombre);
   if (!n) return [];
-  const exacto = DATA.programas.filter((p) => norm(p.nombre) === n);
+  const programas = programasVigentes();
+  const exacto = programas.filter((p) => norm(p.nombre) === n);
   if (exacto.length) return exacto;
-  const contiene = DATA.programas.filter((p) => norm(p.nombre).includes(n) || n.includes(norm(p.nombre)));
+  const contiene = programas.filter((p) => norm(p.nombre).includes(n) || n.includes(norm(p.nombre)));
   if (contiene.length) return contiene;
   // Último recurso: todas las palabras significativas del pedido aparecen en el nombre.
   const palabras = n.split(' ').filter((w) => w.length >= 4);
-  return palabras.length ? DATA.programas.filter((p) => palabras.every((w) => norm(p.nombre).includes(w))) : [];
+  return palabras.length ? programas.filter((p) => palabras.every((w) => norm(p.nombre).includes(w))) : [];
+}
+
+/** Cuándo reabre la matrícula de un programa con cupos completos, en palabras ("marzo de 2027"). */
+export function reaperturaDe(nombre: string): string {
+  return matchProgramaCarver(nombre)[0]?.reabre || REABRE_POR_DEFECTO;
 }
 
 /** Condiciones comerciales de UN programa de Carver, en cifras y no en prosa.
@@ -88,8 +102,9 @@ export function buscarCondicionesCarver(programa?: string, opts: { incluirCostos
   const p = matches[0];
 
   // Con cupos completos SÍ se informa el valor: la persona necesita el precio para decidir si espera
-  // a marzo de 2027. Lo que no se hace es prometer cupo ni fecha de inicio. Antes se negaba a
-  // cotizar, y eso dejaba sin respuesta a quien preguntaba por los dos programas de mayor valor.
+  // a que reabra (la fecha se fija en el panel de configuración). Lo que no se hace es prometer cupo ni
+  // fecha de inicio. Antes se negaba a cotizar, y eso dejaba sin respuesta a quien preguntaba por los
+  // dos programas de mayor valor.
   if (!p.cotizable && p.motivoNoCotizable !== 'cupos completos') {
     return {
       encontrado: true as const,
@@ -100,7 +115,7 @@ export function buscarCondicionesCarver(programa?: string, opts: { incluirCostos
     };
   }
   const avisoCupos = !p.cotizable
-    ? 'NO DISPONIBLE AHORA: este programa tiene los cupos completos y la matrícula reabre en MARZO DE 2027. Dilo CLARAMENTE antes del precio, para que la persona no crea que puede inscribirse hoy. Puedes darle el valor y las formas de pago para que decida si quiere esperar, pero NO prometas cupo ni fecha de inicio, y registra su interés con registrar_interes_crm para avisarle cuando abra.'
+    ? `NO DISPONIBLE AHORA: este programa tiene los cupos completos y la matrícula reabre en ${(p.reabre || REABRE_POR_DEFECTO).toUpperCase()}. Dilo CLARAMENTE antes del precio, para que la persona no crea que puede inscribirse hoy. Puedes darle el valor y las formas de pago para que decida si quiere esperar, pero NO prometas cupo ni fecha de inicio, y registra su interés con registrar_interes_crm para avisarle cuando abra.`
     : '';
 
   if (p.gratis) {

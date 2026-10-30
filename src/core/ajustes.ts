@@ -1,5 +1,18 @@
 import { config } from '../config';
 import { log } from '../log';
+import type { DetallePrograma } from '../ai/detalles';
+import type { ProgramaCarver } from './condicionesCarver';
+import {
+  programasBase,
+  programasPorDefecto,
+  validarProgramas,
+  preciosPorDefecto,
+  validarPrecios,
+  aplicarAjustesACondicion,
+  aplicarAjustesADetalle,
+  type AjustesProgramas,
+  type AjustesPrecios,
+} from './ajustesProgramas';
 
 /**
  * Ajustes del bot que se editan desde el panel de configuración (routes/panelConfig.ts), sin tocar
@@ -7,7 +20,8 @@ import { log } from '../log';
  * publicada e historial.
  *
  * Mientras una sección no se haya publicado nunca, el bot usa exactamente lo de siempre —las variables
- * de entorno de config.ts—, así que instalar el panel no cambia nada hasta que alguien publique.
+ * de entorno de config.ts y los archivos de datos de cada marca—, así que instalar el panel no cambia
+ * nada hasta que alguien publique.
  *
  * El bot lee lo publicado desde una caché en memoria que se refresca cada 30 s (y al instante cuando se
  * publica desde esta misma instancia). Si Postgres cae, se queda con lo último que leyó: un corte de la
@@ -166,6 +180,8 @@ type DefSeccion<T> = {
 /** Secciones que el panel puede editar. Se agregan acá a medida que se construyen las fases. */
 export const SECCIONES = {
   horarios: { titulo: 'Horarios', porDefecto: horariosPorDefecto, validar: validarHorarios } as DefSeccion<Horarios>,
+  programas: { titulo: 'Programas y modalidad', porDefecto: programasPorDefecto, validar: validarProgramas } as DefSeccion<AjustesProgramas>,
+  precios: { titulo: 'Precios', porDefecto: preciosPorDefecto, validar: validarPrecios } as DefSeccion<AjustesPrecios>,
 };
 
 export type NombreSeccion = keyof typeof SECCIONES;
@@ -192,6 +208,30 @@ export function horarios(): Horarios {
 /** Valor vigente de cualquier sección (para mostrarlo en el panel). */
 export function vigente(seccion: NombreSeccion): unknown {
   return publicadas.get(seccion) ?? SECCIONES[seccion].porDefecto();
+}
+
+/** Secciones que tienen algo que editar en esta marca: Programas y Precios existen solo donde hay
+ *  oferta comercial cargada (hoy, Carver). */
+export function seccionesDisponibles(): NombreSeccion[] {
+  return programasBase().length ? ['horarios', 'programas', 'precios'] : ['horarios'];
+}
+
+export function ajustesProgramas(): AjustesProgramas {
+  return vigente('programas') as AjustesProgramas;
+}
+
+export function ajustesPrecios(): AjustesPrecios {
+  return vigente('precios') as AjustesPrecios;
+}
+
+/** Condiciones comerciales de un programa con lo publicado en el panel (disponibilidad y precios). */
+export function condicionVigente(c: ProgramaCarver): ProgramaCarver & { reabre?: string } {
+  return aplicarAjustesACondicion(c, ajustesProgramas(), ajustesPrecios());
+}
+
+/** Detalle de un programa con lo publicado en el panel (modalidad, duración, brochure). */
+export function detalleVigente<T extends DetallePrograma | undefined>(d: T): T {
+  return (d ? aplicarAjustesADetalle(d, ajustesProgramas()) : d) as T;
 }
 
 /** Cómo se lee lo publicado (store/db.ts:dbConfigPublicadas). null = no se pudo leer. Se recibe como

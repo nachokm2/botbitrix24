@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { matchProgramaCarver } from './condicionesCarver';
+import { matchProgramaCarver, type ProgramaCarver } from './condicionesCarver';
 
 /**
  * Qué enlace de pago corresponde a un programa y un concepto.
@@ -70,7 +70,7 @@ export type ResultadoPago =
 const AVISO_COMISION = 'Con PayPal se suma la comisión que cobra PayPal: díselo ANTES de que pague, siempre.';
 
 /** El importe exacto de un concepto para un programa, desde la planilla validada. */
-function montoDe(p: ReturnType<typeof matchProgramaCarver>[number], concepto: Concepto): number | null {
+function montoDe(p: ProgramaCarver, concepto: Concepto): number | null {
   switch (concepto) {
     case 'matricula':
       // La matrícula se cobra SOLO en mensualidades (contado y semestral no la llevan). Cobrarla en
@@ -87,6 +87,19 @@ function montoDe(p: ReturnType<typeof matchProgramaCarver>[number], concepto: Co
     default:
       return null;
   }
+}
+
+/** Qué medio de pago corresponde a un concepto de un programa: el enlace de PayPal de importe EXACTO,
+ *  o el portal de Flywire. null si ese concepto no se cobra con esa planilla. Es la misma elección que
+ *  hace el bot; el panel de configuración la usa para mostrar qué pasaría con un precio nuevo. */
+export function elegirMedio(p: ProgramaCarver, concepto: Concepto): { montoUsd: number; medio: 'paypal' | 'flywire'; url: string } | null {
+  const montoUsd = montoDe(p, concepto);
+  if (montoUsd === null || !(montoUsd > 0)) return null;
+  // Coincidencia EXACTA de concepto e importe. Nunca el más cercano.
+  const enlace = DATOS.enlaces.find(
+    (e) => e.montoUsd === montoUsd && (CONCEPTO_DEL_ENLACE[e.concepto] ?? []).includes(concepto),
+  );
+  return enlace ? { montoUsd, medio: 'paypal', url: enlace.url } : { montoUsd, medio: 'flywire', url: DATOS.portal };
 }
 
 export function enlaceDePago(programa: string, concepto: Concepto): ResultadoPago {
@@ -106,27 +119,23 @@ export function enlaceDePago(programa: string, concepto: Concepto): ResultadoPag
     };
   }
   const p = matches[0];
-  const montoUsd = montoDe(p, concepto);
-  if (montoUsd === null || !(montoUsd > 0)) {
+  const elegido = elegirMedio(p, concepto);
+  if (!elegido) {
     return {
       ok: false,
       motivo: 'concepto_sin_monto',
       nota: `Ese concepto no aplica a ${p.nombre} con esa forma de pago. Confirma cuál quiere pagar antes de dar un enlace.`,
     };
   }
-
-  // Coincidencia EXACTA de concepto e importe. Nunca el más cercano.
-  const enlace = DATOS.enlaces.find(
-    (e) => e.montoUsd === montoUsd && (CONCEPTO_DEL_ENLACE[e.concepto] ?? []).includes(concepto),
-  );
-  if (enlace) {
+  const { montoUsd } = elegido;
+  if (elegido.medio === 'paypal') {
     return {
       ok: true,
       programa: p.nombre,
       concepto,
       montoUsd,
       medio: 'paypal',
-      url: enlace.url,
+      url: elegido.url,
       avisoComision: AVISO_COMISION,
       nota: `Enlace de PayPal por USD ${montoUsd}. Comparte SOLO esta URL, tal cual, y menciona la comisión.`,
     };

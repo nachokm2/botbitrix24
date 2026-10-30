@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="panel-sesion" content="{{SESION}}">
+  <meta name="panel-secciones" content="{{SECCIONES}}">
   <title>Configuración del bot {{ORGANIZACION}}</title>
   <link rel="stylesheet" href="/assets/panel/panel.css?v={{V}}">
 </head>
@@ -18,10 +19,10 @@
 
   <div class="layout">
     <nav class="menu" aria-label="Secciones">
-      <button type="button" class="item activo" aria-current="page">Horarios</button>
+      <button type="button" class="item" data-seccion="horarios">Horarios</button>
       <span class="item pronto">Comportamiento <small>Próximamente</small></span>
-      <span class="item pronto">Programas y modalidad <small>Próximamente</small></span>
-      <span class="item pronto">Precios <small>Próximamente</small></span>
+      <button type="button" class="item" data-seccion="programas" hidden>Programas y modalidad</button>
+      <button type="button" class="item" data-seccion="precios" hidden>Precios</button>
       <span class="item pronto">Conocimiento institucional <small>Próximamente</small></span>
       <span class="item pronto">Acciones <small>Próximamente</small></span>
     </nav>
@@ -30,7 +31,8 @@
       <div id="estado" class="estado" role="status" aria-live="polite"></div>
       <div id="errores" class="errores" role="alert" hidden></div>
 
-      <form id="formulario" novalidate>
+      <!-- ── Horarios ─────────────────────────────────────────────────────────────────────────── -->
+      <form id="form-horarios" class="seccion" novalidate hidden>
         <section class="tarjeta">
           <h2>Horario de asesores</h2>
           <p class="ayuda">Mientras hay asesores atendiendo, el bot no responde: deja el chat en la cola para que lo tome una persona. Fuera de ese horario responde el bot.</p>
@@ -58,8 +60,8 @@
           <p class="ayuda">En un feriado no hay asesores: el bot atiende todo el día, aunque caiga en un día hábil.</p>
           <ul id="lista-feriados" class="feriados"></ul>
           <div class="fila agregar">
-            <label>Fecha <input type="date" id="nuevo-feriado-fecha"></label>
-            <label class="ancho">Nombre <input type="text" id="nuevo-feriado-nombre" maxlength="80" placeholder="Ej.: Fiestas Patrias"></label>
+            <label>Fecha <input type="date" id="nuevo-feriado-fecha" data-no-cambio></label>
+            <label class="ancho">Nombre <input type="text" id="nuevo-feriado-nombre" maxlength="80" placeholder="Ej.: Fiestas Patrias" data-no-cambio></label>
             <button type="button" id="agregar-feriado" class="secundario">Agregar feriado</button>
           </div>
           <p class="error-campo" data-campo="feriados"></p>
@@ -92,16 +94,45 @@
           <p class="ayuda">Vista previa con lo que tienes en pantalla, antes de publicar.</p>
           <ol id="vista" class="vista"></ol>
         </section>
-
-        <div class="acciones">
-          <span id="indicador" class="indicador"></span>
-          <button type="button" id="descartar" class="enlace" hidden>Descartar borrador</button>
-          <button type="button" id="guardar" class="secundario">Guardar borrador</button>
-          <button type="button" id="publicar" class="primario">Publicar…</button>
-        </div>
       </form>
 
-      <section class="tarjeta">
+      <!-- ── Programas y modalidad ────────────────────────────────────────────────────────────── -->
+      <form id="form-programas" class="seccion" novalidate hidden>
+        <section class="tarjeta">
+          <h2>Programas que ofrece el bot</h2>
+          <p class="ayuda">Licenciaturas y maestrías. Abre un programa para cambiar si está abierto a matrícula, cómo se dicta, cuánto dura o su brochure. Los cursos cortos no se ofrecen por este canal, por eso no aparecen.</p>
+          <p class="nota">La fecha de inicio no va acá: sale del calendario de ingresos, que se verá en «Conocimiento institucional».</p>
+        </section>
+        <div id="programas-lista"></div>
+      </form>
+
+      <!-- ── Precios ──────────────────────────────────────────────────────────────────────────── -->
+      <form id="form-precios" class="seccion" novalidate hidden>
+        <section class="tarjeta">
+          <h2>Vigencia de los precios</h2>
+          <p class="ayuda">Hasta esta fecha el bot da los precios como definitivos. Después los entrega como referencia y ofrece confirmarlos, para no seguir afirmando cifras que nadie ha revisado.</p>
+          <div class="fila">
+            <label>Revisados y vigentes hasta <input type="date" name="vigenciaHasta" id="vigenciaHasta"></label>
+          </div>
+          <p class="error-campo" data-campo="vigenciaHasta"></p>
+          <p class="nota">Déjala vacía si no quieres fecha de revisión.</p>
+        </section>
+        <section class="tarjeta">
+          <h2>Precios por programa</h2>
+          <p class="ayuda">El arancel con beca y el valor de cada cuota se calculan solos, para que no puedan quedar contradiciéndose. Debajo de cada programa ves cómo lo cotizará el bot y con qué medio se paga cada monto.</p>
+          <p class="nota">Los enlaces de PayPal son de monto fijo: si un monto nuevo no tiene enlace, el bot entrega el portal de Flywire en su lugar. Nunca entrega un enlace de otro monto.</p>
+        </section>
+        <div id="precios-lista"></div>
+      </form>
+
+      <div class="acciones" id="acciones" hidden>
+        <span id="indicador" class="indicador"></span>
+        <button type="button" id="descartar" class="enlace" hidden>Descartar borrador</button>
+        <button type="button" id="guardar" class="secundario">Guardar borrador</button>
+        <button type="button" id="publicar" class="primario">Publicar…</button>
+      </div>
+
+      <section class="tarjeta" id="tarjeta-historial" hidden>
         <h2>Historial de publicaciones</h2>
         <p class="ayuda">Cada publicación queda registrada. Puedes cargar una versión anterior en el borrador para revisarla y volver a publicarla.</p>
         <ol id="historial" class="historial"></ol>

@@ -5,8 +5,12 @@ import { config } from '../config';
 import { marca } from '../marca';
 import { log } from '../log';
 import { callBitrix } from '../bitrix/client';
-import { SECCIONES, esSeccion, refrescarAjustes, vigente, type NombreSeccion, type Horarios } from '../core/ajustes';
+import { SECCIONES, esSeccion, refrescarAjustes, vigente, seccionesDisponibles, ajustesProgramas, type NombreSeccion, type Horarios } from '../core/ajustes';
+import { programasBase, precioACondicion, motivoEnlaceInvalido, type AjustesPrecios } from '../core/ajustesProgramas';
 import { vistaSemanal } from '../core/horarioAsesores';
+import { BECA_CARVER, type ProgramaCarver } from '../core/condicionesCarver';
+import { elegirMedio, type Concepto } from '../core/mediosPago';
+import { verificarEnlace, archivoCorrespondeAPrograma } from '../core/brochures';
 import {
   dbConfigPublicadas,
   dbConfigSeccion,
@@ -97,6 +101,7 @@ export async function panelPagina(req: Request, res: Response) {
   const html = PANEL_HTML.replaceAll('{{SESION}}', escaparHtml(sesion))
     .replaceAll('{{EDITOR}}', escaparHtml(nombre))
     .replaceAll('{{ORGANIZACION}}', escaparHtml(marca.etiquetaPanel))
+    .replaceAll('{{SECCIONES}}', escaparHtml(seccionesDisponibles().join(',')))
     .replaceAll('{{V}}', VERSION_ASSETS);
   res.set('Content-Type', 'text/html; charset=utf-8');
   // Que nadie cachee una página que lleva una credencial adentro.
@@ -220,4 +225,88 @@ export async function panelVistaHorarios(req: Request, res: Response) {
   const v = SECCIONES.horarios.validar(req.body?.contenido);
   if (!v.ok) return res.status(400).json({ ok: false, errores: v.errores });
   return res.json({ ok: true, dias: vistaSemanal(v.valor as Horarios) });
+}
+
+const usd = (n: number) => `USD ${n.toLocaleString('es-CL', { maximumFractionDigits: 2 })}`;
+
+// Los mismos conceptos que cobra el bot con enlace (core/mediosPago.ts). El abono inicial queda fuera:
+// tiene el mismo importe que la matrícula, así que mostrarlo repetiría la misma fila.
+const CONCEPTOS: Array<[Concepto, string]> = [
+  ['matricula', 'Matrícula'],
+  ['cuota_mensual', 'Cuota mensual'],
+  ['pago_semestral', 'Pago semestral'],
+  ['pago_contado', 'Pago al contado'],
+];
+
+/**
+ * POST /panel/api/seccion/precios/vista { contenido } — cómo cotizaría el bot cada programa con esos
+ * precios, y con qué medio se pagaría cada monto. Lo segundo es lo que más importa al cambiar un
+ * precio: los enlaces de PayPal son de importe fijo, así que un monto nuevo sin enlace pasa a Flywire.
+ */
+export async function panelVistaPrecios(req: Request, res: Response) {
+  const v = SECCIONES.precios.validar(req.body?.contenido);
+  if (!v.ok) return res.status(400).json({ ok: false, errores: v.errores });
+  const disponibilidad = ajustesProgramas().programas;
+  const programas: Record<string, { resumen: string[]; pagos: Array<{ concepto: Concepto; etiqueta: string; montoUsd: number; medio: string }> }> = {};
+  for (const [slug, precio] of Object.entries((v.valor as AjustesPrecios).programas)) {
+    const c = { nombre: precio.nombre, tipo: precio.tipo, cotizable: true, ...precioACondicion(precio) } as ProgramaCarver;
+    const resumen: string[] = [];
+    const prog = disponibilidad[slug];
+    if (prog?.disponibilidad === 'cupos_completos') {
+      resumen.push(`Tiene cupos completos: antes del precio, el bot avisa que la matrícula reabre en ${prog.reabre}.`);
+    }
+    resumen.push(`Arancel de lista ${usd(c.arancelLista!)}; con la ${BECA_CARVER} (${c.becaPct}%) queda en ${usd(c.arancelConBeca!)}.`);
+    resumen.push(
+      `En cuotas: ${c.mensualidades!.n} cuotas de ${usd(c.mensualidades!.monto)}, más matrícula de ${usd(c.matricula!)} (valor regular ${usd(c.matriculaRegular!)}).`,
+    );
+    resumen.push(`Semestral: ${c.semestral!.n} pagos de ${usd(c.semestral!.monto)} (total ${usd(c.semestral!.n * c.semestral!.monto)}), sin matrícula.`);
+    resumen.push(
+      c.contado!.anios
+        ? `Al contado: ${usd(c.contado!.total)}, en ${c.contado!.anios} pagos anuales de ${usd(c.contado!.porAnio!)}, sin matrícula.`
+        : `Al contado: ${usd(c.contado!.total)} en un solo pago, sin matrícula.`,
+    );
+    const pagos = CONCEPTOS.flatMap(([concepto, etiqueta]) => {
+      const m = elegirMedio(c, concepto);
+      return m ? [{ concepto, etiqueta, montoUsd: m.montoUsd, medio: m.medio }] : [];
+    });
+    programas[slug] = { resumen, pagos };
+  }
+  return res.json({ ok: true, programas });
+}
+
+const FALLAS_BROCHURE: Record<string, string> = {
+  http_404: 'El enlace no existe (error 404). Revisa que esté bien copiado.',
+  pdf_corrupto: 'El archivo dice ser un PDF, pero no se puede abrir.',
+  no_es_pdf: 'El enlace no lleva a un PDF. El bot solo entrega brochures en PDF.',
+  formato_desconocido: 'El enlace no lleva a un PDF. El bot solo entrega brochures en PDF.',
+  timeout: 'El sitio tardó demasiado en responder. Intenta de nuevo en un momento.',
+  error_red: 'No pudimos conectarnos con ese sitio.',
+};
+
+/**
+ * POST /panel/api/brochure/verificar { programa, url } — la misma comprobación que hace el bot antes de
+ * entregar un brochure (core/brochures.ts): que abra, que sea un PDF y que sea el de ese programa.
+ * Así quien pega un enlace sabe en el momento si el bot lo va a poder usar.
+ */
+export async function panelVerificarBrochure(req: Request, res: Response) {
+  const base = programasBase().find((b) => b.slug === String(req.body?.programa ?? ''));
+  if (!base) return res.status(404).json({ ok: false, error: 'Ese programa no existe.' });
+  const url = String(req.body?.url ?? '').trim();
+  if (!url) return res.status(400).json({ ok: false, error: 'Pega el enlace del brochure.' });
+  const motivo = motivoEnlaceInvalido(url);
+  if (motivo) return res.status(400).json({ ok: false, error: motivo });
+
+  const v = await verificarEnlace(url);
+  if (!v.ok) {
+    const mensaje = FALLAS_BROCHURE[v.motivo] ?? (v.motivo.startsWith('http_') ? `El sitio respondió con un error (${v.motivo.slice(5)}).` : 'No pudimos abrir el enlace.');
+    return res.json({ ok: true, valido: false, mensaje });
+  }
+  if (v.formato === 'visor_pdf' && v.archivo && !archivoCorrespondeAPrograma(v.archivo, base.nombre)) {
+    return res.json({ ok: true, valido: false, mensaje: `El enlace abre «${v.archivo}», que no parece ser el brochure de este programa. El bot no lo entregaría.` });
+  }
+  return res.json({
+    ok: true,
+    valido: true,
+    mensaje: v.archivo ? `El enlace abre «${v.archivo}». El bot lo podrá entregar.` : 'El enlace abre un PDF. El bot lo podrá entregar.',
+  });
 }

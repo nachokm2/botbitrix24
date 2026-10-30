@@ -1,6 +1,7 @@
 import { getDetalle } from '../ai/detalles';
 import { PROGRAMAS } from '../ai/catalog';
 import { esTipoComercializable } from './oferta';
+import { detalleVigente } from './ajustes';
 import { log } from '../log';
 
 /**
@@ -88,7 +89,8 @@ export async function obtenerBrochure(
   input: { programa?: string; url?: string },
   fetchFn: typeof fetch = fetch,
 ): Promise<ResultadoBrochure> {
-  const d = getDetalle({ url: input?.url, nombre: input?.programa });
+  // El enlace puede venir del panel de configuración (Programas y modalidad) en vez del archivo.
+  const d = detalleVigente(getDetalle({ url: input?.url, nombre: input?.programa }));
   if (!d) return { ok: false, programa: input?.programa, motivo: 'programa_no_encontrado' };
   const tipo = PROGRAMAS.find((p) => p.url === d.url || p.nombre === d.nombre)?.tipo;
   if (tipo && !esTipoComercializable(tipo)) return { ok: false, programa: d.nombre, motivo: 'programa_no_comercializable' };

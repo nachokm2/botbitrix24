@@ -1,4 +1,4 @@
-import { config } from '../config';
+import { ajustesPrecios } from './ajustes';
 
 /**
  * Caducidad de la información comercial.
@@ -17,7 +17,8 @@ import { config } from '../config';
 export type EstadoVigencia = { vigente: boolean; diasVencida: number | null; hasta: string | null };
 
 export function estadoVigencia(hoy = new Date()): EstadoVigencia {
-  const hasta = config.condicionesVigenciaHasta;
+  // Lo publicado en "Precios" del panel; sin nada publicado, CONDICIONES_VIGENCIA_HASTA de Railway.
+  const hasta = ajustesPrecios().vigenciaHasta;
   if (!hasta || !/^\d{4}-\d{2}-\d{2}$/.test(hasta)) return { vigente: true, diasVencida: null, hasta: null };
   // Se compara al final del día indicado: "vigente hasta el 31" incluye el 31 entero.
   const limite = new Date(`${hasta}T23:59:59Z`).getTime();
