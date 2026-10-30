@@ -174,7 +174,9 @@
           <p class="nota">Con PayPal se suma la comisión de PayPal: el bot lo avisa siempre, antes de que la persona pague.</p>
           <ol id="enlaces-paypal" class="entradas"></ol>
           <p class="error-campo" data-campo="enlacesPayPal"></p>
-          <button type="button" class="secundario" id="agregar-enlace">Agregar enlace</button>
+          <div class="fila importar" id="acciones-importar"><button type="button" class="secundario" id="agregar-enlace">Agregar enlace</button></div>
+          <p class="nota">También puedes importar los enlaces desde el documento de finanzas (Word o PDF): se cargan en pantalla para que los revises antes de guardar.</p>
+          <p class="estado-importar" id="acciones-estado-importar" aria-live="polite"></p>
         </section>
         <section class="tarjeta">
           <h2>Qué recibe cada programa</h2>
@@ -232,6 +234,23 @@
       <div class="botones">
         <button value="cancelar" class="secundario">Cancelar</button>
         <button value="publicar" class="primario">Publicar ahora</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dialogo-importar" aria-labelledby="titulo-importar">
+    <form method="dialog">
+      <h2 id="titulo-importar">¿Cómo lo cargo?</h2>
+      <p id="texto-importar"></p>
+      <ul class="cambios">
+        <li><strong>Agregar y actualizar</strong>: suma lo nuevo y actualiza lo que ya estaba (el mismo ciclo, país, monto…). Lo demás queda como está.</li>
+        <li><strong>Reemplazar todo</strong>: deja solo lo que trae el documento. Úsalo cuando el documento es la versión completa.</li>
+      </ul>
+      <p class="nota">En los dos casos queda en pantalla para que lo revises: nada se guarda todavía.</p>
+      <div class="botones">
+        <button value="cancelar" class="secundario">Cancelar</button>
+        <button value="reemplazar" class="secundario">Reemplazar todo</button>
+        <button value="agregar" class="primario">Agregar y actualizar</button>
       </div>
     </form>
   </dialog>

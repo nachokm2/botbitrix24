@@ -228,6 +228,13 @@ details.programa .cuerpo { padding: 4px 16px 16px; }
 .tabla-pagos .etiqueta, .entrada .sin-uso { display: inline-block; font-size: 0.72rem; padding: 0 6px; border-radius: 999px; }
 .entrada select { width: 100%; }
 
+/* Importar desde un documento */
+.fila.importar { margin-top: 12px; }
+.estado-importar { margin: 6px 0 0; font-size: 0.9rem; }
+.estado-importar:empty { display: none; }
+.estado-importar.ok { color: var(--ok-texto); }
+.estado-importar.mal { color: var(--error-texto); }
+
 /* Probar el bot: chat simulado */
 .menu .item.probar { margin-top: 12px; border: 1px solid #bfdbfe; color: var(--primario); }
 .menu .item.probar.activo { color: var(--texto); }

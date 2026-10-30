@@ -64,6 +64,71 @@
   }
   const api = (metodo, ruta, cuerpo) => pedir(metodo, `/panel/api/seccion/${actual}${ruta}`, cuerpo);
 
+  /** Envía un documento Word o PDF para que el servidor proponga su contenido (no guarda nada). */
+  async function importarDocumento(destino, archivo) {
+    if (archivo.size > 10 * 1024 * 1024) return { ok: false, error: 'El documento pesa más de 10 MB. Sube solo la parte que corresponde.' };
+    const tipo = archivo.type || (/\.pdf$/i.test(archivo.name) ? 'application/pdf' : 'application/octet-stream');
+    try {
+      const r = await fetch(`/panel/api/importar?destino=${encodeURIComponent(destino)}&nombre=${encodeURIComponent(archivo.name)}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${SESION}`, 'Content-Type': tipo },
+        body: archivo,
+      });
+      let j = {};
+      try {
+        j = await r.json();
+      } catch {
+        /* se informa abajo */
+      }
+      if (r.status === 401) {
+        bloquear(j.error || 'Tu sesión venció. Vuelve a abrir el panel desde Bitrix24.');
+        return { ok: false, error: '' };
+      }
+      return r.ok && j.ok ? j : { ok: false, error: j.error ?? 'No pudimos leer el documento.' };
+    } catch {
+      return { ok: false, error: 'No pudimos comunicarnos con el servidor. Intenta de nuevo.' };
+    }
+  }
+
+  /** Pregunta cómo cargar lo importado: 'agregar', 'reemplazar' o 'cancelar'. */
+  function comoImportar(texto) {
+    const d = $('dialogo-importar');
+    $('texto-importar').textContent = texto;
+    d.returnValue = 'cancelar';
+    d.showModal();
+    return new Promise((resolver) => d.addEventListener('close', () => resolver(d.returnValue || 'cancelar'), { once: true }));
+  }
+
+  /** Suma `nuevas` a `actuales`: la que tiene la misma clave reemplaza a la anterior en su lugar; las
+   *  demás se agregan al final. Devuelve la lista y cuántas se agregaron y actualizaron. */
+  function combinar(actuales, nuevas, clave) {
+    const lista = [...actuales];
+    let agregadas = 0;
+    let actualizadas = 0;
+    for (const n of nuevas) {
+      const k = clave(n);
+      const i = k ? lista.findIndex((x) => clave(x) === k) : -1;
+      if (i >= 0) {
+        lista[i] = n;
+        actualizadas++;
+      } else {
+        lista.push(n);
+        agregadas++;
+      }
+    }
+    return { lista, agregadas, actualizadas };
+  }
+  const resumenCombinado = (r) =>
+    [r.agregadas ? `${r.agregadas} nueva${r.agregadas === 1 ? '' : 's'}` : '', r.actualizadas ? `${r.actualizadas} actualizada${r.actualizadas === 1 ? '' : 's'}` : '']
+      .filter(Boolean)
+      .join(' y ') || 'sin cambios';
+
+  /** Botón "Importar desde un documento" con su selector de archivo escondido y su línea de estado. */
+  const botonImportar = (destino) => [
+    el('button', { type: 'button', class: 'secundario', 'data-importar': destino, text: 'Importar desde un documento' }),
+    el('input', { type: 'file', accept: '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'data-documento': destino, 'data-no-cambio': true, hidden: true }),
+  ];
+
   async function conEspera(fn) {
     if (ocupado) return;
     ocupado = true;
@@ -706,8 +771,60 @@
     const control = (n) => form.querySelector(`[name="${n}"]`);
     const temaDeCampo = (campo) => /^temas\.([^.]+)\./.exec(campo)?.[1];
 
+    /** Carga en pantalla las filas que el servidor encontró en un documento, si la persona confirma. */
+    async function importar(tema, entrada) {
+      const archivo = entrada.files?.[0];
+      entrada.value = '';
+      if (!archivo) return;
+      const estado = contenedor.querySelector(`.tema[data-tema="${tema}"] .estado-importar`);
+      estado.className = 'estado-importar';
+      estado.textContent = `Leyendo «${archivo.name}»… puede tardar hasta un minuto.`;
+      const r = await importarDocumento(`conocimiento:${tema}`, archivo);
+      if (!r.ok) {
+        estado.textContent = r.error;
+        estado.classList.add('mal');
+        return;
+      }
+      const filas = Array.isArray(r.propuesta?.entradas) ? r.propuesta.entradas : [];
+      if (!filas.length) {
+        estado.textContent = `No encontramos filas de este tema en «${archivo.name}».`;
+        estado.classList.add('mal');
+        return;
+      }
+      const modo = await comoImportar(`Encontramos ${filas.length} fila${filas.length === 1 ? '' : 's'} en «${archivo.name}».`);
+      if (modo === 'cancelar') {
+        estado.textContent = '';
+        return;
+      }
+      const e = esquema.find((x) => x.tema === tema);
+      // La misma clave que usa el historial: el ciclo y programa, el país, el argumento… Los pasos de
+      // admisión no tienen clave propia: se agregan al final.
+      const clave = (f) =>
+        e.numerado ? '' : tema === 'calendario_ingresos' ? `${f.ciclo}|${f.programa}`.toLowerCase() : String(f[e.campos[0].clave] ?? '').trim().toLowerCase();
+      let texto;
+      if (modo === 'reemplazar') {
+        renderEntradas(tema, filas);
+        texto = `Se reemplazaron las filas por las ${filas.length} de «${archivo.name}».`;
+      } else {
+        const r2 = combinar(leer().temas[tema].entradas, filas, clave);
+        renderEntradas(tema, r2.lista);
+        texto = `Desde «${archivo.name}»: ${resumenCombinado(r2)}.`;
+      }
+      control(nombre(tema, 'fuente')).value = archivo.name;
+      if (r.propuesta.vigenteHasta) control(nombre(tema, 'vigenteHasta')).value = r.propuesta.vigenteHasta;
+      cambio();
+      estado.textContent = `${texto} Revísalas: todavía no están guardadas.`;
+      estado.classList.add('ok');
+    }
+
     function iniciar() {
+      form.addEventListener('change', (e) => {
+        const entrada = e.target.closest('input[data-documento]');
+        if (entrada) importar(entrada.dataset.documento.split(':')[1], entrada);
+      });
       form.addEventListener('click', (e) => {
+        const imp = e.target.closest('[data-importar]');
+        if (imp) form.querySelector(`input[data-documento="${imp.dataset.importar}"]`).click();
         const b = e.target.closest('button[data-accion]');
         if (!b) return;
         const { accion, tema } = b.dataset;
@@ -814,6 +931,9 @@
               errorDe(n('vigenteHasta')),
               errorDe(n('fuente')),
               el('p', { class: 'vista-tema', 'aria-live': 'polite' }),
+              el('div', { class: 'fila importar' }, ...botonImportar(`conocimiento:${e.tema}`)),
+              el('p', { class: 'nota', text: 'Sube el Word o PDF de donde sale este tema: se cargan sus filas en pantalla para que las revises antes de guardar.' }),
+              el('p', { class: 'estado-importar', 'aria-live': 'polite' }),
             ),
             el('ol', { class: 'entradas', 'data-tema': e.tema }),
             errorDe(n('entradas')),
@@ -1092,7 +1212,61 @@
       });
     }
 
+    /** Carga en pantalla los enlaces que el servidor encontró en un documento, si la persona confirma. */
+    async function importar(entrada) {
+      const archivo = entrada.files?.[0];
+      entrada.value = '';
+      if (!archivo) return;
+      const estado = $('acciones-estado-importar');
+      estado.className = 'estado-importar';
+      estado.textContent = `Leyendo «${archivo.name}»… puede tardar hasta un minuto.`;
+      const r = await importarDocumento('acciones', archivo);
+      if (!r.ok) {
+        estado.textContent = r.error;
+        estado.classList.add('mal');
+        return;
+      }
+      const enlaces = Array.isArray(r.propuesta?.enlacesPayPal) ? r.propuesta.enlacesPayPal : [];
+      const portal = typeof r.propuesta?.portalFlywire === 'string' ? r.propuesta.portalFlywire.trim() : '';
+      if (!enlaces.length && !portal) {
+        estado.textContent = `No encontramos enlaces de pago en «${archivo.name}».`;
+        estado.classList.add('mal');
+        return;
+      }
+      const resumen = [enlaces.length ? `${enlaces.length} enlace${enlaces.length === 1 ? '' : 's'} de PayPal` : '', portal ? 'el portal de Flywire' : ''].filter(Boolean).join(' y ');
+      const modo = await comoImportar(`Encontramos ${resumen} en «${archivo.name}».`);
+      if (modo === 'cancelar') {
+        estado.textContent = '';
+        return;
+      }
+      let texto = '';
+      if (enlaces.length && modo === 'reemplazar') {
+        render(enlaces);
+        texto = `Se reemplazaron los enlaces por los ${enlaces.length} de «${archivo.name}».`;
+      } else if (enlaces.length) {
+        // Un enlace se identifica por lo que cobra: mismo concepto y mismo monto = el mismo enlace, actualizado.
+        const r2 = combinar(leerEnlaces(), enlaces, (x) => `${x.concepto}|${Number(x.montoUsd)}`);
+        render(r2.lista);
+        texto = `Enlaces desde «${archivo.name}»: ${resumenCombinado(r2)}.`;
+      }
+      if (portal) {
+        $('portalFlywire').value = portal;
+        texto = `${texto} Portal de Flywire tomado del documento.`.trim();
+      }
+      cambio();
+      estado.textContent = `${texto} Revísalo: todavía no está guardado.`;
+      estado.classList.add('ok');
+    }
+
     function iniciar() {
+      $('acciones-importar').append(...botonImportar('acciones'));
+      form.addEventListener('click', (e) => {
+        if (e.target.closest('[data-importar]')) form.querySelector('input[data-documento="acciones"]').click();
+      });
+      form.addEventListener('change', (e) => {
+        const entrada = e.target.closest('input[data-documento]');
+        if (entrada) importar(entrada);
+      });
       $('agregar-enlace').addEventListener('click', () => {
         const enlaces = leerEnlaces();
         enlaces.push({ concepto: 'arancel', montoUsd: null, url: '' });

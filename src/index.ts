@@ -35,6 +35,7 @@ import { paginaStats } from './routes/stats';
 import { panelPagina, panelLeerSeccion, panelGuardarBorrador, panelDescartarBorrador, panelPublicar, panelRestaurar, panelVistaHorarios, panelVistaPrecios, panelVerificarBrochure, panelVistaConocimiento, panelSimular, panelVistaComportamiento, panelVistaAcciones } from './routes/panelConfig';
 import { requirePanelSesion } from './routes/panelSesion';
 import { panelSubirArchivo, servirArchivo, MAX_PDF_BYTES } from './routes/panelArchivos';
+import { panelImportar, MAX_DOCUMENTO_BYTES, TIPOS_DOCUMENTO } from './routes/panelImportar';
 import { iniciarRefrescoAjustes } from './core/ajustes';
 
 const app = express();
@@ -153,6 +154,7 @@ app.post('/panel/api/simulador', manejarAsync(panelSimular));
 // El PDF llega como cuerpo binario: el json() global no lo toca y este parser solo corre en esta ruta.
 app.post('/panel/api/archivos', express.raw({ type: 'application/pdf', limit: MAX_PDF_BYTES + 1024 }), manejarAsync(panelSubirArchivo));
 app.get('/archivos/:token/:nombre', manejarAsync(servirArchivo)); // público: el enlace que entrega el bot
+app.post('/panel/api/importar', express.raw({ type: TIPOS_DOCUMENTO, limit: MAX_DOCUMENTO_BYTES + 1024 }), manejarAsync(panelImportar));
 
 // Panel de métricas embebible en Bitrix24 (placement) + su API de datos.
 // Los handlers async van envueltos en manejarAsync: Express 4 no captura su rechazo y Node terminaría
