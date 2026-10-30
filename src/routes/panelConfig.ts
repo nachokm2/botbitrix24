@@ -18,6 +18,8 @@ import {
   type Horarios,
 } from '../core/ajustes';
 import { bloquesRenderizados, type AjustesComportamiento } from '../core/ajustesComportamiento';
+import type { AjustesAcciones } from '../core/ajustesAcciones';
+import { matchProgramaCarver } from '../core/condicionesCarver';
 import { programasBase, precioACondicion, motivoEnlaceInvalido, type AjustesPrecios } from '../core/ajustesProgramas';
 import { vistaSemanal } from '../core/horarioAsesores';
 import { BECA_CARVER, type ProgramaCarver } from '../core/condicionesCarver';
@@ -340,6 +342,41 @@ export async function panelVistaComportamiento(req: Request, res: Response) {
   if (!v.ok) return res.status(400).json({ ok: false, errores: v.errores });
   const { costos: _costos, ...bloques } = bloquesRenderizados(v.valor as AjustesComportamiento, ajustesPrecios().costosAdicionales);
   return res.json({ ok: true, bloques });
+}
+
+// Todos los pagos con enlace que puede pedir una persona, en el orden en que se pagan.
+const PAGOS: Array<[Concepto, string]> = [
+  ['matricula', 'Matrícula'],
+  ['abono_inicial', 'Abono inicial'],
+  ['cuota_mensual', 'Cuota mensual'],
+  ['pago_semestral', 'Pago semestral'],
+  ['pago_contado', 'Pago al contado'],
+];
+
+/**
+ * POST /panel/api/seccion/acciones/vista { contenido } — con esta lista de enlaces, qué medio recibe cada
+ * pago de cada programa (con los precios vigentes), y qué enlaces no le sirven a ninguno. Es la misma
+ * elección que hace el bot (core/mediosPago.ts:elegirMedio): coincidencia exacta de monto o Flywire.
+ */
+export async function panelVistaAcciones(req: Request, res: Response) {
+  const v = SECCIONES.acciones.validar(req.body?.contenido);
+  if (!v.ok) return res.status(400).json({ ok: false, errores: v.errores });
+  const a = v.valor as AjustesAcciones;
+  const datos = { enlaces: a.enlacesPayPal, portal: a.portalFlywire };
+  const usados = new Set<string>();
+  const programas = programasBase().map((b) => {
+    const p = matchProgramaCarver(b.nombre).find((x) => x.nombre === b.nombre);
+    const pagos = p
+      ? PAGOS.flatMap(([concepto, etiqueta]) => {
+          const m = elegirMedio(p, concepto, datos);
+          if (!m) return [];
+          if (m.medio === 'paypal') usados.add(m.url);
+          return [{ etiqueta, montoUsd: m.montoUsd, medio: m.medio }];
+        })
+      : [];
+    return { nombre: b.nombre, tipo: b.tipo, pagos };
+  });
+  return res.json({ ok: true, programas, enlacesSinUso: a.enlacesPayPal.map((e, i) => (usados.has(e.url) ? -1 : i)).filter((i) => i >= 0) });
 }
 
 // Cada mensaje de prueba usa el modelo real: un tope por persona evita que una pestaña olvidada o un

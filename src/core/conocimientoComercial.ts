@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { ajustesConocimiento } from './ajustes';
+import { ajustesConocimiento, ajustesAcciones } from './ajustes';
 import { aplicarAjustesAConocimiento } from './ajustesConocimiento';
 
 /**
@@ -57,7 +57,19 @@ export const BASE_CONOCIMIENTO: BaseConocimiento = cargar();
 /** La base con lo publicado en el panel de configuración ("Conocimiento institucional"). Se arma en
  *  cada consulta para que un cambio publicado rija en la conversación siguiente. */
 export function conocimientoVigente(): BaseConocimiento {
-  return aplicarAjustesAConocimiento(BASE_CONOCIMIENTO, ajustesConocimiento());
+  return conPortalVigente(aplicarAjustesAConocimiento(BASE_CONOCIMIENTO, ajustesConocimiento()));
+}
+
+/** El portal de Flywire se edita en Acciones, pero también aparece en la ficha de medios de pago que
+ *  lee el bot cuando preguntan "por dónde se paga". Si cambió, cambia en los dos lugares: si no, el bot
+ *  daría un portal por un camino y otro por el otro. */
+function conPortalVigente(base: BaseConocimiento): BaseConocimiento {
+  const anterior = (BASE_CONOCIMIENTO.temas?.medios_de_pago as { portalFlywire?: string } | undefined)?.portalFlywire;
+  const actual = ajustesAcciones().portalFlywire;
+  const tema = base.temas?.medios_de_pago;
+  if (!tema || !anterior || !actual || anterior === actual) return base;
+  const entradas = (tema.entradas ?? []).map((e) => (e.url === anterior ? { ...e, url: actual } : e));
+  return { ...base, temas: { ...base.temas, medios_de_pago: { ...tema, entradas, portalFlywire: actual } as typeof tema } };
 }
 
 export const INSTRUCCION_SIN_DATO =

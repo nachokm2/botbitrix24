@@ -24,7 +24,7 @@
       <button type="button" class="item" data-seccion="programas" hidden>Programas y modalidad</button>
       <button type="button" class="item" data-seccion="precios" hidden>Precios</button>
       <button type="button" class="item" data-seccion="conocimiento" hidden>Conocimiento institucional</button>
-      <span class="item pronto">Acciones <small>Próximamente</small></span>
+      <button type="button" class="item" data-seccion="acciones" hidden>Acciones</button>
       <button type="button" class="item probar" data-seccion="simulador">Probar el bot</button>
     </nav>
 
@@ -154,6 +154,33 @@
           <p class="nota">Antes de publicar, pruébalo en «Probar el bot» con los borradores activados.</p>
         </section>
         <div id="comportamiento-bloques"></div>
+      </form>
+
+      <!-- ── Acciones ─────────────────────────────────────────────────────────────────────────── -->
+      <form id="form-acciones" class="seccion" novalidate hidden>
+        <section class="tarjeta">
+          <h2>Medios de pago</h2>
+          <p class="ayuda">El bot entrega un enlace de PayPal solo si su monto coincide exactamente con lo que corresponde pagar. Si no hay uno, entrega el portal de Flywire, que no lleva monto. Nunca entrega un enlace de otro monto.</p>
+        </section>
+        <section class="tarjeta">
+          <h2>Portal de Flywire</h2>
+          <p class="ayuda">Donde se paga cualquier monto, eligiendo el país. Debe ser una página de carver.university o de Flywire.</p>
+          <div class="fila"><label class="ancho">Enlace del portal <input type="url" id="portalFlywire" name="portalFlywire" placeholder="https://carver.university/…" inputmode="url"></label></div>
+          <p class="error-campo" data-campo="portalFlywire"></p>
+        </section>
+        <section class="tarjeta">
+          <h2>Enlaces de PayPal</h2>
+          <p class="ayuda">Cada enlace cobra un monto fijo. Indica qué se paga con él y su monto exacto, tal como figura en PayPal.</p>
+          <p class="nota">Con PayPal se suma la comisión de PayPal: el bot lo avisa siempre, antes de que la persona pague.</p>
+          <ol id="enlaces-paypal" class="entradas"></ol>
+          <p class="error-campo" data-campo="enlacesPayPal"></p>
+          <button type="button" class="secundario" id="agregar-enlace">Agregar enlace</button>
+        </section>
+        <section class="tarjeta">
+          <h2>Qué recibe cada programa</h2>
+          <p class="ayuda">Con la lista que tienes en pantalla y los precios vigentes: qué pagos quedan en PayPal y cuáles van a Flywire.</p>
+          <div id="vista-acciones" class="vista-acciones"></div>
+        </section>
       </form>
 
       <!-- ── Probar el bot (chat simulado) ───────────────────────────────────────────────────── -->

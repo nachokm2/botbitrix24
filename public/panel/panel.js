@@ -983,6 +983,148 @@
     return { form, iniciar, leer, escribir, alCambiar: marcar, vista, diferencias };
   }
 
+  // ── Sección Acciones (medios de pago) ───────────────────────────────────────────────────────
+  function crearAcciones() {
+    const form = $('form-acciones');
+    const ol = $('enlaces-paypal');
+    const CONCEPTOS = [
+      ['matricula', 'Matrícula'],
+      ['abono_inicial', 'Abono inicial'],
+      ['arancel', 'Arancel (cuota mensual, semestral o contado anual)'],
+      ['contado', 'Pago al contado'],
+    ];
+    const nombreConcepto = (c) => CONCEPTOS.find(([k]) => k === c)?.[1] ?? c;
+    const tituloEnlace = (e) => `${nombreConcepto(e.concepto)} — ${e.montoUsd ? usd(e.montoUsd) : 'sin monto'}`;
+    const control = (n) => form.querySelector(`[name="${n}"]`);
+
+    function leerEnlaces() {
+      return [...ol.querySelectorAll('li.entrada')].map((_li, i) => ({
+        concepto: control(`enlacesPayPal.${i}.concepto`).value,
+        montoUsd: numero(control(`enlacesPayPal.${i}.montoUsd`).value),
+        url: control(`enlacesPayPal.${i}.url`).value.trim(),
+      }));
+    }
+
+    function render(enlaces) {
+      ol.replaceChildren();
+      if (!enlaces.length) ol.append(el('li', { class: 'vacio', text: 'No hay enlaces de PayPal: todo se paga por Flywire.' }));
+      enlaces.forEach((e, i) => {
+        const n = (c) => `enlacesPayPal.${i}.${c}`;
+        const concepto = el('select', { name: n('concepto') }, ...CONCEPTOS.map(([k, t]) => el('option', { value: k, text: t })));
+        concepto.value = e.concepto || 'arancel';
+        const monto = Object.assign(el('input', { type: 'number', name: n('montoUsd'), min: 0, step: '0.01', inputmode: 'decimal' }), { value: e.montoUsd ?? '' });
+        const url = Object.assign(el('input', { type: 'url', name: n('url'), placeholder: 'https://www.paypal.com/…', inputmode: 'url' }), { value: e.url ?? '' });
+        ol.append(
+          el(
+            'li',
+            { class: 'entrada' },
+            el(
+              'div',
+              { class: 'cabecera' },
+              el('strong', { class: 'titulo-fila', text: tituloEnlace(e) }),
+              el(
+                'span',
+                { class: 'botones-fila' },
+                el('span', { class: 'etiqueta feriado sin-uso', text: 'Ningún programa lo usa hoy', hidden: true }),
+                el('button', { type: 'button', class: 'mini quitar', 'data-quitar': i, text: 'Quitar' }),
+              ),
+            ),
+            el(
+              'div',
+              { class: 'grilla' },
+              el('div', { class: 'campo' }, el('label', {}, 'Se paga con este enlace', concepto), errorDe(n('concepto'))),
+              el('div', { class: 'campo' }, el('label', {}, 'Monto exacto (USD)', monto), errorDe(n('montoUsd'))),
+            ),
+            el('div', { class: 'campo' }, el('label', {}, 'Enlace de PayPal', url), errorDe(n('url'))),
+          ),
+        );
+      });
+    }
+
+    function iniciar() {
+      $('agregar-enlace').addEventListener('click', () => {
+        const enlaces = leerEnlaces();
+        enlaces.push({ concepto: 'arancel', montoUsd: null, url: '' });
+        render(enlaces);
+        ol.querySelector('li.entrada:last-child input[type="number"]')?.focus();
+        cambio();
+      });
+      ol.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-quitar]');
+        if (!b) return;
+        if (!confirm('¿Quitar este enlace? Mientras no publiques, puedes recuperarlo descartando el borrador.')) return;
+        const enlaces = leerEnlaces();
+        enlaces.splice(Number(b.dataset.quitar), 1);
+        render(enlaces);
+        cambio();
+      });
+    }
+
+    function escribir(c) {
+      $('portalFlywire').value = c.portalFlywire ?? '';
+      render(c.enlacesPayPal ?? []);
+    }
+
+    const leer = () => ({ portalFlywire: $('portalFlywire').value.trim(), enlacesPayPal: leerEnlaces() });
+
+    function alCambiar(ev) {
+      const li = ev?.target?.closest?.('li.entrada');
+      if (!li) return;
+      const i = [...ol.querySelectorAll('li.entrada')].indexOf(li);
+      li.querySelector('.titulo-fila').textContent = tituloEnlace(leerEnlaces()[i]);
+    }
+
+    async function vista() {
+      let r;
+      try {
+        r = await api('POST', '/vista', { contenido: leer() });
+      } catch {
+        return;
+      }
+      if (actual !== 'acciones') return;
+      const destino = $('vista-acciones');
+      if (!r.ok) {
+        mostrarErroresCampos(r.errores ?? []);
+        destino.classList.add('desactualizada');
+        return;
+      }
+      mostrarErroresCampos([]);
+      destino.classList.remove('desactualizada');
+      const sinUso = new Set(r.enlacesSinUso ?? []);
+      [...ol.querySelectorAll('li.entrada')].forEach((li, i) => (li.querySelector('.sin-uso').hidden = !sinUso.has(i)));
+      const columnas = ['Matrícula', 'Abono inicial', 'Cuota mensual', 'Pago semestral', 'Pago al contado'];
+      const celda = (p, col) => {
+        const x = p.pagos.find((y) => y.etiqueta === col);
+        if (!x) return el('td', { class: 'nota', text: '—' });
+        return el('td', {}, usd(x.montoUsd), ' ', el('span', { class: `etiqueta ${x.medio === 'paypal' ? 'bot' : 'feriado'}`, text: x.medio === 'paypal' ? 'PayPal' : 'Flywire' }));
+      };
+      destino.replaceChildren(
+        el(
+          'table',
+          { class: 'tabla-pagos' },
+          el('thead', {}, el('tr', {}, el('th', { text: 'Programa' }), ...columnas.map((c) => el('th', { text: c })))),
+          el('tbody', {}, ...(r.programas ?? []).map((p) => el('tr', {}, el('th', { scope: 'row', text: p.nombre }), ...columnas.map((c) => celda(p, c))))),
+        ),
+      );
+    }
+
+    function diferencias(a, b) {
+      const { out, comparar } = comparador();
+      comparar('Portal de Flywire', a?.portalFlywire || '—', b?.portalFlywire || '—');
+      const clave = (e) => `${nombreConcepto(e.concepto)} — ${usd(e.montoUsd)}`;
+      const antes = new Map((a?.enlacesPayPal ?? []).map((e) => [clave(e), e.url]));
+      const despues = new Map((b?.enlacesPayPal ?? []).map((e) => [clave(e), e.url]));
+      for (const [k, url] of despues) {
+        if (!antes.has(k)) out.push({ etiqueta: 'Enlace de PayPal agregado', despues: k });
+        else if (antes.get(k) !== url) out.push({ etiqueta: `Enlace de PayPal cambiado (${k})`, antes: recortar(antes.get(k), 60), despues: recortar(url, 60) });
+      }
+      for (const k of antes.keys()) if (!despues.has(k)) out.push({ etiqueta: 'Enlace de PayPal quitado', despues: k });
+      return out;
+    }
+
+    return { form, iniciar, leer, escribir, alCambiar, vista, diferencias };
+  }
+
   // ── Probar el bot (chat simulado) ───────────────────────────────────────────────────────────
   // No es una sección de configuración: no tiene borrador ni historial. Cada turno va al servidor con
   // la conversación completa, y el servidor la devuelve con lo que consultó el bot en ese turno.
@@ -1067,6 +1209,7 @@
     precios: crearPrecios,
     conocimiento: crearConocimiento,
     comportamiento: crearComportamiento,
+    acciones: crearAcciones,
   };
   const modulos = {};
   function moduloDe(nombre) {

@@ -218,6 +218,16 @@ details.programa .cuerpo { padding: 4px 16px 16px; }
 .texto-vista { margin: 0; white-space: pre-wrap; font-size: 0.9rem; }
 #comportamiento-bloques.desactualizada .vista-bloque { opacity: 0.4; }
 
+/* Acciones: medios de pago */
+.vista-acciones { overflow-x: auto; transition: opacity 0.15s; }
+.vista-acciones.desactualizada { opacity: 0.4; }
+.tabla-pagos { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.tabla-pagos th, .tabla-pagos td { padding: 6px 8px; border-bottom: 1px solid var(--borde); text-align: left; vertical-align: top; }
+.tabla-pagos thead th { color: var(--suave); font-weight: 600; white-space: nowrap; }
+.tabla-pagos tbody th { font-weight: 500; min-width: 180px; }
+.tabla-pagos .etiqueta, .entrada .sin-uso { display: inline-block; font-size: 0.72rem; padding: 0 6px; border-radius: 999px; }
+.entrada select { width: 100%; }
+
 /* Probar el bot: chat simulado */
 .menu .item.probar { margin-top: 12px; border: 1px solid #bfdbfe; color: var(--primario); }
 .menu .item.probar.activo { color: var(--texto); }

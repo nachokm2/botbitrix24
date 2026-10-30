@@ -1,6 +1,5 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { matchProgramaCarver, type ProgramaCarver } from './condicionesCarver';
+import { ajustesAcciones } from './ajustes';
 
 /**
  * Qué enlace de pago corresponde a un programa y un concepto.
@@ -22,19 +21,14 @@ import { matchProgramaCarver, type ProgramaCarver } from './condicionesCarver';
 export type Concepto = 'matricula' | 'abono_inicial' | 'cuota_mensual' | 'pago_semestral' | 'pago_contado';
 
 type EnlacePayPal = { concepto: string; montoUsd: number; url: string };
-type Archivo = { temas?: { medios_de_pago?: { enlacesPayPal?: EnlacePayPal[]; portalFlywire?: string } } };
+export type DatosPago = { enlaces: EnlacePayPal[]; portal: string };
 
-const RUTA = fileURLToPath(new URL('../../data/carver/conocimiento-comercial.json', import.meta.url));
-
-const DATOS: { enlaces: EnlacePayPal[]; portal: string } = (() => {
-  try {
-    const j = JSON.parse(readFileSync(RUTA, 'utf8')) as Archivo;
-    const t = j.temas?.medios_de_pago;
-    return { enlaces: Array.isArray(t?.enlacesPayPal) ? t!.enlacesPayPal! : [], portal: t?.portalFlywire ?? '' };
-  } catch {
-    return { enlaces: [], portal: '' };
-  }
-})();
+/** Los enlaces vigentes: lo publicado en Acciones del panel o, sin nada publicado, los del documento
+ *  de la dirección (data/carver/conocimiento-comercial.json). */
+function datosVigentes(): DatosPago {
+  const a = ajustesAcciones();
+  return { enlaces: a.enlacesPayPal, portal: a.portalFlywire };
+}
 
 /**
  * Qué conceptos de este módulo puede cubrir cada enlace, según cómo lo nombró la dirección.
@@ -91,19 +85,25 @@ function montoDe(p: ProgramaCarver, concepto: Concepto): number | null {
 
 /** Qué medio de pago corresponde a un concepto de un programa: el enlace de PayPal de importe EXACTO,
  *  o el portal de Flywire. null si ese concepto no se cobra con esa planilla. Es la misma elección que
- *  hace el bot; el panel de configuración la usa para mostrar qué pasaría con un precio nuevo. */
-export function elegirMedio(p: ProgramaCarver, concepto: Concepto): { montoUsd: number; medio: 'paypal' | 'flywire'; url: string } | null {
+ *  hace el bot; el panel de configuración la usa para mostrar qué pasaría con un precio nuevo o con una
+ *  lista de enlaces nueva (`datos`). */
+export function elegirMedio(
+  p: ProgramaCarver,
+  concepto: Concepto,
+  datos: DatosPago = datosVigentes(),
+): { montoUsd: number; medio: 'paypal' | 'flywire'; url: string } | null {
   const montoUsd = montoDe(p, concepto);
   if (montoUsd === null || !(montoUsd > 0)) return null;
   // Coincidencia EXACTA de concepto e importe. Nunca el más cercano.
-  const enlace = DATOS.enlaces.find(
+  const enlace = datos.enlaces.find(
     (e) => e.montoUsd === montoUsd && (CONCEPTO_DEL_ENLACE[e.concepto] ?? []).includes(concepto),
   );
-  return enlace ? { montoUsd, medio: 'paypal', url: enlace.url } : { montoUsd, medio: 'flywire', url: DATOS.portal };
+  return enlace ? { montoUsd, medio: 'paypal', url: enlace.url } : { montoUsd, medio: 'flywire', url: datos.portal };
 }
 
 export function enlaceDePago(programa: string, concepto: Concepto): ResultadoPago {
-  if (!DATOS.portal) {
+  const datos = datosVigentes();
+  if (!datos.portal) {
     return { ok: false, motivo: 'sin_configuracion', nota: 'No tengo los medios de pago cargados. Ofrece que el asesor lo coordine.' };
   }
   const matches = matchProgramaCarver(programa ?? '');
@@ -119,7 +119,7 @@ export function enlaceDePago(programa: string, concepto: Concepto): ResultadoPag
     };
   }
   const p = matches[0];
-  const elegido = elegirMedio(p, concepto);
+  const elegido = elegirMedio(p, concepto, datos);
   if (!elegido) {
     return {
       ok: false,
@@ -146,7 +146,7 @@ export function enlaceDePago(programa: string, concepto: Concepto): ResultadoPag
     concepto,
     montoUsd,
     medio: 'flywire',
-    url: DATOS.portal,
+    url: datos.portal,
     nota:
       `No hay un enlace de PayPal por USD ${montoUsd}. Entrega el portal de Flywire, donde se elige el país y ` +
       `se paga en moneda local. NO ofrezcas PayPal para este monto ni prometas enviar otro enlace.`,

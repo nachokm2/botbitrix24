@@ -76,7 +76,7 @@ test('la página ofrece Programas, Precios, Conocimiento y Comportamiento solo d
   const res = respuesta();
   await panelPagina(pedido({ body: { AUTH_ID: 'tok' }, query: { DOMAIN: 'uachile.bitrix24.es' } }), res);
   assert.equal(res.statusCode, 200);
-  assert.match(res.cuerpo, /<meta name="panel-secciones" content="horarios,programas,precios,conocimiento,comportamiento">/);
+  assert.match(res.cuerpo, /<meta name="panel-secciones" content="horarios,programas,precios,conocimiento,comportamiento,acciones">/);
 });
 
 test('conocimiento: la sección trae el esquema de cada tema para dibujar el formulario', async () => {

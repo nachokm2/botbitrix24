@@ -22,6 +22,7 @@ import {
   promptConAjustes,
   type AjustesComportamiento,
 } from './ajustesComportamiento';
+import { accionesPorDefecto, validarAcciones, accionesDisponibles, type AjustesAcciones } from './ajustesAcciones';
 
 /**
  * Ajustes del bot que se editan desde el panel de configuración (routes/panelConfig.ts), sin tocar
@@ -200,6 +201,7 @@ export const SECCIONES = {
     esquema: () => ESQUEMA_CONOCIMIENTO,
   } as DefSeccion<AjustesConocimiento>,
   comportamiento: { titulo: 'Comportamiento', porDefecto: comportamientoPorDefecto, validar: validarComportamiento } as DefSeccion<AjustesComportamiento>,
+  acciones: { titulo: 'Acciones', porDefecto: accionesPorDefecto, validar: validarAcciones } as DefSeccion<AjustesAcciones>,
 };
 
 export type NombreSeccion = keyof typeof SECCIONES;
@@ -248,7 +250,12 @@ export function seccionesDisponibles(): NombreSeccion[] {
   if (programasBase().length) out.push('programas', 'precios');
   if (Object.keys(conocimientoPorDefecto().temas).length) out.push('conocimiento');
   if (comportamientoDisponible()) out.push('comportamiento');
+  if (accionesDisponibles()) out.push('acciones');
   return out;
+}
+
+export function ajustesAcciones(): AjustesAcciones {
+  return vigente('acciones') as AjustesAcciones;
 }
 
 export function ajustesConocimiento(): AjustesConocimiento {
