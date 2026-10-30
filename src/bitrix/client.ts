@@ -87,11 +87,28 @@ async function doCall(
   return json; // sobre completo (result + next + total)
 }
 
+// Cuando Bitrix bloquea el webhook por sobrecarga (OVERLOAD_LIMIT), insistir no lo destraba y suma
+// carga. El 30-10-2026 el bloqueo duró horas mientras el panel de Carver, refrescándose cada 15 s,
+// seguía mandando ~3.000 consultas por hora, todas rechazadas; y como los dos bots comparten el
+// webhook, Postgrados también se quedó sin CRM. Tras ese error se deja de llamar un rato y se falla
+// al instante, con el mismo código de error para que quien llama lo trate igual.
+const PAUSA_SOBRECARGA_MS = 2 * 60 * 1000;
+let webhookPausadoHasta = 0;
+
+/** Solo para pruebas: levanta la pausa por sobrecarga. */
+export function _reanudarWebhook(): void {
+  webhookPausadoHasta = 0;
+}
+
 /** Petición cruda al webhook entrante; devuelve el sobre completo (result + next + total). */
 async function webhookRaw(method: string, params: Record<string, unknown>, webhookUrl: string): Promise<any> {
+  if (Date.now() < webhookPausadoHasta) {
+    throw new Error(`Bitrix ${method}: OVERLOAD_LIMIT (en pausa local hasta ${new Date(webhookPausadoHasta).toISOString()})`);
+  }
   const url = `${webhookUrl.replace(/\/$/, '')}/${method}`;
   const json: any = await postJsonWithRetry(url, params);
   if (json.error) {
+    if (String(json.error) === 'OVERLOAD_LIMIT') webhookPausadoHasta = Date.now() + PAUSA_SOBRECARGA_MS;
     throw new Error(`Bitrix ${method}: ${json.error} ${json.error_description ?? ''}`);
   }
   return json;

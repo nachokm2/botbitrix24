@@ -640,7 +640,12 @@ document.getElementById('ranges').addEventListener('click', function(e){
   load();
 });
 document.getElementById('pdfBtn').addEventListener('click', function(){ window.print(); });
-load(); setInterval(load, 15000);
+// Una pestaña olvidada en segundo plano seguía consultando cada 15 s, y cada consulta llega hasta
+// Bitrix: el 30-10-2026 eso mantuvo bloqueado por horas el webhook que usan los dos bots. Solo se
+// refresca lo que alguien está mirando, y al volver a la pestaña se pone al día de inmediato.
+load();
+setInterval(function(){ if (document.visibilityState === 'visible') load(); }, 15000);
+document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'visible') load(); });
 
 // Trae y pinta el intercambio completo de una conversación, debajo de la tabla.
 function abrirConversacion(dialogId){

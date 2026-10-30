@@ -51,7 +51,7 @@ mock.module('../src/obs/audit.ts', { namedExports: { audit: async (e: any) => vo
 const { getIdentidadAsesor } = await import('../src/crm/directory');
 const { derivarAResponsableFijo } = await import('../src/crm/asignacionAsesores');
 const { consultarEstadoEstudiante } = await import('../src/crm/estudiantes');
-const { getUsuarios } = await import('../src/crm/directory');
+const { getUsuarios, _vaciarCacheUsuarios } = await import('../src/crm/directory');
 const { executeTool } = await import('../src/ai/toolRunner');
 const { WHATSAPP_PROFILE } = await import('../src/core/channel');
 const auth = { domain: 'test.bitrix24.com', access_token: 'tok' } as any;
@@ -62,6 +62,9 @@ function reset() {
   deals = {};
   dealsPorContacto = {};
   crmCaido = false;
+  // Las pruebas cambian la ficha de una misma Advisor (activa, correo, móvil): sin esto, getUsuarios
+  // devolvería la que recordó de la prueba anterior.
+  _vaciarCacheUsuarios();
 }
 const de = (m: string) => llamadas.filter((c) => c.method === m);
 

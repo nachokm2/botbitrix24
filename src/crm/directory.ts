@@ -65,6 +65,18 @@ export async function getDealCategory(dealId: number, auth: Auth): Promise<numbe
   return (await getDealInfo(dealId, auth)).categoryId;
 }
 
+// Fichas de usuario ya resueltas. El panel pedía a cada asesor por separado en cada refresco (cada
+// 15 s): unas 1.300 user.get por hora para los mismos diez nombres. Con Bitrix bloqueado, cada
+// refresco caía a "Usuario 668179" aunque el nombre se hubiera leído bien minutos antes. Solo se
+// guardan usuarios reales: un vacío puede ser un participante externo y no se da por sabido.
+const USUARIOS_TTL_MS = 30 * 60 * 1000;
+const usuariosCache = new Map<number, { at: number; u: Responsable }>();
+
+/** Solo para pruebas: olvida las fichas recordadas. */
+export function _vaciarCacheUsuarios(): void {
+  usuariosCache.clear();
+}
+
 /**
  * Resuelve nombre/email de uno o varios usuarios de Bitrix (asesores).
  * Requiere que el webhook entrante tenga el scope `user` (Usuarios); si no, devuelve solo el id.
@@ -73,6 +85,11 @@ export async function getUsuarios(ids: number[], auth: Auth): Promise<Responsabl
   const uniq = Array.from(new Set(ids.filter((n) => Number.isFinite(n) && n > 0)));
   const out: Responsable[] = [];
   for (const id of uniq) {
+    const previo = usuariosCache.get(id);
+    if (previo && Date.now() - previo.at < USUARIOS_TTL_MS) {
+      out.push(previo.u);
+      continue;
+    }
     try {
       const raw = await callCrm<BitrixUser | BitrixUser[] | { result?: BitrixUser[] }>('user.get', { ID: id }, auth);
       let u: BitrixUser | undefined;
@@ -82,7 +99,7 @@ export async function getUsuarios(ids: number[], auth: Auth): Promise<Responsabl
       if (u && (u.NAME || u.LAST_NAME || u.EMAIL)) {
         const nombre = [u.NAME, u.LAST_NAME].filter(Boolean).join(' ').trim() || String(u.EMAIL) || `Usuario ${id}`;
         const email = Array.isArray(u.EMAIL) ? u.EMAIL?.[0]?.VALUE : u.EMAIL;
-        out.push({
+        const r: Responsable = {
           id,
           nombre,
           email,
@@ -91,13 +108,16 @@ export async function getUsuarios(ids: number[], auth: Auth): Promise<Responsabl
           telefono: marca.telefonoAsesorVigente ? u.PERSONAL_MOBILE || undefined : undefined,
           activo: u.ACTIVE !== false,
           departamentos: toIdArray(u.UF_DEPARTMENT),
-        });
+        };
+        usuariosCache.set(id, { at: Date.now(), u: r });
+        out.push(r);
       } else {
         out.push({ id, nombre: `Usuario ${id}` });
       }
     } catch (e) {
       log.warn('getUsuarios: user.get falló (¿falta scope user en el webhook?)', { id, err: String(e) });
-      out.push({ id, nombre: `Usuario ${id}` });
+      // Una ficha vencida sigue siendo mejor que un número: el nombre casi nunca cambia.
+      out.push(previo?.u ?? { id, nombre: `Usuario ${id}` });
     }
   }
   return out;

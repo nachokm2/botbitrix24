@@ -66,3 +66,55 @@ test('getUsuarios: en Postgrados sí trae el móvil de la ficha', async () => {
   const [u] = await getUsuarios([9], auth);
   assert.equal(u.telefono, '+56912345678');
 });
+
+// ── Fichas recordadas ────────────────────────────────────────────────────────────────────────────
+// El panel pedía a cada asesor por separado en cada refresco (cada 15 s) y, con Bitrix bloqueado,
+// mostraba "Usuario 668179" aunque el nombre se hubiera leído bien minutos antes.
+test('getUsuarios: un usuario ya resuelto no se vuelve a pedir a Bitrix', async () => {
+  let pedidos = 0;
+  responder = (method) => {
+    if (method !== 'user.get') return {};
+    pedidos++;
+    return [{ ID: '501', NAME: 'Valezka', LAST_NAME: 'Hernández', EMAIL: 'v@x.cl', ACTIVE: true }];
+  };
+  await getUsuarios([501], auth);
+  const [u] = await getUsuarios([501], auth);
+  assert.equal(u.nombre, 'Valezka Hernández');
+  assert.equal(pedidos, 1);
+});
+
+test('getUsuarios: si Bitrix falla, se usa el nombre ya conocido aunque haya vencido', async () => {
+  responder = (method) =>
+    method === 'user.get' ? [{ ID: '502', NAME: 'Ignacio', LAST_NAME: 'Asesor', EMAIL: 'i@x.cl', ACTIVE: true }] : {};
+  mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  try {
+    await getUsuarios([502], auth);
+    mock.timers.tick(2 * 60 * 60 * 1000); // vencido: se intenta leer de nuevo
+    responder = () => {
+      throw new Error('Bitrix user.get: OVERLOAD_LIMIT REST API is blocked due to overload.');
+    };
+    const [u] = await getUsuarios([502], auth);
+    assert.equal(u.nombre, 'Ignacio Asesor');
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test('getUsuarios: un usuario nunca resuelto sigue cayendo al número', async () => {
+  responder = () => {
+    throw new Error('Bitrix user.get: OVERLOAD_LIMIT REST API is blocked due to overload.');
+  };
+  const [u] = await getUsuarios([503], auth);
+  assert.equal(u.nombre, 'Usuario 503');
+});
+
+test('getUsuarios: un vacío (participante externo) no se recuerda', async () => {
+  let pedidos = 0;
+  responder = (method) => {
+    if (method === 'user.get') pedidos++;
+    return [];
+  };
+  await getUsuarios([504], auth);
+  await getUsuarios([504], auth);
+  assert.equal(pedidos, 2);
+});
