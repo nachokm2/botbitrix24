@@ -4,7 +4,7 @@ import { getState, setBotId, EMPTY_AUTH } from '../store';
 import { registerBot, unregisterBot, updateBot } from '../bot/register';
 import { callBitrix, callWebhook } from '../bitrix/client';
 import { getDealAsesores } from '../crm/directory';
-import { bindDashboard, bindCalls } from '../bitrix/placement';
+import { bindDashboard, bindCalls, bindPanelConfig } from '../bitrix/placement';
 import { syncCalls } from '../crm/callSync';
 import { dbEnabled, dbDialogosTodos, dbBorrarDialogos } from '../store/db';
 import { config } from '../config';
@@ -19,6 +19,17 @@ export async function bindDashboardManual(_req: Request, res: Response) {
   const st = await getState();
   if (!st.auth) return res.status(400).json({ ok: false, error: 'No hay auth. Instala el app (/install) primero.' });
   const r = await bindDashboard(st.auth);
+  return res.status(r.ok ? 200 : 500).json(r);
+}
+
+/** Enlaza el panel de configuración del bot dentro de Bitrix24. GET /setup/bind-panel
+ *  placement.bind exige permisos de administrador: se usa el token del instalador si existe (el del
+ *  último evento puede ser de cualquier usuario). */
+export async function bindPanelManual(_req: Request, res: Response) {
+  const st = await getState();
+  const auth = st.installAuth ?? st.auth;
+  if (!auth) return res.status(400).json({ ok: false, error: 'No hay auth. Instala el app (/install) primero.' });
+  const r = await bindPanelConfig(auth);
   return res.status(r.ok ? 200 : 500).json(r);
 }
 

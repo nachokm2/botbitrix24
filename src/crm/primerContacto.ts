@@ -5,6 +5,7 @@ import { estaExcluido } from './exclusion';
 import { enviarPlantillaWhatsApp } from '../whatsapp/template';
 import { once, getRedisClient } from '../store/kv';
 import { config } from '../config';
+import { horarios } from '../core/ajustes';
 import { marca } from '../marca';
 import { audit } from '../obs/audit';
 import { horaEnChile } from '../ai/seguimiento';
@@ -228,7 +229,8 @@ export async function enviarPrimerContacto(c: Candidato): Promise<{ enviado: boo
 
   // Escribir primero a las 3 de la mañana es peor que no escribir: mismo horario que el seguimiento.
   const hora = horaEnChile(new Date());
-  if (hora < config.seguimientoHoraInicio || hora >= config.seguimientoHoraFin) {
+  const { automaticosHoraInicio, automaticosHoraFin } = horarios();
+  if (hora < automaticosHoraInicio || hora >= automaticosHoraFin) {
     return { enviado: false, motivo: 'fuera_de_horario' };
   }
   // Una sola vez por negociación, para siempre: insistir a quien nunca contestó es spam.

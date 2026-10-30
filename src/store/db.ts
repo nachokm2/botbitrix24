@@ -120,7 +120,29 @@ async function intentarConexion(): Promise<boolean> {
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS ca_deal_idx ON call_attempt (deal_id, attempt_no);`);
     await pool.query(`CREATE INDEX IF NOT EXISTS ca_vapi_idx ON call_attempt (vapi_call_id);`);
-    log.info('DB: Postgres conectado y tablas audit_log/calls/campaign_target/call_attempt listas');
+    // ── Configuración editable desde el panel (core/ajustes.ts): versiones por sección ──
+    // A lo más un borrador y una publicada por sección (índices únicos parciales): dos personas que
+    // publican a la vez no pueden dejar dos versiones vigentes. No entra en la retención: es la
+    // historia de quién cambió el comportamiento del bot y cuándo, no datos de clientes.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS config_version (
+        id               BIGSERIAL PRIMARY KEY,
+        seccion          TEXT NOT NULL,
+        estado           TEXT NOT NULL CHECK (estado IN ('borrador', 'publicada', 'archivada')),
+        contenido        JSONB NOT NULL,
+        autor_id         INT NOT NULL,
+        autor_nombre     TEXT NOT NULL,
+        nota             TEXT,
+        creada_en        TIMESTAMPTZ NOT NULL DEFAULT now(),
+        publicada_en     TIMESTAMPTZ,
+        publicada_por_id INT,
+        publicada_por    TEXT
+      );
+    `);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS config_version_publicada_uq ON config_version (seccion) WHERE estado = 'publicada';`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS config_version_borrador_uq ON config_version (seccion) WHERE estado = 'borrador';`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS config_version_seccion_idx ON config_version (seccion, id DESC);`);
+    log.info('DB: Postgres conectado y tablas audit_log/calls/campaign_target/call_attempt/config_version listas');
     notificarReady();
     return true;
   } catch (e) {
@@ -1630,4 +1652,169 @@ export async function dbEnviosRecientes(horas = 24): Promise<{ total: number; fa
     log.warn('dbEnviosRecientes falló', { err: String(err) });
     return vacio;
   }
+}
+
+// ─────────────────────────── Configuración editable desde el panel ───────────────────────────
+// Ver core/ajustes.ts (qué se edita y cómo lo lee el bot) y routes/panelConfig.ts (quién y cómo).
+//
+// Ciclo de una sección: se guarda un BORRADOR (uno solo por sección), se prueba y se PUBLICA; la
+// publicada anterior pasa a ARCHIVADA, que es el historial. El id del borrador funciona como versión:
+// cada guardado crea una fila nueva, así que si dos personas editan a la vez, la segunda en guardar
+// recibe un conflicto en vez de pisar sin saberlo lo que guardó la primera.
+
+export type EstadoVersion = 'borrador' | 'publicada' | 'archivada';
+
+export type VersionConfig = {
+  id: number;
+  seccion: string;
+  estado: EstadoVersion;
+  contenido: unknown;
+  autorId: number;
+  autorNombre: string;
+  nota: string | null;
+  creadaEn: string;
+  publicadaEn: string | null;
+  publicadaPorId: number | null;
+  publicadaPor: string | null;
+};
+
+export type AutorConfig = { id: number; nombre: string };
+
+/** Resultado de las escrituras: 'conflicto' = otra persona cambió el borrador desde que se leyó. */
+export type ResultadoConfig = { ok: true; version: VersionConfig } | { ok: false; motivo: 'sin_db' | 'conflicto' | 'sin_borrador' | 'no_existe' };
+
+const filaAVersion = (r: any): VersionConfig => ({
+  id: Number(r.id),
+  seccion: r.seccion,
+  estado: r.estado,
+  contenido: r.contenido,
+  autorId: Number(r.autor_id),
+  autorNombre: r.autor_nombre,
+  nota: r.nota ?? null,
+  creadaEn: new Date(r.creada_en).toISOString(),
+  publicadaEn: r.publicada_en ? new Date(r.publicada_en).toISOString() : null,
+  publicadaPorId: r.publicada_por_id == null ? null : Number(r.publicada_por_id),
+  publicadaPor: r.publicada_por ?? null,
+});
+
+/** Lo publicado de todas las secciones. null = sin base o falló la lectura (el llamador conserva lo
+ *  que tenía); [] = no hay nada publicado todavía. */
+export async function dbConfigPublicadas(): Promise<Array<{ seccion: string; contenido: unknown }> | null> {
+  if (!pool) return null;
+  try {
+    const r = await pool.query(`SELECT seccion, contenido FROM config_version WHERE estado = 'publicada'`);
+    return r.rows.map((f: any) => ({ seccion: f.seccion, contenido: f.contenido }));
+  } catch (err) {
+    log.warn('dbConfigPublicadas falló', { err: String(err) });
+    return null;
+  }
+}
+
+/** Publicada, borrador e historial de publicaciones (más reciente primero) de una sección. */
+export async function dbConfigSeccion(
+  seccion: string,
+  limiteHistorial = 30,
+): Promise<{ publicada: VersionConfig | null; borrador: VersionConfig | null; historial: VersionConfig[] } | null> {
+  if (!pool) return null;
+  const vigentes = await pool.query(`SELECT * FROM config_version WHERE seccion = $1 AND estado IN ('publicada', 'borrador')`, [seccion]);
+  const hist = await pool.query(
+    `SELECT * FROM config_version WHERE seccion = $1 AND estado IN ('publicada', 'archivada')
+     ORDER BY publicada_en DESC NULLS LAST, id DESC LIMIT $2`,
+    [seccion, Math.max(1, Math.min(200, Math.round(limiteHistorial)))],
+  );
+  const filas = vigentes.rows.map(filaAVersion);
+  return {
+    publicada: filas.find((v) => v.estado === 'publicada') ?? null,
+    borrador: filas.find((v) => v.estado === 'borrador') ?? null,
+    historial: hist.rows.map(filaAVersion),
+  };
+}
+
+/** Una versión publicada o archivada de la sección (para restaurarla). */
+export async function dbConfigVersion(seccion: string, id: number): Promise<VersionConfig | null> {
+  if (!pool) return null;
+  const r = await pool.query(
+    `SELECT * FROM config_version WHERE id = $1 AND seccion = $2 AND estado IN ('publicada', 'archivada')`,
+    [id, seccion],
+  );
+  return r.rows[0] ? filaAVersion(r.rows[0]) : null;
+}
+
+/** Ejecuta `fn` en una transacción. Los conflictos de unicidad (dos borradores creados a la vez) se
+ *  devuelven como conflicto, no como error. */
+async function enTransaccion(fn: (c: pg.PoolClient) => Promise<ResultadoConfig>): Promise<ResultadoConfig> {
+  if (!pool) return { ok: false, motivo: 'sin_db' };
+  const c = await pool.connect();
+  try {
+    await c.query('BEGIN');
+    const r = await fn(c);
+    await c.query(r.ok ? 'COMMIT' : 'ROLLBACK');
+    return r;
+  } catch (err: any) {
+    await c.query('ROLLBACK').catch(() => {});
+    if (err?.code === '23505') return { ok: false, motivo: 'conflicto' };
+    throw err;
+  } finally {
+    c.release();
+  }
+}
+
+/**
+ * Guarda el borrador de una sección. `borradorPrevioId` es el id del borrador sobre el que se trabajó
+ * (null si no había): si el borrador actual es otro, alguien guardó entremedio y se devuelve conflicto.
+ */
+export async function dbConfigGuardarBorrador(
+  seccion: string,
+  contenido: unknown,
+  autor: AutorConfig,
+  borradorPrevioId: number | null,
+): Promise<ResultadoConfig> {
+  return enTransaccion(async (c) => {
+    const act = await c.query(`SELECT id FROM config_version WHERE seccion = $1 AND estado = 'borrador' FOR UPDATE`, [seccion]);
+    const actualId = act.rows[0] ? Number(act.rows[0].id) : null;
+    if (actualId !== borradorPrevioId) return { ok: false, motivo: 'conflicto' };
+    if (actualId !== null) await c.query(`DELETE FROM config_version WHERE id = $1`, [actualId]);
+    const ins = await c.query(
+      `INSERT INTO config_version (seccion, estado, contenido, autor_id, autor_nombre)
+       VALUES ($1, 'borrador', $2, $3, $4) RETURNING *`,
+      [seccion, JSON.stringify(contenido), autor.id, autor.nombre],
+    );
+    return { ok: true, version: filaAVersion(ins.rows[0]) };
+  });
+}
+
+/** Descarta el borrador `borradorId` de la sección (si sigue siendo el borrador vigente). */
+export async function dbConfigDescartarBorrador(seccion: string, borradorId: number): Promise<ResultadoConfig> {
+  return enTransaccion(async (c) => {
+    const r = await c.query(
+      `DELETE FROM config_version WHERE id = $1 AND seccion = $2 AND estado = 'borrador' RETURNING *`,
+      [borradorId, seccion],
+    );
+    return r.rows[0] ? { ok: true, version: filaAVersion(r.rows[0]) } : { ok: false, motivo: 'conflicto' };
+  });
+}
+
+/**
+ * Publica el borrador `borradorId`: la publicada anterior pasa a archivada y el borrador queda como la
+ * versión vigente. Si el borrador ya no es ese (alguien lo cambió o lo publicó), no publica nada.
+ */
+export async function dbConfigPublicar(
+  seccion: string,
+  borradorId: number,
+  nota: string,
+  quien: AutorConfig,
+): Promise<ResultadoConfig> {
+  return enTransaccion(async (c) => {
+    const act = await c.query(`SELECT id FROM config_version WHERE seccion = $1 AND estado = 'borrador' FOR UPDATE`, [seccion]);
+    if (!act.rows[0]) return { ok: false, motivo: 'sin_borrador' };
+    if (Number(act.rows[0].id) !== borradorId) return { ok: false, motivo: 'conflicto' };
+    await c.query(`UPDATE config_version SET estado = 'archivada' WHERE seccion = $1 AND estado = 'publicada'`, [seccion]);
+    const r = await c.query(
+      `UPDATE config_version
+       SET estado = 'publicada', publicada_en = now(), publicada_por_id = $2, publicada_por = $3, nota = $4
+       WHERE id = $1 RETURNING *`,
+      [borradorId, quien.id, quien.nombre, nota || null],
+    );
+    return { ok: true, version: filaAVersion(r.rows[0]) };
+  });
 }

@@ -7,7 +7,7 @@ import { log } from './log';
 import { runWithRequestContext } from './obs/requestContext';
 import { installHandler, oauthCodeOrNext } from './routes/install';
 import { botMessageHandler, botWelcomeHandler, botDeleteHandler } from './routes/botEvents';
-import { registerBotManual, unregisterBotManual, updateBotManual, triggerBrochureManual, listDealFields, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, syncCallsManual, placementInfo, dialogosListar, dialogosBorrar, chatappPlantillas, chatappPrueba, primerContactoResultado, calidadDatos, moverDerivados } from './routes/setup';
+import { registerBotManual, unregisterBotManual, updateBotManual, triggerBrochureManual, listDealFields, listDealStages, dealResponsable, bindDashboardManual, bindCallsManual, bindPanelManual, syncCallsManual, placementInfo, dialogosListar, dialogosBorrar, chatappPlantillas, chatappPrueba, primerContactoResultado, calidadDatos, moverDerivados } from './routes/setup';
 import { startCallSync } from './crm/callSync';
 import { vapiEvents, voiceOutbound, verifyVapiSecret, whatsappInboundCall } from './routes/vapi';
 import { vapiChatCompletions } from './routes/vapiLlm';
@@ -15,7 +15,7 @@ import { webchatMessage, webchatPage } from './routes/webchat';
 import { metaVerify, verifyMetaSignature, metaWebhook } from './routes/meta';
 import { dashboardPage, metricsSummary, conversacionDetalle } from './routes/dashboard';
 import { callsPage, callsData } from './routes/calls';
-import { initDb, dbRecentAudit, dbEnabled, dbHealth, startRetentionSweep } from './store/db';
+import { initDb, dbRecentAudit, dbEnabled, dbHealth, startRetentionSweep, dbConfigPublicadas } from './store/db';
 import { iniciarRevisionDiaria } from './ai/revisionDiaria';
 import { iniciarResumenSemanal } from './ai/resumenSemanal';
 import { iniciarVigilanciaCanal } from './ai/vigilanciaCanal';
@@ -32,6 +32,9 @@ import { verifyBitrixEvent } from './bitrix/verifyEvent';
 import { rateLimit } from './routes/rateLimit';
 import { manejarAsync, manejadorDeErrores } from './routes/errores';
 import { paginaStats } from './routes/stats';
+import { panelPagina, panelLeerSeccion, panelGuardarBorrador, panelDescartarBorrador, panelPublicar, panelRestaurar, panelVistaHorarios } from './routes/panelConfig';
+import { requirePanelSesion } from './routes/panelSesion';
+import { iniciarRefrescoAjustes } from './core/ajustes';
 
 const app = express();
 app.set('trust proxy', 1); // detrás del proxy de Railway → req.ip refleja X-Forwarded-For
@@ -128,6 +131,18 @@ app.use('/assets/dashboard', express.static(fileURLToPath(new URL('../public/das
 app.use('/assets/calls', express.static(fileURLToPath(new URL('../public/calls', import.meta.url))));
 // Imágenes del correo institucional del brochure (campus, sello CNA), servidas para los <img> del email.
 app.use('/assets/email', express.static(fileURLToPath(new URL('../public/email', import.meta.url))));
+app.use('/assets/panel', express.static(fileURLToPath(new URL('../public/panel', import.meta.url))));
+
+// Panel de configuración del bot (core/ajustes.ts): se entra con el usuario de Bitrix24 y solo si está
+// en PANEL_EDITORES; sin editores, todo /panel responde 404.
+app.all('/panel', manejarAsync(panelPagina));
+app.use('/panel/api', requirePanelSesion);
+app.get('/panel/api/seccion/:seccion', manejarAsync(panelLeerSeccion));
+app.put('/panel/api/seccion/:seccion/borrador', manejarAsync(panelGuardarBorrador));
+app.delete('/panel/api/seccion/:seccion/borrador/:id', manejarAsync(panelDescartarBorrador));
+app.post('/panel/api/seccion/:seccion/publicar', manejarAsync(panelPublicar));
+app.post('/panel/api/seccion/:seccion/restaurar', manejarAsync(panelRestaurar));
+app.post('/panel/api/seccion/horarios/vista', manejarAsync(panelVistaHorarios));
 
 // Panel de métricas embebible en Bitrix24 (placement) + su API de datos.
 // Los handlers async van envueltos en manejarAsync: Express 4 no captura su rechazo y Node terminaría
@@ -178,6 +193,7 @@ app.get('/setup/primer-contacto-resultado', manejarAsync(primerContactoResultado
 app.get('/setup/calidad-datos', manejarAsync(calidadDatos));
 app.get('/setup/mover-derivados', manejarAsync(moverDerivados)); // simula por defecto; ?ejecutar=1 escribe // teléfonos y fichas defectuosas, que ahora cuestan dinero
 app.get('/setup/bind-calls', manejarAsync(bindCallsManual));
+app.get('/setup/bind-panel', manejarAsync(bindPanelManual)); // pestaña "Configuración bot" dentro de Bitrix24
 app.get('/setup/sync-calls', manejarAsync(syncCallsManual));
 
 // Campaña de voz saliente. Panel y datos con DASHBOARD_TOKEN (embebible en Bitrix); acciones
@@ -227,6 +243,7 @@ app.use(manejadorDeErrores);
 const arrancarTareasConPostgres = () => {
   startCallSync();
   startRetentionSweep();
+  iniciarRefrescoAjustes(dbConfigPublicadas); // lo publicado en el panel de configuración; sin nada publicado rige Railway
 };
 initDb(arrancarTareasConPostgres)
   .then(() => {

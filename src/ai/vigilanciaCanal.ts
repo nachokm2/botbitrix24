@@ -3,6 +3,7 @@ import { dbMinutosDesdeUltimoTurno } from '../store/db';
 import { getState } from '../store';
 import { once } from '../store/kv';
 import { config } from '../config';
+import { horarios } from '../core/ajustes';
 import { marca } from '../marca';
 import { audit } from '../obs/audit';
 import { horaEnChile } from './seguimiento';
@@ -28,7 +29,8 @@ export function destinatarioAlerta(): number {
 /** ¿Estamos dentro del horario en que SÍ se espera actividad? */
 function enHorarioHabil(fecha = new Date()): boolean {
   const h = horaEnChile(fecha);
-  return h >= config.seguimientoHoraInicio && h < config.seguimientoHoraFin;
+  const { automaticosHoraInicio, automaticosHoraFin } = horarios();
+  return h >= automaticosHoraInicio && h < automaticosHoraFin;
 }
 
 export type EstadoCanal = { minutos: number | null; silencioso: boolean; umbralMin: number };

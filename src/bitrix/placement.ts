@@ -16,12 +16,13 @@ async function bindPage(
   path: string,
   title: string,
   description: string,
+  conTokenPanel = true,
 ): Promise<{ ok: boolean; placement: string; handler?: string; error?: string }> {
   if (!config.baseUrl) {
     return { ok: false, placement: PLACEMENT, error: 'BASE_URL vacío: no se puede fijar el handler' };
   }
   // Propaga el token del panel en la URL del placement (?k=) para que el iframe autentique sus fetch.
-  const tokenQs = config.dashboardToken ? `?k=${encodeURIComponent(config.dashboardToken)}` : '';
+  const tokenQs = conTokenPanel && config.dashboardToken ? `?k=${encodeURIComponent(config.dashboardToken)}` : '';
   const handler = `${config.baseUrl}${path}${tokenQs}`;
   // El token viaja solo a Bitrix. En el log y en lo que se devuelve va tapado: antes quedaba entero en
   // los logs de Railway (cada instalación y cada /setup/bind-*), y con él se leen todas las
@@ -52,6 +53,12 @@ export function bindDashboard(auth: Auth) {
 
 export function bindCalls(auth: Auth) {
   return bindPage(auth, '/calls', 'Analítica de Llamadas', 'Historial y KPIs de telefonía (Bitrix24)');
+}
+
+// Sin el token del dashboard en la URL: al panel de configuración se entra con el usuario de Bitrix
+// (routes/panelConfig.ts), y un token compartido en el handler sería una puerta paralela.
+export function bindPanelConfig(auth: Auth) {
+  return bindPage(auth, '/panel', `Configuración bot ${marca.etiquetaPanel}`, `Horarios y comportamiento del bot · ${marca.organizacion}`, false);
 }
 
 export async function unbindDashboard(auth: Auth): Promise<void> {

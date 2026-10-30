@@ -1,10 +1,11 @@
-import { config } from '../config';
+import { horarios } from './ajustes';
 import { callBitrix } from '../bitrix/client';
 import type { Auth } from '../store';
 
 // "Ritmo humano": el bot no contesta al instante. Muestra "escribiendo…" y espera un rato aleatorio
-// antes de responder, para que la persona no sienta que habla con un robot. El rango va en segundos por
-// config (RESPUESTA_DELAY_MIN_S / RESPUESTA_DELAY_MAX_S); con max<=0 no espera (comportamiento previo).
+// antes de responder, para que la persona no sienta que habla con un robot. El rango va en segundos:
+// lo publicado en el panel (sección Horarios) o, si no hay nada, RESPUESTA_DELAY_MIN_S /
+// RESPUESTA_DELAY_MAX_S; con max<=0 no espera (comportamiento previo).
 
 // El indicador de "escribiendo" de Bitrix expira solo a los ~25 s; se re-emite durante la espera para
 // que siga visible aunque el delay sea largo.
@@ -12,9 +13,9 @@ const TYPING_REFRESH_MS = 18_000;
 
 /** Milisegundos de espera para este turno: aleatorio en [min, max] segundos. 0 = sin espera. */
 export function delayHumanoMs(): number {
-  const maxS = config.respuestaDelayMaxS;
+  const { ritmoMinS, ritmoMaxS: maxS } = horarios();
   if (maxS <= 0) return 0;
-  const minS = Math.min(Math.max(0, config.respuestaDelayMinS), maxS);
+  const minS = Math.min(Math.max(0, ritmoMinS), maxS);
   return Math.round((minS + Math.random() * (maxS - minS)) * 1000);
 }
 

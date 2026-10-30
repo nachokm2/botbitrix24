@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="panel-sesion" content="{{SESION}}">
+  <title>Configuración del bot {{ORGANIZACION}}</title>
+  <link rel="stylesheet" href="/assets/panel/panel.css?v={{V}}">
+</head>
+<body>
+  <header class="barra">
+    <div>
+      <h1>Configuración del bot {{ORGANIZACION}}</h1>
+      <p class="sub">Tus cambios se guardan como borrador. Los clientes solo los ven cuando los publicas.</p>
+    </div>
+    <p class="quien" title="Usuario con el que entraste">{{EDITOR}}</p>
+  </header>
+
+  <div class="layout">
+    <nav class="menu" aria-label="Secciones">
+      <button type="button" class="item activo" aria-current="page">Horarios</button>
+      <span class="item pronto">Comportamiento <small>Próximamente</small></span>
+      <span class="item pronto">Programas y modalidad <small>Próximamente</small></span>
+      <span class="item pronto">Precios <small>Próximamente</small></span>
+      <span class="item pronto">Conocimiento institucional <small>Próximamente</small></span>
+      <span class="item pronto">Acciones <small>Próximamente</small></span>
+    </nav>
+
+    <main>
+      <div id="estado" class="estado" role="status" aria-live="polite"></div>
+      <div id="errores" class="errores" role="alert" hidden></div>
+
+      <form id="formulario" novalidate>
+        <section class="tarjeta">
+          <h2>Horario de asesores</h2>
+          <p class="ayuda">Mientras hay asesores atendiendo, el bot no responde: deja el chat en la cola para que lo tome una persona. Fuera de ese horario responde el bot.</p>
+          <label class="interruptor">
+            <input type="checkbox" id="asesoresActivo" name="asesoresActivo">
+            <span>El bot se aparta durante el horario de asesores</span>
+          </label>
+          <p class="nota" id="nota-inactivo" hidden>Desactivado: el bot responde a toda hora, todos los días.</p>
+          <fieldset id="grupo-asesores">
+            <legend>Días con asesores</legend>
+            <div class="dias" id="dias"></div>
+            <p class="error-campo" data-campo="asesoresDias"></p>
+            <div class="fila">
+              <label>Desde <input type="time" id="asesoresInicio" name="asesoresInicio" step="300"></label>
+              <label>Hasta <input type="time" id="asesoresFin" name="asesoresFin" step="300"></label>
+            </div>
+            <p class="error-campo" data-campo="asesoresInicio"></p>
+            <p class="error-campo" data-campo="asesoresFin"></p>
+            <p class="nota">Hora de Chile.</p>
+          </fieldset>
+        </section>
+
+        <section class="tarjeta">
+          <h2>Feriados</h2>
+          <p class="ayuda">En un feriado no hay asesores: el bot atiende todo el día, aunque caiga en un día hábil.</p>
+          <ul id="lista-feriados" class="feriados"></ul>
+          <div class="fila agregar">
+            <label>Fecha <input type="date" id="nuevo-feriado-fecha"></label>
+            <label class="ancho">Nombre <input type="text" id="nuevo-feriado-nombre" maxlength="80" placeholder="Ej.: Fiestas Patrias"></label>
+            <button type="button" id="agregar-feriado" class="secundario">Agregar feriado</button>
+          </div>
+          <p class="error-campo" data-campo="feriados"></p>
+        </section>
+
+        <section class="tarjeta">
+          <h2>Ritmo de respuesta</h2>
+          <p class="ayuda">Antes de contestar, el bot muestra «escribiendo…» y espera un tiempo al azar entre estos dos valores, para que la conversación se sienta natural. Con 0 en la espera máxima responde de inmediato.</p>
+          <div class="fila">
+            <label>Espera mínima (segundos) <input type="number" id="ritmoMinS" name="ritmoMinS" min="0" max="60" step="1" inputmode="numeric"></label>
+            <label>Espera máxima (segundos) <input type="number" id="ritmoMaxS" name="ritmoMaxS" min="0" max="60" step="1" inputmode="numeric"></label>
+          </div>
+          <p class="error-campo" data-campo="ritmoMinS"></p>
+          <p class="error-campo" data-campo="ritmoMaxS"></p>
+        </section>
+
+        <section class="tarjeta">
+          <h2>Mensajes automáticos</h2>
+          <p class="ayuda">Los recordatorios, el primer contacto y las reactivaciones solo se envían dentro de esta franja (hora de Chile). Las respuestas a quien escribe salen a cualquier hora.</p>
+          <div class="fila">
+            <label>Desde las <select id="automaticosHoraInicio" name="automaticosHoraInicio"></select></label>
+            <label>Hasta las <select id="automaticosHoraFin" name="automaticosHoraFin"></select></label>
+          </div>
+          <p class="error-campo" data-campo="automaticosHoraInicio"></p>
+          <p class="error-campo" data-campo="automaticosHoraFin"></p>
+        </section>
+
+        <section class="tarjeta">
+          <h2>Así quedarían los próximos 7 días</h2>
+          <p class="ayuda">Vista previa con lo que tienes en pantalla, antes de publicar.</p>
+          <ol id="vista" class="vista"></ol>
+        </section>
+
+        <div class="acciones">
+          <span id="indicador" class="indicador"></span>
+          <button type="button" id="descartar" class="enlace" hidden>Descartar borrador</button>
+          <button type="button" id="guardar" class="secundario">Guardar borrador</button>
+          <button type="button" id="publicar" class="primario">Publicar…</button>
+        </div>
+      </form>
+
+      <section class="tarjeta">
+        <h2>Historial de publicaciones</h2>
+        <p class="ayuda">Cada publicación queda registrada. Puedes cargar una versión anterior en el borrador para revisarla y volver a publicarla.</p>
+        <ol id="historial" class="historial"></ol>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="dialogo-publicar" aria-labelledby="titulo-publicar">
+    <form method="dialog">
+      <h2 id="titulo-publicar">Publicar cambios</h2>
+      <p>Estos cambios empiezan a regir para los clientes en menos de un minuto.</p>
+      <ul id="resumen-cambios" class="cambios"></ul>
+      <label class="bloque">¿Qué cambiaste y por qué? <small>(opcional, queda en el historial)</small>
+        <textarea id="nota-publicacion" maxlength="300" rows="3"></textarea>
+      </label>
+      <div class="botones">
+        <button value="cancelar" class="secundario">Cancelar</button>
+        <button value="publicar" class="primario">Publicar ahora</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/assets/panel/panel.js?v={{V}}"></script>
+</body>
+</html>

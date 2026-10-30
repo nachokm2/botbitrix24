@@ -10,6 +10,7 @@ import { callBitrix } from '../bitrix/client';
 import { getRedisClient, getJson, setJson, kvDel } from '../store/kv';
 import { getState } from '../store';
 import { config } from '../config';
+import { horarios } from '../core/ajustes';
 import { recordTokens, inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
@@ -100,12 +101,13 @@ export function horaEnChile(fecha: Date): number {
   return Number(new Intl.DateTimeFormat('en-US', { timeZone: TIMEZONE, hour: 'numeric', hour12: false }).format(fecha));
 }
 
-/** Si `fecha` cae dentro del horario permitido (seguimientoHoraInicio-seguimientoHoraFin, hora
- *  Chile), la devuelve tal cual. Si no, avanza hora a hora hasta la próxima hora permitida — evita
+/** Si `fecha` cae dentro de la franja de mensajes automáticos (ajustes.horarios(), hora Chile), la
+ *  devuelve tal cual. Si no, avanza hora a hora hasta la próxima hora permitida — evita
  *  mandar el seguimiento proactivo de madrugada (esto NO afecta las respuestas normales del bot a
  *  mensajes del cliente, que son inmediatas a cualquier hora). */
 export function proximoHorarioPermitido(fecha: Date): Date {
   let t = fecha;
+  const { automaticosHoraInicio, automaticosHoraFin } = horarios();
   // Dos condiciones a la vez: la ventana de seguimiento (no escribir de madrugada) y el horario de
   // asesores (no escribir mientras ellos atienden). Se alternan hasta que se cumplen las dos,
   // porque corregir una puede volver a romper la otra: salir de la jornada a las 18:30 cae dentro
@@ -114,7 +116,7 @@ export function proximoHorarioPermitido(fecha: Date): Date {
     let movido = false;
     for (let i = 0; i < 24; i++) {
       const h = horaEnChile(t);
-      if (h >= config.seguimientoHoraInicio && h < config.seguimientoHoraFin) break;
+      if (h >= automaticosHoraInicio && h < automaticosHoraFin) break;
       t = new Date(t.getTime() + 3600_000);
       movido = true;
     }

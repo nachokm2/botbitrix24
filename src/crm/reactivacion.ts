@@ -7,6 +7,7 @@ import { getUsuarios } from './directory';
 import { once, getRedisClient } from '../store/kv';
 import { getState, type Auth } from '../store';
 import { config } from '../config';
+import { horarios } from '../core/ajustes';
 import { marca } from '../marca';
 import { audit } from '../obs/audit';
 import { horaEnChile } from '../ai/seguimiento';
@@ -134,7 +135,8 @@ export async function reactivar(f: Frio): Promise<{ enviado: boolean; motivo?: M
   if (!config.reactivacionActiva) return { enviado: false, motivo: 'desactivado' };
   if (!config.reactivacionPlantillas.length) return { enviado: false, motivo: 'sin_plantilla' };
   const hora = horaEnChile(new Date());
-  if (hora < config.seguimientoHoraInicio || hora >= config.seguimientoHoraFin) {
+  const { automaticosHoraInicio, automaticosHoraFin } = horarios();
+  if (hora < automaticosHoraInicio || hora >= automaticosHoraFin) {
     return { enviado: false, motivo: 'fuera_de_horario' };
   }
   if (await estaExcluido({ telefono: f.telefono, contactId: f.contactId })) return { enviado: false, motivo: 'excluido' };
