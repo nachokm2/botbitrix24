@@ -23,7 +23,7 @@
       <span class="item pronto">Comportamiento <small>Próximamente</small></span>
       <button type="button" class="item" data-seccion="programas" hidden>Programas y modalidad</button>
       <button type="button" class="item" data-seccion="precios" hidden>Precios</button>
-      <span class="item pronto">Conocimiento institucional <small>Próximamente</small></span>
+      <button type="button" class="item" data-seccion="conocimiento" hidden>Conocimiento institucional</button>
       <span class="item pronto">Acciones <small>Próximamente</small></span>
     </nav>
 
@@ -123,6 +123,17 @@
           <p class="nota">Los enlaces de PayPal son de monto fijo: si un monto nuevo no tiene enlace, el bot entrega el portal de Flywire en su lugar. Nunca entrega un enlace de otro monto.</p>
         </section>
         <div id="precios-lista"></div>
+      </form>
+
+      <!-- ── Conocimiento institucional ───────────────────────────────────────────────────────── -->
+      <form id="form-conocimiento" class="seccion" novalidate hidden>
+        <section class="tarjeta">
+          <h2>Conocimiento institucional</h2>
+          <p class="ayuda">Lo que el bot responde sobre fechas de ingreso, admisión, reconocimiento del título, datos operativos y testimonios. Solo usa un tema si está activo, tiene fuente y no venció; si no, dice que no tiene ese dato y ofrece confirmarlo, sin inventar nada.</p>
+          <p class="nota">Los medios de pago se editarán junto con los enlaces de PayPal.</p>
+        </section>
+        <div class="pestanas" id="conocimiento-pestanas" role="tablist" aria-label="Temas"></div>
+        <div id="conocimiento-temas"></div>
       </form>
 
       <div class="acciones" id="acciones" hidden>

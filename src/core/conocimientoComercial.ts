@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { ajustesConocimiento } from './ajustes';
+import { aplicarAjustesAConocimiento } from './ajustesConocimiento';
 
 /**
  * Base de conocimiento comercial VERIFICABLE (calendario de ingresos, atributos institucionales,
@@ -52,6 +54,12 @@ function cargar(): BaseConocimiento {
 
 export const BASE_CONOCIMIENTO: BaseConocimiento = cargar();
 
+/** La base con lo publicado en el panel de configuración ("Conocimiento institucional"). Se arma en
+ *  cada consulta para que un cambio publicado rija en la conversación siguiente. */
+export function conocimientoVigente(): BaseConocimiento {
+  return aplicarAjustesAConocimiento(BASE_CONOCIMIENTO, ajustesConocimiento());
+}
+
 export const INSTRUCCION_SIN_DATO =
   'No tienes este dato verificado. NO lo inventes ni lo estimes: ni fechas, ni enlaces, ni pasos, ni ' +
   'plazos. Dilo con naturalidad en una frase y ofrece confirmarlo y responderle por este medio. Si la persona lo ' +
@@ -71,7 +79,7 @@ function completa(e: EntradaTema, campos: string[]): boolean {
 export function consultarInformacionInstitucional(
   temaPedido: string,
   opts: { hoy?: Date } = {},
-  base: BaseConocimiento = BASE_CONOCIMIENTO,
+  base: BaseConocimiento = conocimientoVigente(),
 ): ResultadoConocimiento {
   const tema = TEMAS.find((t) => t === temaPedido);
   if (!tema) return { ok: false, error: 'TEMA_DESCONOCIDO', temas: TEMAS };

@@ -32,7 +32,7 @@ import { verifyBitrixEvent } from './bitrix/verifyEvent';
 import { rateLimit } from './routes/rateLimit';
 import { manejarAsync, manejadorDeErrores } from './routes/errores';
 import { paginaStats } from './routes/stats';
-import { panelPagina, panelLeerSeccion, panelGuardarBorrador, panelDescartarBorrador, panelPublicar, panelRestaurar, panelVistaHorarios, panelVistaPrecios, panelVerificarBrochure } from './routes/panelConfig';
+import { panelPagina, panelLeerSeccion, panelGuardarBorrador, panelDescartarBorrador, panelPublicar, panelRestaurar, panelVistaHorarios, panelVistaPrecios, panelVerificarBrochure, panelVistaConocimiento } from './routes/panelConfig';
 import { requirePanelSesion } from './routes/panelSesion';
 import { iniciarRefrescoAjustes } from './core/ajustes';
 
@@ -144,6 +144,7 @@ app.post('/panel/api/seccion/:seccion/publicar', manejarAsync(panelPublicar));
 app.post('/panel/api/seccion/:seccion/restaurar', manejarAsync(panelRestaurar));
 app.post('/panel/api/seccion/horarios/vista', manejarAsync(panelVistaHorarios));
 app.post('/panel/api/seccion/precios/vista', manejarAsync(panelVistaPrecios));
+app.post('/panel/api/seccion/conocimiento/vista', manejarAsync(panelVistaConocimiento));
 app.post('/panel/api/brochure/verificar', manejarAsync(panelVerificarBrochure));
 
 // Panel de métricas embebible en Bitrix24 (placement) + su API de datos.

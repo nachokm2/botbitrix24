@@ -1,6 +1,6 @@
 'use strict';
 
-// Panel de configuración del bot: Horarios, Programas y modalidad, y Precios.
+// Panel de configuración del bot: Horarios, Programas y modalidad, Precios y Conocimiento institucional.
 // La parte común (borrador, publicar, historial, mensajes) es la misma para todas las secciones; cada
 // sección aporta su formulario: cómo se escribe, cómo se lee y cómo se describe lo que cambió.
 // Todo lo que viene de personas o de otros sitios (nombres, notas, títulos de archivos) se inserta como
@@ -630,7 +630,242 @@
     return { form, iniciar() {}, leer, escribir, alCambiar, vista, diferencias };
   }
 
-  const FABRICAS = { horarios: crearHorarios, programas: crearProgramas, precios: crearPrecios };
+  // ── Sección Conocimiento institucional ──────────────────────────────────────────────────────
+  // Los campos de cada tema vienen del servidor (datos.esquema): la misma definición que valida.
+  function crearConocimiento() {
+    const form = $('form-conocimiento');
+    const pestanas = $('conocimiento-pestanas');
+    const contenedor = $('conocimiento-temas');
+    let esquema = [];
+    let temaActivo = null;
+    const nombre = (...partes) => ['temas', ...partes].join('.');
+    const control = (n) => form.querySelector(`[name="${n}"]`);
+    const temaDeCampo = (campo) => /^temas\.([^.]+)\./.exec(campo)?.[1];
+
+    function iniciar() {
+      form.addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-accion]');
+        if (!b) return;
+        const { accion, tema } = b.dataset;
+        const i = Number(b.dataset.indice);
+        const filas = leer().temas[tema].entradas;
+        if (accion === 'agregar') filas.push({});
+        else if (accion === 'quitar') {
+          if (!confirm('¿Quitar esta fila? Puedes recuperarla descartando el borrador mientras no lo publiques.')) return;
+          filas.splice(i, 1);
+        } else if (accion === 'subir' && i > 0) [filas[i - 1], filas[i]] = [filas[i], filas[i - 1]];
+        else if (accion === 'bajar' && i < filas.length - 1) [filas[i + 1], filas[i]] = [filas[i], filas[i + 1]];
+        else return;
+        renderEntradas(tema, filas);
+        if (accion === 'agregar') contenedor.querySelector(`ol[data-tema="${tema}"] > li.entrada:last-child :is(input, textarea)`)?.focus();
+        cambio();
+      });
+    }
+
+    function mostrarTema(tema) {
+      temaActivo = tema;
+      for (const b of pestanas.querySelectorAll('[role="tab"]')) {
+        const activa = b.dataset.tema === tema;
+        b.setAttribute('aria-selected', String(activa));
+        b.classList.toggle('activa', activa);
+      }
+      for (const t of contenedor.querySelectorAll('.tema')) t.hidden = t.dataset.tema !== tema;
+    }
+
+    function campo(c, n, valor) {
+      const props = { name: n, maxlength: c.max };
+      const ctl =
+        c.tipo === 'largo'
+          ? el('textarea', { ...props, rows: 3 })
+          : el('input', { ...props, type: c.tipo === 'fecha' ? 'date' : c.tipo === 'url' ? 'url' : 'text', ...(c.tipo === 'url' ? { placeholder: 'https://…', inputmode: 'url' } : {}) });
+      ctl.value = valor ?? '';
+      return el('div', { class: c.tipo === 'largo' ? 'campo largo' : 'campo' }, el('label', {}, c.etiqueta, ctl), c.ayuda ? el('small', { class: 'nota', text: c.ayuda }) : null, errorDe(n));
+    }
+
+    function tituloFila(e, fila, i) {
+      if (e.numerado) return `Paso ${i + 1}`;
+      const v = String(fila[e.campos[0].clave] ?? '').trim();
+      return v ? recortar(v, 80) : `Fila ${i + 1} (nueva)`;
+    }
+
+    function renderEntradas(tema, filas) {
+      const e = esquema.find((x) => x.tema === tema);
+      const ol = contenedor.querySelector(`ol[data-tema="${tema}"]`);
+      ol.replaceChildren();
+      if (!filas.length) ol.append(el('li', { class: 'vacio', text: 'No hay filas cargadas.' }));
+      filas.forEach((fila, i) => {
+        const n = (clave) => nombre(tema, 'entradas', i, clave);
+        const boton = (accion, texto, etiqueta, deshabilitado) =>
+          el('button', { type: 'button', class: accion === 'quitar' ? 'mini quitar' : 'mini', 'data-accion': accion, 'data-tema': tema, 'data-indice': i, 'aria-label': etiqueta, title: etiqueta, text: texto, disabled: deshabilitado });
+        const cortos = e.campos.filter((c) => c.tipo !== 'largo');
+        const largos = e.campos.filter((c) => c.tipo === 'largo');
+        ol.append(
+          el(
+            'li',
+            { class: 'entrada' },
+            el(
+              'div',
+              { class: 'cabecera' },
+              el('strong', { class: 'titulo-fila', text: tituloFila(e, fila, i) }),
+              el('span', { class: 'botones-fila' }, boton('subir', '↑', 'Subir', i === 0), boton('bajar', '↓', 'Bajar', i === filas.length - 1), boton('quitar', 'Quitar', 'Quitar esta fila', false)),
+            ),
+            cortos.length ? el('div', { class: 'grilla' }, ...cortos.map((c) => campo(c, n(c.clave), fila[c.clave]))) : null,
+            ...largos.map((c) => campo(c, n(c.clave), fila[c.clave])),
+          ),
+        );
+      });
+    }
+
+    function escribir(c) {
+      esquema = (datos?.esquema ?? []).filter((e) => c.temas?.[e.tema]);
+      pestanas.replaceChildren(
+        ...esquema.map((e) =>
+          el('button', { type: 'button', role: 'tab', class: 'pestana', 'data-tema': e.tema, onclick: () => mostrarTema(e.tema) }, e.titulo, el('span', { class: 'aviso-tema', title: 'El bot no usará este tema', text: '!', hidden: true })),
+        ),
+      );
+      contenedor.replaceChildren();
+      for (const e of esquema) {
+        const t = c.temas[e.tema];
+        const n = (k) => nombre(e.tema, k);
+        const entrada = (props, valor) => Object.assign(el('input', props), { value: valor ?? '' });
+        const activo = el('input', { type: 'checkbox', name: n('activo') });
+        activo.checked = Boolean(t.activo);
+        contenedor.append(
+          el(
+            'div',
+            { class: 'tema', 'data-tema': e.tema, role: 'tabpanel' },
+            el(
+              'section',
+              { class: 'tarjeta' },
+              el('h2', { text: e.titulo }),
+              el('p', { class: 'ayuda', text: e.ayuda }),
+              el('label', { class: 'interruptor' }, activo, el('span', { text: 'El bot usa este tema' })),
+              el(
+                'div',
+                { class: 'fila' },
+                el('label', {}, 'Vigente hasta', entrada({ type: 'date', name: n('vigenteHasta') }, t.vigenteHasta)),
+                el('label', { class: 'ancho' }, 'Fuente', entrada({ type: 'text', name: n('fuente'), maxlength: 300, placeholder: 'Documento o área que lo aprobó' }, t.fuente)),
+                el('label', { class: 'ancho' }, 'Responsable', entrada({ type: 'text', name: n('responsable'), maxlength: 120 }, t.responsable)),
+              ),
+              errorDe(n('vigenteHasta')),
+              errorDe(n('fuente')),
+              el('p', { class: 'vista-tema', 'aria-live': 'polite' }),
+            ),
+            el('ol', { class: 'entradas', 'data-tema': e.tema }),
+            errorDe(n('entradas')),
+            el('button', { type: 'button', class: 'secundario', 'data-accion': 'agregar', 'data-tema': e.tema, text: e.numerado ? 'Agregar paso' : 'Agregar fila' }),
+          ),
+        );
+        renderEntradas(e.tema, t.entradas ?? []);
+      }
+      mostrarTema(esquema.some((e) => e.tema === temaActivo) ? temaActivo : esquema[0]?.tema);
+    }
+
+    function leer() {
+      const temas = {};
+      for (const e of esquema) {
+        const n = (k) => nombre(e.tema, k);
+        const entradas = [...contenedor.querySelectorAll(`ol[data-tema="${e.tema}"] > li.entrada`)].map((_li, i) => {
+          const fila = {};
+          for (const c of e.campos) fila[c.clave] = control(nombre(e.tema, 'entradas', i, c.clave))?.value ?? '';
+          return fila;
+        });
+        temas[e.tema] = {
+          activo: control(n('activo')).checked,
+          vigenteHasta: control(n('vigenteHasta')).value,
+          fuente: control(n('fuente')).value,
+          responsable: control(n('responsable')).value,
+          entradas,
+        };
+      }
+      return { temas };
+    }
+
+    function alCambiar(ev) {
+      // El título de la fila sigue a su primer campo (el ciclo, el país, el argumento…).
+      const li = ev?.target?.closest?.('li.entrada');
+      if (!li) return;
+      const tema = li.parentElement.dataset.tema;
+      const e = esquema.find((x) => x.tema === tema);
+      const i = [...li.parentElement.children].indexOf(li);
+      const fila = {};
+      for (const c of e.campos) fila[c.clave] = control(nombre(tema, 'entradas', i, c.clave))?.value ?? '';
+      li.querySelector('.titulo-fila').textContent = tituloFila(e, fila, i);
+    }
+
+    async function vista() {
+      let r;
+      try {
+        r = await api('POST', '/vista', { contenido: leer() });
+      } catch {
+        return;
+      }
+      if (actual !== 'conocimiento') return;
+      if (!r.ok) {
+        mostrarErroresCampos(r.errores ?? []);
+        contenedor.classList.add('desactualizada');
+        return;
+      }
+      mostrarErroresCampos([]);
+      contenedor.classList.remove('desactualizada');
+      for (const e of esquema) {
+        const v = r.temas?.[e.tema];
+        const p = contenedor.querySelector(`.tema[data-tema="${e.tema}"] .vista-tema`);
+        p.textContent = v?.texto ?? '';
+        p.className = `vista-tema ${v?.disponible ? 'ok' : 'mal'}`;
+        pestanas.querySelector(`[data-tema="${e.tema}"] .aviso-tema`).hidden = Boolean(v?.disponible);
+      }
+    }
+
+    /** Marca las pestañas con errores, para que no queden escondidos en un tema que no está a la vista. */
+    function alMostrarErrores(errores) {
+      const conError = new Set(errores.map((x) => temaDeCampo(x.campo)).filter(Boolean));
+      for (const b of pestanas.querySelectorAll('[role="tab"]')) b.classList.toggle('con-error', conError.has(b.dataset.tema));
+    }
+
+    /** Al fallar un guardado, lleva al primer tema con errores. */
+    function irAlPrimerError(errores) {
+      const tema = errores.map((x) => temaDeCampo(x.campo)).find(Boolean);
+      if (tema && tema !== temaActivo) mostrarTema(tema);
+    }
+
+    function diferencias(a, b) {
+      const { out, comparar } = comparador();
+      for (const e of datos?.esquema ?? []) {
+        const x = a?.temas?.[e.tema];
+        const y = b?.temas?.[e.tema];
+        if (!x || !y) continue;
+        const t = e.titulo;
+        comparar(`${t} — estado`, x.activo ? 'Activo' : 'Desactivado', y.activo ? 'Activo' : 'Desactivado');
+        comparar(`${t} — vigente hasta`, x.vigenteHasta ? fechaLarga(x.vigenteHasta) : 'Sin fecha', y.vigenteHasta ? fechaLarga(y.vigenteHasta) : 'Sin fecha');
+        comparar(`${t} — fuente`, x.fuente || '—', y.fuente || '—');
+        comparar(`${t} — responsable`, x.responsable || '—', y.responsable || '—');
+        // Las filas se comparan por su dato principal (el ciclo, el país, el argumento…); los pasos, por número.
+        const clave = (f, i) =>
+          e.numerado ? `Paso ${i + 1}` : e.tema === 'calendario_ingresos' ? `${f.ciclo} (${f.programa})` : String(f[e.campos[0].clave] ?? '');
+        const antes = new Map(x.entradas.map((f, i) => [clave(f, i), f]));
+        const despues = new Map(y.entradas.map((f, i) => [clave(f, i), f]));
+        for (const [k, f] of despues) {
+          const g = antes.get(k);
+          if (!g) {
+            out.push({ etiqueta: `${t} — fila agregada`, despues: recortar(k, 90) });
+            continue;
+          }
+          for (const c of e.campos) {
+            const va = String(g[c.clave] ?? '');
+            const vb = String(f[c.clave] ?? '');
+            if (va !== vb) out.push({ etiqueta: `${t} — ${recortar(k, 50)} — ${c.etiqueta}`, antes: recortar(va, 90) || '—', despues: recortar(vb, 90) || '—' });
+          }
+        }
+        for (const k of antes.keys()) if (!despues.has(k)) out.push({ etiqueta: `${t} — fila quitada`, despues: recortar(k, 90) });
+      }
+      return out;
+    }
+
+    return { form, iniciar, leer, escribir, alCambiar, vista, diferencias, alMostrarErrores, irAlPrimerError };
+  }
+
+  const FABRICAS = { horarios: crearHorarios, programas: crearProgramas, precios: crearPrecios, conocimiento: crearConocimiento };
   const modulos = {};
   function moduloDe(nombre) {
     if (!modulos[nombre]) {
@@ -706,6 +941,7 @@
       }
       (form.querySelector(`[name="${campo}"]`) ?? document.getElementById(campo))?.setAttribute('aria-invalid', 'true');
     }
+    modulo.alMostrarErrores?.(errores);
   }
 
   function limpiarMensajes() {
@@ -716,6 +952,7 @@
   function manejarFallo(r) {
     if (r.errores?.length) {
       mostrarErroresCampos(r.errores);
+      modulo.irAlPrimerError?.(r.errores);
       mostrarError(`${r.error ?? 'Hay datos que corregir.'} Revisa los campos marcados en rojo.`);
       return;
     }

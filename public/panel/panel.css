@@ -16,6 +16,9 @@
 }
 
 * { box-sizing: border-box; }
+/* Sin esto, cualquier regla con "display" (la barra de acciones, el aviso de las pestañas) le gana al
+   atributo hidden y el elemento se ve aunque esté oculto. */
+[hidden] { display: none !important; }
 
 body {
   margin: 0;
@@ -179,6 +182,31 @@ details.programa .cuerpo { padding: 4px 16px 16px; }
 .resultado-brochure:empty { display: none; }
 .resultado-brochure.ok { color: var(--ok-texto); }
 .resultado-brochure.mal { color: var(--error-texto); }
+
+/* Conocimiento institucional: un tema por pestaña, filas editables */
+.pestanas { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.pestana { background: transparent; border: 1px solid var(--borde); border-radius: 999px; padding: 6px 12px; color: var(--texto); }
+.pestana.activa { background: var(--tarjeta); border-color: #93c5fd; font-weight: 600; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
+.pestana.con-error { border-color: var(--error-texto); }
+.aviso-tema { display: inline-block; margin-left: 6px; min-width: 1.2em; padding: 0 5px; border-radius: 999px; background: var(--aviso-fondo); color: var(--aviso-texto); font-size: 0.75rem; font-weight: 700; }
+.entradas { list-style: none; margin: 0 0 10px; padding: 0; }
+.entradas > li.entrada { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: var(--radio); padding: 12px 16px; margin-bottom: 10px; }
+.entradas > li.vacio { color: var(--suave); padding: 8px 4px; }
+.entrada .cabecera { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; }
+.botones-fila { display: inline-flex; gap: 4px; flex-shrink: 0; }
+.mini { padding: 3px 9px; font-size: 0.85rem; background: #fff; border-color: #cbd5e1; }
+.mini.quitar { border-color: transparent; }
+.campo { margin-top: 8px; }
+.campo label { display: flex; flex-direction: column; gap: 4px; font-size: 0.9rem; }
+.campo .nota { display: block; margin-top: 2px; }
+.grilla .campo { margin-top: 0; }
+/* Un campo con texto de ayuda es más alto: alineados arriba, los vecinos no quedan colgando abajo. */
+.entrada .grilla { align-items: start; }
+.vista-tema { margin: 10px 0 0; font-size: 0.9rem; }
+.vista-tema:empty { display: none; }
+.vista-tema.ok { color: var(--ok-texto); }
+.vista-tema.mal { color: var(--aviso-texto); }
+#conocimiento-temas.desactualizada .vista-tema { opacity: 0.4; }
 
 dialog { border: 0; border-radius: 12px; padding: 22px 24px; max-width: 560px; width: calc(100% - 32px); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25); }
 dialog::backdrop { background: rgba(15, 23, 42, 0.45); }

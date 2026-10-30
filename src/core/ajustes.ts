@@ -13,6 +13,7 @@ import {
   type AjustesProgramas,
   type AjustesPrecios,
 } from './ajustesProgramas';
+import { conocimientoPorDefecto, validarConocimiento, ESQUEMA_CONOCIMIENTO, type AjustesConocimiento } from './ajustesConocimiento';
 
 /**
  * Ajustes del bot que se editan desde el panel de configuración (routes/panelConfig.ts), sin tocar
@@ -175,6 +176,8 @@ type DefSeccion<T> = {
   titulo: string;
   porDefecto: () => T;
   validar: (x: unknown) => Validacion<T>;
+  /** Cómo dibujar el formulario, cuando depende de los datos (los temas del conocimiento institucional). */
+  esquema?: () => unknown;
 };
 
 /** Secciones que el panel puede editar. Se agregan acá a medida que se construyen las fases. */
@@ -182,6 +185,12 @@ export const SECCIONES = {
   horarios: { titulo: 'Horarios', porDefecto: horariosPorDefecto, validar: validarHorarios } as DefSeccion<Horarios>,
   programas: { titulo: 'Programas y modalidad', porDefecto: programasPorDefecto, validar: validarProgramas } as DefSeccion<AjustesProgramas>,
   precios: { titulo: 'Precios', porDefecto: preciosPorDefecto, validar: validarPrecios } as DefSeccion<AjustesPrecios>,
+  conocimiento: {
+    titulo: 'Conocimiento institucional',
+    porDefecto: conocimientoPorDefecto,
+    validar: validarConocimiento,
+    esquema: () => ESQUEMA_CONOCIMIENTO,
+  } as DefSeccion<AjustesConocimiento>,
 };
 
 export type NombreSeccion = keyof typeof SECCIONES;
@@ -210,10 +219,17 @@ export function vigente(seccion: NombreSeccion): unknown {
   return publicadas.get(seccion) ?? SECCIONES[seccion].porDefecto();
 }
 
-/** Secciones que tienen algo que editar en esta marca: Programas y Precios existen solo donde hay
- *  oferta comercial cargada (hoy, Carver). */
+/** Secciones que tienen algo que editar en esta marca: Programas, Precios y Conocimiento existen solo
+ *  donde hay oferta comercial y base de conocimiento cargadas (hoy, Carver). */
 export function seccionesDisponibles(): NombreSeccion[] {
-  return programasBase().length ? ['horarios', 'programas', 'precios'] : ['horarios'];
+  const out: NombreSeccion[] = ['horarios'];
+  if (programasBase().length) out.push('programas', 'precios');
+  if (Object.keys(conocimientoPorDefecto().temas).length) out.push('conocimiento');
+  return out;
+}
+
+export function ajustesConocimiento(): AjustesConocimiento {
+  return vigente('conocimiento') as AjustesConocimiento;
 }
 
 export function ajustesProgramas(): AjustesProgramas {

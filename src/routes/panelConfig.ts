@@ -11,6 +11,8 @@ import { vistaSemanal } from '../core/horarioAsesores';
 import { BECA_CARVER, type ProgramaCarver } from '../core/condicionesCarver';
 import { elegirMedio, type Concepto } from '../core/mediosPago';
 import { verificarEnlace, archivoCorrespondeAPrograma } from '../core/brochures';
+import { ESQUEMA_CONOCIMIENTO, aplicarAjustesAConocimiento, type AjustesConocimiento } from '../core/ajustesConocimiento';
+import { BASE_CONOCIMIENTO, consultarInformacionInstitucional } from '../core/conocimientoComercial';
 import {
   dbConfigPublicadas,
   dbConfigSeccion,
@@ -142,6 +144,7 @@ async function estadoSeccion(seccion: NombreSeccion) {
     // Lo que el bot usa ahora mismo, y el valor de fábrica (Railway) por si se quiere volver a él.
     vigente: vigente(seccion),
     porDefecto: SECCIONES[seccion].porDefecto(),
+    esquema: (SECCIONES[seccion] as { esquema?: () => unknown }).esquema?.() ?? null,
     baseDisponible: datos !== null,
     publicada: datos?.publicada ?? null,
     borrador: datos?.borrador ?? null,
@@ -272,6 +275,50 @@ export async function panelVistaPrecios(req: Request, res: Response) {
     programas[slug] = { resumen, pagos };
   }
   return res.json({ ok: true, programas });
+}
+
+const fechaEnPalabras = (iso: string) =>
+  new Date(`${iso}T12:00:00Z`).toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+// Por qué el bot no usaría un tema (core/conocimientoComercial.ts), dicho para quien lo edita.
+const TEMA_NO_DISPONIBLE: Record<string, string> = {
+  pendiente_de_validacion: 'Está desactivado: el bot dice que no tiene ese dato y ofrece confirmarlo.',
+  sin_fuente: 'No tiene fuente: el bot no lo usa.',
+  vencido: 'Venció: el bot no lo usa y ofrece confirmar el dato.',
+  incompleto: 'No tiene filas completas: el bot no lo usa.',
+  contradictorio: 'Tiene fechas contradictorias para un mismo ciclo: el bot no lo usa.',
+  sin_definicion: 'No existe en la base: el bot no lo usa.',
+};
+
+/**
+ * POST /panel/api/seccion/conocimiento/vista { contenido } — si el bot podrá usar cada tema con lo que
+ * hay en pantalla, y si no, por qué. Pasa por la misma función que la herramienta del bot, así que un
+ * tema vencido o sin fuente se ve acá antes de publicarlo.
+ */
+export async function panelVistaConocimiento(req: Request, res: Response) {
+  const v = SECCIONES.conocimiento.validar(req.body?.contenido);
+  if (!v.ok) return res.status(400).json({ ok: false, errores: v.errores });
+  const base = aplicarAjustesAConocimiento(BASE_CONOCIMIENTO, v.valor as AjustesConocimiento);
+  const temas: Record<string, { disponible: boolean; texto: string }> = {};
+  for (const e of ESQUEMA_CONOCIMIENTO) {
+    const r = consultarInformacionInstitucional(e.tema, {}, base);
+    if (!r.ok) continue;
+    if (!r.disponible) {
+      temas[e.tema] = { disponible: false, texto: TEMA_NO_DISPONIBLE[r.motivo] ?? 'El bot no lo usa.' };
+      continue;
+    }
+    const hasta = r.vigenteHasta ? ` Vigente hasta el ${fechaEnPalabras(r.vigenteHasta)}.` : '';
+    if (e.tema === 'calendario_ingresos') {
+      const proximo = r.contenido.map((x) => String(x.inicioClases)).sort()[0];
+      temas[e.tema] = {
+        disponible: true,
+        texto: `El bot ofrece ${r.contenido.length === 1 ? '1 ciclo' : `${r.contenido.length} ciclos`}; el próximo inicio es el ${fechaEnPalabras(proximo)}.${hasta}`,
+      };
+    } else {
+      temas[e.tema] = { disponible: true, texto: `El bot usa ${r.contenido.length === 1 ? '1 fila' : `${r.contenido.length} filas`}.${hasta}` };
+    }
+  }
+  return res.json({ ok: true, temas });
 }
 
 const FALLAS_BROCHURE: Record<string, string> = {
