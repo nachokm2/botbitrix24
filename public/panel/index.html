@@ -25,6 +25,7 @@
       <button type="button" class="item" data-seccion="precios" hidden>Precios</button>
       <button type="button" class="item" data-seccion="conocimiento" hidden>Conocimiento institucional</button>
       <span class="item pronto">Acciones <small>Próximamente</small></span>
+      <button type="button" class="item probar" data-seccion="simulador">Probar el bot</button>
     </nav>
 
     <main>
@@ -135,6 +136,29 @@
         <div class="pestanas" id="conocimiento-pestanas" role="tablist" aria-label="Temas"></div>
         <div id="conocimiento-temas"></div>
       </form>
+
+      <!-- ── Probar el bot (chat simulado) ───────────────────────────────────────────────────── -->
+      <section id="vista-simulador" hidden>
+        <section class="tarjeta">
+          <h2>Probar el bot</h2>
+          <p class="ayuda">Conversa con el bot como lo haría un interesado. Responde con el mismo prompt, las mismas herramientas y las mismas reglas que en el chat real, pero no escribe en el CRM ni en Bitrix: lo que registraría o derivaría aparece debajo de cada respuesta.</p>
+          <label class="interruptor">
+            <input type="checkbox" id="sim-borradores" checked>
+            <span>Usar los borradores sin publicar</span>
+          </label>
+          <p class="nota">Así pruebas un cambio antes de publicarlo. Desactívalo para ver cómo responde hoy con lo publicado.</p>
+          <p class="nota">En la prueba el bot siempre responde: el horario de asesores no aplica. Cada mensaje usa el modelo real, igual que una conversación.</p>
+        </section>
+        <section class="tarjeta chat">
+          <ol id="sim-mensajes" class="mensajes" aria-live="polite"></ol>
+          <form id="sim-form" class="redactar">
+            <label class="visualmente-oculto" for="sim-texto">Tu mensaje</label>
+            <textarea id="sim-texto" rows="2" maxlength="1500" placeholder="Escribe como lo haría un interesado…"></textarea>
+            <button type="submit" class="primario" id="sim-enviar">Enviar</button>
+          </form>
+          <button type="button" class="enlace-neutro" id="sim-reiniciar">Empezar una conversación nueva</button>
+        </section>
+      </section>
 
       <div class="acciones" id="acciones" hidden>
         <span id="indicador" class="indicador"></span>

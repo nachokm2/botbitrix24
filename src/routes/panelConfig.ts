@@ -5,7 +5,17 @@ import { config } from '../config';
 import { marca } from '../marca';
 import { log } from '../log';
 import { callBitrix } from '../bitrix/client';
-import { SECCIONES, esSeccion, refrescarAjustes, vigente, seccionesDisponibles, ajustesProgramas, type NombreSeccion, type Horarios } from '../core/ajustes';
+import {
+  SECCIONES,
+  esSeccion,
+  refrescarAjustes,
+  vigente,
+  seccionesDisponibles,
+  ajustesProgramas,
+  conAjustesDePrueba,
+  type NombreSeccion,
+  type Horarios,
+} from '../core/ajustes';
 import { programasBase, precioACondicion, motivoEnlaceInvalido, type AjustesPrecios } from '../core/ajustesProgramas';
 import { vistaSemanal } from '../core/horarioAsesores';
 import { BECA_CARVER, type ProgramaCarver } from '../core/condicionesCarver';
@@ -319,6 +329,68 @@ export async function panelVistaConocimiento(req: Request, res: Response) {
     }
   }
   return res.json({ ok: true, temas });
+}
+
+// Cada mensaje de prueba usa el modelo real: un tope por persona evita que una pestaña olvidada o un
+// error en la página se conviertan en gasto.
+const TURNOS_SIMULADOR = 40;
+const VENTANA_SIMULADOR_MS = 10 * 60_000;
+const usoSimulador = new Map<number, number[]>();
+
+/** Solo para pruebas: olvida los turnos usados. */
+export function _reiniciarTopeSimulador(): void {
+  usoSimulador.clear();
+}
+
+const mensajeValido = (m: any) =>
+  m && (m.role === 'user' || m.role === 'assistant') && (typeof m.content === 'string' || Array.isArray(m.content));
+
+/**
+ * POST /panel/api/simulador { historial, mensaje, conBorradores } — un turno del chat de prueba (ver
+ * ai/simulador.ts). Con `conBorradores`, el bot usa los borradores guardados de cada sección en lugar de
+ * lo publicado, solo para esta respuesta: así se prueba un cambio antes de que llegue a un cliente.
+ */
+export async function panelSimular(req: Request, res: Response) {
+  const editor = res.locals.editor as Editor;
+  const mensaje = String(req.body?.mensaje ?? '').trim();
+  if (!mensaje) return res.status(400).json({ ok: false, error: 'Escribe un mensaje.' });
+  if (mensaje.length > 1500) return res.status(400).json({ ok: false, error: 'El mensaje es demasiado largo (hasta 1500 letras).' });
+  const historial = req.body?.historial ?? [];
+  if (!Array.isArray(historial) || historial.length > 80 || !historial.every(mensajeValido)) {
+    return res.status(400).json({ ok: false, error: 'La conversación de prueba no es válida. Empieza de nuevo.' });
+  }
+
+  const ahora = Date.now();
+  const recientes = (usoSimulador.get(editor.id) ?? []).filter((t) => ahora - t < VENTANA_SIMULADOR_MS);
+  if (recientes.length >= TURNOS_SIMULADOR) {
+    return res.status(429).json({ ok: false, error: 'Llegaste al máximo de mensajes de prueba por ahora. Espera unos minutos y sigue.' });
+  }
+  usoSimulador.set(editor.id, [...recientes, ahora]);
+
+  const valores: Partial<Record<NombreSeccion, unknown>> = {};
+  const borradoresUsados: string[] = [];
+  if (req.body?.conBorradores) {
+    for (const s of seccionesDisponibles()) {
+      const datos = await dbConfigSeccion(s);
+      if (!datos?.borrador) continue;
+      const v = SECCIONES[s].validar(datos.borrador.contenido);
+      if (!v.ok) continue; // un borrador que ya no cumple las reglas no se prueba: rige lo publicado
+      valores[s] = v.valor;
+      borradoresUsados.push(SECCIONES[s].titulo);
+    }
+  }
+
+  try {
+    // Se carga recién acá: el simulador arrastra el motor del bot completo (herramientas, CRM), que el
+    // resto del panel no necesita.
+    const { simularTurno } = await import('../ai/simulador');
+    const r = await conAjustesDePrueba(valores, () => simularTurno(historial, mensaje));
+    log.info('panel: turno de prueba', { editorId: editor.id, borradores: borradoresUsados.length, herramientas: r.herramientas.length });
+    return res.json({ ok: true, respuesta: r.texto, historial: r.historial, herramientas: r.herramientas, borradoresUsados });
+  } catch (e) {
+    log.warn('panel: el turno de prueba falló', { err: String(e).slice(0, 200) });
+    return res.status(502).json({ ok: false, error: 'El bot no pudo responder en la prueba. Intenta de nuevo en un momento.' });
+  }
 }
 
 const FALLAS_BROCHURE: Record<string, string> = {

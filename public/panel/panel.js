@@ -865,6 +865,84 @@
     return { form, iniciar, leer, escribir, alCambiar, vista, diferencias, alMostrarErrores, irAlPrimerError };
   }
 
+  // ── Probar el bot (chat simulado) ───────────────────────────────────────────────────────────
+  // No es una sección de configuración: no tiene borrador ni historial. Cada turno va al servidor con
+  // la conversación completa, y el servidor la devuelve con lo que consultó el bot en ese turno.
+  function crearSimulador() {
+    let historial = [];
+    let esperando = false;
+    const lista = $('sim-mensajes');
+
+    function bienvenida() {
+      lista.replaceChildren(el('li', { class: 'vacio', text: 'Escribe el primer mensaje, por ejemplo: «Hola, quiero información de la Maestría en Psicología».' }));
+    }
+
+    function burbuja(clase, texto, extra) {
+      lista.querySelector('.vacio')?.remove();
+      const li = el('li', { class: `burbuja ${clase}` }, el('p', { class: 'texto', text: texto }), extra ?? null);
+      lista.append(li);
+      li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      return li;
+    }
+
+    async function enviar(e) {
+      e.preventDefault();
+      const caja = $('sim-texto');
+      const texto = caja.value.trim();
+      if (!texto || esperando) return;
+      esperando = true;
+      $('sim-enviar').disabled = true;
+      caja.value = '';
+      burbuja('cliente', texto);
+      const pensando = burbuja('bot pensando', 'escribiendo…');
+      try {
+        const r = await pedir('POST', '/panel/api/simulador', { historial, mensaje: texto, conBorradores: $('sim-borradores').checked });
+        pensando.remove();
+        if (!r.ok) {
+          burbuja('aviso', r.error ?? 'El bot no pudo responder.');
+          return;
+        }
+        historial = r.historial;
+        const detalles = [];
+        if (r.herramientas?.length) {
+          detalles.push(
+            el(
+              'ul',
+              { class: 'herramientas' },
+              ...r.herramientas.map((h) => el('li', {}, h.descripcion, h.simulada ? el('span', { class: 'etiqueta apagada', text: 'simulado' }) : null)),
+            ),
+          );
+        }
+        if (r.borradoresUsados?.length) detalles.push(el('p', { class: 'con-borradores', text: `Respondió con los borradores de: ${r.borradoresUsados.join(', ')}.` }));
+        burbuja('bot', r.respuesta, detalles.length ? el('div', { class: 'detalles' }, ...detalles) : null);
+      } catch (err) {
+        pensando.remove();
+        if (err?.message !== 'sesion') burbuja('aviso', 'No pudimos comunicarnos con el servidor. Intenta de nuevo.');
+      } finally {
+        esperando = false;
+        $('sim-enviar').disabled = false;
+        caja.focus();
+      }
+    }
+
+    $('sim-form').addEventListener('submit', enviar);
+    $('sim-texto').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        $('sim-form').requestSubmit();
+      }
+    });
+    $('sim-reiniciar').addEventListener('click', () => {
+      if (historial.length && !confirm('¿Empezar una conversación nueva? Se borra la conversación de prueba.')) return;
+      historial = [];
+      bienvenida();
+      $('sim-texto').focus();
+    });
+    bienvenida();
+    return { mostrar: () => $('sim-texto').focus() };
+  }
+  let simulador = null;
+
   const FABRICAS = { horarios: crearHorarios, programas: crearProgramas, precios: crearPrecios, conocimiento: crearConocimiento };
   const modulos = {};
   function moduloDe(nombre) {
@@ -1066,7 +1144,7 @@
 
   // ── Navegación entre secciones ──────────────────────────────────────────────────────────────
   async function irA(nombre) {
-    if (!DISPONIBLES.includes(nombre)) nombre = 'horarios';
+    if (nombre !== 'simulador' && !DISPONIBLES.includes(nombre)) nombre = 'horarios';
     if (nombre === actual || ocupado) return;
     if (sucio && !confirm('Tienes cambios sin guardar en esta sección. ¿Salir sin guardarlos?')) {
       history.replaceState(null, '', `#${actual}`);
@@ -1074,9 +1152,11 @@
     }
     sucio = false;
     actual = nombre;
-    modulo = moduloDe(nombre);
+    const probando = nombre === 'simulador';
+    modulo = probando ? null : moduloDe(nombre);
     clearTimeout(temporizadorVista);
-    for (const f of document.querySelectorAll('form.seccion')) f.hidden = f !== modulo.form;
+    for (const f of document.querySelectorAll('form.seccion')) f.hidden = probando || f !== modulo.form;
+    $('vista-simulador').hidden = !probando;
     for (const b of document.querySelectorAll('.menu [data-seccion]')) {
       const activo = b.dataset.seccion === nombre;
       b.classList.toggle('activo', activo);
@@ -1088,13 +1168,20 @@
     $('errores').hidden = true;
     $('acciones').hidden = true;
     $('tarjeta-historial').hidden = true;
+    if (probando) {
+      $('estado').className = 'estado';
+      $('estado').textContent = '';
+      simulador ??= crearSimulador();
+      simulador.mostrar();
+      return;
+    }
     renderEstado();
     await conEspera(cargar);
   }
 
   // ── Arranque ────────────────────────────────────────────────────────────────────────────────
   for (const b of document.querySelectorAll('.menu [data-seccion]')) {
-    b.hidden = !DISPONIBLES.includes(b.dataset.seccion);
+    b.hidden = b.dataset.seccion !== 'simulador' && !DISPONIBLES.includes(b.dataset.seccion);
     b.addEventListener('click', () => irA(b.dataset.seccion));
   }
   for (const f of document.querySelectorAll('form.seccion')) {

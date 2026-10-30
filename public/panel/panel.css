@@ -208,6 +208,27 @@ details.programa .cuerpo { padding: 4px 16px 16px; }
 .vista-tema.mal { color: var(--aviso-texto); }
 #conocimiento-temas.desactualizada .vista-tema { opacity: 0.4; }
 
+/* Probar el bot: chat simulado */
+.menu .item.probar { margin-top: 12px; border: 1px solid #bfdbfe; color: var(--primario); }
+.menu .item.probar.activo { color: var(--texto); }
+.chat .mensajes { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 10px; max-height: 60vh; overflow-y: auto; }
+.chat .vacio { color: var(--suave); }
+.burbuja { max-width: 85%; padding: 10px 12px; border-radius: 12px; }
+.burbuja .texto { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.burbuja.cliente { align-self: flex-end; background: #eff6ff; border: 1px solid #bfdbfe; }
+.burbuja.bot { align-self: flex-start; background: #f8fafc; border: 1px solid var(--borde); }
+.burbuja.pensando { color: var(--suave); font-style: italic; }
+.burbuja.aviso { align-self: center; background: var(--aviso-fondo); color: var(--aviso-texto); font-size: 0.9rem; }
+.burbuja .detalles { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--borde); font-size: 0.85rem; color: var(--suave); }
+.herramientas { margin: 0; padding-left: 18px; }
+.herramientas li { margin: 2px 0; }
+.herramientas .etiqueta { display: inline-block; margin-left: 6px; font-size: 0.72rem; padding: 0 6px; border-radius: 999px; }
+.con-borradores { margin: 4px 0 0; }
+.redactar { display: flex; gap: 10px; align-items: flex-end; }
+.redactar textarea { flex: 1; }
+.enlace-neutro { background: none; color: var(--primario); padding: 6px 0; margin-top: 6px; }
+.visualmente-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
 dialog { border: 0; border-radius: 12px; padding: 22px 24px; max-width: 560px; width: calc(100% - 32px); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25); }
 dialog::backdrop { background: rgba(15, 23, 42, 0.45); }
 dialog h2 { margin-top: 0; }

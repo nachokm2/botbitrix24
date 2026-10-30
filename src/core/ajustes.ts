@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { config } from '../config';
 import { log } from '../log';
 import type { DetallePrograma } from '../ai/detalles';
@@ -209,13 +210,26 @@ function conDefectos(seccion: NombreSeccion, contenido: unknown): Validacion<unk
 
 const publicadas = new Map<NombreSeccion, unknown>();
 
-/** Lo que el bot usa AHORA en "Horarios": lo publicado o, si no hay nada, lo de Railway. */
-export function horarios(): Horarios {
-  return (publicadas.get('horarios') as Horarios | undefined) ?? horariosPorDefecto();
+// Valores de PRUEBA que rigen solo dentro de una ejecución puntual: el chat simulado del panel prueba
+// los borradores sin publicarlos (ai/simulador.ts). Viven en el contexto asíncrono de esa ejecución,
+// así que las conversaciones reales que corren al mismo tiempo siguen viendo lo publicado.
+const deprueba = new AsyncLocalStorage<Map<NombreSeccion, unknown>>();
+
+/** Ejecuta `fn` con estos valores en lugar de lo publicado, solo para esa ejecución. Ya validados. */
+export function conAjustesDePrueba<T>(valores: Partial<Record<NombreSeccion, unknown>>, fn: () => Promise<T>): Promise<T> {
+  return deprueba.run(new Map(Object.entries(valores) as Array<[NombreSeccion, unknown]>), fn);
 }
 
-/** Valor vigente de cualquier sección (para mostrarlo en el panel). */
+/** Lo que el bot usa AHORA en "Horarios": lo publicado o, si no hay nada, lo de Railway. */
+export function horarios(): Horarios {
+  return vigente('horarios') as Horarios;
+}
+
+/** Valor vigente de cualquier sección: el de prueba si se está simulando, si no lo publicado, y si no
+ *  hay nada publicado, el valor por defecto. */
 export function vigente(seccion: NombreSeccion): unknown {
+  const prueba = deprueba.getStore();
+  if (prueba?.has(seccion)) return prueba.get(seccion);
   return publicadas.get(seccion) ?? SECCIONES[seccion].porDefecto();
 }
 

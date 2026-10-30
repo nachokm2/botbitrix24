@@ -73,6 +73,43 @@ const ACADEMICO_KEY = (dialogId: string) => `academico:${dialogId}`;
 // validado en el prompt (core/promptObjeciones.ts).
 const CONTACTO_GENERAL = 'admission@carver.university / +1 (321) 300-1034';
 
+/** Lo que recibe el modelo cuando el brochure se entrega como ENLACE (o no se puede entregar). Lo usa
+ *  también el chat simulado del panel (ai/simulador.ts), para que la prueba vea lo mismo. */
+export function brochureComoEnlace(r: Awaited<ReturnType<typeof obtenerBrochure>>) {
+  if (r.ok) {
+    return {
+      ok: true,
+      programa: r.programa,
+      url: r.url,
+      formato: r.formato,
+      entregadoComo: 'enlace',
+      nota:
+        r.formato === 'pdf'
+          ? 'Brochure oficial en PDF, verificado ahora. Compártelo tal cual, en una línea aparte.'
+          : 'Brochure oficial en PDF, verificado ahora: el enlace abre el documento en el navegador, donde se puede ver y descargar. Compártelo tal cual, en una línea aparte, y no prometas que llega como archivo adjunto.',
+    };
+  }
+  return {
+    ok: false,
+    programa: r.programa,
+    motivo: r.motivo,
+    nota:
+      r.motivo === 'programa_no_comercializable'
+        ? 'Ese programa no forma parte de la oferta de este canal: no hay brochure que entregar. Ofrece las licenciaturas y maestrías relacionadas.'
+        : 'No pude verificar el brochure en este momento. NO compartas ningún enlace (ni el de la ficha). Dile que se lo harás llegar por este medio, y registra la solicitud con registrar_interes_crm (comentario: "Solicitó el brochure de <programa>").',
+  };
+}
+
+/** Lo que recibe el modelo al derivar en una marca donde el bot habla COMO el asesor (Carver). */
+export const RESULTADO_ESCALADO_COMO_ASESOR = {
+  ok: true,
+  escalado: true,
+  asesor: null,
+  mensaje:
+    'Conversación derivada para seguimiento. Tú eres su asesor: confírmale en primera persona que quedas a cargo ' +
+    '("quedo atento", "le hago seguimiento"). No nombres a otra persona ni hables de ti en tercera persona.',
+} as const;
+
 export async function executeTool(name: string, input: any, ctx: AgentContext): Promise<any> {
   const catalog = ctx.profile.catalog;
   try {
@@ -229,27 +266,8 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
                 'dile en una frase breve que se lo acabas de enviar y pregúntale si tiene dudas del programa.',
             };
           }
-          return {
-            ok: true,
-            programa: r.programa,
-            url: r.url,
-            formato: r.formato,
-            entregadoComo: 'enlace',
-            nota:
-              r.formato === 'pdf'
-                ? 'Brochure oficial en PDF, verificado ahora. Compártelo tal cual, en una línea aparte.'
-                : 'Brochure oficial en PDF, verificado ahora: el enlace abre el documento en el navegador, donde se puede ver y descargar. Compártelo tal cual, en una línea aparte, y no prometas que llega como archivo adjunto.',
-          };
         }
-        return {
-          ok: false,
-          programa: r.programa,
-          motivo: r.motivo,
-          nota:
-            r.motivo === 'programa_no_comercializable'
-              ? 'Ese programa no forma parte de la oferta de este canal: no hay brochure que entregar. Ofrece las licenciaturas y maestrías relacionadas.'
-              : 'No pude verificar el brochure en este momento. NO compartas ningún enlace (ni el de la ficha). Dile que se lo harás llegar por este medio, y registra la solicitud con registrar_interes_crm (comentario: "Solicitó el brochure de <programa>").',
-        };
+        return brochureComoEnlace(r);
       }
 
       case 'consultar_estado_estudiante': {
@@ -441,16 +459,7 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
         // asesor es él mismo. Pasó en el piloto ("confírmelo con Ignacio", dicho por "Ignacio"). Vale
         // también sin asesor asignado (visitante nuevo del Live Chat): ahí se presentó como el equipo
         // de admisiones, y "un asesor lo contactará" le revela una derivación que debe ser interna.
-        if (marca.sePresentaComoAsesor) {
-          return {
-            ok: true,
-            escalado: true,
-            asesor: null,
-            mensaje:
-              'Conversación derivada para seguimiento. Tú eres su asesor: confírmale en primera persona que quedas a cargo ' +
-              '("quedo atento", "le hago seguimiento"). No nombres a otra persona ni hables de ti en tercera persona.',
-          };
-        }
+        if (marca.sePresentaComoAsesor) return { ...RESULTADO_ESCALADO_COMO_ASESOR };
         return {
           ok: true,
           escalado: true,

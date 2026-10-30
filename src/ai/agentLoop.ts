@@ -195,6 +195,9 @@ export type ConversationOpts = {
   /** Id para correlación/auditoría (dialogId en chat, callId en voz). */
   auditId: string;
   crmEntity?: CrmEntity | null;
+  /** Chat simulado del panel de configuración: no deja nada en la auditoría, que alimenta las
+   *  métricas de conversaciones reales. Los tokens sí se cuentan: son consumo real. */
+  simulacion?: boolean;
 };
 
 /**
@@ -209,7 +212,7 @@ export async function runConversation(
   messages: any[],
   execTool: ToolExecutor,
 ): Promise<{ text: string; messages: any[] }> {
-  const { profile, auditId, crmEntity } = opts;
+  const { profile, auditId, crmEntity, simulacion } = opts;
   const system = profile.systemPrompt;
   const allowedTools = tools.filter((t) => profile.toolNames.includes(t.name));
   let reintentoPorVacio = false;
@@ -253,7 +256,7 @@ export async function runConversation(
         });
         continue;
       }
-      return { text: textOf(resp, auditId), messages };
+      return { text: textOf(resp, simulacion ? null : auditId), messages };
     }
 
     // Ejecuta las tools del turno en paralelo, preservando el orden por tool_use_id.
@@ -261,12 +264,14 @@ export async function runConversation(
       toolUses.map(async (tu) => {
         inc(`tool:${tu.name}`);
         const result = await execTool(tu.name, tu.input);
-        await audit({
-          type: 'tool_call',
-          dialogId: auditId,
-          crmEntity: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : undefined,
-          detail: { name: tu.name, input: tu.input, ok: result?.ok },
-        });
+        if (!simulacion) {
+          await audit({
+            type: 'tool_call',
+            dialogId: auditId,
+            crmEntity: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : undefined,
+            detail: { name: tu.name, input: tu.input, ok: result?.ok },
+          });
+        }
         return { type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(result) };
       }),
     );
@@ -493,7 +498,7 @@ function escrituraCrmFallida(mensajesDelTurno: any[]): boolean {
   return false;
 }
 
-function reemplazarUltimaRespuesta(mensajes: any[], texto: string): void {
+export function reemplazarUltimaRespuesta(mensajes: any[], texto: string): void {
   for (let i = mensajes.length - 1; i >= 0; i--) {
     if (mensajes[i]?.role === 'assistant') {
       mensajes[i] = { role: 'assistant', content: [{ type: 'text', text: texto }] };
@@ -508,9 +513,11 @@ export function datosDuros(texto: string): string[] {
   return [...montos, ...urlsEn(texto)];
 }
 
-async function aplicarGuardian(
+/** Reglas comerciales impuestas en código sobre el texto final (core/guardRespuesta.ts), más la
+ *  condensación de un mensaje demasiado largo. Con `simulacion` no deja rastro en métricas ni auditoría. */
+export async function aplicarGuardian(
   texto: string,
-  t: { dialogId: string; mensajeCliente: string; history: any[]; mensajesDelTurno: any[] },
+  t: { dialogId?: string; mensajeCliente: string; history: any[]; mensajesDelTurno: any[]; simulacion?: boolean },
 ): Promise<string> {
   const ctxGuard = {
     mensajeCliente: t.mensajeCliente,
@@ -557,7 +564,7 @@ async function aplicarGuardian(
     }
   }
 
-  if (cambios.length) {
+  if (cambios.length && !t.simulacion) {
     for (const c of cambios) inc(`guard:${c}`);
     void audit({
       type: 'guard_respuesta',
@@ -604,18 +611,21 @@ function soloTexto(resp: any): string {
     .trim();
 }
 
-export function textOf(resp: any, auditId?: string): string {
+/** `auditId` null = no auditar (chat simulado del panel). */
+export function textOf(resp: any, auditId?: string | null): string {
   const text = (resp.content as any[])
     .filter((b) => b.type === 'text')
     .map((b) => b.text)
     .join('\n')
     .trim();
   if (text) return text;
-  void audit({
-    type: 'error',
-    dialogId: auditId,
-    detail: { etapa: 'respuesta_vacia', err: 'el modelo no devolvió texto; se usó la frase de reserva' },
-  }).catch(() => {});
+  if (auditId !== null) {
+    void audit({
+      type: 'error',
+      dialogId: auditId,
+      detail: { etapa: 'respuesta_vacia', err: 'el modelo no devolvió texto; se usó la frase de reserva' },
+    }).catch(() => {});
+  }
   return marca.sePresentaComoAsesor
     ? `¿En qué puedo ayudarle con los programas de ${marca.organizacion}?`
     : '¿En qué puedo ayudarte con nuestros postgrados?';
