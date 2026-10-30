@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { createHash, randomBytes } from 'node:crypto';
 import { config } from '../config';
 import { log } from '../log';
 import { once } from './kv';
@@ -142,7 +143,24 @@ async function intentarConexion(): Promise<boolean> {
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS config_version_publicada_uq ON config_version (seccion) WHERE estado = 'publicada';`);
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS config_version_borrador_uq ON config_version (seccion) WHERE estado = 'borrador';`);
     await pool.query(`CREATE INDEX IF NOT EXISTS config_version_seccion_idx ON config_version (seccion, id DESC);`);
-    log.info('DB: Postgres conectado y tablas audit_log/calls/campaign_target/call_attempt/config_version listas');
+    // Archivos subidos desde el panel (los brochures en PDF). Se publican por un token aleatorio y no
+    // por el id, para que nadie pueda recorrerlos probando números. No entra en la retención.
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS archivo (
+        id            BIGSERIAL PRIMARY KEY,
+        token         TEXT NOT NULL UNIQUE,
+        nombre        TEXT NOT NULL,
+        tipo          TEXT NOT NULL,
+        tamano        INT NOT NULL,
+        sha256        TEXT NOT NULL,
+        contenido     BYTEA NOT NULL,
+        subido_por_id INT NOT NULL,
+        subido_por    TEXT NOT NULL,
+        creado_en     TIMESTAMPTZ NOT NULL DEFAULT now()
+      );
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS archivo_sha256_idx ON archivo (sha256);`);
+    log.info('DB: Postgres conectado y tablas audit_log/calls/campaign_target/call_attempt/config_version/archivo listas');
     notificarReady();
     return true;
   } catch (e) {
@@ -1817,4 +1835,27 @@ export async function dbConfigPublicar(
     );
     return { ok: true, version: filaAVersion(r.rows[0]) };
   });
+}
+
+// ── Archivos del panel (brochures en PDF) ──────────────────────────────────────────────────────
+
+/** Guarda un archivo y devuelve el token con que se publica. Si el mismo contenido ya se había subido,
+ *  devuelve ese mismo token: subir dos veces el mismo PDF no duplica nada. null = sin base. */
+export async function dbArchivoGuardar(a: { nombre: string; tipo: string; contenido: Buffer; autor: AutorConfig }): Promise<{ token: string } | null> {
+  if (!pool) return null;
+  const sha256 = createHash('sha256').update(a.contenido).digest('hex');
+  const previo = await pool.query(`SELECT token FROM archivo WHERE sha256 = $1 AND tipo = $2 LIMIT 1`, [sha256, a.tipo]);
+  if (previo.rows[0]) return { token: previo.rows[0].token };
+  const token = randomBytes(18).toString('base64url');
+  await pool.query(
+    `INSERT INTO archivo (token, nombre, tipo, tamano, sha256, contenido, subido_por_id, subido_por) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [token, a.nombre, a.tipo, a.contenido.length, sha256, a.contenido, a.autor.id, a.autor.nombre],
+  );
+  return { token };
+}
+
+export async function dbArchivoLeer(token: string): Promise<{ nombre: string; tipo: string; contenido: Buffer } | null> {
+  if (!pool) return null;
+  const r = await pool.query(`SELECT nombre, tipo, contenido FROM archivo WHERE token = $1`, [token]);
+  return r.rows[0] ? { nombre: r.rows[0].nombre, tipo: r.rows[0].tipo, contenido: r.rows[0].contenido as Buffer } : null;
 }

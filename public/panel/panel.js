@@ -328,7 +328,56 @@
       form.addEventListener('click', (e) => {
         const b = e.target.closest('[data-probar]');
         if (b) probarBrochure(b.dataset.probar, b);
+        const s = e.target.closest('[data-subir]');
+        if (s) form.querySelector(`input[data-archivo="${s.dataset.subir}"]`).click();
       });
+      form.addEventListener('change', (e) => {
+        const entrada = e.target.closest('input[data-archivo]');
+        if (entrada) subirPdf(entrada.dataset.archivo, entrada);
+      });
+    }
+
+    /** Sube el PDF elegido y deja su enlace en el campo del brochure, como si se hubiera pegado. */
+    async function subirPdf(slug, entrada) {
+      const archivo = entrada.files?.[0];
+      const salida = entrada.closest('.cuerpo').querySelector('.resultado-brochure');
+      if (!archivo) return;
+      salida.className = 'resultado-brochure';
+      if (archivo.size > 15 * 1024 * 1024) {
+        salida.textContent = 'El PDF pesa más de 15 MB. Comprímelo o pide una versión más liviana.';
+        salida.classList.add('mal');
+        entrada.value = '';
+        return;
+      }
+      salida.textContent = 'Subiendo el PDF…';
+      try {
+        const r = await fetch(`/panel/api/archivos?nombre=${encodeURIComponent(base.programas[slug]?.nombre ?? 'brochure')}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${SESION}`, 'Content-Type': 'application/pdf' },
+          body: archivo,
+        });
+        let j = {};
+        try {
+          j = await r.json();
+        } catch {
+          /* respuesta inesperada: se informa abajo */
+        }
+        if (r.status === 401) return bloquear(j.error || 'Tu sesión venció. Vuelve a abrir el panel desde Bitrix24.');
+        if (!r.ok || !j.ok) {
+          salida.textContent = j.error ?? 'No pudimos subir el PDF. Intenta de nuevo.';
+          salida.classList.add('mal');
+          return;
+        }
+        control(slug, 'brochureUrl').value = j.url;
+        cambio({ target: control(slug, 'brochureUrl') });
+        salida.textContent = `PDF subido (${j.nombre}). Guarda y publica para que el bot lo entregue.`;
+        salida.classList.add('ok');
+      } catch {
+        salida.textContent = 'No pudimos comunicarnos con el servidor. Intenta de nuevo.';
+        salida.classList.add('mal');
+      } finally {
+        entrada.value = '';
+      }
     }
 
     function tarjeta(slug, p) {
@@ -367,11 +416,13 @@
             'div',
             { class: 'fila' },
             el('label', { class: 'ancho' }, 'Brochure (enlace al PDF)', el('input', { type: 'url', name: n('brochureUrl'), placeholder: 'https://…', inputmode: 'url' })),
+            el('button', { type: 'button', class: 'secundario', 'data-subir': slug, text: 'Subir PDF' }),
             el('button', { type: 'button', class: 'secundario', 'data-probar': slug, text: 'Probar enlace' }),
+            el('input', { type: 'file', accept: 'application/pdf,.pdf', 'data-archivo': slug, 'data-no-cambio': true, hidden: true }),
           ),
           el('p', { class: 'resultado-brochure', 'aria-live': 'polite' }),
           errorDe(n('brochureUrl')),
-          el('p', { class: 'nota', text: 'Antes de entregarlo, el bot comprueba que el enlace abra un PDF de este programa. Si lo dejas vacío, dice que no tiene el brochure a mano, sin inventar un enlace.' }),
+          el('p', { class: 'nota', text: 'Puedes pegar un enlace o subir el PDF: subido, lo entrega el propio bot y no depende de que un enlace externo siga vivo. Antes de entregarlo, el bot comprueba que abra un PDF. Si lo dejas vacío, dice que no tiene el brochure a mano, sin inventar un enlace.' }),
         ),
       );
       for (const r of det.querySelectorAll(`[name="${n('disponibilidad')}"]`)) r.checked = r.value === p.disponibilidad;

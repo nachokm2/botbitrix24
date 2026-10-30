@@ -34,6 +34,7 @@ import { manejarAsync, manejadorDeErrores } from './routes/errores';
 import { paginaStats } from './routes/stats';
 import { panelPagina, panelLeerSeccion, panelGuardarBorrador, panelDescartarBorrador, panelPublicar, panelRestaurar, panelVistaHorarios, panelVistaPrecios, panelVerificarBrochure, panelVistaConocimiento, panelSimular, panelVistaComportamiento, panelVistaAcciones } from './routes/panelConfig';
 import { requirePanelSesion } from './routes/panelSesion';
+import { panelSubirArchivo, servirArchivo, MAX_PDF_BYTES } from './routes/panelArchivos';
 import { iniciarRefrescoAjustes } from './core/ajustes';
 
 const app = express();
@@ -149,6 +150,9 @@ app.post('/panel/api/seccion/comportamiento/vista', manejarAsync(panelVistaCompo
 app.post('/panel/api/seccion/acciones/vista', manejarAsync(panelVistaAcciones));
 app.post('/panel/api/brochure/verificar', manejarAsync(panelVerificarBrochure));
 app.post('/panel/api/simulador', manejarAsync(panelSimular));
+// El PDF llega como cuerpo binario: el json() global no lo toca y este parser solo corre en esta ruta.
+app.post('/panel/api/archivos', express.raw({ type: 'application/pdf', limit: MAX_PDF_BYTES + 1024 }), manejarAsync(panelSubirArchivo));
+app.get('/archivos/:token/:nombre', manejarAsync(servirArchivo)); // público: el enlace que entrega el bot
 
 // Panel de métricas embebible en Bitrix24 (placement) + su API de datos.
 // Los handlers async van envueltos en manejarAsync: Express 4 no captura su rechazo y Node terminaría
