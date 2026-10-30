@@ -438,8 +438,10 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
         }
         log.info('tool escalar_a_humano', { motivo: input?.motivo, chatId: ctx.chatId, asesor });
         // El bot que habla COMO el asesor no puede anunciar que "el asesor X lo contactará": ese
-        // asesor es él mismo. Pasó en el piloto ("confírmelo con Ignacio", dicho por "Ignacio").
-        if (marca.sePresentaComoAsesor && ctx.identidadAsesor) {
+        // asesor es él mismo. Pasó en el piloto ("confírmelo con Ignacio", dicho por "Ignacio"). Vale
+        // también sin asesor asignado (visitante nuevo del Live Chat): ahí se presentó como el equipo
+        // de admisiones, y "un asesor lo contactará" le revela una derivación que debe ser interna.
+        if (marca.sePresentaComoAsesor) {
           return {
             ok: true,
             escalado: true,

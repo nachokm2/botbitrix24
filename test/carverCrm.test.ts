@@ -374,6 +374,17 @@ test('escalar_a_humano: el bot que habla como el asesor no se nombra en tercera 
   assert.match(r.mensaje, /primera persona/);
 });
 
+test('escalar_a_humano: sin asesor asignado tampoco anuncia que "un asesor lo contactará"', async () => {
+  // Visitante nuevo del Live Chat: no hay identidad de asesor que adoptar, el bot se presentó como el
+  // equipo de admisiones, y la derivación sigue siendo interna.
+  reset();
+  deals[8100] = { CATEGORY_ID: '135', ASSIGNED_BY_ID: '685357', TITLE: 'x' };
+  const r: any = await executeTool('escalar_a_humano', { motivo: 'quiere avanzar' }, ctx({ crmEntities: { deal: 8100 }, sesionOpenLines: '42' }) as any);
+  assert.equal(r.asesor, null);
+  assert.match(r.mensaje, /primera persona/);
+  assert.doesNotMatch(r.mensaje, /lo contactará/);
+});
+
 test('soporte a estudiante: la derivación va a SU Advisor, sin tocar la negociación comercial ni silenciar al bot', async () => {
   reset();
   // El programa define la Advisor, asi que la ficha tiene que traerlo.

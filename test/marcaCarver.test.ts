@@ -454,11 +454,17 @@ test('el bot ES admisiones: no ofrece "conectar" ni "derivar" a nadie', async ()
   // Pedro se lo hizo notar: "¿Pero tú eres el equipo de admisiones o no?", despues de que el bot le
   // ofreciera conectarlo con admisiones habiendose presentado como su asesor de admision. Derivar es
   // un movimiento interno; para el cliente la conversacion sigue con la misma persona.
-  const { bloqueIdentidad } = await import('../src/ai/agentLoop');
-  const b = bloqueIdentidad({ nombre: 'Basthian Sepúlveda' }, true);
-  assert.match(b, /TÚ eres el equipo de admisiones/);
-  assert.match(b, /nunca preguntes "¿lo conecto\?"/);
-  assert.match(b, /hazlo en silencio/);
+  // Va en el prompt fijo y no en el bloque de identidad: un visitante nuevo del Live Chat no tiene
+  // asesor asignado, y ahi el bot le ofrecia "conectarle con un asesor" (prueba del 30 de octubre).
+  assert.match(SYSTEM_PROMPT, /el equipo de admisiones/);
+  assert.match(SYSTEM_PROMPT, /nunca preguntes "¿lo conecto\?"/);
+  assert.match(SYSTEM_PROMPT, /hazlo en silencio/);
+  assert.ok(
+    SYSTEM_PROMPT.lastIndexOf('DERIVAR ES INTERNO') > SYSTEM_PROMPT.lastIndexOf('ofrece derivar a un asesor'),
+    'la regla debe quedar despues de los "ofrece derivar a un asesor" del prompt general',
+  );
+  // Y el conocimiento de Carver ya no le pide anunciar a otra persona.
+  assert.doesNotMatch(SYSTEM_PROMPT, /confirma un asesor|lo entrega un asesor|lo envía un asesor|ofrece que un asesor/);
 });
 
 test('no puede decir que tiene datos que no tiene', async () => {
