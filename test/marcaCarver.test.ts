@@ -259,6 +259,22 @@ test('marca=postgrados NO adopta el nombre del asesor: sigue presentándose como
 
 // Conocimiento institucional sacado de conversaciones reales: son las preguntas que deciden la
 // compra (validez del título, acreditación, devoluciones) y antes el bot derivaba todas.
+// Prueba del 30 de octubre: ante "¿el título es válido en Colombia?" el bot dijo "No puedo
+// garantizarle el resultado". Es cierto, pero por experiencia del equipo esa frase hace que la persona
+// abandone la matrícula. Admisión responde con una plantilla en positivo, adaptada por país.
+test('marca=carver: la validez del título se responde con la plantilla de admisión, sin "no puedo garantizar"', () => {
+  assert.match(SYSTEM_PROMPT, /reciben un título estadounidense con reconocimiento internacional/);
+  assert.match(SYSTEM_PROMPT, /gestiona la apostilla, lo que facilita su reconocimiento en \{país\}/);
+  assert.match(SYSTEM_PROMPT, /acompaña a la persona durante el proceso y le facilita la documentación necesaria/);
+  assert.match(SYSTEM_PROMPT, /depende exclusivamente de la entidad de su país/);
+  assert.match(SYSTEM_PROMPT, /NUNCA digas "no puedo garantizarle el resultado"/);
+  assert.doesNotMatch(SYSTEM_PROMPT, /nunca lo garantices/, 'esa instrucción es la que el modelo convertía en la advertencia');
+  // El guardarraíl sigue: positivo no es prometer.
+  assert.match(SYSTEM_PROMPT, /nunca digas que el reconocimiento es automático/);
+  // Y la objeción frecuente ya no lo manda a derivar en vez de responder.
+  assert.match(SYSTEM_PROMPT, /"¿Es válido en mi país\?" → responde con la RESPUESTA BASE/);
+});
+
 test('marca=carver: el prompt trae el conocimiento institucional de las conversaciones reales', () => {
   assert.match(SYSTEM_PROMPT, /Apostilla de La Haya/);
   assert.match(SYSTEM_PROMPT, /licencia N\.º 12743/);
