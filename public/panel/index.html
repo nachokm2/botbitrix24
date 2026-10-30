@@ -20,7 +20,7 @@
   <div class="layout">
     <nav class="menu" aria-label="Secciones">
       <button type="button" class="item" data-seccion="horarios">Horarios</button>
-      <span class="item pronto">Comportamiento <small>Próximamente</small></span>
+      <button type="button" class="item" data-seccion="comportamiento" hidden>Comportamiento</button>
       <button type="button" class="item" data-seccion="programas" hidden>Programas y modalidad</button>
       <button type="button" class="item" data-seccion="precios" hidden>Precios</button>
       <button type="button" class="item" data-seccion="conocimiento" hidden>Conocimiento institucional</button>
@@ -119,6 +119,15 @@
           <p class="nota">Déjala vacía si no quieres fecha de revisión.</p>
         </section>
         <section class="tarjeta">
+          <h2>Costos fuera del arancel</h2>
+          <p class="ayuda">Iguales para todos los programas. El bot solo los menciona si la persona los pregunta. La inscripción también aparece en la política de devolución (sección Comportamiento), que toma este mismo monto.</p>
+          <div class="grilla">
+            <label>Titulación (USD) <input type="number" name="costosAdicionales.titulacionUsd" min="0" step="0.01" inputmode="decimal"><span class="error-campo" data-campo="costosAdicionales.titulacionUsd"></span></label>
+            <label>Inscripción (USD) <input type="number" name="costosAdicionales.inscripcionUsd" min="0" step="0.01" inputmode="decimal"><span class="error-campo" data-campo="costosAdicionales.inscripcionUsd"></span></label>
+            <label>Cuota por retiro (USD) <input type="number" name="costosAdicionales.retiroUsd" min="0" step="0.01" inputmode="decimal"><span class="error-campo" data-campo="costosAdicionales.retiroUsd"></span></label>
+          </div>
+        </section>
+        <section class="tarjeta">
           <h2>Precios por programa</h2>
           <p class="ayuda">El arancel con beca y el valor de cada cuota se calculan solos, para que no puedan quedar contradiciéndose. Debajo de cada programa ves cómo lo cotizará el bot y con qué medio se paga cada monto.</p>
           <p class="nota">Los enlaces de PayPal son de monto fijo: si un monto nuevo no tiene enlace, el bot entrega el portal de Flywire en su lugar. Nunca entrega un enlace de otro monto.</p>
@@ -135,6 +144,16 @@
         </section>
         <div class="pestanas" id="conocimiento-pestanas" role="tablist" aria-label="Temas"></div>
         <div id="conocimiento-temas"></div>
+      </form>
+
+      <!-- ── Comportamiento ───────────────────────────────────────────────────────────────────── -->
+      <form id="form-comportamiento" class="seccion" novalidate hidden>
+        <section class="tarjeta">
+          <h2>Comportamiento</h2>
+          <p class="ayuda">Textos que el bot usa al conversar y que mantiene el equipo. Las reglas de fondo no se editan acá y siempre mandan: nunca dice que es un bot, los montos salen solo de las herramientas, los enlaces de pago tienen sus propias reglas, no confunde licencia con acreditación y deriva sin anunciarlo.</p>
+          <p class="nota">Antes de publicar, pruébalo en «Probar el bot» con los borradores activados.</p>
+        </section>
+        <div id="comportamiento-bloques"></div>
       </form>
 
       <!-- ── Probar el bot (chat simulado) ───────────────────────────────────────────────────── -->

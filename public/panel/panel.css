@@ -208,6 +208,16 @@ details.programa .cuerpo { padding: 4px 16px 16px; }
 .vista-tema.mal { color: var(--aviso-texto); }
 #conocimiento-temas.desactualizada .vista-tema { opacity: 0.4; }
 
+/* Comportamiento: bloques de texto del prompt */
+.cabecera-bloque { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.cabecera-bloque h2 { margin: 0 0 4px; }
+.cabecera-bloque .etiqueta { display: inline-block; font-size: 0.78rem; padding: 1px 8px; border-radius: 999px; }
+.bloque-texto textarea { width: 100%; }
+.vista-bloque { margin-top: 10px; padding: 10px 12px; background: #f8fafc; border: 1px solid var(--borde); border-radius: 8px; transition: opacity 0.15s; }
+.vista-bloque h4 { margin: 0 0 4px; font-size: 0.9rem; }
+.texto-vista { margin: 0; white-space: pre-wrap; font-size: 0.9rem; }
+#comportamiento-bloques.desactualizada .vista-bloque { opacity: 0.4; }
+
 /* Probar el bot: chat simulado */
 .menu .item.probar { margin-top: 12px; border: 1px solid #bfdbfe; color: var(--primario); }
 .menu .item.probar.activo { color: var(--texto); }

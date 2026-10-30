@@ -1,6 +1,7 @@
 'use strict';
 
-// Panel de configuración del bot: Horarios, Programas y modalidad, Precios y Conocimiento institucional.
+// Panel de configuración del bot: Horarios, Comportamiento, Programas y modalidad, Precios y
+// Conocimiento institucional, más «Probar el bot».
 // La parte común (borrador, publicar, historial, mensajes) es la misma para todas las secciones; cada
 // sección aporta su formulario: cómo se escribe, cómo se lee y cómo se describe lo que cambió.
 // Todo lo que viene de personas o de otros sitios (nombres, notas, títulos de archivos) se inserta como
@@ -487,6 +488,12 @@
       ['contadoTotal', 'Pago al contado', usd],
       ['contadoAnios', 'Años del pago al contado', (v) => (v > 1 ? `${v} años` : 'Un solo pago')],
     ];
+    const COSTOS = [
+      ['titulacionUsd', 'Titulación'],
+      ['inscripcionUsd', 'Inscripción'],
+      ['retiroUsd', 'Cuota por retiro'],
+    ];
+    const costo = (k) => form.querySelector(`[name="costosAdicionales.${k}"]`);
     const campo = (slug, c) => `programas.${slug}.${c}`;
     const valor = (slug, c) => numero(form.querySelector(`[name="${campo(slug, c)}"]`).value);
 
@@ -561,6 +568,7 @@
     function escribir(c) {
       base = c;
       $('vigenciaHasta').value = c.vigenciaHasta ?? '';
+      for (const [k] of COSTOS) costo(k).value = c.costosAdicionales?.[k] ?? '';
       orden = listaDeProgramas(lista, abiertos, c.programas, tarjeta);
       for (const det of lista.querySelectorAll('details.programa')) calcular(det);
     }
@@ -572,7 +580,11 @@
         programas[slug] = { nombre: p.nombre, tipo: p.tipo };
         for (const [c] of CAMPOS) programas[slug][c] = valor(slug, c);
       }
-      return { vigenciaHasta: $('vigenciaHasta').value, programas };
+      return {
+        vigenciaHasta: $('vigenciaHasta').value,
+        programas,
+        costosAdicionales: Object.fromEntries(COSTOS.map(([k]) => [k, numero(costo(k).value)])),
+      };
     }
 
     function alCambiar(e) {
@@ -618,6 +630,7 @@
       const { out, comparar } = comparador();
       const vig = (x) => (x?.vigenciaHasta ? fechaLarga(x.vigenciaHasta) : 'Sin fecha');
       comparar('Vigencia de los precios', vig(a), vig(b));
+      for (const [k, etiqueta] of COSTOS) comparar(`Costos fuera del arancel — ${etiqueta}`, usd(a?.costosAdicionales?.[k]), usd(b?.costosAdicionales?.[k]));
       const anteriores = a?.programas ?? {};
       for (const [slug, q] of ordenar(b?.programas)) {
         const p = anteriores[slug];
@@ -865,6 +878,111 @@
     return { form, iniciar, leer, escribir, alCambiar, vista, diferencias, alMostrarErrores, irAlPrimerError };
   }
 
+  // ── Sección Comportamiento ──────────────────────────────────────────────────────────────────
+  // Los bloques del prompt que mantiene el equipo. Las reglas no se editan acá.
+  function crearComportamiento() {
+    const form = $('form-comportamiento');
+    const contenedor = $('comportamiento-bloques');
+    const BLOQUES = [
+      {
+        clave: 'plantillaTitulo',
+        titulo: 'Validez del título: respuesta base',
+        filas: 5,
+        ayuda:
+          'La plantilla de admisión. El bot cambia {país} y {entidad} por los de la persona, que saca de «Reconocimiento del título por país». Escríbela en positivo: frases como «no puedo garantizar» hacen que la persona abandone.',
+      },
+      { clave: 'incluyePrograma', titulo: 'Qué incluye el programa', filas: 3, ayuda: 'Lo que el bot responde cuando preguntan qué incluye. Sin montos ni enlaces.' },
+      {
+        clave: 'politicaDevolucion',
+        titulo: 'Política de devolución',
+        filas: 7,
+        vista: true,
+        ayuda: 'El bot la repite textual. Usa {inscripcion} donde va la cuota de inscripción: se completa con el monto de Precios.',
+      },
+      {
+        clave: 'objecionesFrecuentes',
+        titulo: 'Respuestas a objeciones frecuentes',
+        filas: 7,
+        ayuda: 'Cómo responder «está caro», «lo tengo que pensar» o «¿es válido en mi país?»: la objeción entre comillas y, después de una flecha (→), qué hacer. Sin montos: el bot los saca de la cotización.',
+      },
+    ];
+    const control = (clave) => form.querySelector(`[name="${clave}"]`);
+
+    function iniciar() {
+      contenedor.replaceChildren(
+        ...BLOQUES.map((b) =>
+          el(
+            'section',
+            { class: 'tarjeta bloque-texto', 'data-bloque': b.clave },
+            el('div', { class: 'cabecera-bloque' }, el('h2', { text: b.titulo }), el('span', { class: 'etiqueta apagada modificado', text: 'Cambiado respecto del original', hidden: true })),
+            el('p', { class: 'ayuda', text: b.ayuda }),
+            el('label', { class: 'visualmente-oculto', for: `bloque-${b.clave}`, text: b.titulo }),
+            el('textarea', { id: `bloque-${b.clave}`, name: b.clave, rows: b.filas }),
+            errorDe(b.clave),
+            b.vista ? el('div', { class: 'vista-bloque' }, el('h4', { text: 'Así la leerá el bot' }), el('p', { class: 'texto-vista' })) : null,
+            el('button', { type: 'button', class: 'enlace-neutro', 'data-restaurar': b.clave, text: 'Volver al texto original' }),
+          ),
+        ),
+      );
+      form.addEventListener('click', (e) => {
+        const boton = e.target.closest('[data-restaurar]');
+        if (!boton) return;
+        const clave = boton.dataset.restaurar;
+        const original = datos?.porDefecto?.[clave];
+        if (original == null || control(clave).value === original) return;
+        if (!confirm('¿Reemplazar este texto por el original? Lo que escribiste se pierde si no lo guardaste.')) return;
+        control(clave).value = original;
+        cambio({ target: control(clave) });
+      });
+    }
+
+    function marcar() {
+      for (const b of BLOQUES) {
+        const distinto = control(b.clave).value.trim() !== String(datos?.porDefecto?.[b.clave] ?? '').trim();
+        contenedor.querySelector(`[data-bloque="${b.clave}"] .modificado`).hidden = !distinto;
+      }
+    }
+
+    function escribir(c) {
+      for (const b of BLOQUES) control(b.clave).value = c[b.clave] ?? '';
+      marcar();
+    }
+
+    const leer = () => Object.fromEntries(BLOQUES.map((b) => [b.clave, control(b.clave).value]));
+
+    async function vista() {
+      let r;
+      try {
+        r = await api('POST', '/vista', { contenido: leer() });
+      } catch {
+        return;
+      }
+      if (actual !== 'comportamiento') return;
+      if (!r.ok) {
+        mostrarErroresCampos(r.errores ?? []);
+        contenedor.classList.add('desactualizada');
+        return;
+      }
+      mostrarErroresCampos([]);
+      contenedor.classList.remove('desactualizada');
+      for (const b of BLOQUES) {
+        if (b.vista) contenedor.querySelector(`[data-bloque="${b.clave}"] .texto-vista`).textContent = r.bloques?.[b.clave] ?? '';
+      }
+    }
+
+    function diferencias(a, b) {
+      const out = [];
+      for (const x of BLOQUES) {
+        const antes = String(a?.[x.clave] ?? '');
+        const despues = String(b?.[x.clave] ?? '');
+        if (antes !== despues) out.push({ etiqueta: x.titulo, antes: recortar(antes, 140), despues: recortar(despues, 140) });
+      }
+      return out;
+    }
+
+    return { form, iniciar, leer, escribir, alCambiar: marcar, vista, diferencias };
+  }
+
   // ── Probar el bot (chat simulado) ───────────────────────────────────────────────────────────
   // No es una sección de configuración: no tiene borrador ni historial. Cada turno va al servidor con
   // la conversación completa, y el servidor la devuelve con lo que consultó el bot en ese turno.
@@ -943,7 +1061,13 @@
   }
   let simulador = null;
 
-  const FABRICAS = { horarios: crearHorarios, programas: crearProgramas, precios: crearPrecios, conocimiento: crearConocimiento };
+  const FABRICAS = {
+    horarios: crearHorarios,
+    programas: crearProgramas,
+    precios: crearPrecios,
+    conocimiento: crearConocimiento,
+    comportamiento: crearComportamiento,
+  };
   const modulos = {};
   function moduloDe(nombre) {
     if (!modulos[nombre]) {

@@ -13,9 +13,11 @@ import {
   seccionesDisponibles,
   ajustesProgramas,
   conAjustesDePrueba,
+  ajustesPrecios,
   type NombreSeccion,
   type Horarios,
 } from '../core/ajustes';
+import { bloquesRenderizados, type AjustesComportamiento } from '../core/ajustesComportamiento';
 import { programasBase, precioACondicion, motivoEnlaceInvalido, type AjustesPrecios } from '../core/ajustesProgramas';
 import { vistaSemanal } from '../core/horarioAsesores';
 import { BECA_CARVER, type ProgramaCarver } from '../core/condicionesCarver';
@@ -329,6 +331,15 @@ export async function panelVistaConocimiento(req: Request, res: Response) {
     }
   }
   return res.json({ ok: true, temas });
+}
+
+/** POST /panel/api/seccion/comportamiento/vista { contenido } — cómo leerá el bot cada bloque, con los
+ *  montos de Precios ya puestos (la política de devolución nombra la cuota de inscripción). */
+export async function panelVistaComportamiento(req: Request, res: Response) {
+  const v = SECCIONES.comportamiento.validar(req.body?.contenido);
+  if (!v.ok) return res.status(400).json({ ok: false, errores: v.errores });
+  const { costos: _costos, ...bloques } = bloquesRenderizados(v.valor as AjustesComportamiento, ajustesPrecios().costosAdicionales);
+  return res.json({ ok: true, bloques });
 }
 
 // Cada mensaje de prueba usa el modelo real: un tope por persona evita que una pestaña olvidada o un

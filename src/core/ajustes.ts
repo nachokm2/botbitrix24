@@ -15,6 +15,13 @@ import {
   type AjustesPrecios,
 } from './ajustesProgramas';
 import { conocimientoPorDefecto, validarConocimiento, ESQUEMA_CONOCIMIENTO, type AjustesConocimiento } from './ajustesConocimiento';
+import {
+  comportamientoPorDefecto,
+  validarComportamiento,
+  comportamientoDisponible,
+  promptConAjustes,
+  type AjustesComportamiento,
+} from './ajustesComportamiento';
 
 /**
  * Ajustes del bot que se editan desde el panel de configuración (routes/panelConfig.ts), sin tocar
@@ -192,6 +199,7 @@ export const SECCIONES = {
     validar: validarConocimiento,
     esquema: () => ESQUEMA_CONOCIMIENTO,
   } as DefSeccion<AjustesConocimiento>,
+  comportamiento: { titulo: 'Comportamiento', porDefecto: comportamientoPorDefecto, validar: validarComportamiento } as DefSeccion<AjustesComportamiento>,
 };
 
 export type NombreSeccion = keyof typeof SECCIONES;
@@ -239,11 +247,22 @@ export function seccionesDisponibles(): NombreSeccion[] {
   const out: NombreSeccion[] = ['horarios'];
   if (programasBase().length) out.push('programas', 'precios');
   if (Object.keys(conocimientoPorDefecto().temas).length) out.push('conocimiento');
+  if (comportamientoDisponible()) out.push('comportamiento');
   return out;
 }
 
 export function ajustesConocimiento(): AjustesConocimiento {
   return vigente('conocimiento') as AjustesConocimiento;
+}
+
+export function ajustesComportamiento(): AjustesComportamiento {
+  return vigente('comportamiento') as AjustesComportamiento;
+}
+
+/** El prompt de sistema con lo publicado en Comportamiento y los costos de Precios. Sin nada
+ *  publicado devuelve el mismo texto. */
+export function promptVigente(texto: string): string {
+  return promptConAjustes(texto, ajustesComportamiento(), ajustesPrecios().costosAdicionales);
 }
 
 export function ajustesProgramas(): AjustesProgramas {

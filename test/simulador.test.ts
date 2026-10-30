@@ -117,6 +117,15 @@ test('registrar y derivar se simulan: no tocan Bitrix y se muestran a quien prue
   assert.ok(resultado.some((x: any) => x.escalado === true && /Tú eres su asesor/.test(x.mensaje)));
 });
 
+test('con un borrador de Comportamiento, el bot de la prueba recibe el texto nuevo en su prompt', async () => {
+  const { comportamientoPorDefecto, validarComportamiento } = await import('../src/core/ajustesComportamiento');
+  const v = validarComportamiento({ ...comportamientoPorDefecto(), incluyePrograma: 'asesor académico, clases en vivo y biblioteca digital.' });
+  assert.ok(v.ok);
+  await conAjustesDePrueba({ comportamiento: v.valor }, () => simularTurno([], 'Hola'));
+  const system = llamadasModelo[0].system.map((b: any) => b.text).join('');
+  assert.ok(system.includes('QUÉ INCLUYE EL PROGRAMA: asesor académico, clases en vivo y biblioteca digital.'));
+});
+
 test('la prueba no deja nada en la auditoría', async () => {
   await simularTurno([], '¿Cuánto cuesta la Maestría en Psicología?');
   assert.deepEqual(auditorias, []);

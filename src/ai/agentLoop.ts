@@ -13,6 +13,7 @@ import { log } from '../log';
 import type { CrmEntity } from '../crm/entities';
 import { guardarRespuesta, urlsEn } from '../core/guardRespuesta';
 import { URLS_OFICIALES_CARVER } from '../core/promptObjeciones';
+import { promptVigente } from '../core/ajustes';
 
 const MAX_STEPS = 5; // guardrail anti-bucle
 
@@ -213,7 +214,9 @@ export async function runConversation(
   execTool: ToolExecutor,
 ): Promise<{ text: string; messages: any[] }> {
   const { profile, auditId, crmEntity, simulacion } = opts;
-  const system = profile.systemPrompt;
+  // Con los bloques editados en el panel (Comportamiento) y los costos de Precios; sin nada publicado,
+  // el mismo texto de siempre.
+  const system = promptVigente(profile.systemPrompt);
   const allowedTools = tools.filter((t) => profile.toolNames.includes(t.name));
   let reintentoPorVacio = false;
 
@@ -301,7 +304,7 @@ export async function runConversationStream(
   onText: (delta: string) => void,
 ): Promise<{ text: string; messages: any[] }> {
   const { profile, auditId, crmEntity } = opts;
-  const system = profile.systemPrompt;
+  const system = promptVigente(profile.systemPrompt);
   const allowedTools = tools.filter((t) => profile.toolNames.includes(t.name));
   let fullText = '';
   let lastFiller = -1; // último relleno usado en esta llamada, para no repetirlo seguido

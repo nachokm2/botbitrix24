@@ -72,11 +72,11 @@ const pedido = (p: { body?: any; query?: any; params?: any } = {}) => ({ body: p
 const slugDe = (nombre: string) => programasBase().find((b) => b.nombre === nombre)!.slug;
 const PSICO = 'Maestría en Psicología';
 
-test('la página ofrece Programas, Precios y Conocimiento solo donde hay datos cargados (Carver)', async () => {
+test('la página ofrece Programas, Precios, Conocimiento y Comportamiento solo donde hay datos cargados (Carver)', async () => {
   const res = respuesta();
   await panelPagina(pedido({ body: { AUTH_ID: 'tok' }, query: { DOMAIN: 'uachile.bitrix24.es' } }), res);
   assert.equal(res.statusCode, 200);
-  assert.match(res.cuerpo, /<meta name="panel-secciones" content="horarios,programas,precios,conocimiento">/);
+  assert.match(res.cuerpo, /<meta name="panel-secciones" content="horarios,programas,precios,conocimiento,comportamiento">/);
 });
 
 test('conocimiento: la sección trae el esquema de cada tema para dibujar el formulario', async () => {

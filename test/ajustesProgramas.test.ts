@@ -49,7 +49,7 @@ test('las 16 licenciaturas y maestrías tienen detalle y precio; los cursos no s
   const base = ap.programasBase();
   assert.equal(base.length, 16);
   assert.ok(base.every((b) => b.tipo === 'licenciatura' || b.tipo === 'maestria'));
-  assert.deepEqual(seccionesDisponibles(), ['horarios', 'programas', 'precios', 'conocimiento']);
+  assert.deepEqual(seccionesDisponibles(), ['horarios', 'programas', 'precios', 'conocimiento', 'comportamiento']);
 });
 
 test('los valores por defecto cumplen las reglas (si no, el panel no podría ni abrir)', () => {

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { equivalencias } from './tipoCambio';
 import { esTipoComercializable, MENSAJE_NO_COMERCIALIZABLE } from './oferta';
-import { condicionVigente } from './ajustes';
+import { condicionVigente, ajustesPrecios } from './ajustes';
 import { REABRE_POR_DEFECTO } from './ajustesProgramas';
 
 // Planilla comercial de Carver, validada con la dirección. La genera scripts/build-carver-precios.ts
@@ -41,9 +41,8 @@ const DATA = JSON.parse(
  *  que un cambio publicado rija en la conversación siguiente, sin reiniciar el bot. */
 const programasVigentes = () => DATA.programas.map(condicionVigente);
 
-/** Costos que NO están en el arancel y que la gente pregunta al pedir el total (ver la conversación
- *  real que originó el conocimiento institucional, en core/promptObjeciones.ts). */
-export const COSTOS_ADICIONALES_CARVER = { titulacionUsd: 125, inscripcionUsd: 150, retiroUsd: 35 };
+// Los costos que NO están en el arancel (titulación, inscripción, retiro) se fijan en la sección
+// Precios del panel; sin nada publicado son los de siempre (core/promptObjeciones.ts).
 export const BECA_CARVER = 'Beca George Washington Carver Grant';
 
 const norm = (s: string) =>
@@ -171,7 +170,7 @@ export function buscarCondicionesCarver(programa?: string, opts: { incluirCostos
     // Solo si la persona preguntó explícitamente por costos fuera del arancel (titulación, total…).
     ...(opts.incluirCostosAdicionales
       ? {
-          costosAdicionales: COSTOS_ADICIONALES_CARVER,
+          costosAdicionales: ajustesPrecios().costosAdicionales,
           nota_costos:
             'La persona preguntó por costos fuera del arancel: responde SOLO lo que preguntó (si fue la titulación, solo la titulación).',
         }

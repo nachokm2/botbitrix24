@@ -5,6 +5,7 @@ import { marca } from '../marca';
 import { PROGRAMAS } from '../ai/catalog';
 import { DETALLES, type DetallePrograma } from '../ai/detalles';
 import { esTipoComercializable } from './oferta';
+import { COSTOS_ADICIONALES_DEFECTO, type CostosAdicionales } from './promptObjeciones';
 // Solo tipos: en ejecución este módulo no depende de ajustes.ts ni de condicionesCarver.ts, que son
 // los que lo usan a él.
 import type { ErrorCampo, Validacion } from './ajustes';
@@ -59,8 +60,10 @@ export type PrecioAjustable = {
   contadoAnios: number;
 };
 /** vigenciaHasta: hasta cuándo se dan estos precios por revisados (AAAA-MM-DD). Pasada esa fecha el
- *  bot los entrega como referencia y ofrece confirmarlos (core/vigencia.ts). Vacío = sin fecha. */
-export type AjustesPrecios = { vigenciaHasta: string; programas: Record<string, PrecioAjustable> };
+ *  bot los entrega como referencia y ofrece confirmarlos (core/vigencia.ts). Vacío = sin fecha.
+ *  costosAdicionales: titulación, inscripción y retiro, iguales para todos los programas. Los usan la
+ *  cotización (cuando la persona los pregunta) y el prompt (costos y política de devolución). */
+export type AjustesPrecios = { vigenciaHasta: string; programas: Record<string, PrecioAjustable>; costosAdicionales: CostosAdicionales };
 
 /** Lo que decía el código antes de que esto fuera editable. */
 export const REABRE_POR_DEFECTO = 'marzo de 2027';
@@ -131,7 +134,7 @@ export function preciosPorDefecto(): AjustesPrecios {
   }
   // Se lee config en cada llamada: así las pruebas de core/vigencia.ts y un cambio en Railway siguen
   // rigiendo mientras nadie publique precios desde el panel.
-  return { vigenciaHasta: config.condicionesVigenciaHasta, programas };
+  return { vigenciaHasta: config.condicionesVigenciaHasta, programas, costosAdicionales: { ...COSTOS_ADICIONALES_DEFECTO } };
 }
 
 // ── Validación ───────────────────────────────────────────────────────────────────────────────────
@@ -238,6 +241,19 @@ export function validarPrecios(entrada: unknown): Validacion<AjustesPrecios> {
   const vigenciaHasta = String(x.vigenciaHasta ?? '').trim();
   if (vigenciaHasta && !fechaValida(vigenciaHasta)) errores.push({ campo: 'vigenciaHasta', mensaje: 'La fecha de vigencia no es válida.' });
 
+  // Una versión publicada antes de que existieran estos costos los toma de los valores de siempre.
+  const costosRecibidos = { ...COSTOS_ADICIONALES_DEFECTO, ...objeto(x.costosAdicionales) } as Record<string, unknown>;
+  const costosAdicionales = { ...COSTOS_ADICIONALES_DEFECTO };
+  for (const [campo, nombre] of [
+    ['titulacionUsd', 'La titulación'],
+    ['inscripcionUsd', 'La inscripción'],
+    ['retiroUsd', 'La cuota por retiro'],
+  ] as const) {
+    const v = costosRecibidos[campo];
+    if (!esMonto(v) || v < 0 || v > MAX_MONTO) errores.push({ campo: `costosAdicionales.${campo}`, mensaje: `${nombre} debe ser un monto en dólares (0 si no se cobra).` });
+    else costosAdicionales[campo] = v;
+  }
+
   const recibidos = objeto(x.programas);
   const defecto = preciosPorDefecto().programas;
   const programas: Record<string, PrecioAjustable> = {};
@@ -317,7 +333,7 @@ export function validarPrecios(entrada: unknown): Validacion<AjustesPrecios> {
     };
   }
   if (errores.length) return { ok: false, errores };
-  return { ok: true, valor: { vigenciaHasta, programas } };
+  return { ok: true, valor: { vigenciaHasta, programas, costosAdicionales } };
 }
 
 // ── Lo publicado, aplicado sobre los datos de siempre ────────────────────────────────────────────
