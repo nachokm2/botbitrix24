@@ -21,6 +21,7 @@ import { marca } from '../marca';
 import { once } from '../store/kv';
 import { marcarTraspaso } from '../session';
 import { derivarAResponsableFijo } from '../crm/asignacionAsesores';
+import { motivoParaRetener, fichaDeMatriculaEnCurso } from '../core/retenerChat';
 import { config } from '../config';
 import { inc, recordTokens } from '../obs/metrics';
 import { audit } from '../obs/audit';
@@ -266,6 +267,10 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
     (await once(`autoescalado:${dialogId}`, 7 * 24 * 3600))
   ) {
     sess.escalatedByScore = true;
+    // Fuera del horario del equipo, o con la ficha de matrícula a medio llenar, la asesora recibe la
+    // negociación como urgente pero el bot se queda en el chat (ver core/retenerChat.ts). El 31-10-2026
+    // este traspaso cortó dos fichas en curso un sábado: las respuestas siguientes no las leyó nadie.
+    const retenida = motivoParaRetener({ fichaEnCurso: fichaDeMatriculaEnCurso(history) });
     try {
       // Se marca ANTES de derivar, para que la tarea que crea la derivación ya salga como urgente.
       // Este escalamiento es el que más vale atender rápido: lo dispara una conversación con interés
@@ -287,16 +292,18 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
           auth,
         );
       }
-      try {
-        await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: chatId }, auth);
-      } catch (e) {
-        // "Operator is not a bot": la sesión ya la atiende una persona. No es una falla del traspaso:
-        // es la confirmación de que el bot no debe seguir hablando en esta sesión.
-        if (!/not a bot/i.test(String(e))) throw e;
-        log.info('auto-escalación: la sesión ya la atiende una persona', { dialogId });
+      if (!retenida) {
+        try {
+          await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: chatId }, auth);
+        } catch (e) {
+          // "Operator is not a bot": la sesión ya la atiende una persona. No es una falla del traspaso:
+          // es la confirmación de que el bot no debe seguir hablando en esta sesión.
+          if (!/not a bot/i.test(String(e))) throw e;
+          log.info('auto-escalación: la sesión ya la atiende una persona', { dialogId });
+        }
+        sess.humanTookOver = true; // el bot deja de responder; atiende el asesor
+        if (marca.traspasoPorSesion) await marcarTraspaso(dialogId, sesionOpenLines ?? null, 'auto_escalado');
       }
-      sess.humanTookOver = true; // el bot deja de responder; atiende el asesor
-      if (marca.traspasoPorSesion) await marcarTraspaso(dialogId, sesionOpenLines ?? null, 'auto_escalado');
 
       // Resumen del lead para el asesor (una sola vez).
       if (!sess.briefingDone) {
@@ -312,12 +319,13 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
         type: 'auto_escalation',
         dialogId,
         crmEntity: crmEntities.deal ? `deal#${crmEntities.deal}` : undefined,
-        detail: { score: evalData.score },
+        detail: { score: evalData.score, ...(retenida ? { retenida } : {}) },
       });
       // Faltaba: el escalamiento por puntaje no quedaba bajo vigilancia, justo el caso donde más
       // caro sale que nadie lo tome. Las derivaciones explícitas y las por silencio ya lo estaban.
-      if (crmEntities.deal) void vigilarDerivacion(crmEntities.deal, dialogId);
-      log.info('auto-escalado por score alto', { dialogId, score: evalData.score });
+      // Si el bot se quedó atendiendo, no: nadie espera respuesta de una persona todavía.
+      if (crmEntities.deal && !retenida) void vigilarDerivacion(crmEntities.deal, dialogId);
+      log.info('auto-escalado por score alto', { dialogId, score: evalData.score, retenida });
     } catch (e) {
       log.warn('auto-escalación falló', { err: String(e) });
     }

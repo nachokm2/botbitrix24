@@ -206,7 +206,10 @@ async function handle(req: Request) {
     return log.info('botMessage: modo prueba, número fuera de la lista; bot en silencio', { dialogId, chatId });
   }
 
-  if (sess.humanTookOver) {
+  // Con traspaso por sesión (Carver) manda el traspaso de ESTA sesión de Open Lines, más abajo. El
+  // estado de 6 h dejaba al bot mudo también en la sesión SIGUIENTE: cerrar una conversación derivada
+  // para devolvérsela al bot no servía hasta que venciera.
+  if (sess.humanTookOver && !marca.traspasoPorSesion) {
     return log.info('botMessage: sesión atendida por humano; bot en silencio', { dialogId });
   }
 

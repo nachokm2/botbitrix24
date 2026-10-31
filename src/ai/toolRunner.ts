@@ -23,6 +23,7 @@ import { enviarBrochurePorWhatsApp } from '../core/brochureArchivo';
 import { registrarDocumentoAcademico, nivelDelPrograma, DOCUMENTO_DE } from '../crm/documentoAcademico';
 import { getDealInfo } from '../crm/directory';
 import { avisarAlResponsable } from '../crm/avisoAsesor';
+import { motivoParaRetener, cuandoVuelveElEquipo } from '../core/retenerChat';
 import { audit } from '../obs/audit';
 import { config } from '../config';
 import { log } from '../log';
@@ -108,7 +109,7 @@ export const RESULTADO_ESCALADO_COMO_ASESOR = {
   asesor: null,
   mensaje:
     'Conversación derivada para seguimiento. Tú eres su asesor: confírmale en primera persona que quedas a cargo ' +
-    '("quedo atento", "le hago seguimiento"). No nombres a otra persona ni hables de ti en tercera persona.',
+    '("quedo pendiente", "le hago seguimiento"). No nombres a otra persona ni hables de ti en tercera persona.',
 } as const;
 
 export async function executeTool(name: string, input: any, ctx: AgentContext): Promise<any> {
@@ -432,11 +433,18 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
         // pedía un asesor no recibía nada — 3 de 3 escalamientos explícitos en producción. El
         // escalamiento automático por score (ai/scoring.ts) siempre funcionó porque ahí el orden ya
         // era el correcto: primero el mensaje, después la transferencia.
-        if (ctx.chatId) ctx.transferirAOperador = true;
-        await markHumanTakeover(ctx.conversationId); // tras escalar, el bot deja de responder en esa sesión
-        // ...y no solo durante las 6 h de su estado en memoria: por toda la sesión de Open Lines.
-        if (marca.traspasoPorSesion) await marcarTraspaso(ctx.conversationId, ctx.sesionOpenLines ?? null, 'escalado');
-        void cancelarSeguimiento(ctx.conversationId); // ya hay un asesor a cargo: no le manda seguimiento
+        //
+        // Fuera del horario del equipo NO se entrega: no hay nadie que la reciba hasta el próximo día
+        // hábil, y el bot quedaba mudo mientras tanto (ver core/retenerChat.ts). La asesora igual queda con
+        // la negociación y su tarea, más abajo.
+        const retenida = motivoParaRetener();
+        if (!retenida) {
+          if (ctx.chatId) ctx.transferirAOperador = true;
+          await markHumanTakeover(ctx.conversationId); // tras escalar, el bot deja de responder en esa sesión
+          // ...y no solo durante las 6 h de su estado en memoria: por toda la sesión de Open Lines.
+          if (marca.traspasoPorSesion) await marcarTraspaso(ctx.conversationId, ctx.sesionOpenLines ?? null, 'escalado');
+          void cancelarSeguimiento(ctx.conversationId); // ya hay un asesor a cargo: no le manda seguimiento
+        }
 
         // Si es uno de los 2 programas piloto: asigna por turno (Norte/Sur) + tarea de seguimiento —
         // no confía en la regla de "asesor por oferta" de Bitrix (no reasigna un deal que ya tiene
@@ -448,8 +456,9 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
           const fijo = await derivarAResponsableFijo(ctx.crmEntities, ctx.auth);
           if (!fijo) await asignarAsesorPorTurno(ctx.crmEntities, ctx.auth);
 
-          // Arranca el reloj: si nadie trabaja esta negociación en las próximas horas, se le avisa.
-          if (ctx.crmEntities.deal) void vigilarDerivacion(ctx.crmEntities.deal, ctx.conversationId);
+          // Arranca el reloj: si nadie trabaja esta negociación en las próximas horas, se le avisa. No
+          // si el bot se quedó atendiendo: el aviso llegaría de madrugada por un caso que no espera.
+          if (ctx.crmEntities.deal && !retenida) void vigilarDerivacion(ctx.crmEntities.deal, ctx.conversationId);
         }
 
         // Genera (una vez) un resumen del lead para el asesor y lo deja en el CRM.
@@ -473,7 +482,26 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
             log.warn('escalar_a_humano: no se pudo traer el responsable', { err: String(e) });
           }
         }
-        log.info('tool escalar_a_humano', { motivo: input?.motivo, chatId: ctx.chatId, asesor });
+        log.info('tool escalar_a_humano', { motivo: input?.motivo, chatId: ctx.chatId, asesor, retenida });
+        if (retenida) {
+          void audit({
+            type: 'derivacion_retenida',
+            dialogId: ctx.conversationId,
+            crmEntity: ctx.crmEntities?.deal ? `deal#${ctx.crmEntities.deal}` : undefined,
+            detail: { motivo: retenida, origen: 'escalar_a_humano' },
+          }).catch(() => {});
+          const vuelve = cuandoVuelveElEquipo();
+          return {
+            ok: true,
+            escalado: true,
+            retenida: true,
+            asesor: null,
+            mensaje:
+              `El caso quedó con el equipo, que lo retoma ${vuelve}. Mientras tanto TÚ sigues atendiendo esta conversación: ` +
+              `díselo en primera persona y con ese plazo (por ejemplo, "lo reviso con el área y le escribo ${vuelve}"), sin contar ` +
+              'que derivaste, y sigue ayudándole con todo lo que puedas responder con tus herramientas.',
+          };
+        }
         // El bot que habla COMO el asesor no puede anunciar que "el asesor X lo contactará": ese
         // asesor es él mismo. Pasó en el piloto ("confírmelo con Ignacio", dicho por "Ignacio"). Vale
         // también sin asesor asignado (visitante nuevo del Live Chat): ahí se presentó como el equipo

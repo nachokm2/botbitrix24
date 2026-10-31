@@ -101,6 +101,27 @@ test('en una sesión NUEVA de Open Lines, el bot vuelve a atender', async () => 
   assert.equal(llamadas.filter((c) => c.method === 'imbot.message.add').length, 1);
 });
 
+test('cerrada la conversación derivada, el bot retoma en la sesión nueva sin esperar las 6 h del estado en memoria', async () => {
+  // Caso real del 31-10-2026: conversaciones derivadas un sábado se cerraron para devolvérselas al bot,
+  // pero el estado de 6 h lo seguía callando aunque Bitrix ya hubiera abierto otra sesión.
+  const { saveSession } = await import('../src/session');
+  await saveSession('chat-cerrado', { clientId: '767389', humanTookOver: true });
+  await marcarTraspaso('chat-cerrado', '1400001', 'auto_escalado');
+  turnos = 0;
+  auditorias.length = 0;
+  const conDialogo = (msgId: number, sesion: string) => {
+    const e: any = evento(msgId, sesion);
+    e.body.data.PARAMS.DIALOG_ID = 'chat-cerrado';
+    return e;
+  };
+  botMessageHandler(conDialogo(90, '1400001') as any, res);
+  await esperar(() => auditorias.some((a) => a.type === 'bot_en_silencio'));
+  assert.equal(turnos, 0, 'en la MISMA sesión derivada sigue callado');
+  botMessageHandler(conDialogo(91, '1400002') as any, res);
+  await esperar(() => turnos > 0);
+  assert.equal(turnos, 1, 'en la sesión nueva vuelve a atender');
+});
+
 // ── El asesor escribe PRIMERO ────────────────────────────────────────────────────────────────────
 // Es lo habitual cuando toma un lead: saluda el. Antes el bot solo ignoraba ese mensaje sin anotar
 // que habia alguien atendiendo, asi que volvia a meterse apenas el cliente contestaba.

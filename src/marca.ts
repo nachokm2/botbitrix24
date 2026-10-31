@@ -107,6 +107,11 @@ export type Marca = {
   /** ¿Se avisa al asesor responsable cuando el cliente quiere pagar o recibe un enlace de pago? Un
    *  cliente que preguntó tres veces cuánto pagaba al contado no le llegó a nadie (31-10-2026). */
   avisaPagoAlAsesor: boolean;
+  /** ¿El bot se queda con la conversación cuando no hay quién la atienda? Fuera del horario del
+   *  equipo, derivar ya no entrega la sesión: la asesora recibe la negociación con su tarea y el bot
+   *  sigue respondiendo. Tampoco se entrega por puntaje a mitad de la ficha de matrícula. Ver
+   *  core/retenerChat.ts. */
+  retieneFueraDeHorario: boolean;
 };
 
 /** Valor de una variable de entorno, o el default si no está definida o está vacía. */
@@ -161,6 +166,7 @@ const POSTGRADOS: Marca = {
   matriculaEnChat: false,
   respaldaPromesas: false,
   avisaPagoAlAsesor: false,
+  retieneFueraDeHorario: false,
 };
 
 // Identidad de Carver, UNIFICADA (hallazgo 1 de la auditoría del piloto). Convivían tres:
@@ -215,6 +221,7 @@ const CARVER: Marca = {
   matriculaEnChat: true,
   respaldaPromesas: true,
   avisaPagoAlAsesor: true,
+  retieneFueraDeHorario: true,
 };
 
 const MARCAS: Record<MarcaKey, Marca> = { postgrados: POSTGRADOS, carver: CARVER };
