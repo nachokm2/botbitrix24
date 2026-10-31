@@ -430,6 +430,10 @@ export const config = {
   // (responde de inmediato, como antes). Ver core/ritmoHumano.ts.
   respuestaDelayMinS: Number(process.env.RESPUESTA_DELAY_MIN_S ?? 0) || 0,
   respuestaDelayMaxS: Number(process.env.RESPUESTA_DELAY_MAX_S ?? 0) || 0,
+  // Mensajes en ráfaga: antes de responder, el bot espera hasta que pasen estos segundos sin que
+  // llegue otro mensaje del mismo chat, y responde todos juntos en un solo turno. 0 = cada mensaje
+  // se responde por separado, como antes. Ver core/rafaga.ts.
+  rafagaVentanaS: Number(process.env.RAFAGA_VENTANA_S ?? 0) || 0,
   // Comprobación horaria de que los DOS caminos hacia Bitrix siguen vivos (webhook y OAuth). El
   // OAuth de Postgrados llevaba días sin poder renovarse y nada lo decía: las conversaciones
   // andaban, pero todo lo proactivo fallaba en silencio.

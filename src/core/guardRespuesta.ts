@@ -56,7 +56,24 @@ export type ContextoGuard = {
   maxCaracteres: number;
   /** Una escritura al CRM (registro o derivación) FALLÓ en este turno: no se puede afirmar lo contrario. */
   crmFallo?: boolean;
+  /** La derivación es interna: el bot habla como el asesor a cargo y no anuncia que pasó el caso a
+   *  otro (ver DERIVACION_CARVER en core/promptObjeciones.ts). */
+  derivacionInterna?: boolean;
 };
+
+// Anuncia una derivación: "lo he escalado al equipo de soporte", "un asesor lo contactará", "le
+// conecto con un asesor". Se mira sobre el texto sin tildes.
+const ANUNCIA_DERIVACION = new RegExp(
+  [
+    String.raw`\b(lo|la|le|se lo|se la)\s+(he\s+|hemos\s+)?(escalad[oa]|escale|derivad[oa]|derive|transferid[oa]|transferi|pasad[oa] al|pase al)\b`,
+    String.raw`\b(he|hemos|ya)\s+(escalado|derivado|transferido)\b`,
+    String.raw`\b(un|una|otro|otra|el|la|su|nuestro|nuestra)\s+(asesor|asesora|ejecutivo|ejecutiva|colega|especialista|equipo de soporte|equipo de admisiones|equipo de admision|area de admisiones|area de admision)\s+(lo|la|le|se)\s+(va a\s+|podra\s+)?(contact|confirm|escrib|llam|comunic|respond)`,
+    String.raw`\b(conectarl[oea]|le conecto|lo conecto|la conecto|ponerl[oea] en contacto|l[oea] pongo en contacto|comunicarl[oea] con|derivarl[oea]|escalarl[oea])\b`,
+  ].join('|'),
+);
+
+/** Lo que dice el asesor a cargo en vez de anunciar la derivación. */
+export const COMPROMISO_EN_PRIMERA_PERSONA = 'Lo reviso con el área que corresponde y le respondo por este medio.';
 
 // Afirma que algo quedó registrado o derivado, en pasado o en futuro ("quedará registrado").
 // Admite palabras en medio ("Quedé con sus datos anotados", dicho con el CRM caído en la regresión).
@@ -98,6 +115,26 @@ export function guardarRespuesta(textoOriginal: string, ctx: ContextoGuard): Res
     if (honestas.length < partes.length && honestas.join(' ').trim()) {
       cambios.push('afirmacion_registro_fallido');
       texto = honestas.join(' ');
+    }
+  }
+
+  // 2c) La derivación no se anuncia. Estaba en el prompt y aun así salió "Jimena, lo he escalado al
+  // equipo de soporte" (chat 1383805, 31-10-2026). La primera frase que la anuncia se cambia por el
+  // compromiso en primera persona; si hay más, se quitan.
+  if (ctx.derivacionInterna) {
+    const nuevas: string[] = [];
+    let reemplazada = false;
+    for (const f of frases(texto)) {
+      if (!ANUNCIA_DERIVACION.test(norm(f))) {
+        nuevas.push(f);
+      } else if (!reemplazada) {
+        nuevas.push(f.startsWith('\n') ? `\n${COMPROMISO_EN_PRIMERA_PERSONA}` : COMPROMISO_EN_PRIMERA_PERSONA);
+        reemplazada = true;
+      }
+    }
+    if (reemplazada) {
+      cambios.push('derivacion_anunciada');
+      texto = nuevas.join(' ');
     }
   }
 

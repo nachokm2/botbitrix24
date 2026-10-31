@@ -99,6 +99,14 @@ export type Marca = {
    *  postulacion que cada asesor enviaba por su cuenta: es el mismo formulario, escrito a mano,
    *  sin el salto a otra pagina donde se cae la mitad de la gente. */
   matriculaEnChat: boolean;
+  /** ¿Cada "lo confirmo y le respondo" del bot queda respaldado por una persona? Con esto el bot
+   *  sabe la hora y el horario del equipo (para decir CUÁNDO llegará la respuesta) y, si promete
+   *  volver con algo sin haber derivado, se le avisa al responsable con una tarea (ver
+   *  core/promesas.ts). En Carver se prometía "verifico con el área académica" y nadie se enteraba. */
+  respaldaPromesas: boolean;
+  /** ¿Se avisa al asesor responsable cuando el cliente quiere pagar o recibe un enlace de pago? Un
+   *  cliente que preguntó tres veces cuánto pagaba al contado no le llegó a nadie (31-10-2026). */
+  avisaPagoAlAsesor: boolean;
 };
 
 /** Valor de una variable de entorno, o el default si no está definida o está vacía. */
@@ -151,6 +159,8 @@ const POSTGRADOS: Marca = {
   baseConocimiento: false,
   telefonoAsesorVigente: true,
   matriculaEnChat: false,
+  respaldaPromesas: false,
+  avisaPagoAlAsesor: false,
 };
 
 // Identidad de Carver, UNIFICADA (hallazgo 1 de la auditoría del piloto). Convivían tres:
@@ -203,6 +213,8 @@ const CARVER: Marca = {
   baseConocimiento: true,
   telefonoAsesorVigente: false,
   matriculaEnChat: true,
+  respaldaPromesas: true,
+  avisaPagoAlAsesor: true,
 };
 
 const MARCAS: Record<MarcaKey, Marca> = { postgrados: POSTGRADOS, carver: CARVER };

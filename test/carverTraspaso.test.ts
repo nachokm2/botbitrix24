@@ -43,10 +43,13 @@ mock.module('../src/bitrix/client.ts', {
 const auditorias: any[] = [];
 mock.module('../src/obs/audit.ts', { namedExports: { audit: async (e: any) => void auditorias.push(e) } });
 let turnos = 0;
+/** Lo que recibió el motor en cada turno: con una ráfaga, todos los mensajes juntos. */
+let textosDeTurno: any[] = [];
 mock.module('../src/ai/agentLoop.ts', {
   namedExports: {
-    runAgentTurn: async () => {
+    runAgentTurn: async (_ctx: any, texto: any) => {
       turnos++;
+      textosDeTurno.push(texto);
       return 'respuesta del bot';
     },
   },
@@ -281,6 +284,15 @@ test('con líneas permitidas, responde solo en la línea de la lista y calla en 
   await esperar(() => auditorias.some((a) => a.type === 'bot_en_silencio' && a.detail?.motivo === 'linea_no_permitida'));
   assert.equal(turnos, 0, 'no corre el motor en una línea no permitida');
   assert.equal(llamadas.filter((c) => c.method === 'imbot.message.add').length, 0, 'no le escribe al cliente');
+  // Pero tampoco lo deja colgado: si Bitrix le asignó el chat con "No transferir", nadie más lo
+  // recibiría. Se entrega a la cola, una sola vez por sesión (caso real: cuatro "Hola" sin respuesta).
+  const entregas = () => llamadas.filter((c) => c.method === 'imopenlines.bot.session.operator').length;
+  assert.equal(entregas(), 1, 'entrega la sesión a la cola');
+  assert.ok(auditorias.some((a) => a.detail?.motivo === 'linea_no_permitida' && a.detail?.entregada === true));
+  auditorias.length = 0;
+  botMessageHandler(eventoDe(62, '1700001', '767389', 'chat-linea-31') as any, res);
+  await esperar(() => auditorias.some((a) => a.detail?.motivo === 'linea_no_permitida'));
+  assert.equal(entregas(), 1, 'en la misma sesión no la vuelve a entregar');
 
   // Línea 93 (Live Chat): en la lista → atiende normalmente.
   _limpiarCacheListaBlanca();
@@ -297,4 +309,41 @@ test('con líneas permitidas, responde solo en la línea de la lista y calla en 
   dialogEntityId = '';
   _limpiarCacheListaBlanca();
   _limpiarCacheOperadores();
+});
+
+// ── Mensajes en ráfaga ───────────────────────────────────────────────────────────────────────────
+// Caso real (chat 1561991): "2.848.000" y "?" llegaron con 3 s de diferencia y el bot mandó tres
+// respuestas en 36 s; al "?" le dijo "parece que el mensaje llegó incompleto".
+test('mensajes en ráfaga: el bot responde una sola vez, con todo junto', async () => {
+  const { config } = await import('../src/config');
+  const { _limpiarRafagas } = await import('../src/core/rafaga');
+  const { _limpiarCacheOperadores } = await import('../src/crm/operadorEnChat');
+  const antes = config.rafagaVentanaS;
+  config.rafagaVentanaS = 0.4;
+  _limpiarRafagas();
+  _limpiarCacheOperadores();
+  usuarioDelPortal = [];
+  participantes = [
+    { id: 800185, bot: true, name: 'Carver University' },
+    { id: 767389, extranet: true, name: 'cliente' },
+  ];
+  turnos = 0;
+  textosDeTurno = [];
+  llamadas.length = 0;
+  const conTexto = (id: number, t: string) => {
+    const e: any = eventoDe(id, '1800001', '767389', 'chat-rafaga');
+    e.body.data.PARAMS.MESSAGE = t;
+    return e;
+  };
+  botMessageHandler(conTexto(70, 'Si pago todo de contado cuánto me sale'), res);
+  botMessageHandler(conTexto(71, '2.848.000'), res);
+  botMessageHandler(conTexto(72, '?'), res);
+  await esperar(() => turnos > 0 && llamadas.some((c) => c.method === 'imbot.message.add'));
+  await new Promise((r) => setTimeout(r, 300)); // los turnos de los mensajes absorbidos llegan y se descartan
+
+  assert.equal(turnos, 1, 'un solo turno del motor');
+  assert.equal(textosDeTurno[0], 'Si pago todo de contado cuánto me sale\n2.848.000\n?');
+  assert.equal(llamadas.filter((c) => c.method === 'imbot.message.add').length, 1, 'una sola respuesta');
+  config.rafagaVentanaS = antes;
+  _limpiarRafagas();
 });

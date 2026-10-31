@@ -19,6 +19,12 @@ test('sin MARCA: la marca por defecto es Postgrados', () => {
   assert.equal(marca.botCargo, 'Asesora de Admisión de Postgrados');
 });
 
+test('sin MARCA: ni avisos de promesas o pagos, ni bloque de horario (nacieron en Carver)', () => {
+  assert.equal(marca.respaldaPromesas, false);
+  assert.equal(marca.avisaPagoAlAsesor, false);
+  assert.doesNotMatch(SYSTEM_PROMPT, /PROMESAS CON RESPALDO|MOMENTO ACTUAL/);
+});
+
 test('sin MARCA: el prompt conserva textualmente la identidad y la oferta de siempre', () => {
   assert.ok(
     SYSTEM_PROMPT.startsWith('Eres Sofía, asesora comercial de la Universidad Autónoma de Chile (unidad de Postgrados).'),

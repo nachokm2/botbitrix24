@@ -9,6 +9,7 @@ import { preguntaPorCostosAdicionales } from '../core/guardRespuesta';
 import { obtenerBrochure } from '../core/brochures';
 import { consultarInformacionInstitucional, INSTRUCCION_SIN_DATO } from '../core/conocimientoComercial';
 import { enlaceDePago } from '../core/mediosPago';
+import { bloqueMomento } from '../core/momento';
 import { marca } from '../marca';
 
 /**
@@ -144,7 +145,11 @@ export async function simularTurno(
     herramientas.push({ nombre, descripcion: describir(nombre, input, r), simulada: !SOLO_LECTURA.has(nombre) });
     return r;
   };
-  const perfil = { ...WHATSAPP_PROFILE, systemPrompt: WHATSAPP_PROFILE.systemPrompt + bloqueIdioma(detectarIdioma(mensaje)) };
+  const perfil = {
+    ...WHATSAPP_PROFILE,
+    systemPrompt:
+      WHATSAPP_PROFILE.systemPrompt + bloqueIdioma(detectarIdioma(mensaje)) + (marca.respaldaPromesas ? bloqueMomento() : ''),
+  };
   const { text, messages: finales } = await runConversation({ profile: perfil, auditId: 'simulacion', simulacion: true }, messages, exec);
   const texto = marca.guardRespuesta
     ? await aplicarGuardian(text, { mensajeCliente: mensaje, history: historial, mensajesDelTurno: finales.slice(inicioTurno), simulacion: true })

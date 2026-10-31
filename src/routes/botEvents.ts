@@ -22,6 +22,7 @@ import { asesoresDisponibles, motivoHorario } from '../core/horarioAsesores';
 import { hayOperadorEnElChat } from '../crm/operadorEnChat';
 import { listaBlancaActiva, puedeResponder, lineaDelChat } from '../core/listaBlanca';
 import { esperarComoHumano } from '../core/ritmoHumano';
+import { anotarEntrante, fueAbsorbido, esperarFinDeRafaga, tomarRafaga } from '../core/rafaga';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
@@ -54,6 +55,13 @@ export async function botMessageHandler(req: Request, res: Response) {
   // Serializa por diálogo (evita carreras de historial/sesión) y acota la concurrencia global.
   const dialogId = String((req.body as any)?.data?.PARAMS?.DIALOG_ID ?? 'unknown');
   const requestId = getRequestContext()?.requestId ?? '-';
+  // Mensajes en ráfaga: se anotan al llegar, ANTES de esperar el lock, para que el turno que está por
+  // responder sepa que la persona siguió escribiendo (ver core/rafaga.ts). Solo texto: los adjuntos
+  // tienen su propio procesamiento y van en su propio turno.
+  const p = (req.body as any)?.data?.PARAMS ?? {};
+  if (config.rafagaVentanaS > 0 && p.MESSAGE_ID && typeof p.MESSAGE === 'string' && !(p.FILES ?? p.files)) {
+    anotarEntrante(dialogId, String(p.MESSAGE_ID), String(p.FROM_USER_ID ?? ''), p.MESSAGE);
+  }
   // Re-vincula el contexto (reqId + dialogId) dentro del lock/semáforo: garantiza que el
   // trabajo en segundo plano loguee con la correlación correcta, sin fugas entre peticiones.
   void withKeyedLock(dialogId, () =>
@@ -100,6 +108,9 @@ async function handle(req: Request) {
   if (msgId && !(await once(`evt:msg:${msgId}`, 3600))) {
     return log.info('botMessage: evento duplicado ignorado', { msgId });
   }
+  if (config.rafagaVentanaS > 0 && msgId && fueAbsorbido(String(msgId))) {
+    return log.info('botMessage: mensaje ya respondido junto con su ráfaga', { dialogId, msgId });
+  }
 
   // Compuerta de líneas: si config.openlinesLineasPermitidas está definida, el bot solo responde en esas
   // líneas de Open Lines y calla en el resto —incluidas conversaciones ya abiertas—, sin depender de la
@@ -109,8 +120,23 @@ async function handle(req: Request) {
   if (config.openlinesLineasPermitidas.length) {
     const linea = await lineaDelChat(chatId, auth);
     if (!linea || !config.openlinesLineasPermitidas.includes(linea)) {
-      void audit({ type: 'bot_en_silencio', dialogId, detail: { motivo: 'linea_no_permitida', chatId, linea: linea ?? null } });
-      return log.info('botMessage: línea fuera de la lista permitida; bot en silencio', { dialogId, chatId, linea });
+      // Callar no basta. Si Bitrix tiene el bot asignado a esa línea con "No transferir", nadie más
+      // recibe el chat y el cliente le escribe al vacío: el 31-10-2026 alguien mandó cuatro "Hola"
+      // sin respuesta (chat 1517289). Se entrega a la cola una vez por sesión, igual que en el
+      // horario de asesores.
+      const ses = sesionOpenLines(params.CHAT_ENTITY_DATA_1 ?? params?.CHAT?.CHAT_ENTITY_DATA_1);
+      let entregada = false;
+      if (chatId && (await once(`entrega:linea:${dialogId}:${ses ?? '-'}`, 24 * 3600))) {
+        try {
+          await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: chatId }, auth);
+          entregada = true;
+        } catch (e) {
+          // "Operator is not a bot": la sesión ya la tiene una persona.
+          log.warn('no se pudo entregar a la cola un chat de una línea no permitida', { err: String(e), dialogId, chatId });
+        }
+      }
+      void audit({ type: 'bot_en_silencio', dialogId, detail: { motivo: 'linea_no_permitida', chatId, linea: linea ?? null, entregada } });
+      return log.info('botMessage: línea fuera de la lista permitida; bot en silencio', { dialogId, chatId, linea, entregada });
     }
   }
 
@@ -300,7 +326,7 @@ async function handle(req: Request) {
     turnText = '(el cliente envió un archivo que no se pudo procesar por este medio; pídele amablemente que cuente por texto qué necesita)';
   }
   if (!turnText && !turnContent) return log.info('botMessage: evento sin texto ni media procesable (ignorado)', { dialogId });
-  const logText = turnText || '[imagen]';
+  let logText = turnText || '[imagen]';
 
   // Identifica las entidades CRM vinculadas al chat (del propio evento; sin llamada extra si viene).
   const crmEntities = await resolveAllEntities(params, chatId, auth);
@@ -333,6 +359,20 @@ async function handle(req: Request) {
   // "Escribiendo…" + espera de ritmo humano: el bot no contesta al instante (parece menos robot). Con
   // el delay desactivado (config por defecto) solo muestra el indicador, como antes. Ver core/ritmoHumano.ts.
   await esperarComoHumano(botId, dialogId, auth);
+
+  // Si siguió escribiendo mientras el bot "tipeaba", se espera a que termine y se responde todo en un
+  // solo turno: "2.848.000" y "?" son una sola pregunta (ver core/rafaga.ts).
+  if (config.rafagaVentanaS > 0 && msgId && !turnContent) {
+    const ventanaMs = config.rafagaVentanaS * 1000;
+    await esperarFinDeRafaga(dialogId, ventanaMs, ventanaMs * 3);
+    const textos = tomarRafaga(dialogId, String(msgId));
+    if (textos.length > 1) {
+      turnText = textos.join('\n');
+      logText = turnText;
+      inc('rafaga');
+      log.info('ráfaga: varios mensajes respondidos en un solo turno', { dialogId, mensajes: textos.length });
+    }
+  }
 
   // Agente real: motor conversacional único, con el perfil del canal WhatsApp (Open Lines).
   // turnContent (bloques con imagen) tiene prioridad; si no, el texto (incluye audios transcritos).

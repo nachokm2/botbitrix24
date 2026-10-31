@@ -14,6 +14,10 @@ import type { CrmEntity } from '../crm/entities';
 import { guardarRespuesta, urlsEn } from '../core/guardRespuesta';
 import { URLS_OFICIALES_CARVER } from '../core/promptObjeciones';
 import { promptVigente } from '../core/ajustes';
+import { bloqueMomento } from '../core/momento';
+import { promesaDeSeguimiento, intencionDePago } from '../core/promesas';
+import { recortar } from '../core/textoSeguro';
+import { avisarAlResponsable } from '../crm/avisoAsesor';
 
 const MAX_STEPS = 5; // guardrail anti-bucle
 
@@ -408,7 +412,9 @@ export async function runAgentTurn(
     // la persona vuelve al español en el siguiente mensaje, desaparece sola.
     const idioma = typeof userText === 'string' ? detectarIdioma(userText) : 'es';
     const extraIdioma = bloqueIdioma(idioma);
-    const sumado = extra + extraIdioma;
+    // Qué día es y cuándo trabaja el equipo: para que "lo confirmo y le respondo" diga cuándo.
+    const extraMomento = marca.respaldaPromesas ? bloqueMomento() : '';
+    const sumado = extra + extraIdioma + extraMomento;
     const perfilFinal = sumado ? { ...perfilDelTurno, systemPrompt: perfilDelTurno.systemPrompt + sumado } : perfilDelTurno;
     const inicioTurno = messages.length;
     const { text, messages: finalMsgs } = await runConversation(
@@ -431,6 +437,11 @@ export async function runAgentTurn(
     // No persistimos imágenes (base64) en el historial: se reemplazan por un marcador de texto para
     // no inflar Redis ni re-enviarlas en cada turno (el modelo ya las "vio" en este turno).
     await setHistory(ctx.conversationId, sanitizeHistory(finalMsgs));
+    if (marca.respaldaPromesas || marca.avisaPagoAlAsesor) {
+      void avisosDelTurno(ctx, textoDelUsuario(userText), enviado, finalMsgs.slice(inicioTurno)).catch((e) =>
+        log.warn('avisos del turno fallaron', { err: String(e), dialogId: ctx.conversationId }),
+      );
+    }
     return enviado;
   } catch (e) {
     inc('errors');
@@ -452,6 +463,61 @@ function textoDelUsuario(userText: string | any[]): string {
     .filter((b: any) => b?.type === 'text')
     .map((b: any) => b.text)
     .join(' ');
+}
+
+/** Herramientas que el modelo usó en los mensajes dados. */
+function herramientasUsadas(mensajes: any[]): Set<string> {
+  const out = new Set<string>();
+  for (const m of mensajes) {
+    if (m?.role !== 'assistant' || !Array.isArray(m.content)) continue;
+    for (const b of m.content) if (b?.type === 'tool_use' && b.name) out.add(String(b.name));
+  }
+  return out;
+}
+
+/**
+ * Lo que una persona del equipo tiene que saber después de este turno, sin sacar al bot de la
+ * conversación (ver crm/avisoAsesor.ts):
+ *  - el bot prometió volver con algo y no derivó: sin aviso, nadie cumple esa promesa;
+ *  - el cliente quiere pagar: el responsable tiene que enterarse ese mismo día.
+ * Si el modelo ya derivó, o ya entregó el enlace de pago (eso avisa por su cuenta en toolRunner), no
+ * se repite.
+ */
+async function avisosDelTurno(ctx: AgentContext, mensajeCliente: string, enviado: string, mensajesDelTurno: any[]): Promise<void> {
+  const usadas = herramientasUsadas(mensajesDelTurno);
+  const base = { dialogId: ctx.conversationId, dealId: ctx.crmEntities?.deal, chatId: ctx.chatId };
+  const pregunta = recortar(mensajeCliente.replace(/\s+/g, ' ').trim(), 300);
+
+  if (marca.respaldaPromesas && !usadas.has('escalar_a_humano')) {
+    const frase = promesaDeSeguimiento(enviado);
+    if (frase) {
+      void audit({ type: 'promesa_sin_derivar', dialogId: ctx.conversationId, detail: { frase } }).catch(() => {});
+      await avisarAlResponsable(
+        {
+          ...base,
+          tipo: 'promesa',
+          titulo: '📌 Quedó una respuesta pendiente con un cliente',
+          detalle: `El asistente le dijo: «${frase}»\nLo que había preguntado: «${pregunta}»\nRespóndale por el chat de la negociación.`,
+          tarea: true,
+          ttlSeg: 6 * 3600,
+        },
+        ctx.auth,
+      );
+    }
+  }
+
+  if (marca.avisaPagoAlAsesor && intencionDePago(mensajeCliente) && !usadas.has('obtener_enlace_de_pago')) {
+    await avisarAlResponsable(
+      {
+        ...base,
+        tipo: 'pago',
+        titulo: '💳 Un cliente quiere pagar',
+        detalle: `Escribió: «${pregunta}»\nEl asistente lo está ayudando con el pago. Si no ve el pago en las próximas horas, escríbale.`,
+        ttlSeg: 24 * 3600,
+      },
+      ctx.auth,
+    );
+  }
 }
 
 /** Textos que el bot ya envió en esta conversación, del más antiguo al más reciente. */
@@ -530,6 +596,7 @@ export async function aplicarGuardian(
     urlsPermitidas: [...URLS_OFICIALES_CARVER, ...urlsDeHerramientas([...t.history, ...t.mensajesDelTurno])],
     maxCaracteres: marca.maxCaracteresRespuesta || Number.MAX_SAFE_INTEGER,
     crmFallo: escrituraCrmFallida(t.mensajesDelTurno),
+    derivacionInterna: marca.sePresentaComoAsesor,
   };
   const r = guardarRespuesta(texto, ctxGuard);
   let final = r.texto;

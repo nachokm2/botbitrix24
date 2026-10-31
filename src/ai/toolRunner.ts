@@ -22,6 +22,7 @@ import { registrarDatosMatricula, moverAPendienteDeFirma } from '../crm/matricul
 import { enviarBrochurePorWhatsApp } from '../core/brochureArchivo';
 import { registrarDocumentoAcademico, nivelDelPrograma, DOCUMENTO_DE } from '../crm/documentoAcademico';
 import { getDealInfo } from '../crm/directory';
+import { avisarAlResponsable } from '../crm/avisoAsesor';
 import { audit } from '../obs/audit';
 import { config } from '../config';
 import { log } from '../log';
@@ -325,6 +326,24 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
             motivo: r.ok ? undefined : r.motivo,
           },
         }).catch(() => {});
+        // Quien recibe un enlace de pago está a un paso de matricularse: su asesor tiene que saberlo
+        // hoy, no cuando revise el CRM. No bloquea la respuesta al cliente.
+        if (r.ok && marca.avisaPagoAlAsesor) {
+          void avisarAlResponsable(
+            {
+              tipo: 'pago',
+              dialogId: ctx.conversationId,
+              dealId: ctx.crmEntities?.deal,
+              chatId: ctx.chatId,
+              titulo: '💳 Un cliente pidió el enlace para pagar',
+              detalle:
+                `${r.programa} — ${String(input?.concepto ?? '').replace(/_/g, ' ')}: USD ${r.montoUsd} por ${r.medio === 'paypal' ? 'PayPal' : 'Flywire'}.\n` +
+                'Si no ve el pago en las próximas horas, escríbale.',
+              ttlSeg: 24 * 3600,
+            },
+            ctx.auth,
+          ).catch((e) => log.warn('aviso de pago falló', { err: String(e) }));
+        }
         return r;
       }
 
