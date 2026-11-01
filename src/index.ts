@@ -23,6 +23,7 @@ import { iniciarVigilanciaSalud } from './bitrix/salud';
 import { iniciarPrimerContacto } from './crm/primerContacto';
 import { iniciarReactivacion } from './crm/reactivacion';
 import { iniciarBarridoSeguimientos } from './ai/seguimiento';
+import { iniciarRetomaDeChats, retomarChatManual } from './ai/retomarChat';
 import { snapshot } from './obs/metrics';
 import { kvKind, redisHealth } from './store/kv';
 import { requireDashboardToken, requireAdminToken, requireAllowedOrigin } from './routes/guard';
@@ -207,6 +208,7 @@ app.get('/setup/mover-derivados', manejarAsync(moverDerivados)); // simula por d
 app.get('/setup/bind-calls', manejarAsync(bindCallsManual));
 app.get('/setup/bind-panel', manejarAsync(bindPanelManual)); // pestaña "Configuración bot" dentro de Bitrix24
 app.get('/setup/limpiar-placements', manejarAsync(limpiarPlacementsManual)); // quita paneles con token viejo del menú
+app.get('/setup/retomar-chat', manejarAsync(retomarChatManual)); // devuelve UN chat tomado por una persona al bot (prueba)
 app.get('/setup/sync-calls', manejarAsync(syncCallsManual));
 
 // Campaña de voz saliente. Panel y datos con DASHBOARD_TOKEN (embebible en Bitrix); acciones
@@ -272,6 +274,8 @@ initDb(arrancarTareasConPostgres)
 
 // Seguimiento automático (WhatsApp) — solo Redis, independiente de Postgres.
 iniciarBarridoSeguimientos();
+// El bot retoma los chats que una persona tomó y dejó sin responder — no-op sin RETOMAR_CHAT_HORAS.
+iniciarRetomaDeChats();
 
 app.listen(config.port, () =>
   log.info('PoC escuchando', { port: config.port, baseUrl: config.baseUrl || '(define BASE_URL)' }),

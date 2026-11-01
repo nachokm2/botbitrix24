@@ -75,6 +75,17 @@ export async function botMessageHandler(req: Request, res: Response) {
   });
 }
 
+/**
+ * Un turno que no llega de Bitrix: lo arma ai/retomarChat.ts cuando le devuelve al bot una
+ * conversación que una persona dejó sin responder. Pasa por el mismo camino que un mensaje real
+ * (lock por diálogo, filtros, motor, envío), así que valen exactamente las mismas reglas.
+ */
+export async function procesarMensajeSintetico(params: Record<string, unknown>, botId: number): Promise<void> {
+  const dialogId = String(params.DIALOG_ID ?? 'unknown');
+  const req = { body: { event: 'ONIMBOTMESSAGEADD', data: { BOT: { [botId]: {} }, PARAMS: params } }, query: {} } as unknown as Request;
+  await withKeyedLock(dialogId, () => turnLimit(() => runWithRequestContext({ requestId: 'retoma', dialogId }, () => handle(req))));
+}
+
 async function handle(req: Request) {
   const t0 = Date.now(); // tiempo de respuesta del bot (recepción → reply enviado), para el panel
   const body: any = req.body ?? {};

@@ -1,4 +1,4 @@
-import { getJson, setJson } from './store/kv';
+import { getJson, setJson, kvDel } from './store/kv';
 
 // Estado por diálogo (persistido en KV) para decidir cuándo responde el bot.
 // - clientId: usuario que inició la conversación (el cliente).
@@ -45,13 +45,14 @@ export async function markHumanTakeover(dialogId: string): Promise<void> {
 // El traspaso se recuerda por la SESIÓN de Open Lines (el 6.º campo de CHAT_ENTITY_DATA_1): mientras
 // dure esa sesión, el bot calla. Cuando Bitrix abre una sesión nueva, el bot vuelve a atender.
 
-const TRASPASO_KEY = (dialogId: string) => `traspaso:${dialogId}`;
+export const PREFIJO_TRASPASO = 'traspaso:';
+const TRASPASO_KEY = (dialogId: string) => `${PREFIJO_TRASPASO}${dialogId}`;
 const TRASPASO_TTL_SEC = 30 * 24 * 3600;
 // Sin id de sesión (evento incompleto) no se puede saber cuándo terminó la atención humana: se
 // recuerda por un plazo acotado en vez de para siempre.
 const TRASPASO_SIN_SESION_MS = 72 * 3600_000;
 
-type Traspaso = { sesion: string | null; at: number; motivo: string };
+export type Traspaso = { sesion: string | null; at: number; motivo: string };
 
 /** Id de la sesión de Open Lines a partir de CHAT_ENTITY_DATA_1 ("Y|DEAL|123|N|N|<sesión>|<ts>|…"). */
 export function sesionOpenLines(chatEntityData1: unknown): string | null {
@@ -70,4 +71,14 @@ export async function traspasoVigente(dialogId: string, sesion: string | null): 
   if (!t) return null;
   if (t.sesion && sesion) return t.sesion === sesion ? t : null;
   return Date.now() - t.at < TRASPASO_SIN_SESION_MS ? t : null;
+}
+
+/** El traspaso registrado para la conversación, sea de la sesión que sea. */
+export async function leerTraspaso(dialogId: string): Promise<Traspaso | null> {
+  return getJson<Traspaso>(TRASPASO_KEY(dialogId));
+}
+
+/** Olvida el traspaso: la conversación vuelve a ser del bot (ver ai/retomarChat.ts). */
+export async function borrarTraspaso(dialogId: string): Promise<void> {
+  await kvDel(TRASPASO_KEY(dialogId));
 }

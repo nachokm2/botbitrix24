@@ -434,6 +434,10 @@ export const config = {
   // llegue otro mensaje del mismo chat, y responde todos juntos en un solo turno. 0 = cada mensaje
   // se responde por separado, como antes. Ver core/rafaga.ts.
   rafagaVentanaS: Number(process.env.RAFAGA_VENTANA_S ?? 0) || 0,
+  // Si una persona tomó el chat y lleva estas horas sin escribir mientras el cliente espera, el bot
+  // retoma la conversación y responde lo pendiente. 0 = nunca (el bot calla hasta que la sesión se
+  // cierre, como antes). Ver ai/retomarChat.ts.
+  retomarChatHoras: Number(process.env.RETOMAR_CHAT_HORAS ?? 0) || 0,
   // Comprobación horaria de que los DOS caminos hacia Bitrix siguen vivos (webhook y OAuth). El
   // OAuth de Postgrados llevaba días sin poder renovarse y nada lo decía: las conversaciones
   // andaban, pero todo lo proactivo fallaba en silencio.
