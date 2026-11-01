@@ -23,6 +23,10 @@ import { log } from '../log';
  * nadie del equipo escribe hace RETOMAR_CHAT_HORAS, la sesión se le devuelve al bot en Bitrix y el bot
  * responde lo pendiente, con lo que la asesora haya conversado como contexto. Si la asesora sigue
  * escribiendo, el reloj se reinicia: el bot no se mete en una conversación viva.
+ *
+ * A veces la persona ya no está en el chat y el bot sí: Bitrix le sigue entregando los mensajes y el
+ * bot calla solo por la marca de traspaso, que dura 30 días (chat 598649: tres mensajes sin respuesta,
+ * con la asesora fuera del chat desde el 14-10). Ahí basta con levantar la marca.
  */
 
 /** WhatsApp solo deja responder libremente dentro de las 24 h del último mensaje del cliente. */
@@ -36,6 +40,8 @@ type Mensaje = { id?: number | string; author_id?: number | string; date?: strin
 export type EstadoChat = {
   /** Personas del equipo dentro del chat (no el bot, no el cliente). */
   equipo: string[];
+  /** El bot sigue en el chat: Bitrix le entrega los mensajes aunque calle. */
+  botDentro: boolean;
   clienteId: string | null;
   /** Lo que el cliente escribió después de la última respuesta de alguien (bot o equipo). */
   pendientes: string[];
@@ -56,15 +62,18 @@ export function leerEstado(participantes: Participante[], mensajes: Mensaje[], b
   const ordenados = [...mensajes].sort((a, b) => Number(a.id ?? 0) - Number(b.id ?? 0));
   let ultimaDelEquipo = 0;
   let ultimaDelCliente = 0;
-  let pendientes: { id: string; texto: string }[] = [];
+  let pendientes: { id: string; texto: string; at: number }[] = [];
   for (const m of ordenados) {
     const autor = String(m.author_id ?? '0');
     if (autor === '0') continue; // mensajes del sistema
     const at = m.date ? new Date(m.date).getTime() : 0;
     if (clienteId && autor === clienteId) {
       ultimaDelCliente = Math.max(ultimaDelCliente, at);
+      // Lo que quedó colgado de una conversación anterior ya no se contesta: si el cliente vuelve
+      // días después, se responde solo lo nuevo (el historial del chat da el contexto).
+      if (pendientes.length && at - pendientes[pendientes.length - 1].at > VENTANA_WHATSAPP_MS) pendientes = [];
       const texto = String(m.text ?? '').trim();
-      if (texto) pendientes.push({ id: String(m.id ?? ''), texto });
+      if (texto) pendientes.push({ id: String(m.id ?? ''), texto, at });
     } else {
       // Respondió alguien (el bot o el equipo): lo anterior ya no está pendiente.
       pendientes = [];
@@ -73,6 +82,7 @@ export function leerEstado(participantes: Participante[], mensajes: Mensaje[], b
   }
   return {
     equipo,
+    botDentro: participantes.some(esBot),
     clienteId,
     pendientes: pendientes.map((p) => p.texto),
     ultimoPendienteId: pendientes.length ? pendientes[pendientes.length - 1].id : null,
@@ -83,7 +93,7 @@ export function leerEstado(participantes: Participante[], mensajes: Mensaje[], b
 
 /** ¿Corresponde retomar? Devuelve el motivo para NO hacerlo, o null si hay que retomar. */
 export function motivoParaNoRetomar(e: EstadoChat, traspasoAt: number, horas: number, ahora = Date.now()): string | null {
-  if (!e.equipo.length) return 'nadie_del_equipo_en_el_chat';
+  if (!e.equipo.length && !e.botDentro) return 'ni_el_bot_ni_el_equipo_en_el_chat';
   if (!e.pendientes.length) return 'el_cliente_no_espera_respuesta';
   if (ahora - e.ultimaDelCliente > VENTANA_WHATSAPP_MS) return 'fuera_de_la_ventana_de_24h';
   const ultimaActividad = Math.max(e.ultimaDelEquipo, traspasoAt);
@@ -126,14 +136,22 @@ export type ResultadoRetoma = {
   equipoDespues?: string[];
   botDentro?: boolean;
   respondido?: boolean;
+  /** Mensajes del cliente sin respuesta (cuántos, no cuáles). */
+  pendientes?: number;
+  /** Solo en simulación: si lo habría retomado. */
+  retomaria?: boolean;
 };
 
 /**
  * Evalúa una conversación y, si corresponde (o si `forzar`), se la devuelve al bot y responde lo
  * pendiente. `forzar` salta el reloj de horas, no las demás condiciones: es para probar en un chat
- * concreto desde /setup/retomar-chat.
+ * concreto desde /setup/retomar-chat. `simular` evalúa sin tocar nada; `horas` reemplaza el plazo
+ * configurado (para simular antes de encender el barrido).
  */
-export async function retomarChat(dialogId: string, opts: { forzar?: boolean; responder?: boolean } = {}): Promise<ResultadoRetoma> {
+export async function retomarChat(
+  dialogId: string,
+  opts: { forzar?: boolean; responder?: boolean; simular?: boolean; horas?: number } = {},
+): Promise<ResultadoRetoma> {
   const st = await getState();
   const auth = st.installAuth ?? st.auth;
   const botId = Number(st.botId ?? config.botId);
@@ -155,10 +173,15 @@ export async function retomarChat(dialogId: string, opts: { forzar?: boolean; re
   ]);
   const mensajes: Mensaje[] = Array.isArray(crudo) ? crudo : (crudo?.messages ?? []);
   const estado = leerEstado(participantes, mensajes, botId);
-  const motivo = motivoParaNoRetomar(estado, traspaso?.at ?? 0, opts.forzar ? 0 : config.retomarChatHoras);
-  if (motivo) return { dialogId, retomado: false, motivo, equipoAntes: estado.equipo };
+  const horas = opts.forzar ? 0 : (opts.horas ?? config.retomarChatHoras);
+  const motivo = motivoParaNoRetomar(estado, traspaso?.at ?? 0, horas);
+  const visto = { dialogId, equipoAntes: estado.equipo, botDentro: estado.botDentro, pendientes: estado.pendientes.length };
+  if (opts.simular) return { ...visto, retomado: false, retomaria: !motivo, motivo: motivo ?? undefined };
+  if (motivo) return { ...visto, retomado: false, motivo };
 
-  const d = await devolverAlBot(chatId, botId, auth);
+  // Sin nadie del equipo en el chat, Bitrix ya le entrega los mensajes al bot: el silencio es solo la
+  // marca de traspaso y basta con levantarla. Con alguien dentro, hay que devolverle la sesión.
+  const d = estado.equipo.length ? await devolverAlBot(chatId, botId, auth) : { ok: true, metodo: 'levantar_silencio', errores: [] as string[] };
   const despues = await participantesDe(dialogId, auth).catch(() => [] as Participante[]);
   const equipoDespues = leerEstado(despues, [], botId).equipo;
   const botDentro = despues.some((u) => u.bot || String(u.id) === String(botId));
@@ -200,30 +223,61 @@ export async function retomarChat(dialogId: string, opts: { forzar?: boolean; re
   return { dialogId, retomado: true, metodo: d.metodo, errores: d.errores, equipoAntes: estado.equipo, equipoDespues, botDentro, respondido };
 }
 
-/** Recorre las conversaciones traspasadas y retoma las que quedaron sin respuesta. */
-export async function barrerChatsTomados(): Promise<void> {
+/** Conversaciones con marca de traspaso (dialogId), sin repetidos. */
+async function chatsTraspasados(): Promise<string[]> {
   const r = getRedisClient();
-  if (!r || config.retomarChatHoras <= 0) return;
+  if (!r) return [];
+  const ids = new Set<string>();
   let cursor = '0';
-  let revisados = 0;
   do {
     const [siguiente, claves] = await r.scan(cursor, 'MATCH', `${PREFIJO_TRASPASO}*`, 'COUNT', 200);
     cursor = siguiente;
-    for (const clave of claves) {
-      if (revisados >= MAX_POR_BARRIDO) return;
-      const dialogId = clave.slice(PREFIJO_TRASPASO.length);
-      const t = await leerTraspaso(dialogId);
-      // Sin el plazo cumplido desde el traspaso no hay nada que mirar todavía: ahorra llamadas.
-      if (!t || Date.now() - t.at < config.retomarChatHoras * 3600_000) continue;
-      revisados++;
-      try {
-        const res = await retomarChat(dialogId);
-        if (res.retomado || res.motivo === 'bitrix_no_devolvio_la_sesion') log.info('barrido de chats tomados', res);
-      } catch (e) {
-        log.warn('barrido de chats tomados: falló un chat', { dialogId, err: String(e) });
-      }
-    }
+    for (const clave of claves) ids.add(clave.slice(PREFIJO_TRASPASO.length));
   } while (cursor !== '0');
+  return [...ids];
+}
+
+// Cada barrido revisa unas pocas conversaciones y el siguiente sigue donde quedó: las que nunca se
+// resuelven (el cliente no volvió a escribir) no tapan a las demás.
+let colaBarrido: string[] = [];
+
+/** Recorre las conversaciones traspasadas y retoma las que quedaron sin respuesta. */
+export async function barrerChatsTomados(): Promise<void> {
+  if (!getRedisClient() || config.retomarChatHoras <= 0) return;
+  if (!colaBarrido.length) colaBarrido = await chatsTraspasados();
+  let revisados = 0;
+  while (colaBarrido.length && revisados < MAX_POR_BARRIDO) {
+    const dialogId = colaBarrido.shift()!;
+    const t = await leerTraspaso(dialogId);
+    // Sin el plazo cumplido desde el traspaso no hay nada que mirar todavía: ahorra llamadas.
+    if (!t || Date.now() - t.at < config.retomarChatHoras * 3600_000) continue;
+    revisados++;
+    try {
+      const res = await retomarChat(dialogId);
+      if (res.retomado || res.motivo === 'bitrix_no_devolvio_la_sesion') log.info('barrido de chats tomados', res);
+    } catch (e) {
+      log.warn('barrido de chats tomados: falló un chat', { dialogId, err: String(e) });
+    }
+  }
+}
+
+/** Qué haría el barrido con cada conversación traspasada, sin tocar ninguna. */
+async function simularBarrido(horas: number): Promise<ResultadoRetoma[]> {
+  const out: ResultadoRetoma[] = [];
+  for (const dialogId of (await chatsTraspasados()).slice(0, 100)) {
+    const t = await leerTraspaso(dialogId);
+    if (!t || Date.now() - t.at < horas * 3600_000) {
+      out.push({ dialogId, retomado: false, retomaria: false, motivo: 'traspaso_reciente' });
+      continue;
+    }
+    try {
+      const r = await retomarChat(dialogId, { simular: true, horas });
+      out.push({ ...r, retomaria: r.retomaria ?? false });
+    } catch (e) {
+      out.push({ dialogId, retomado: false, retomaria: false, motivo: `error: ${String(e).slice(0, 120)}` });
+    }
+  }
+  return out;
 }
 
 let timer: ReturnType<typeof setInterval> | null = null;
@@ -235,10 +289,19 @@ export function iniciarRetomaDeChats(): void {
   log.info('retoma de chats tomados activa', { horas: config.retomarChatHoras, cadaMin: INTERVALO_MS / 60_000 });
 }
 
-/** GET /setup/retomar-chat?chat=598649[&responder=0] — prueba en UN chat, sin esperar el plazo. */
+/**
+ * GET /setup/retomar-chat?chat=598649[&responder=0][&simular=1] — prueba en UN chat, sin esperar el plazo.
+ * GET /setup/retomar-chat?todos=1[&horas=4] — simula el barrido sobre todas las conversaciones
+ * traspasadas: cuáles retomaría y por qué no las demás. No toca nada ni muestra mensajes.
+ */
 export async function retomarChatManual(req: Request, res: Response) {
+  if (req.query.todos === '1') {
+    const horas = Number(req.query.horas ?? 4) || 4;
+    const chats = await simularBarrido(horas);
+    return res.json({ ok: true, horas, total: chats.length, retomaria: chats.filter((c) => c.retomaria).length, chats });
+  }
   const chat = String(req.query.chat ?? '').replace(/\D/g, '');
-  if (!chat) return res.status(400).json({ ok: false, error: 'Falta ?chat=<id>' });
-  const r = await retomarChat(`chat${chat}`, { forzar: true, responder: req.query.responder !== '0' });
+  if (!chat) return res.status(400).json({ ok: false, error: 'Falta ?chat=<id> o ?todos=1' });
+  const r = await retomarChat(`chat${chat}`, { forzar: true, responder: req.query.responder !== '0', simular: req.query.simular === '1' });
   res.json({ ok: true, ...r });
 }
