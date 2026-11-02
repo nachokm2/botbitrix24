@@ -401,6 +401,13 @@ export const config = {
     .split(',')
     .map((s) => Number(s.trim()))
     .filter((n) => Number.isFinite(n) && n > 0),
+  // IDs de usuario con que escribe el propio bot (dueño del webhook, usuario OAuth). Bitrix firma con
+  // ellos los movimientos del bot, que no deben leerse como gestión de un asesor. Además de esta lista
+  // se consulta user.current en tiempo de ejecución (crm/etapas.ts), así que normalmente basta vacía.
+  usuariosBot: (process.env.BITRIX_USUARIOS_BOT ?? '')
+    .split(',')
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0),
   // Vigilancia de derivaciones: horas sin que nadie trabaje una negociación derivada antes de avisarle
   // al responsable por notificación interna de Bitrix. En el piloto de Postgrados, 4 de 38 casos
   // derivados fueron tomados por una persona; el resto lo barrió el robot a Remarketing sin que nadie

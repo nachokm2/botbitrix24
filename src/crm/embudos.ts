@@ -4,6 +4,7 @@ import { dbUltimaDerivacion } from '../store/db';
 import { config } from '../config';
 import type { Auth } from '../store';
 import { log } from '../log';
+import { esAvance, esUsuarioAutomatico } from './etapas';
 
 /**
  * ¿Esta negociación es de un embudo de MI marca?
@@ -76,8 +77,9 @@ export async function derivacionYaGestionada(dealId: number, auth: Auth): Promis
     if (!cuando || cuando <= marca) return false; // nadie la movió después del bot
     const quien = Number(d?.MOVED_BY_ID ?? 0);
     if (!quien) return false;
-    // El barrido automático a Remarketing no es gestión de nadie.
-    if (config.usuariosAutomaticos.includes(quien)) return false;
+    // El barrido automático a Remarketing no es gestión de nadie, y tampoco lo que movió el propio bot
+    // (Bitrix firma sus movimientos con el dueño de la credencial; ver crm/etapas.ts).
+    if (await esUsuarioAutomatico(quien, auth)) return false;
     log.info('derivación ya gestionada por una persona: el bot no la mueve de vuelta', { dealId, quien, cuando: d.MOVED_TIME });
     return true;
   } catch (e) {
@@ -115,6 +117,14 @@ export async function moverAEtapaDerivado(dealId: number, auth: Auth): Promise<b
     // "Derivados Bot" borra un avance real del asesor. Se dejan donde están.
     if (config.stageProtegidasDerivacion.includes(actual)) {
       log.info('no se mueve de etapa: la negociación está en una etapa protegida', { dealId, actual });
+      return false;
+    }
+    // Solo desde etapas ANTERIORES a "Derivados Bot": si la negociación ya está más adelante en el
+    // embudo, alguien la avanzó (un asesor, o el propio bot a Pendiente de Firma) y devolverla
+    // deshace ese avance. Si Bitrix no entrega el orden, rigen solo los resguardos anteriores.
+    const avance = await esAvance(categoria, actual, destino, auth);
+    if (avance === false) {
+      log.info('no se mueve de etapa: la negociación ya está más adelante que la de derivadas', { dealId, actual, destino });
       return false;
     }
     await callCrm('crm.deal.update', { id: dealId, fields: { STAGE_ID: destino } }, auth);

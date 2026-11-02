@@ -14,6 +14,7 @@ import { guardarVinculoChat, obtenerVinculoChat, borrarVinculoChat } from './cha
 import { asignarAsesorPorTurno, olvidarNoPiloto } from './asignacionAsesores';
 import { getDealInfo, getUsuarios } from './directory';
 import { once } from '../store/kv';
+import { estaCerrada, etapaMovidaPorPersona } from './etapas';
 
 // Escrituras al CRM: creación/actualización de contacto/lead/deal, notas de timeline,
 // persistencia del scoring y lectura del teléfono del cliente.
@@ -265,13 +266,23 @@ async function camposAsignacionSiCorresponde(dealId: number, programaInteres: st
   const catDestino = categoriaDeStage(stageDestino);
   if (catDestino === null) return {};
   try {
-    const cur: any = await callCrm('crm.deal.get', { id: dealId, select: ['CATEGORY_ID', 'STAGE_ID', 'DATE_CREATE'] }, auth);
+    const cur: any = await callCrm(
+      'crm.deal.get',
+      { id: dealId, select: ['CATEGORY_ID', 'STAGE_ID', 'DATE_CREATE', 'CLOSED', 'MOVED_BY_ID', 'MOVED_TIME'] },
+      auth,
+    );
+    // Una negociación cerrada (ganada o perdida) no cambia de embudo ni de etapa: reabrirla borra el
+    // desenlace y la saca de los informes de cierre (auditoría BIT-02).
+    if (estaCerrada(cur)) {
+      log.info('camposAsignacionSiCorresponde: negociación cerrada; no se mueve', { dealId, stage: cur?.STAGE_ID });
+      return {};
+    }
+    const creadoMs = cur?.DATE_CREATE ? new Date(cur.DATE_CREATE).getTime() : NaN;
+    const horasDesdeCreacion = Number.isFinite(creadoMs) ? (Date.now() - creadoMs) / 3_600_000 : Infinity;
     if (Number(cur?.CATEGORY_ID) === catDestino) {
       if (cur?.STAGE_ID === stageDestino) return {}; // ya está exactamente donde debe
 
       // Mismo embudo pero NO en la etapa de Asignación: solo se fuerza si el deal es reciente.
-      const creadoMs = cur?.DATE_CREATE ? new Date(cur.DATE_CREATE).getTime() : NaN;
-      const horasDesdeCreacion = Number.isFinite(creadoMs) ? (Date.now() - creadoMs) / 3_600_000 : Infinity;
       if (horasDesdeCreacion > config.asignacionForzarVentanaHoras) return {}; // deal viejo: no tocar
 
       // Fuerza el movimiento SOLO la primera vez que vemos este deal — evita reintentar en cada
@@ -287,6 +298,27 @@ async function camposAsignacionSiCorresponde(dealId: number, programaInteres: st
       });
       return { STAGE_ID: stageDestino };
     }
+    // Embudo distinto. Los mismos resguardos que en el mismo embudo, más uno: el cambio de embudo es
+    // para corregir el deal que Bitrix crea solo y deja en un embudo fijo, que es siempre RECIENTE y
+    // nadie trabajó todavía. Un deal viejo, o uno cuya etapa movió una persona, está en su embudo a
+    // propósito: moverlo lo saca del proceso de su asesor (auditoría BIT-02).
+    if (horasDesdeCreacion > config.asignacionForzarVentanaHoras) {
+      log.info('camposAsignacionSiCorresponde: embudo distinto pero deal viejo; no se mueve', {
+        dealId,
+        categoria: cur?.CATEGORY_ID,
+        horasDesdeCreacion: Math.round(horasDesdeCreacion),
+      });
+      return {};
+    }
+    if (await etapaMovidaPorPersona(cur, auth)) {
+      log.info('camposAsignacionSiCorresponde: embudo distinto pero una persona ya movió la etapa; no se mueve', {
+        dealId,
+        stage: cur?.STAGE_ID,
+        movidoPor: cur?.MOVED_BY_ID,
+      });
+      return {};
+    }
+    if (!(await once(`asignacion:embudo:deal#${dealId}`, 180 * 24 * 3600))) return {};
     log.info('camposAsignacionSiCorresponde: moviendo deal al embudo/etapa de asignación', { dealId, tipo, stageDestino });
     return { CATEGORY_ID: catDestino, STAGE_ID: stageDestino };
   } catch (e) {
@@ -371,6 +403,7 @@ export async function actualizarDatosCliente(
   chatId: any,
   data: DatosCliente,
   auth: Auth,
+  opts: { soloConsulta?: boolean } = {},
 ): Promise<{ ok: boolean; actualizado: string[]; error?: string }> {
   let e = entities;
   await migrarSiCambioDeEntidad(chatId, e, auth);
@@ -433,7 +466,12 @@ export async function actualizarDatosCliente(
       if (config.ufPrograma) fields[config.ufPrograma] = data.programa_interes;
       // Embudo/etapa de asignación por oferta (ver camposAsignacionSiCorresponde) — fusionado en
       // el mismo `fields` para que sea UN solo crm.deal.update, no una llamada de escritura aparte.
-      Object.assign(fields, await camposAsignacionSiCorresponde(e.deal, data.programa_interes, auth));
+      // Solo con un REGISTRO explícito del interés: consultar el detalle o el precio de otro programa
+      // (comparar un diplomado con un magíster es habitual) no saca la negociación de su embudo
+      // (auditoría BIT-02).
+      if (!opts.soloConsulta) {
+        Object.assign(fields, await camposAsignacionSiCorresponde(e.deal, data.programa_interes, auth));
+      }
       // Asigna al asesor por turno apenas se conoce el programa (si es uno de los 2 piloto) — no
       // espera a que el bot escale: sin esto, un deal que el cliente conversa con el bot sin pedir
       // nunca un humano se queda con el responsable por defecto (no es un asesor real). Fire-and-

@@ -58,7 +58,7 @@ async function seguirProgramaDeInteres(resultado: any, ctx: AgentContext): Promi
     if (sess.programaCrm === programa) return;
     sess.programaCrm = programa;
     await saveSession(ctx.conversationId, sess);
-    await actualizarDatosCliente(ctx.crmEntities, ctx.chatId, { programa_interes: programa }, ctx.auth);
+    await actualizarDatosCliente(ctx.crmEntities, ctx.chatId, { programa_interes: programa }, ctx.auth, { soloConsulta: true });
     log.info('programa de interés actualizado desde la conversación', { dialogId: ctx.conversationId, programa });
   } catch (e) {
     log.warn('seguirProgramaDeInteres falló', { err: String(e), programa });

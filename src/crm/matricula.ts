@@ -308,7 +308,10 @@ export async function moverAPendienteDeFirma(dealId: number, auth: Auth): Promis
       return false;
     }
     await callCrm('crm.deal.update', { id: dealId, fields: { STAGE_ID: destino } }, auth);
-    await audit({ type: 'derivacion', crmEntity: `deal#${dealId}`, detail: { decision: 'pendiente_de_firma', de: actual, a: destino } });
+    // Se audita como movimiento de etapa, NO como 'derivacion': esa fila servía de "marca de
+    // derivación" (dbUltimaDerivacion) y hacía que el barrido por silencio devolviera la negociación
+    // de Pendiente de Firma a "Derivados Bot" (auditoría BIT-01).
+    await audit({ type: 'stage_move', crmEntity: `deal#${dealId}`, detail: { stage: destino, de: actual, origen: 'pendiente_de_firma' } });
     log.info('negociación movida a Pendiente de Firma', { dealId, de: actual, a: destino });
     return true;
   } catch (e) {
