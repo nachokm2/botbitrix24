@@ -42,6 +42,22 @@ test('el español se queda en español', () => {
   }
 });
 
+test('palabras que se ven portuguesas pero también son español no cambian el idioma (Mónica, 02-11)', () => {
+  // Caso real: "como funciona" y "valores" sumaban dos marcas de portugués y el bot le contestó en
+  // portugués a una clienta de Chile.
+  for (const t of [
+    'Si todo eso porfavor\nCómo funciona , cuando comienza y los valores',
+    'Cómo funciona , cuando comienza y los valores',
+    'Quería saber los valores del curso',
+    'Me interesa el máster en IA, quería saber cómo funciona',
+  ]) {
+    assert.equal(detectarIdioma(t), 'es', `falso positivo con: ${t}`);
+  }
+  // Y el portugués de verdad se sigue reconociendo con esas mismas palabras.
+  assert.equal(detectarIdioma('Eu quero saber como funciona o mestrado e os valores'), 'pt');
+  assert.equal(detectarIdioma('Hi, my question is about the master and the price'), 'en');
+});
+
 test('un mensaje corto no alcanza para cambiar de idioma', () => {
   // "ok", "si", "no" aparecen en varios idiomas; decidir con eso sería peor que no decidir.
   for (const t of ['ok', 'si', 'no', 'hola', 'gracias', '']) {

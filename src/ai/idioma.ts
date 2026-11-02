@@ -20,6 +20,11 @@ export type Idioma = 'es' | 'pt' | 'en';
  * Palabras que casi solo aparecen en un idioma. Se evitan las que comparten español y portugués
  * ("para", "de", "que"...), que son justamente las que confunden en frases cortas.
  *
+ * Ojo con las que se ven portuguesas pero sin acento también son español. "Cómo funciona, cuándo
+ * comienza y los valores" (Mónica, de Chile, 02-11-2026) sumaba dos marcas con "como funciona" y
+ * "valores", y el bot le contestó en portugués. Por eso no están "valores", "curso", "como
+ * funciona" ni "queria saber", y en inglés tampoco "me" ni "master" (máster).
+ *
  * Los patrones van SIN acentos porque el texto se normaliza antes de compararlos: el `\b` de
  * JavaScript no considera letra a una vocal acentuada, así que /\bvocê\b/ NO coincide con "você ".
  * Además, mucha gente escribe sin acentos por WhatsApp.
@@ -31,23 +36,38 @@ const MARCAS: Record<Exclude<Idioma, 'es'>, RegExp[]> = {
     /\b(nao)\b/,
     /\b(sim)\b/,
     /\b(sao)\b/,
-    /\b(gostaria|queria saber)\b/,
-    /\b(preco|valores|informacoes)\b/,
-    /\b(curso|mestrado|graduacao|faculdade)\b/,
+    /\b(gostaria)\b/,
+    /\b(preco|informacoes)\b/,
+    /\b(mestrado|graduacao|faculdade)\b/,
     /\b(bom dia|boa tarde|boa noite)\b/,
-    /\b(quanto custa|como funciona)\b/,
+    /\b(quanto custa)\b/,
     /\b(eu|meu|minha|tambem)\b/,
+    /\b(quero|posso|tenho|estou|isso|muito)\b/,
   ],
   en: [
     /\b(hello|hi|hey)\b/,
     /\b(thanks|thank you)\b/,
-    /\b(im|my|me)\b/,
+    /\b(im|my)\b/,
     /\b(the|and|for|with)\b/,
     /\b(would like|want to|how much|how can)\b/,
-    /\b(information|program|degree|master|bachelor)\b/,
+    /\b(information|program|degree|bachelor)\b/,
     /\b(please|could you|can you)\b/,
   ],
 };
+
+/**
+ * Palabras que solo son español. No deciden nada por sí solas: sirven de contrapeso, para que un
+ * mensaje claramente en español no cambie de idioma por dos palabras que suenan a otro.
+ */
+const ESPANOL: RegExp[] = [
+  /\b(el|los|las|del)\b/,
+  /\b(y)\b/,
+  /\b(si|eso|esto)\b/,
+  /\b(cuando|cuanto|cuanta|cuantos|donde)\b/,
+  /\b(quiero|quisiera|puedo|puedes|puede|tengo|necesito)\b/,
+  /\b(usted|ustedes|gracias|hola|buenas)\b/,
+  /\b(pero|muy|soy|estoy|tambien)\b/,
+];
 
 const MINIMO_CARACTERES = 12; // "ok", "si", "hola" no alcanzan para decidir nada
 const MINIMO_MARCAS = 2; // una sola coincidencia es ruido: "no" existe en portugués y en español
@@ -70,6 +90,8 @@ export function detectarIdioma(texto: string): Idioma {
   if (!mejor || mejor.n < MINIMO_MARCAS) return 'es';
   // Empate entre portugués e inglés: no hay señal clara, se queda en español.
   if (puntajes.length > 1 && puntajes[1].n === mejor.n) return 'es';
+  // El otro idioma tiene que ganarle al español, no solo llegar al mínimo.
+  if (ESPANOL.filter((re) => re.test(t)).length >= mejor.n) return 'es';
   return mejor.idioma;
 }
 
