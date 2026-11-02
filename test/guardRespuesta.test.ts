@@ -82,6 +82,22 @@ test('quita una frase larga repetida de un mensaje anterior (hallazgo 11)', () =
   assert.ok(r.cambios.includes('repeticion'));
 });
 
+test('no quita una lista repetida si su presentación queda colgando (chat 1562063)', () => {
+  // Caso real: «los valores aproximados en pesos chilenos son:» salió sin ningún valor, porque las
+  // líneas de la lista eran idénticas a una respuesta anterior.
+  const lista =
+    '— Mensualidades: 40 cuotas de $99.000 CLP + matrícula $49.000 CLP\n' +
+    '— Semestral: 8 pagos de $404.000 CLP (total $3.235.000 CLP)\n' +
+    '— Contado: $577.000 CLP por año (total $2.308.000 CLP)';
+  const texto =
+    '¡Claro que sí! Retomo en español.\n\nCon la beca del 50% aplicada, los valores aproximados en pesos chilenos son:\n\n' +
+    `${lista}\n\nRecuerde que el cobro se hace en dólares. ¿Tiene alguna preferencia de forma de pago?`;
+  const r = guardarRespuesta(texto, ctx({ respuestasPrevias: [`Con la beca del 50% aplicada:\n\n${lista}`] }));
+  assert.match(r.texto, /pesos chilenos son:\s*\n\s*— Mensualidades/);
+  assert.match(r.texto, /\$577\.000 CLP/);
+  assert.ok(!r.cambios.includes('repeticion'));
+});
+
 test('nunca deja la respuesta vacía: si todo sería quitado, no se quita', () => {
   const unica = 'Además se paga la titulación de USD 125 al finalizar.';
   const r = guardarRespuesta(unica, ctx());

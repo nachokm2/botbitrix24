@@ -164,11 +164,21 @@ export function guardarRespuesta(textoOriginal: string, ctx: ContextoGuard): Res
   );
   if (previas.size) {
     const partes = frases(texto);
-    const nuevas = partes.filter((f) => {
+    const repetida = partes.map((f) => {
       const n = norm(f).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
-      return !(n.length >= 40 && previas.has(n));
+      return n.length >= 40 && previas.has(n);
     });
-    if (nuevas.length < partes.length && nuevas.join(' ').trim()) {
+    const nuevas = partes.filter((_, i) => !repetida[i]);
+    // Una lista no se quita a medias: su presentación quedaría colgando sin nada después. Pasó con
+    // «los valores aproximados en pesos chilenos son:» y ningún valor (chat 1562063, 31-10-2026).
+    // Repetir la lista es mejor que dejar al cliente sin ella.
+    const siguienteConTexto = (i: number) => partes.findIndex((f, j) => j > i && f.trim() !== '');
+    const dejaPresentacionSola = partes.some((f, i) => {
+      if (repetida[i] || !/:\s*$/.test(f)) return false;
+      const sig = siguienteConTexto(i);
+      return sig >= 0 && repetida[sig];
+    });
+    if (nuevas.length < partes.length && nuevas.join(' ').trim() && !dejaPresentacionSola) {
       cambios.push('repeticion');
       texto = nuevas.join(' ');
     }

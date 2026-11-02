@@ -39,6 +39,14 @@ import { getRequestContext, runWithRequestContext } from '../obs/requestContext'
 // cliente entre réplicas para evitar carreras read-modify-write de historial/sesión.
 const turnLimit = createSemaphore(Number(process.env.MAX_CONCURRENT_TURNS ?? 8));
 
+// Cuánto espera un mensaje a que termine el turno anterior del mismo chat. Un turno tarda ~40 s y
+// hasta ~70 s con herramientas (fin de semana del 31-10-2026). Con la espera por defecto, de 15 s, el
+// segundo mensaje de un cliente que escribía mientras el bot respondía se procesaba EN PARALELO: dos
+// respuestas a la vez, y una le borraba a la otra la lista de valores (chat 1562063: «los valores en
+// pesos chilenos son:» sin los valores). En el fin de semana se venció la espera 30 veces en Carver.
+// Se espera lo mismo que dura el lock. El ACK a Bitrix ya salió, así que esperar no pierde el mensaje.
+const LOCK_TURNO = { ttlMs: 120_000, waitMs: 120_000 };
+
 /**
  * Handler de ONIMBOTMESSAGEADD (mensaje del cliente al bot de Open Lines).
  * Responde ACK <1s y procesa en segundo plano (eco).
@@ -64,8 +72,10 @@ export async function botMessageHandler(req: Request, res: Response) {
   }
   // Re-vincula el contexto (reqId + dialogId) dentro del lock/semáforo: garantiza que el
   // trabajo en segundo plano loguee con la correlación correcta, sin fugas entre peticiones.
-  void withKeyedLock(dialogId, () =>
-    turnLimit(() => runWithRequestContext({ requestId, dialogId }, () => handle(req))),
+  void withKeyedLock(
+    dialogId,
+    () => turnLimit(() => runWithRequestContext({ requestId, dialogId }, () => handle(req))),
+    LOCK_TURNO,
   ).catch((e) => {
     // Red de seguridad: cualquier falla del turno que no se haya registrado más adentro queda igual
     // en la auditoría, para que el panel la muestre en vez de que se pierda solo en los logs.
@@ -83,7 +93,7 @@ export async function botMessageHandler(req: Request, res: Response) {
 export async function procesarMensajeSintetico(params: Record<string, unknown>, botId: number): Promise<void> {
   const dialogId = String(params.DIALOG_ID ?? 'unknown');
   const req = { body: { event: 'ONIMBOTMESSAGEADD', data: { BOT: { [botId]: {} }, PARAMS: params } }, query: {} } as unknown as Request;
-  await withKeyedLock(dialogId, () => turnLimit(() => runWithRequestContext({ requestId: 'retoma', dialogId }, () => handle(req))));
+  await withKeyedLock(dialogId, () => turnLimit(() => runWithRequestContext({ requestId: 'retoma', dialogId }, () => handle(req))), LOCK_TURNO);
 }
 
 async function handle(req: Request) {
