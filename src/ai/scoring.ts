@@ -26,6 +26,7 @@ import { config } from '../config';
 import { inc, recordTokens } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
+import { revisarMovimientoPorScore } from '../crm/etapas';
 import type { Auth } from '../store';
 
 export type ScoringCtx = {
@@ -199,7 +200,25 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
       stageScoreMedio: config.stageScoreMedio,
       datosCompletos,
     });
-    if (target) {
+    // Antes de mover se mira la negociación real: cerrada, de otro embudo, movida por una persona o
+    // ya más adelante → no se toca (auditoría BIT-03). lastStage solo evita releerla en cada turno.
+    const revision = target ? await revisarMovimientoPorScore(crmEntities.deal, target, auth) : null;
+    if (revision && Number.isFinite(revision.categoria) && revision.categoria !== -1) {
+      // El embudo cacheado en la sesión puede haber quedado viejo (el deal cambió de embudo).
+      sess.dealCategory = revision.categoria;
+    }
+    if (revision && !revision.mover) {
+      // Se recuerda la etapa real para no volver a evaluarla turno a turno contra un recuerdo falso.
+      if (revision.actual) sess.lastStage = revision.actual;
+      log.info('etapa por score no movida', {
+        dealId: crmEntities.deal,
+        stage: target,
+        actual: revision.actual,
+        motivo: revision.motivo,
+        score: evalData.score,
+      });
+    }
+    if (target && revision?.mover) {
       try {
         await moverEtapaDeal(crmEntities.deal, target, auth);
         sess.lastStage = target;

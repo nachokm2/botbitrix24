@@ -414,7 +414,12 @@ test('actualizarDatosCliente: migra los datos del lead propio (incluido el progr
 test('actualizarDatosCliente: mueve el deal al embudo/etapa de Asignación correctos si quedó en el embudo equivocado', async () => {
   calls.length = 0;
   responder = (method) => {
-    if (method === 'crm.deal.get') return { CATEGORY_ID: '1' }; // quedó en Diplomados (embudo equivocado)
+    // Quedó en Diplomados (embudo equivocado). Es el caso real: el deal que Bitrix crea solo,
+    // recién creado y sin que nadie haya movido su etapa.
+    if (method === 'crm.deal.get') {
+      const ahora = new Date().toISOString();
+      return { CATEGORY_ID: '1', STAGE_ID: 'C1:NEW', CLOSED: 'N', DATE_CREATE: ahora, MOVED_TIME: ahora, MOVED_BY_ID: '777' };
+    }
     return {};
   };
 
@@ -426,6 +431,60 @@ test('actualizarDatosCliente: mueve el deal al embudo/etapa de Asignación corre
   assert.ok(mover, 'mueve el deal al embudo correcto (Maestrías)');
   assert.equal(mover!.params.fields.CATEGORY_ID, 3);
   assert.equal(mover!.params.fields.STAGE_ID, 'C3:NEW');
+});
+
+// BIT-02: el cambio de embudo tenía cero resguardos — reabría ganadas y sacaba casos del embudo de
+// su asesor por solo mencionar un programa de otro tipo.
+const cambioDeEmbudo = (dealId: number) =>
+  calls.find((c) => c.method === 'crm.deal.update' && c.params.id === dealId && (c.params.fields.CATEGORY_ID !== undefined || c.params.fields.STAGE_ID !== undefined));
+
+test('BIT-02: una negociación ganada no cambia de embudo ni de etapa', async () => {
+  calls.length = 0;
+  responder = (method) =>
+    method === 'crm.deal.get' ? { CATEGORY_ID: '3', STAGE_ID: 'C3:WON', CLOSED: 'Y', DATE_CREATE: '2025-01-01T10:00:00-03:00' } : {};
+  await actualizarDatosCliente({ deal: 60 }, undefined, { programa_interes: 'Diplomado en Inteligencia Artificial' }, auth);
+  assert.equal(cambioDeEmbudo(60), undefined, 'el update no debe llevar CATEGORY_ID ni STAGE_ID');
+});
+
+test('BIT-02: una negociación cerrada como perdida tampoco, aunque sea reciente', async () => {
+  calls.length = 0;
+  const ahora = new Date().toISOString();
+  responder = (method) =>
+    method === 'crm.deal.get' ? { CATEGORY_ID: '1', STAGE_ID: 'C1:LOSE', CLOSED: 'Y', DATE_CREATE: ahora } : {};
+  await actualizarDatosCliente({ deal: 61 }, undefined, { programa_interes: 'Magíster en Inteligencia Artificial' }, auth);
+  assert.equal(cambioDeEmbudo(61), undefined);
+});
+
+test('BIT-02: un deal viejo en otro embudo no se mueve (está ahí a propósito)', async () => {
+  calls.length = 0;
+  responder = (method) =>
+    method === 'crm.deal.get' ? { CATEGORY_ID: '3', STAGE_ID: 'C3:UC_X', CLOSED: 'N', DATE_CREATE: '2025-01-01T10:00:00-03:00' } : {};
+  await actualizarDatosCliente({ deal: 62 }, undefined, { programa_interes: 'Diplomado en Inteligencia Artificial' }, auth);
+  assert.equal(cambioDeEmbudo(62), undefined);
+});
+
+test('BIT-02: si una persona ya movió la etapa, no se cambia de embudo', async () => {
+  calls.length = 0;
+  const creado = new Date(Date.now() - 60 * 60_000).toISOString();
+  const movido = new Date(Date.now() - 10 * 60_000).toISOString();
+  responder = (method) =>
+    method === 'crm.deal.get'
+      ? { CATEGORY_ID: '3', STAGE_ID: 'C3:UC_X', CLOSED: 'N', DATE_CREATE: creado, MOVED_TIME: movido, MOVED_BY_ID: '321' }
+      : {};
+  await actualizarDatosCliente({ deal: 63 }, undefined, { programa_interes: 'Diplomado en Inteligencia Artificial' }, auth);
+  assert.equal(cambioDeEmbudo(63), undefined);
+});
+
+test('BIT-02: consultar otro programa (soloConsulta) actualiza el programa pero no cambia de embudo', async () => {
+  calls.length = 0;
+  const ahora = new Date().toISOString();
+  responder = (method) =>
+    method === 'crm.deal.get' ? { CATEGORY_ID: '3', STAGE_ID: 'C3:NEW', CLOSED: 'N', DATE_CREATE: ahora, MOVED_TIME: ahora } : {};
+  await actualizarDatosCliente({ deal: 64 }, undefined, { programa_interes: 'Diplomado en Inteligencia Artificial' }, auth, {
+    soloConsulta: true,
+  });
+  assert.equal(cambioDeEmbudo(64), undefined);
+  assert.ok(calls.find((c) => c.method === 'crm.deal.update' && c.params.id === 64), 'sí actualiza título/programa');
 });
 
 test('actualizarDatosCliente: no toca la etapa si el deal ya está en el embudo correcto (no pisa el avance del asesor)', async () => {
