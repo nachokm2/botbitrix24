@@ -23,6 +23,7 @@ import { hayOperadorEnElChat } from '../crm/operadorEnChat';
 import { listaBlancaActiva, puedeResponder, lineaDelChat } from '../core/listaBlanca';
 import { esperarComoHumano } from '../core/ritmoHumano';
 import { anotarEntrante, fueAbsorbido, esperarFinDeRafaga, tomarRafaga } from '../core/rafaga';
+import { esEnvioNuestroPorChatApp, adjuntosSonDeLaPlantilla } from '../core/ecos';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
@@ -67,7 +68,7 @@ export async function botMessageHandler(req: Request, res: Response) {
   // responder sepa que la persona siguió escribiendo (ver core/rafaga.ts). Solo texto: los adjuntos
   // tienen su propio procesamiento y van en su propio turno.
   const p = (req.body as any)?.data?.PARAMS ?? {};
-  if (config.rafagaVentanaS > 0 && p.MESSAGE_ID && typeof p.MESSAGE === 'string' && !(p.FILES ?? p.files)) {
+  if (config.rafagaVentanaS > 0 && p.MESSAGE_ID && typeof p.MESSAGE === 'string' && !(p.FILES ?? p.files) && !esEnvioNuestroPorChatApp(p.MESSAGE)) {
     anotarEntrante(dialogId, String(p.MESSAGE_ID), String(p.FROM_USER_ID ?? ''), p.MESSAGE);
   }
   // Re-vincula el contexto (reqId + dialogId) dentro del lock/semáforo: garantiza que el
@@ -131,6 +132,11 @@ async function handle(req: Request) {
   }
   if (config.rafagaVentanaS > 0 && msgId && fueAbsorbido(String(msgId))) {
     return log.info('botMessage: mensaje ya respondido junto con su ráfaga', { dialogId, msgId });
+  }
+  // El PDF del brochure que manda el bot por ChatApp vuelve al chat como si lo hubiera escrito el
+  // cliente (ver core/ecos.ts). No es un mensaje de la persona: ni se responde ni cuenta como respuesta.
+  if (esEnvioNuestroPorChatApp(message)) {
+    return log.info('botMessage: envío nuestro por ChatApp que volvió al chat; se ignora', { dialogId, msgId });
   }
 
   // Compuerta de líneas: si config.openlinesLineasPermitidas está definida, el bot solo responde en esas
@@ -303,10 +309,16 @@ async function handle(req: Request) {
       files: params.FILES ?? params.files ?? null,
     });
   }
-  const media = await extractIncomingMedia(params, auth, botId).catch((e) => {
-    log.warn('media: extractIncomingMedia falló', { err: String(e) });
-    return [] as Awaited<ReturnType<typeof extractIncomingMedia>>;
-  });
+  // En una respuesta a plantilla, el adjunto es el encabezado de la plantilla (la imagen del programa,
+  // el video de Global Talks), no algo que mandó la persona (ver core/ecos.ts).
+  const adjuntoDePlantilla = adjuntosSonDeLaPlantilla(turnText) && !!(params.FILES ?? params.files);
+  if (adjuntoDePlantilla) log.info('media: el adjunto es de la plantilla citada; se ignora', { dialogId });
+  const media = adjuntoDePlantilla
+    ? []
+    : await extractIncomingMedia(params, auth, botId).catch((e) => {
+        log.warn('media: extractIncomingMedia falló', { err: String(e) });
+        return [] as Awaited<ReturnType<typeof extractIncomingMedia>>;
+      });
   // Última imagen del turno (si hay) — se le pasa al agente para que una tool pueda subir los bytes
   // reales al CRM si el modelo reconoce que es un documento (ver registrar_documento_identidad).
   let pendingImage: { base64: string; mediaType: string } | null = null;
