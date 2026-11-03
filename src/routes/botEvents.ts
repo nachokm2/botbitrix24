@@ -23,7 +23,7 @@ import { hayOperadorEnElChat } from '../crm/operadorEnChat';
 import { listaBlancaActiva, puedeResponder, lineaDelChat } from '../core/listaBlanca';
 import { esperarComoHumano } from '../core/ritmoHumano';
 import { anotarEntrante, fueAbsorbido, esperarFinDeRafaga, tomarRafaga } from '../core/rafaga';
-import { esEnvioNuestroPorChatApp, adjuntosSonDeLaPlantilla } from '../core/ecos';
+import { esEnvioNuestroPorChatApp, esRespuestaAutomaticaDeNegocio, adjuntosSonDeLaPlantilla } from '../core/ecos';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
@@ -68,7 +68,8 @@ export async function botMessageHandler(req: Request, res: Response) {
   // responder sepa que la persona siguió escribiendo (ver core/rafaga.ts). Solo texto: los adjuntos
   // tienen su propio procesamiento y van en su propio turno.
   const p = (req.body as any)?.data?.PARAMS ?? {};
-  if (config.rafagaVentanaS > 0 && p.MESSAGE_ID && typeof p.MESSAGE === 'string' && !(p.FILES ?? p.files) && !esEnvioNuestroPorChatApp(p.MESSAGE)) {
+  const automatica = marca.ignoraRespuestasAutomaticas && esRespuestaAutomaticaDeNegocio(p.MESSAGE);
+  if (config.rafagaVentanaS > 0 && p.MESSAGE_ID && typeof p.MESSAGE === 'string' && !(p.FILES ?? p.files) && !esEnvioNuestroPorChatApp(p.MESSAGE) && !automatica) {
     anotarEntrante(dialogId, String(p.MESSAGE_ID), String(p.FROM_USER_ID ?? ''), p.MESSAGE);
   }
   // Re-vincula el contexto (reqId + dialogId) dentro del lock/semáforo: garantiza que el
@@ -223,6 +224,16 @@ async function handle(req: Request) {
       fromUser,
       clientId: sess.clientId,
     });
+  }
+  // La bienvenida automática de un WhatsApp Business no la escribió nadie: no se responde ni cuenta
+  // como respuesta a un recordatorio, y la secuencia, si había una, sigue igual. Va después de
+  // separar al cliente del equipo: un asesor que saluda con "Gracias por comunicarte con Carver…"
+  // sigue contando como una persona que tomó el chat.
+  if (marca.ignoraRespuestasAutomaticas && esRespuestaAutomaticaDeNegocio(message)) {
+    if (sessChanged) await saveSession(dialogId, sess);
+    inc('respuesta_automatica_ignorada');
+    void audit({ type: 'respuesta_automatica', dialogId, detail: { chatId } }).catch(() => {});
+    return log.info('botMessage: respuesta automática de un WhatsApp Business; se ignora', { dialogId, msgId });
   }
   // Modo prueba: con una lista blanca configurada, el bot solo le responde a esos números. Va
   // antes que cualquier otro filtro porque es el más fuerte: si este chat no está en la lista, da

@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 process.env.NODE_ENV = 'test';
 process.env.REDIS_URL = '';
 
-const { esEnvioNuestroPorChatApp, respuestaAPlantilla, adjuntosSonDeLaPlantilla } = await import('../src/core/ecos');
+const { esEnvioNuestroPorChatApp, esRespuestaAutomaticaDeNegocio, respuestaAPlantilla, adjuntosSonDeLaPlantilla } = await import('../src/core/ecos');
 
 const SEP = '------------------------------------------------------';
 // Chat 1562493: la plantilla de Global Talks trae un video, y Ariel solo contestó «Si».
@@ -42,4 +42,32 @@ test('el brochure que mandó el bot por ChatApp no es un mensaje del cliente', (
   assert.equal(esEnvioNuestroPorChatApp(eco), true);
   assert.equal(esEnvioNuestroPorChatApp('Sent from external application, ¿qué es esto?'), false);
   assert.equal(esEnvioNuestroPorChatApp(undefined), false);
+});
+
+// Bienvenidas automáticas de WhatsApp Business que llegaron como si fueran del cliente (25-10 al
+// 03-11-2026); los nombres de los negocios están cambiados.
+test('reconoce la respuesta automática de un WhatsApp Business', () => {
+  for (const t of [
+    'Gracias por comunicarte con Mi Negocio Uno. Nuestro Horario atención es: PREVIA COORDINACIÓN DE CITA!',
+    'Hola 🤗, gracias por comunicarte con Creaciones Dos 🍰, en cuanto pueda me pondré en contacto contigo',
+    'Gracias por comunicarte con servicio Tres en que puedo ayudar',
+    '"¡Hola! Gracias por escribir. En este momento no estoy disponible, pero he recibido tu mensaje y te responderé en cuanto me sea posible."',
+    'Gracias por tu mensaje. En este momento no podemos responder, pero lo haremos lo antes posible.',
+    'Hola, gracias por escribir. He recibido tu mensaje y responderé tan pronto como me sea posible.',
+  ]) {
+    assert.equal(esRespuestaAutomaticaDeNegocio(t), true, t);
+  }
+});
+
+test('no confunde a una persona con una respuesta automática', () => {
+  for (const t of [
+    'Gracias por la información, ¿cuánto cuesta la maestría?',
+    'Hola, gracias por comunicarte conmigo. Me interesa el MBA',
+    'En este momento estoy en el trabajo, le escribo más tarde',
+    'Si',
+    `${SEP}\nHola, gracias por comunicarte con Carver University 👋 ¿te interesa la maestría?\n${SEP}\nSi`,
+  ]) {
+    assert.equal(esRespuestaAutomaticaDeNegocio(t), false, t);
+  }
+  assert.equal(esRespuestaAutomaticaDeNegocio(undefined), false);
 });

@@ -466,6 +466,11 @@ export const config = {
   // retoma la conversación y responde lo pendiente. 0 = nunca (el bot calla hasta que la sesión se
   // cierre, como antes). Ver ai/retomarChat.ts.
   retomarChatHoras: Number(process.env.RETOMAR_CHAT_HORAS ?? 0) || 0,
+  // Si el bot DERIVÓ (escalar_a_humano o por puntaje) y en estas horas nadie del equipo escribió en el
+  // chat, el chat vuelve al bot y se reactivan los recordatorios. Corre dentro del mismo barrido que
+  // RETOMAR_CHAT_HORAS, así que necesita que esa esté encendida. Carver, 03-11-2026: 8 leads con
+  // puntaje alto pasaron 24 h sin que nadie los tomara, con los recordatorios apagados. 0 = nunca.
+  reactivarSinTomarHoras: Number(process.env.REACTIVAR_SIN_TOMAR_HORAS ?? (esCarver ? 4 : 0)) || 0,
   // Comprobación horaria de que los DOS caminos hacia Bitrix siguen vivos (webhook y OAuth). El
   // OAuth de Postgrados llevaba días sin poder renovarse y nada lo decía: las conversaciones
   // andaban, pero todo lo proactivo fallaba en silencio.

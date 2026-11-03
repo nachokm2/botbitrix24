@@ -1446,6 +1446,52 @@ export async function dbUltimaDerivacion(dealId: number): Promise<number | null>
 
 /** Transcripciones de las conversaciones con actividad en las últimas `horas`, para la revisión
  *  automática (ai/revisionDiaria.ts). Una fila por diálogo, con el diálogo completo ya armado. */
+// Cómo se le nombra cada herramienta al auditor: por lo que respalda, no por su nombre técnico.
+const FUENTE_DE_HERRAMIENTA: Record<string, string> = {
+  consultar_condiciones_comerciales: 'precios, becas y formas de pago',
+  detalle_programa: 'ficha del programa (requisitos, duración, malla)',
+  consultar_programas: 'catálogo de programas',
+  obtener_brochure: 'brochure del programa',
+  obtener_enlace_de_pago: 'enlaces de pago',
+  consultar_estado_estudiante: 'estado del estudiante en el CRM',
+};
+
+type FilaAuditoria = { dialog_id: string; ts: string | Date; type: string; crm_entity: string | null; detail: any };
+
+/** Arma la conversación de cada chat para el auditor: "Cliente:" y "Bot:", y entre ambos, si el bot
+ *  consultó algo, una línea "[Fuentes verificadas…]". Las filas vienen ordenadas por chat y hora; los
+ *  chats salen del más reciente al más antiguo. */
+export function transcripcionesConFuentes(
+  filas: FilaAuditoria[],
+): Array<{ dialogId: string; crmEntity: string | null; turnos: number; fin: string; texto: string }> {
+  const chats = new Map<string, { crmEntity: string | null; turnos: number; fin: string; lineas: string[]; fuentes: string[] }>();
+  for (const f of filas) {
+    if (!chats.has(f.dialog_id)) chats.set(f.dialog_id, { crmEntity: null, turnos: 0, fin: '', lineas: [], fuentes: [] });
+    const c = chats.get(f.dialog_id)!;
+    const d = f.detail ?? {};
+    if (f.type === 'tool_call') {
+      const nombre = String(d.name ?? '');
+      const fuente =
+        nombre === 'consultar_informacion_institucional'
+          ? `conocimiento institucional (${String(d.input?.tema ?? 'general')})`
+          : FUENTE_DE_HERRAMIENTA[nombre];
+      if (fuente && d.ok !== false && !c.fuentes.includes(fuente)) c.fuentes.push(fuente);
+      continue;
+    }
+    c.turnos++;
+    c.fin = new Date(f.ts).toISOString();
+    if (!c.crmEntity && f.crm_entity) c.crmEntity = f.crm_entity;
+    c.lineas.push(`Cliente: ${String(d.message ?? '')}`);
+    if (c.fuentes.length) c.lineas.push(`[Fuentes verificadas que consultó el bot antes de responder: ${c.fuentes.join('; ')}]`);
+    c.lineas.push(`Bot: ${String(d.reply ?? '')}`);
+    c.fuentes = [];
+  }
+  return [...chats.entries()]
+    .filter(([, c]) => c.turnos > 0)
+    .map(([dialogId, c]) => ({ dialogId, crmEntity: c.crmEntity, turnos: c.turnos, fin: c.fin, texto: c.lineas.join('\n') }))
+    .sort((a, b) => b.fin.localeCompare(a.fin));
+}
+
 export async function dbTranscripcionesRecientes(
   horas = 24,
   limite = 40,
@@ -1453,29 +1499,24 @@ export async function dbTranscripcionesRecientes(
   if (!pool) return [];
   const h = Math.max(1, Math.min(168, Math.round(horas))); // se interpola en SQL: se acota a un entero sano
   try {
+    // Los turnos y, entre ellos, las herramientas que consultó el bot: sin eso el auditor marcaba como
+    // "info_dudosa" precios, becas y fechas que venían de fuentes verificadas (unos 30 hallazgos
+    // falsos del 25-10 al 03-11-2026).
     const r = await pool.query(
-      `SELECT dialog_id,
-              count(*)::int turnos,
-              max(ts) fin,
-              (array_agg(crm_entity) FILTER (WHERE crm_entity IS NOT NULL))[1] crm_entity,
-              string_agg(
-                'Cliente: ' || coalesce(detail->>'message','') || E'\nBot: ' || coalesce(detail->>'reply',''),
-                E'\n' ORDER BY ts
-              ) texto
-       FROM audit_log
-       WHERE type='turn' AND dialog_id IS NOT NULL AND ts >= now() - interval '${h} hours'
-       GROUP BY dialog_id
-       ORDER BY max(ts) DESC
-       LIMIT $1`,
+      `WITH recientes AS (
+         SELECT dialog_id FROM audit_log
+         WHERE type='turn' AND dialog_id IS NOT NULL AND ts >= now() - interval '${h} hours'
+         GROUP BY dialog_id
+         ORDER BY max(ts) DESC
+         LIMIT $1
+       )
+       SELECT a.dialog_id, a.ts, a.type, a.crm_entity, a.detail
+       FROM audit_log a JOIN recientes r ON r.dialog_id = a.dialog_id
+       WHERE a.type IN ('turn', 'tool_call') AND a.ts >= now() - interval '${h} hours'
+       ORDER BY a.dialog_id, a.ts`,
       [limite],
     );
-    return r.rows.map((x: any) => ({
-      dialogId: x.dialog_id,
-      crmEntity: x.crm_entity ?? null,
-      turnos: x.turnos,
-      fin: x.fin,
-      texto: x.texto ?? '',
-    }));
+    return transcripcionesConFuentes(r.rows);
   } catch (err) {
     log.warn('dbTranscripcionesRecientes falló', { err: String(err) });
     return [];

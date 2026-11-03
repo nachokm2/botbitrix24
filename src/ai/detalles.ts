@@ -36,6 +36,16 @@ export const DETALLES: Record<string, DetallePrograma> = JSON.parse(readFileSync
 
 const slugFromUrl = (u: string) => u.replace(/\/+$/, '').split('/').pop() ?? u;
 
+/** Sin tildes, mayúsculas ni signos: "Maestría en Administración de Empresas (MBA)" y la del catálogo,
+ *  "Maestría en Administración de Empresas MBA", quedan iguales. */
+const comparable = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
 export function getDetalle(opts: { url?: string; nombre?: string }): DetallePrograma | undefined {
   if (opts.url) {
     const d = DETALLES[slugFromUrl(opts.url)];
@@ -43,9 +53,18 @@ export function getDetalle(opts: { url?: string; nombre?: string }): DetalleProg
   }
   if (opts.nombre) {
     const n = opts.nombre.toLowerCase().trim();
-    return Object.values(DETALLES).find(
+    const exacto = Object.values(DETALLES).find(
       (d) => d.nombre.toLowerCase().includes(n) || n.includes(d.nombre.toLowerCase()),
     );
+    if (exacto) return exacto;
+    // El modelo escribe el nombre a su manera: con paréntesis, el MBA no se encontraba y el bot decía
+    // no tener la malla (6 consultas entre el 31-10 y el 02-11). Solo se intenta si lo de arriba falla.
+    const c = comparable(opts.nombre);
+    if (!c) return undefined;
+    return Object.values(DETALLES).find((d) => {
+      const dc = comparable(d.nombre);
+      return dc.includes(c) || c.includes(dc);
+    });
   }
   return undefined;
 }

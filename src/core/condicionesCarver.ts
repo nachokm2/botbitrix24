@@ -163,7 +163,13 @@ export function buscarCondicionesCarver(programa?: string, opts: { incluirCostos
             porAnio: p.contado.porAnio,
             anios: p.contado.anios,
             matricula: 0,
-            nota: 'La opción más barata. Precio fijo y SIN matrícula. Ya viene con el beneficio aplicado: no le restes otro 50%.',
+            nota:
+              'La opción más barata. Precio fijo y SIN matrícula. Ya viene con el beneficio aplicado: no le restes otro 50%.' +
+              // Las licenciaturas se pagan al contado POR AÑO. Dicho como «USD 2.340 en total» o «un único
+              // pago de USD 2.340», la persona preguntaba si eran 585 al año o qué (7 chats, 31-10 al 02-11).
+              (p.contado.anios && p.contado.anios > 1 && p.contado.porAnio
+                ? ` Se paga POR AÑO: dilo así, «USD ${p.contado.porAnio} al año durante ${p.contado.anios} años», y si quieres agrega el total (USD ${p.contado.total}). Nunca lo presentes como un único pago de USD ${p.contado.total}.`
+                : ''),
           }
         : undefined,
     },

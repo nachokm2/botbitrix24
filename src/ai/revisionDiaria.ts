@@ -28,7 +28,7 @@ Vas a leer UNA conversación entre el asistente ("Bot") y una persona interesada
 Busca SOLO estos tipos de problema:
 - "sin_respuesta": el cliente preguntó algo concreto y el asistente no lo respondió, cambió de tema o respondió otra cosa.
 - "dato_repetido": el asistente pidió un dato que el cliente YA le había entregado, o insistió con el mismo dato tres o más veces.
-- "info_dudosa": el asistente afirmó algo concreto (precio, fecha, requisito, convalidación, duración) que no parece venir de una fuente y podría ser inventado.
+- "info_dudosa": el asistente afirmó algo concreto (precio, fecha, requisito, convalidación, duración) que no parece venir de una fuente y podría ser inventado. Las líneas "[Fuentes verificadas…]" dicen qué consultó el asistente antes de esa respuesta: lo que calce con ellas viene de una fuente y NO es info_dudosa (un precio, una cuota o una beca tras "precios, becas y formas de pago"; un requisito, una duración o la malla tras "ficha del programa"; una fecha de inicio o de cierre, el reconocimiento en un país, un testimonio o un dato operativo tras "conocimiento institucional"), salvo que se contradiga dentro de la misma conversación.
 - "interes_perdido": el cliente mostró interés claro en un programa y la conversación se apagó sin que el asistente pidiera sus datos ni lo derivara.
 - "falla_tecnica": el asistente respondió con una disculpa genérica por un problema técnico, o con un mensaje vacío o sin sentido.
 - "tono": el asistente fue brusco, excesivamente largo o robótico al punto de dañar la conversación.

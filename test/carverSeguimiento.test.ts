@@ -57,15 +57,18 @@ mock.module('../src/crm/directory.ts', {
 
 // Cada recordatorio sale distinto, como saldría del modelo: el guardián descarta lo que repite.
 const TEXTOS = [
-  'Quedo atento por si quiere retomar lo de la maestría.',
+  '¿Pudo revisar lo de la maestría? Si le sirve, le cuento cuándo cierra la postulación.',
   '¿Le acomoda que le cuente cómo son las clases en vivo?',
   '¿Le sirve más empezar en la próxima cohorte?',
   '¿Le envío el detalle de la malla por aquí?',
-  'Entiendo que quizá no es el momento; quedo atento cuando quiera retomarlo.',
+  'Quizá no es el momento; sigo por acá cuando quiera retomarlo.',
 ];
 let llamadas = 0;
 let textoModelo: string | null = null;
+// Respuestas del modelo en orden, para probar la corrección: si hay, mandan sobre lo demás.
+const cola: string[] = [];
 const sistemas: string[] = [];
+const pedidos: any[][] = [];
 let conversacionUsada = '';
 mock.module('../src/ai/client.ts', {
   namedExports: {
@@ -73,8 +76,9 @@ mock.module('../src/ai/client.ts', {
       messages: {
         create: async (req: any) => {
           sistemas.push(String(req.system));
+          pedidos.push(req.messages ?? []);
           conversacionUsada = String(req.messages?.[0]?.content ?? '');
-          const text = textoModelo ?? TEXTOS[llamadas++ % TEXTOS.length];
+          const text = cola.length ? cola.shift()! : (textoModelo ?? TEXTOS[llamadas++ % TEXTOS.length]);
           return { content: [{ type: 'text', text }], usage: {} };
         },
       },
@@ -229,7 +233,9 @@ test('el recordatorio de Carver habla como el asesor a cargo, no como "Sofía de
   assert.equal(envios('c-identidad').length, 1);
   assert.match(sistemas[0], /asesor a cargo de esta conversación en Carver University/);
   assert.match(sistemas[0], /NO nombres a otras personas del equipo/);
-  assert.match(sistemas[0], /veo que quedamos en/, 'la frase que delata a la IA está vetada');
+  assert.match(sistemas[0], /no empieces con "Veo que"/, 'la frase que delata a la IA está vetada');
+  assert.match(sistemas[0], /nunca tuteas ni voseas/);
+  assert.match(sistemas[0], /Usa SOLO lo que está en la conversación/);
   assert.doesNotMatch(sistemas[0], /Sof[ií]a|Universidad Autónoma|español de Chile/);
 });
 
@@ -322,13 +328,13 @@ test('se distingue enviado de respondido: la respuesta del cliente a un recordat
 });
 
 test('el recordatorio pasa por las mismas reglas que una respuesta: sin markdown ni enlaces sueltos', async () => {
-  textoModelo = '**Hola de nuevo.** Revise el programa aquí: https://sitio-cualquiera.com/promo. Quedo atento si quiere retomarlo.';
+  textoModelo = '**Hola de nuevo.** Revise el programa aquí: https://sitio-cualquiera.com/promo. Sigo por acá si quiere retomarlo.';
   try {
     await conversacionRespondida('c-guardian');
     await correrPaso('c-guardian');
     const msg = envios('c-guardian')[0].params.MESSAGE;
     assert.doesNotMatch(msg, /\*\*|sitio-cualquiera/);
-    assert.match(msg, /Quedo atento/);
+    assert.match(msg, /Sigo por acá/);
   } finally {
     textoModelo = null;
   }
@@ -337,4 +343,76 @@ test('el recordatorio pasa por las mismas reglas que una respuesta: sin markdown
 test('formatearTelefono: un celular chileno se escribe como se lee; los demás quedan igual', () => {
   assert.equal(seg.formatearTelefono('+56965862979'), '+56 9 6586 2979');
   assert.equal(seg.formatearTelefono('+51987298495'), '+51987298495');
+});
+
+// ── Revisión del 25-10 al 03-11-2026: lo que un recordatorio no puede decir ─────────────────────
+test('problemasDelRecordatorio: lo que salió en una semana de recordatorios reales', () => {
+  const p = seg.problemasDelRecordatorio;
+  assert.match(p('¿Sigues interesado en la maestría? Puedes escribirme cuando quieras.').join(), /tutea/);
+  assert.match(p('Veo que hizo clic en "Más información" pero no hemos recibido su respuesta.').join(), /Veo que/);
+  assert.match(p('Entiendo que el cliente ya recibió información; aquí va el seguimiento: ¿le quedó alguna duda?').join(), /tercera persona/);
+  assert.match(p('Ya revisé con el área académica y tengo la información lista para usted.').join(), /no está en la conversación/);
+  assert.match(p('Le escribo porque llevo varios intentos de contacto sin respuesta de su parte.').join(), /reprocha/);
+  assert.match(p('Quizá no es el momento; quedo atenta cuando quiera retomarlo.').join(), /género/);
+  assert.deepEqual(p('¿Le cuento cuándo cierra la postulación del próximo ciclo?'), []);
+  assert.deepEqual(p('El docente imparte las clases en vivo; ¿le acomoda el horario de la tarde?'), [], '"imparte" no es tuteo');
+});
+
+test('un recordatorio que sale mal se reescribe una vez, diciéndole al modelo qué corregir', async () => {
+  cola.push('Veo que te interesó la maestría, ¿quieres que te cuente más?', '¿Le cuento cómo son las clases en vivo?');
+  pedidos.length = 0;
+  await conversacionRespondida('c-corrige');
+  await correrPaso('c-corrige');
+  assert.equal(envios('c-corrige')[0].params.MESSAGE, '¿Le cuento cómo son las clases en vivo?');
+  const segundo = pedidos.at(-1)!;
+  assert.equal(segundo.length, 3, 'el segundo pedido lleva el intento fallido y la corrección');
+  assert.match(String(segundo[2].content), /Ese mensaje no sirve: .*tutea.*Veo que/);
+});
+
+test('si la segunda versión también sale mal, va un texto sencillo y seguro', async () => {
+  cola.push('¿Tienes dudas del programa?', '¿Sigues con interés? Escríbeme.');
+  await conversacionRespondida('c-seguro');
+  await correrPaso('c-seguro');
+  assert.equal(envios('c-seguro')[0].params.MESSAGE, seg.recordatorioSeguro('primero', 1));
+  assert.deepEqual(seg.problemasDelRecordatorio(seg.recordatorioSeguro('primero', 1)), []);
+  for (let etapa = 2; etapa <= 4; etapa++) assert.deepEqual(seg.problemasDelRecordatorio(seg.recordatorioSeguro('intermedio', etapa)), []);
+  assert.deepEqual(seg.problemasDelRecordatorio(seg.recordatorioSeguro('cierre', 5)), []);
+});
+
+test('esRechazo: corta ante un no claro, no ante un "no" suelto ni un "no quiero perder la beca"', () => {
+  assert.ok(seg.esRechazo('No me interesa, gracias'));
+  assert.ok(seg.esRechazo('por ahora no, gracias'));
+  assert.ok(seg.esRechazo('Ya me matriculé en otra universidad'));
+  assert.ok(!seg.esRechazo('No'));
+  assert.ok(!seg.esRechazo('no quiero perder la beca, ¿hasta cuándo es?'));
+  assert.ok(!seg.esRechazo('Lo voy a pensar'));
+  // La plantilla de cierre de admisión trae los tres botones, y el último es «Ya no estoy interesado/a».
+  const SEP = '-'.repeat(54);
+  const plantilla = 'Estamos cerrando el proceso de admisión. | [Quiero matricularme ahora] | [Quiero estudiar más adelante] | [Ya no estoy interesado/a]';
+  assert.ok(!seg.esRechazo(`${SEP}\n${plantilla}\n${SEP}\nQuiero matricularme ahora`), 'el botón de la plantilla no cuenta');
+  assert.ok(seg.esRechazo(`${SEP}\n${plantilla}\n${SEP}\nYa no estoy interesado/a`));
+});
+
+test('después de un "no me interesa", la secuencia no sigue', async () => {
+  kvStore.set('mem:c-rechazo', JSON.stringify([...CONVERSACION, { role: 'user', content: 'No me interesa, gracias' }, { role: 'assistant', content: 'Entendido, gracias por avisarme.' }]));
+  await seg.programarSeguimiento('c-rechazo', { deal: 1 }, '5001');
+  await correrPaso('c-rechazo');
+  assert.equal(envios('c-rechazo').length, 0);
+  assert.equal(omitido('c-rechazo'), 'rechazo');
+  assert.ok(sinNadaAgendado('c-rechazo'));
+});
+
+test('al reactivar una derivación que nadie tomó, la ventana corre desde el último mensaje y los pasos vencidos se saltan', async () => {
+  const hace6h = Date.now() - 6 * 3600_000;
+  await seg.programarSeguimiento('c-reactiva', { deal: 1 }, '5001', {
+    clienteAt: hace6h,
+    transcript: 'Cliente: Quiero la maestría en IA\nBot: Con la beca son USD 150 al mes. ¿Le reservo el cupo?',
+  });
+  const pasos: number[] = plan('c-reactiva').pasos;
+  assert.equal(pasos.length, 3, 'de 3, 5, 7, 9 y 23 h quedan los que no pasaron: 7, 9 y 23 h');
+  assert.ok(pasos.every((p) => p > Date.now()));
+  assert.ok(pasos.at(-1)! - hace6h <= 23.5 * 3600_000, 'el último sigue dentro de la ventana de WhatsApp');
+  const snap = JSON.parse(kvStore.get('seguimiento:snapshot:c-reactiva')!);
+  assert.equal(snap.clienteAt, hace6h);
+  assert.match(snap.transcript, /Le reservo el cupo/);
 });

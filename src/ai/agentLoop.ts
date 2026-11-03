@@ -11,7 +11,7 @@ import { inc, recordLlmLatency, recordTokens } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
 import type { CrmEntity } from '../crm/entities';
-import { guardarRespuesta, urlsEn } from '../core/guardRespuesta';
+import { guardarRespuesta, urlsEn, detectarTuteo } from '../core/guardRespuesta';
 import { URLS_OFICIALES_CARVER } from '../core/promptObjeciones';
 import { promptVigente } from '../core/ajustes';
 import { bloqueMomento } from '../core/momento';
@@ -644,6 +644,36 @@ export async function aplicarGuardian(
     } catch (e) {
       log.warn('guardián: no se pudo condensar la respuesta', { err: String(e) });
       cambios.push('condensado_fallido');
+    }
+  }
+
+  // Se trata de "usted" y el modelo igual tutea a veces, sobre todo si la persona tutea o si una
+  // plantilla vino en tú (chat 1570307, 03-11-2026). Se corrige UNA vez con el modelo rápido y solo
+  // se acepta si ya no tutea y conserva cifras y enlaces.
+  if (detectarTuteo(final).length) {
+    try {
+      const resp = await anthropic.messages.create({
+        model: CLASSIFIER,
+        max_tokens: 600,
+        temperature: 0,
+        system:
+          'Eres editor de mensajes de WhatsApp de un asesor de admisión. Reescribe el mensaje tratando a la persona de ' +
+          '"usted" (nunca tú ni vos): cambia solo los verbos, pronombres y posesivos que hagan falta y deja todo lo demás ' +
+          'igual, palabra por palabra, con las mismas cifras, nombres, enlaces y correos. Devuelve SOLO el mensaje.',
+        messages: [{ role: 'user', content: final }],
+      });
+      recordTokens((resp as any).usage);
+      const deUsted = soloTexto(resp);
+      const duros = datosDuros(deUsted);
+      if (deUsted && !detectarTuteo(deUsted).length && datosDuros(final).every((d) => duros.includes(d))) {
+        final = guardarRespuesta(deUsted, { ...ctxGuard, maxCaracteres: Number.MAX_SAFE_INTEGER }).texto;
+        cambios.push('tuteo_corregido');
+      } else {
+        cambios.push('tuteo_no_corregido');
+      }
+    } catch (e) {
+      log.warn('guardián: no se pudo corregir el tuteo', { err: String(e) });
+      cambios.push('tuteo_no_corregido');
     }
   }
 

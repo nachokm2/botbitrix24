@@ -79,6 +79,9 @@ export type Marca = {
   guardRespuesta: boolean;
   /** Largo a partir del cual una respuesta se condensa antes de enviarla (0 = no se condensa). */
   maxCaracteresRespuesta: number;
+  /** No contestarle a la respuesta automática de un WhatsApp Business ("Gracias por comunicarte
+   *  con…"), que vuelve cuando la plantilla le llega a un comercio (ver core/ecos.ts). */
+  ignoraRespuestasAutomaticas: boolean;
   /** Tras derivar a una persona, el bot calla durante TODA esa sesión de Open Lines, no solo durante
    *  las 6 h que dura su estado en memoria (ver session.ts:traspasoVigente). */
   traspasoPorSesion: boolean;
@@ -162,6 +165,7 @@ const POSTGRADOS: Marca = {
   tiposComercializables: [],
   guardRespuesta: false,
   maxCaracteresRespuesta: 0,
+  ignoraRespuestasAutomaticas: false,
   traspasoPorSesion: false,
   soporteEstudiantes: false,
   brochureVerificado: false,
@@ -218,6 +222,7 @@ const CARVER: Marca = {
   tiposComercializables: ['licenciatura', 'maestria'],
   guardRespuesta: true,
   maxCaracteresRespuesta: Number(env('MAX_CARACTERES_RESPUESTA', '750')) || 0,
+  ignoraRespuestasAutomaticas: true,
   traspasoPorSesion: true,
   soporteEstudiantes: true,
   brochureVerificado: true,

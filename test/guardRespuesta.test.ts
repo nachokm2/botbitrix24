@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 process.env.NODE_ENV = 'test';
 process.env.REDIS_URL = '';
 
-const { guardarRespuesta, preguntaPorCostosAdicionales, preguntaCostoApostilla, urlsEn } = await import('../src/core/guardRespuesta');
+const { guardarRespuesta, preguntaPorCostosAdicionales, preguntaCostoApostilla, urlsEn, detectarTuteo } = await import('../src/core/guardRespuesta');
 
 const ctx = (extra: Partial<Parameters<typeof guardarRespuesta>[1]> = {}) => ({
   mensajeCliente: 'Precio y contenido',
@@ -151,4 +151,22 @@ test('detecta la afirmación de registro aunque tenga palabras en medio ("Quedé
   const r = guardarRespuesta(texto, ctx({ mensajeCliente: 'Soy Carla', crmFallo: true }));
   assert.doesNotMatch(r.texto, /anotad/);
   assert.match(r.texto, /¿Le cuento el programa\?/);
+});
+
+test('"derechos de grado" es preguntar por la titulación: el monto no se quita (chat 1563451)', () => {
+  assert.equal(preguntaPorCostosAdicionales('¿Y cuánto son los derechos de grado?'), true);
+  assert.equal(preguntaPorCostosAdicionales('¿Cuál es el costo del título?'), true);
+  const r = guardarRespuesta('Los derechos de grado son USD 125 al finalizar.', ctx({ mensajeCliente: '¿Y los derechos de grado?' }));
+  assert.match(r.texto, /USD 125/);
+});
+
+test('detectarTuteo: encuentra tú y vos, y deja pasar el usted y las palabras que solo se parecen', () => {
+  assert.deepEqual(detectarTuteo('Al graduarte puedes trabajar en lo que quieras.').sort(), ['graduarte', 'puedes', 'quieras']);
+  assert.deepEqual(detectarTuteo('¿Tenés dudas? Contame qué buscás.').sort(), ['buscas', 'contame', 'tenes']);
+  assert.ok(detectarTuteo('¿Te cuento cómo son las clases?').includes('te'));
+  assert.deepEqual(detectarTuteo('¿Le cuento cómo son las clases? Puede inscribirse hoy.'), []);
+  assert.deepEqual(detectarTuteo('El docente imparte la clase y comparte el material; la beca se convierte en un ahorro.'), []);
+  assert.deepEqual(detectarTuteo('Estas son las opciones: la parte práctica y la teórica.'), []);
+  assert.deepEqual(detectarTuteo('¡Hola, Ti Chou! Le cuento lo más relevante.'), [], '"Ti" puede ser un nombre');
+  assert.deepEqual(detectarTuteo('Este programa es ideal para ti.'), ['para ti']);
 });

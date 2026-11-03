@@ -5,8 +5,10 @@ import { getState, type Auth } from '../store';
 import { config } from '../config';
 import { lineaDelChat } from '../core/listaBlanca';
 import { asesoresDisponibles } from '../core/horarioAsesores';
-import { getSession, saveSession, leerTraspaso, borrarTraspaso, PREFIJO_TRASPASO } from '../session';
+import { getSession, saveSession, leerTraspaso, borrarTraspaso, PREFIJO_TRASPASO, type Traspaso } from '../session';
 import { setHistory } from './memory';
+import { programarSeguimiento, entidadesDelSeguimiento } from './seguimiento';
+import { derivacionYaGestionada } from '../crm/embudos';
 import { procesarMensajeSintetico } from '../routes/botEvents';
 import { audit } from '../obs/audit';
 import { log } from '../log';
@@ -101,6 +103,38 @@ export function motivoParaNoRetomar(e: EstadoChat, traspasoAt: number, horas: nu
   return null;
 }
 
+// Solo lo que derivó el bot. Si un asesor entró al chat ('operador') o era horario de asesores, el
+// chat es de ellos aunque lleven horas sin escribir.
+const DERIVACIONES_DEL_BOT = new Set(['escalado', 'auto_escalado']);
+
+/**
+ * La otra mitad: una derivación que NADIE tomó y en la que el cliente tampoco espera respuesta (lo
+ * último lo dijo el bot). Al derivar se apagan los recordatorios; si después nadie le escribe, el
+ * lead queda solo. Carver, 25-10 al 03-11-2026: 8 leads con puntaje alto pasaron 24 h así.
+ * Devuelve el motivo para NO devolverle el chat al bot con los recordatorios, o null.
+ */
+export function motivoParaNoReactivar(e: EstadoChat, t: { at: number; motivo: string }, horas: number, ahora = Date.now()): string | null {
+  if (horas <= 0) return 'apagado';
+  if (!DERIVACIONES_DEL_BOT.has(t.motivo)) return 'no_fue_una_derivacion_del_bot';
+  if (!e.equipo.length && !e.botDentro) return 'ni_el_bot_ni_el_equipo_en_el_chat';
+  if (e.pendientes.length) return 'el_cliente_espera_respuesta'; // eso es retomar, no reactivar
+  if (e.ultimaDelEquipo >= t.at) return 'el_equipo_escribio_despues_de_derivar';
+  if (ahora - t.at < horas * 3600_000) return 'derivacion_reciente';
+  if (!e.ultimaDelCliente || ahora - e.ultimaDelCliente > VENTANA_WHATSAPP_MS) return 'fuera_de_la_ventana_de_24h';
+  return null;
+}
+
+/** La conversación del chat en el formato de la memoria del bot ("Cliente: …" / "Bot: …"), para
+ *  escribir los recordatorios cuando esa memoria ya venció. Lo del equipo cuenta como "Bot": el bot
+ *  habla como el asesor a cargo. */
+export function transcriptDelChat(mensajes: Mensaje[], clienteId: string | null): string {
+  return [...mensajes]
+    .sort((a, b) => Number(a.id ?? 0) - Number(b.id ?? 0))
+    .filter((m) => String(m.author_id ?? '0') !== '0' && String(m.text ?? '').trim())
+    .map((m) => `${clienteId && String(m.author_id) === clienteId ? 'Cliente' : 'Bot'}: ${String(m.text).replace(/\s+/g, ' ').trim()}`)
+    .join('\n');
+}
+
 /** Le devuelve la sesión al bot. Primero como traspaso directo; si Bitrix lo exige, interceptándola antes. */
 async function devolverAlBot(chatId: string, botId: number, auth: Auth): Promise<{ ok: boolean; metodo?: string; errores: string[] }> {
   const errores: string[] = [];
@@ -176,7 +210,15 @@ export async function retomarChat(
   const horas = opts.forzar ? 0 : (opts.horas ?? config.retomarChatHoras);
   const motivo = motivoParaNoRetomar(estado, traspaso?.at ?? 0, horas);
   const visto = { dialogId, equipoAntes: estado.equipo, botDentro: estado.botDentro, pendientes: estado.pendientes.length };
-  if (opts.simular) return { ...visto, retomado: false, retomaria: !motivo, motivo: motivo ?? undefined };
+  // Nadie espera respuesta, pero puede ser una derivación que nadie tomó: entonces se reactivan los
+  // recordatorios en vez de dejar al lead solo.
+  const reactivar =
+    motivo === 'el_cliente_no_espera_respuesta' && !opts.forzar && traspaso !== null &&
+    motivoParaNoReactivar(estado, traspaso, config.reactivarSinTomarHoras) === null;
+  if (opts.simular) {
+    return { ...visto, retomado: false, retomaria: !motivo || reactivar, motivo: reactivar ? 'reactivaria_recordatorios' : (motivo ?? undefined) };
+  }
+  if (reactivar) return reactivarRecordatorios(dialogId, chatId, botId, auth, estado, traspaso!, mensajes, visto);
   if (motivo) return { ...visto, retomado: false, motivo };
 
   // Sin nadie del equipo en el chat, Bitrix ya le entrega los mensajes al bot: el silencio es solo la
@@ -221,6 +263,48 @@ export async function retomarChat(
   void audit({ type: 'chat_retomado', dialogId, detail: { metodo: d.metodo, pendientes: estado.pendientes.length, forzado: Boolean(opts.forzar) } }).catch(() => {});
   log.info('retomarChat: el bot retomó la conversación', { dialogId, metodo: d.metodo, pendientes: estado.pendientes.length });
   return { dialogId, retomado: true, metodo: d.metodo, errores: d.errores, equipoAntes: estado.equipo, equipoDespues, botDentro, respondido };
+}
+
+/** Le devuelve al bot una derivación que nadie tomó y vuelve a armar la secuencia de recordatorios,
+ *  contando la ventana de 24 h desde el último mensaje de la persona. No responde nada en el acto:
+ *  el cliente no está esperando respuesta. */
+async function reactivarRecordatorios(
+  dialogId: string,
+  chatId: string,
+  botId: number,
+  auth: Auth,
+  estado: EstadoChat,
+  traspaso: Traspaso,
+  mensajes: Mensaje[],
+  visto: Pick<ResultadoRetoma, 'dialogId' | 'equipoAntes' | 'botDentro' | 'pendientes'>,
+): Promise<ResultadoRetoma> {
+  // Un asesor que movió la negociación después de la derivación la está trabajando por fuera del
+  // chat (una llamada, un correo): no se le cruza el bot.
+  const entidades = await entidadesDelSeguimiento(dialogId);
+  if (entidades?.deal && (await derivacionYaGestionada(entidades.deal, auth))) {
+    return { ...visto, retomado: false, motivo: 'un_asesor_gestiona_la_negociacion' };
+  }
+  const d = estado.equipo.length ? await devolverAlBot(chatId, botId, auth) : { ok: true, metodo: 'levantar_silencio', errores: [] as string[] };
+  const despues = await participantesDe(dialogId, auth).catch(() => [] as Participante[]);
+  const botDentro = despues.some((u) => u.bot || String(u.id) === String(botId));
+  if (!d.ok || !botDentro) {
+    void audit({ type: 'retoma_fallida', dialogId, detail: { errores: d.errores, botDentro, para: 'reactivar_recordatorios' } }).catch(() => {});
+    log.warn('reactivar recordatorios: Bitrix no le devolvió la sesión al bot', { dialogId, errores: d.errores, botDentro });
+    return { ...visto, retomado: false, motivo: 'bitrix_no_devolvio_la_sesion', errores: d.errores, botDentro };
+  }
+
+  await borrarTraspaso(dialogId);
+  const s = await getSession(dialogId);
+  delete s.humanTookOver;
+  await saveSession(dialogId, s);
+  await programarSeguimiento(dialogId, entidades ?? undefined, traspaso.sesion, {
+    clienteAt: estado.ultimaDelCliente,
+    transcript: transcriptDelChat(mensajes, estado.clienteId),
+  });
+  const horas = Math.round(((Date.now() - traspaso.at) / 3600_000) * 10) / 10;
+  void audit({ type: 'recordatorios_reactivados', dialogId, detail: { metodo: d.metodo, motivoDerivacion: traspaso.motivo, horasDesdeDerivacion: horas } }).catch(() => {});
+  log.info('retomarChat: nadie tomó la derivación; vuelven los recordatorios', { dialogId, metodo: d.metodo, horas });
+  return { ...visto, retomado: true, metodo: d.metodo, motivo: 'recordatorios_reactivados', errores: d.errores, botDentro };
 }
 
 /** Conversaciones con marca de traspaso (dialogId), sin repetidos. */

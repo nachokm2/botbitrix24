@@ -25,9 +25,28 @@ const norm = (s: string) =>
  *  costos adicionales)? Solo entonces se pueden mencionar. */
 export function preguntaPorCostosAdicionales(mensaje: string): boolean {
   const t = norm(mensaje);
-  return /titulaci|graduaci|\bfee\b|costos? (adicional|extra)|cobros? (adicional|extra)|pagos? (adicional|extra)|otros? (costos?|cobros?|pagos?|gastos?)|algun (otro )?(costo|cobro|pago|gasto)|en total|total (a pagar|del programa|final|de todo)|todo incluido|que (mas|otro) (hay que|tengo que|debo) pagar|incluye todo|costo total|valor total|inscripci|retiro/.test(
+  // "Derechos de grado" es como se le dice a la titulación en varios países: la pregunta quedaba sin
+  // responder porque la regla de abajo quitaba el monto (chat 1563451, 01-11-2026).
+  return /titulaci|graduaci|\bfee\b|derechos? de grado|(costo|valor|precio|cobro) (del|de) (titulo|grado|diploma)|emision del titulo|costos? (adicional|extra)|cobros? (adicional|extra)|pagos? (adicional|extra)|otros? (costos?|cobros?|pagos?|gastos?)|algun (otro )?(costo|cobro|pago|gasto)|en total|total (a pagar|del programa|final|de todo)|todo incluido|que (mas|otro) (hay que|tengo que|debo) pagar|incluye todo|costo total|valor total|inscripci|retiro/.test(
     t,
   );
+}
+
+// Formas de tú y de vos que no aparecen cuando se trata de "usted". Quedan fuera las ambiguas
+// ("estas" es también demostrativo; "mira" o "recuerda" pueden ser tercera persona): mejor dejar
+// pasar un tuteo que reescribir un mensaje correcto. El infinitivo con "te" ("contarte",
+// "conocerte", "inscribirte") excluye las palabras que terminan igual sin serlo: "imparte" y
+// "comparte" (-parte), "invierte" y "convierte" (-ierte). "Ti" solo con preposición: también es un
+// nombre ("¡Hola, Ti!").
+const TUTEO =
+  /\b(tu|tus|(?:para|a|de|en|por|sin|sobre) ti|contigo|tuyo|tuya|te|eres|tienes|puedes|quieres|necesitas|deseas|prefieres|sabes|buscas|piensas|crees|vas|haces|debes|podrias|tendrias|quisieras|tengas|puedas|quieras|cuentame|dime|escribeme|avisame|dejame|contame|tenes|queres|podes|sos|vos|[a-z]{2,}[a-oq-z]arte|[a-z]{2,}[a-hj-z]erte|[a-z]{3,}irte|[a-z]{3,}(ando|iendo)te)\b/g;
+
+/** Las palabras que delatan tuteo o voseo en un texto, sin repetir. Vacío si trata de "usted".
+ *  Carver: «Al graduarte puedes trabajar…» (chat 1570307, 03-11-2026), y 44 recordatorios en una semana. */
+export function detectarTuteo(texto: string): string[] {
+  const vistas = new Set<string>();
+  for (const m of norm(texto).matchAll(TUTEO)) vistas.add(m[0]);
+  return [...vistas];
 }
 
 // Una frase que menciona el fee de titulación/graduación o el de retiro, con o sin monto. Se detecta

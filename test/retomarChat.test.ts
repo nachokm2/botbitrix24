@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 process.env.NODE_ENV = 'test';
 process.env.REDIS_URL = '';
 
-const { leerEstado, motivoParaNoRetomar } = await import('../src/ai/retomarChat');
+const { leerEstado, motivoParaNoRetomar, motivoParaNoReactivar, transcriptDelChat } = await import('../src/ai/retomarChat');
 
 const BOT = 800185;
 const participantes = [
@@ -83,4 +83,38 @@ test('la asesora ya salió del chat y el bot sigue dentro: retoma lo nuevo, no l
   assert.equal(e.botDentro, true);
   assert.deepEqual(e.pendientes, ['Holaaa', 'MBA', 'Work']);
   assert.equal(motivoParaNoRetomar(e, ahora - 17 * 24 * 3600_000, 4, ahora), null);
+});
+
+// ── Derivaciones que nadie tomó (25-10 al 03-11-2026: 8 leads con puntaje alto, 24 h sin nadie) ──
+const sinTomar = () => leerEstado(participantes, [msj(1, 820437, 5.5, 'Quiero pagar'), msj(2, BOT, 5.2, 'Perfecto, se lo dejo listo.')], BOT);
+const derivacion = { at: ahora - 5 * 3600_000, motivo: 'auto_escalado' };
+
+test('una derivación del bot que nadie tomó en 4 h vuelve al bot, con los recordatorios', () => {
+  assert.equal(motivoParaNoReactivar(sinTomar(), derivacion, 4, ahora), null);
+  assert.equal(motivoParaNoReactivar(sinTomar(), { ...derivacion, motivo: 'escalado' }, 4, ahora), null);
+});
+
+test('no se reactiva si alguien del equipo escribió, si la tomó un asesor, si es reciente o si pasó la ventana de 24 h', () => {
+  const escribio = leerEstado(participantes, [msj(1, 820437, 5.5, 'Quiero pagar'), msj(2, BOT, 5.2, 'Perfecto'), msj(3, 62741, 3, 'Hola, soy la asesora')], BOT);
+  assert.equal(motivoParaNoReactivar(escribio, derivacion, 4, ahora), 'el_equipo_escribio_despues_de_derivar');
+  assert.equal(motivoParaNoReactivar(sinTomar(), { ...derivacion, motivo: 'operador' }, 4, ahora), 'no_fue_una_derivacion_del_bot');
+  assert.equal(motivoParaNoReactivar(sinTomar(), { ...derivacion, at: ahora - 2 * 3600_000 }, 4, ahora), 'derivacion_reciente');
+  const viejo = leerEstado(participantes, [msj(1, 820437, 30, 'Quiero pagar'), msj(2, BOT, 29, 'Perfecto')], BOT);
+  assert.equal(motivoParaNoReactivar(viejo, { ...derivacion, at: ahora - 29 * 3600_000 }, 4, ahora), 'fuera_de_la_ventana_de_24h');
+  const esperando = leerEstado(participantes, [msj(1, BOT, 6, 'Perfecto'), msj(2, 820437, 5, '¿Y el enlace?')], BOT);
+  assert.equal(motivoParaNoReactivar(esperando, derivacion, 4, ahora), 'el_cliente_espera_respuesta', 'eso es retomar y responder');
+  assert.equal(motivoParaNoReactivar(sinTomar(), derivacion, 0, ahora), 'apagado');
+});
+
+test('transcriptDelChat: la conversación del chat con el formato de la memoria del bot', () => {
+  const t = transcriptDelChat(
+    [
+      msj(2, BOT, 5.2, 'Con la beca son USD 150.'),
+      msj(1, 820437, 5.5, 'Quiero  la maestría'),
+      msj(3, 0, 5, 'El bot reenvió la conversación a un agente'),
+      msj(4, 62741, 4, 'Hola, soy la asesora'),
+    ],
+    '820437',
+  );
+  assert.equal(t, 'Cliente: Quiero la maestría\nBot: Con la beca son USD 150.\nBot: Hola, soy la asesora');
 });

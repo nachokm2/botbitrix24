@@ -26,6 +26,28 @@ export function esEnvioNuestroPorChatApp(texto: string | undefined): boolean {
   return /^\s*\[B\]\s*Sent from external application\s*\[\/B\]/i.test(String(texto ?? ''));
 }
 
+/**
+ * ¿Es la respuesta automática de un WhatsApp Business? Nuestra plantilla le llega a números de
+ * comercios y consultas, y su mensaje de bienvenida vuelve como si lo hubiera escrito la persona: el
+ * bot le ofrecía maestrías a «Gracias por comunicarte con Creaciones Karina 🍰» y a un «servicio Uber»
+ * (unos 10 chats del 25-10 al 03-11-2026). Detrás puede haber un interesado de verdad, que contestará
+ * después: por eso no se responde a la máquina, pero tampoco se cierra nada.
+ */
+export function esRespuestaAutomaticaDeNegocio(texto: string | undefined): boolean {
+  const t = String(texto ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .trim();
+  if (!t || respuestaAPlantilla(t) !== null) return false; // contestar una plantilla es de una persona
+  return (
+    /^\W*(hola\W+)?gracias por comunicarte con\b/.test(t) ||
+    /\b(he|hemos) recibido (tu|su) mensaje\b[^.!?]*\b(respondere|responderemos|contactare|contactaremos|pondre en contacto|lo antes posible|tan pronto|en breve|a la brevedad)/.test(t) ||
+    /en este momento no (estoy|estamos|podemos) (disponibles?|responder|atender)/.test(t) ||
+    /\b(mensaje|respuesta) automatic[oa]\b/.test(t)
+  );
+}
+
 /** Lo que contestó la persona a una plantilla citada, o null si el mensaje no cita una plantilla. */
 export function respuestaAPlantilla(texto: string | undefined): string | null {
   const t = String(texto ?? '').trim();

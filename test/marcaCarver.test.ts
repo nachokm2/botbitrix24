@@ -328,7 +328,10 @@ test('marca=carver: nunca se presenta como bot ni asistente virtual, con o sin a
 test('marca=carver: el tono es cordial y sin formato de informe', () => {
   assert.match(SYSTEM_PROMPT, /sin rigidez ni solemnidad/);
   assert.match(SYSTEM_PROMPT, /nada de negritas decorativas, tablas ni títulos/);
-  assert.doesNotMatch(SYSTEM_PROMPT, /nunca tuteas ni voseas/, 'esa rigidez es de Postgrados');
+  assert.doesNotMatch(SYSTEM_PROMPT, /tono cercano, profesional y resolutivo/, 'el tono de Postgrados no se copia');
+  // Pero el "usted" no es negociable: en una semana salieron 44 recordatorios y varias respuestas
+  // tuteando (25-10 al 03-11-2026), algunas porque la persona o una plantilla venían en tú.
+  assert.match(SYSTEM_PROMPT, /nunca tuteas ni voseas, aunque la persona te tutee/);
 });
 
 // Carver es SOLO WhatsApp. Los endpoints de webchat, voz y redes no deben estar vivos en su
@@ -559,7 +562,16 @@ test('los creditos se nombran Carnegie, nunca a secas ni como ECTS', async () =>
 test('no pierde al interesado: ante señales de compra, captura o deriva en vez de solo quedar atento', async () => {
   assert.match(SYSTEM_PROMPT, /NO PIERDAS AL INTERESADO/);
   assert.match(SYSTEM_PROMPT, /su teléfono de contacto SIEMPRE lo tienes, es el WhatsApp/);
-  assert.match(SYSTEM_PROMPT, /NO cierres con un simple "quedo atento": deriva con escalar_a_humano/);
+  assert.match(SYSTEM_PROMPT, /NO cierres con un simple "quedo pendiente": deriva con escalar_a_humano/);
+});
+
+// Revisión del 25-10 al 03-11-2026: ante "lo pienso" el bot contestaba "tómese su tiempo" y la
+// persona se iba sin dejar correo ni un próximo paso (unos 10 chats).
+test('ante "lo pienso": pregunta qué le falta, propone una fecha atada al cierre de postulación y pide el correo una vez', () => {
+  assert.match(SYSTEM_PROMPT, /NO lo aceptes en seco ni respondas solo "tómese su tiempo"/);
+  assert.match(SYSTEM_PROMPT, /pregúntale qué le falta para decidir/);
+  assert.match(SYSTEM_PROMPT, /tema "calendario_ingresos"\) busca cuándo cierra la postulación/);
+  assert.match(SYSTEM_PROMPT, /si no tienes su correo, pídeselo UNA vez/);
 });
 
 test('el botón "Más información" se responde con info del programa, no con una repregunta', async () => {
