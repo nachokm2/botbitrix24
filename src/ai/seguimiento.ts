@@ -21,6 +21,7 @@ import { listaBlancaActiva, puedeResponder } from '../core/listaBlanca';
 import type { Auth } from '../store';
 import { vigilarDerivacion, barrerVigilanciaDerivaciones } from '../crm/vigilanciaDerivaciones';
 import { primaryEntity, type CrmEntities } from '../crm/entities';
+import { getIdentidadAsesor } from '../crm/directory';
 
 // Seguimiento automático (WhatsApp/Open Lines) en 3 etapas, si el bot respondió y el cliente quedó
 // en silencio — las TRES ancladas a la MISMA última respuesta del bot (no una después de la otra):
@@ -43,6 +44,13 @@ import { primaryEntity, type CrmEntities } from '../crm/entities';
 // escribirle a alguien por iniciativa propia (Web Chat/Instagram/Messenger no tienen una forma de
 // "empujar" un mensaje al visitante fuera de una respuesta), y el único con deals reales a los que
 // asignar un asesor por turno.
+//
+// SECUENCIA POR ETAPAS (SEGUIMIENTO_ETAPAS_HORAS; Carver desde el 03-11-2026). En vez de los dos
+// recordatorios fijos, N mensajes: el primero retoma el hilo, los del medio buscan una respuesta
+// fácil (sí, no, una palabra) y el último cierra con el WhatsApp y el correo del asesor a cargo, para
+// que si después lo contacta por fuera no le escriba un desconocido. Cada chat tiene UN solo paso
+// pendiente a la vez (PASOS_KEY) y su plan guardado (PLAN_KEY): dos pasos no pueden dispararse en el
+// mismo barrido, que es como llegaban dos recordatorios con un minuto de diferencia.
 
 const DUE_KEY = 'seguimiento:due';
 const SEGUNDO_KEY = 'seguimiento:segundo:due';
@@ -65,34 +73,87 @@ const ENVIADOS_KEY = (dialogId: string) => `seguimiento:enviados:${dialogId}`;
 // margen: un recordatorio que sale después no llega, aunque Bitrix lo acepte.
 const VENTANA_WHATSAPP_MS = 23.5 * 3600_000;
 
+const PASOS_KEY = 'seguimiento:pasos:due';
+const PLAN_KEY = (dialogId: string) => `seguimiento:plan:${dialogId}`;
+const PLAN_TTL_SEC = 2 * 24 * 3600;
+// Entre dos recordatorios de la secuencia, como mínimo. Cuando la noche corre varios a la mañana,
+// sin esto saldrían todos juntos a las 9:00.
+const SEPARACION_MIN_MS = 2 * 3600_000;
+
 type Snapshot = { transcript: string; clienteAt: number; sesion: string | null };
+/** `id` es el instante en que se programó: distingue esta secuencia de la que la reemplace si el
+ *  cliente responde mientras un paso se está enviando. */
+type Plan = { id: number; pasos: number[]; siguiente: number };
+type TipoRecordatorio = 'primero' | 'intermedio' | 'cierre';
+
+function tipoDeEtapa(etapa: number, total: number): TipoRecordatorio {
+  if (etapa === 1) return 'primero';
+  return etapa >= total ? 'cierre' : 'intermedio';
+}
 
 const TONO_SEGUIMIENTO = `Escribe en español de Chile, tratando siempre de "usted" (nunca tuteas ni voseas). No inventes datos ni programas, no uses un saludo formal tipo "Estimado/a", y no empieces con "Oye" ni otras muletillas informales similares ("Ey", "Oiga"). NUNCA uses voseo chileno ("cómo estai", "cachai", "teni") ni jerga de calle: representas a una universidad — cercano pero profesional, como corresponde a una asesora. Devuelve SOLO el mensaje, sin comillas ni explicación.`;
 
 // La identidad del recordatorio sale de la marca. Estaba fija en "Sofía, asesora de Postgrados de la
 // Universidad Autónoma de Chile" también para Carver: el seguimiento le hablaba al cliente con otra
 // identidad y en el mismo chat nombraba al asesor en tercera persona ("coordinar con Ignacio").
-const TONO_SEGUIMIENTO_ASESOR = `Escribe en ${marca.espanol}, tratando siempre de "usted". Sin saludo formal tipo "Estimado/a", sin negritas, sin enlaces y sin cifras ni costos. No inventes datos ni programas. Devuelve SOLO el mensaje, sin comillas ni explicación.`;
+// La reunión de Carver del 02-11-2026 marcó "veo que quedamos en…" como la frase que delata a la IA.
+const TONO_SEGUIMIENTO_ASESOR = `Escribe en ${marca.espanol}, tratando siempre de "usted". Sin saludo formal tipo "Estimado/a", sin negritas, sin enlaces y sin cifras ni costos. Habla directo, como una persona: nada de fórmulas como "veo que quedamos en", "retomando nuestra conversación" o "le escribo para hacer seguimiento". No inventes datos ni programas. Devuelve SOLO el mensaje, sin comillas ni explicación.`;
 
-/** Prompt del recordatorio según la etapa: el primero retoma el hilo, el segundo (y último, horas
- *  más tarde) cierra dejando la puerta abierta — si mandara otra vez "¿te quedaron dudas?" se
- *  leería como insistencia, que es justo lo que molesta a alguien que ya decidió no responder. */
-function sistemaSeguimiento(etapa: 1 | 2): string {
+const recordatorios = (n: number) => (n === 1 ? 'UN recordatorio' : `${n} recordatorios`);
+
+/** Prompt del recordatorio según su lugar en la secuencia: el primero retoma el hilo, los del medio
+ *  buscan una respuesta fácil y el último cierra dejando la puerta abierta — si mandara otra vez
+ *  "¿te quedaron dudas?" se leería como insistencia, que es justo lo que molesta a alguien que ya
+ *  decidió no responder. `conContacto`: al cierre se le agregan después el WhatsApp y el correo del
+ *  asesor, así que el modelo no debe escribirlos (ni inventarlos). */
+function sistemaSeguimiento(tipo: TipoRecordatorio, etapa: number, conContacto = false): string {
   if (marca.sePresentaComoAsesor) {
     const baseAsesor =
       `Eres el asesor a cargo de esta conversación en ${marca.organizacion}; ya te presentaste antes. El cliente no ha ` +
       'respondido desde tu último mensaje. NO vuelvas a presentarte ni digas tu nombre, y NO nombres a otras personas del ' +
       'equipo: el seguimiento lo haces tú, en primera persona.';
-    if (etapa === 1) {
+    if (tipo === 'primero') {
       return `${baseAsesor} Escribe UN mensaje de seguimiento breve (1 a 2 frases), cálido y natural: retoma el hilo (el programa o tema del que hablaban) y ofrece seguir ayudando. No repitas algo que ya dijiste. ${TONO_SEGUIMIENTO_ASESOR}`;
     }
-    return `${baseAsesor} Ya le escribiste UN recordatorio hace varias horas y tampoco respondió: este es el ÚLTIMO mensaje. Escribe UNA frase que cierre con elegancia: entiende que puede no ser el momento y deja la puerta abierta ("quedo atento cuando quiera retomarlo"). NO insistas, NO repitas el recordatorio anterior y NO presiones con urgencia, cupos ni descuentos. ${TONO_SEGUIMIENTO_ASESOR}`;
+    if (tipo === 'intermedio') {
+      return `${baseAsesor} Ya le escribiste ${recordatorios(etapa - 1)} y sigue sin responder. Escribe UN mensaje muy breve (una frase, máximo dos) que le haga fácil contestar: una pregunta concreta que se responda con sí, no o una palabra, sobre el programa o el siguiente paso. Que no se parezca a tus mensajes anteriores, y NO presiones con urgencia, cupos ni descuentos. ${TONO_SEGUIMIENTO_ASESOR}`;
+    }
+    const contacto = conContacto
+      ? ' NO escribas teléfonos ni correos: tu WhatsApp y tu correo se agregan al final del mensaje.'
+      : '';
+    return `${baseAsesor} Ya le escribiste ${recordatorios(etapa - 1)} y tampoco respondió: este es el ÚLTIMO mensaje. Escribe UNA frase que cierre con elegancia: entiende que puede tener poco tiempo o que no sea el momento, y deja la puerta abierta ("quedo atento cuando quiera retomarlo").${contacto} NO insistas, NO repitas los recordatorios anteriores y NO presiones con urgencia, cupos ni descuentos. ${TONO_SEGUIMIENTO_ASESOR}`;
   }
   const base = 'Eres Sofía, asesora comercial de Postgrados de la Universidad Autónoma de Chile. El cliente no ha respondido desde tu último mensaje.';
-  if (etapa === 1) {
+  if (tipo === 'primero') {
     return `${base} Escribe UN mensaje de seguimiento breve (1 a 3 frases), cálido y natural: retoma el hilo de la conversación (el programa o tema del que hablaban) y ofrece seguir ayudando. No repitas literalmente algo que ya dijiste. ${TONO_SEGUIMIENTO}`;
   }
+  if (tipo === 'intermedio') {
+    return `${base} Ya le escribiste ${recordatorios(etapa - 1)} y sigue sin responder. Escribe UN mensaje muy breve (una frase, máximo dos) que le haga fácil contestar: una pregunta concreta que se responda con sí, no o una palabra. No repitas los mensajes anteriores y NO presiones con urgencia, cupos ni descuentos. ${TONO_SEGUIMIENTO}`;
+  }
   return `${base} Ya le escribiste UN recordatorio hace varias horas y tampoco respondió: este es el ÚLTIMO mensaje que le enviarás. Escribe UN mensaje breve (1 a 2 frases) que cierre con elegancia: entiende que puede no ser el momento, deja la puerta abierta para cuando quiera retomar y menciona que un asesor queda disponible. NO insistas, NO vuelvas a preguntar "¿te quedaron dudas?" ni repitas el recordatorio anterior, y NO presiones con urgencia, cupos ni descuentos. ${TONO_SEGUIMIENTO}`;
+}
+
+/** +56912345678 → "+56 9 1234 5678", como se escribe un celular chileno; los demás quedan igual. */
+export function formatearTelefono(e164: string): string {
+  const m = /^\+569(\d{4})(\d{4})$/.exec(e164);
+  return m ? `+56 9 ${m[1]} ${m[2]}` : e164;
+}
+
+/** La frase con el WhatsApp y el correo del asesor a cargo, para el último recordatorio. Solo lo que
+ *  la coordinación entregó (crm/contactoAsesores.ts) o un correo del dominio oficial: el Gmail
+ *  personal de la ficha de Bitrix no se le da a un cliente. Vacía si no hay nada que dar, o si la
+ *  marca no habla como el asesor (Postgrados habla como Sofía: "mi WhatsApp" no sería de nadie). */
+export async function contactoParaElCierre(dialogId: string, auth: Auth): Promise<string> {
+  if (!marca.sePresentaComoAsesor) return '';
+  const ents = await getJson<CrmEntities>(ENTITIES_KEY(dialogId));
+  if (!ents || !(ents.deal || ents.lead || ents.contact)) return '';
+  const a = await getIdentidadAsesor(ents, auth).catch(() => null);
+  if (!a) return '';
+  const dominio = config.dominioCorreoOficial ? `@${config.dominioCorreoOficial}` : '';
+  const email = a.email && (!dominio || a.email.toLowerCase().endsWith(dominio)) ? a.email : '';
+  const whatsapp = a.telefono ? formatearTelefono(a.telefono) : '';
+  const datos = [whatsapp && `mi WhatsApp ${whatsapp}`, email && `mi correo ${email}`].filter(Boolean).join(' y ');
+  return datos ? `Le dejo ${datos}, por si le acomoda más escribirme por ahí.` : '';
 }
 
 /** Hora local (0-23) de Chile para un instante dado — usa Intl.DateTimeFormat en vez de aritmética
@@ -131,14 +192,51 @@ export function proximoHorarioPermitido(fecha: Date): Date {
   return t;
 }
 
+/** El último instante en que se puede escribir, sin pasar de `hasta` ni llegar a `desde`; null si no
+ *  hay ninguno. Es proximoHorarioPermitido al revés, en pasos de 10 minutos. */
+function ultimoHorarioPermitidoHasta(hasta: number, desde: number): number | null {
+  for (let t = hasta; t > desde; t -= 10 * 60_000) {
+    if (proximoHorarioPermitido(new Date(t)).getTime() === t) return t;
+  }
+  return null;
+}
+
+/** Cuándo sale cada recordatorio de la secuencia por etapas, contando desde `desde` (la última
+ *  respuesta del bot, que abre la ventana de 24 h de WhatsApp):
+ *  - El último va a la hora de su etapa o ANTES, si a esa hora no se puede escribir: corrido hacia
+ *    adelante quedaría fuera de la ventana y WhatsApp no lo entregaría, y es el que lleva el
+ *    contacto del asesor.
+ *  - Los anteriores van a su hora o, si cae de noche, a la mañana siguiente, siempre a
+ *    SEPARACION_MIN_MS del anterior.
+ *  - El que ya no cabe antes del último se omite: mejor cuatro mensajes que dos pegados.
+ *  Con una sola etapa es el recordatorio de siempre: a su hora o a la próxima permitida. */
+export function planDeRecordatorios(desde: number, horas: number[]): number[] {
+  if (!horas.length) return [];
+  const horaFinal = Math.min(horas[horas.length - 1], VENTANA_WHATSAPP_MS / 3600_000);
+  if (horas.length === 1) return [proximoHorarioPermitido(new Date(desde + horaFinal * 3600_000)).getTime()];
+  const ultimo = ultimoHorarioPermitidoHasta(desde + horaFinal * 3600_000, desde);
+  const pasos: number[] = [];
+  let previo = Number.NEGATIVE_INFINITY;
+  for (const h of horas.slice(0, -1)) {
+    const t = proximoHorarioPermitido(new Date(Math.max(desde + h * 3600_000, previo + SEPARACION_MIN_MS))).getTime();
+    if (ultimo === null ? t - desde > VENTANA_WHATSAPP_MS : t > ultimo - SEPARACION_MIN_MS) break;
+    pasos.push(t);
+    previo = t;
+  }
+  if (ultimo !== null && ultimo > Math.max(previo, desde)) pasos.push(ultimo);
+  return pasos;
+}
+
 /** Programa (o reprograma) las 3 etapas del seguimiento de un diálogo, todas desde AHORA (se llama
  *  tras cada respuesta del bot, así que el plazo siempre corre desde la ÚLTIMA vez que el bot
  *  habló): el recordatorio a SEGUIMIENTO_HORAS, la transferencia al asesor a
  *  SEGUIMIENTO_TRANSFERENCIA_HORAS y el último recordatorio a SEGUIMIENTO_SEGUNDO_HORAS. Si esos
- *  plazos caen fuera del horario permitido, se corren al inicio de la próxima ventana. `entities`
- *  (si se pasa) queda guardado para que la transferencia sepa a qué deal/lead asignar —
- *  normalmente ya lo tiene resuelto quien llama (ver botEvents.ts). No hace nada si la regla está
- *  desactivada, si no hay Redis, o si un humano ya tomó la conversación. */
+ *  plazos caen fuera del horario permitido, se corren al inicio de la próxima ventana. Con
+ *  SEGUIMIENTO_ETAPAS_HORAS, en cambio, programa la secuencia por etapas (ver planDeRecordatorios).
+ *  `entities` (si se pasa) queda guardado para que la transferencia sepa a qué deal/lead asignar, y
+ *  el último paso de la secuencia de quién es el contacto — normalmente ya lo tiene resuelto quien
+ *  llama (ver botEvents.ts). No hace nada si la regla está desactivada, si no hay Redis, o si un
+ *  humano ya tomó la conversación. */
 export async function programarSeguimiento(dialogId: string, entities?: CrmEntities, sesionActual?: string | null): Promise<void> {
   const r = getRedisClient();
   if (!r || config.seguimientoHoras <= 0) return;
@@ -153,6 +251,30 @@ export async function programarSeguimiento(dialogId: string, entities?: CrmEntit
       await setJson(SNAPSHOT_KEY(dialogId), { transcript: t, clienteAt: ahora, sesion: sesionActual ?? null } satisfies Snapshot, SNAPSHOT_TTL_SEC);
     }
     inc('seguimiento_programado');
+    if (config.seguimientoEtapasHoras.length) {
+      // Secuencia por etapas: se guarda el plan entero y queda pendiente solo el primer paso; cada
+      // envío agenda el siguiente (ver avanzarPlan). Las colas de los dos recordatorios fijos no
+      // corren junto a ella: limpiarlas aquí también vacía lo que quedó agendado antes del cambio.
+      const pasos = planDeRecordatorios(ahora, config.seguimientoEtapasHoras);
+      await r.zrem(DUE_KEY, dialogId).catch(() => {});
+      await r.zrem(SEGUNDO_KEY, dialogId).catch(() => {});
+      // El último paso lleva el contacto del asesor a cargo: hace falta saber de qué negociación es,
+      // haya o no derivación por silencio.
+      if (entities && Object.keys(entities).length) await setJson(ENTITIES_KEY(dialogId), entities, ENTITIES_TTL_SEC);
+      if (pasos.length) {
+        await setJson(PLAN_KEY(dialogId), { id: ahora, pasos, siguiente: 0 } satisfies Plan, PLAN_TTL_SEC);
+        await r.zadd(PASOS_KEY, pasos[0], dialogId);
+      } else {
+        await r.zrem(PASOS_KEY, dialogId).catch(() => {});
+      }
+      if (config.seguimientoTransferenciaHoras > 0 && pasos.length) {
+        const deltaHoras = Math.max(config.seguimientoTransferenciaHoras - config.seguimientoEtapasHoras[0], 0);
+        await r.zadd(TRANSFER_KEY, proximoHorarioPermitido(new Date(pasos[0] + deltaHoras * 3600_000)).getTime(), dialogId);
+      } else {
+        await r.zrem(TRANSFER_KEY, dialogId).catch(() => {});
+      }
+      return;
+    }
     const vencimientoRecordatorio = proximoHorarioPermitido(new Date(ahora + config.seguimientoHoras * 3600_000));
     await r.zadd(DUE_KEY, vencimientoRecordatorio.getTime(), dialogId);
     if (config.seguimientoTransferenciaHoras > 0) {
@@ -199,34 +321,45 @@ export async function cancelarSeguimiento(dialogId: string): Promise<void> {
     await r.zrem(DUE_KEY, dialogId);
     await r.zrem(SEGUNDO_KEY, dialogId);
     await r.zrem(TRANSFER_KEY, dialogId);
+    await r.zrem(PASOS_KEY, dialogId);
+    await kvDel(PLAN_KEY(dialogId));
   } catch (e) {
     log.warn('cancelarSeguimiento falló', { err: String(e), dialogId });
   }
 }
 
-async function generarMensajeSeguimiento(dialogId: string, etapa: 1 | 2): Promise<string | null> {
+/** `contacto` (solo en el cierre) se pega DESPUÉS del texto del modelo y de las reglas de
+ *  respuesta: un número o un correo escrito por el modelo puede salir con un dígito cambiado. */
+async function generarMensajeSeguimiento(
+  dialogId: string,
+  tipo: TipoRecordatorio,
+  etapa: number,
+  contacto = '',
+): Promise<string | null> {
   let t = transcript(await getHistory(dialogId));
   if (t.length < 5 && config.seguimientoInstantanea) t = (await getJson<Snapshot>(SNAPSHOT_KEY(dialogId)))?.transcript ?? '';
   if (t.length < 5) return null;
   const resp = await anthropic.messages.create({
     model: CLASSIFIER,
     max_tokens: 200,
-    system: sistemaSeguimiento(etapa),
+    system: sistemaSeguimiento(tipo, etapa, Boolean(contacto)),
     messages: [{ role: 'user', content: `Conversación:\n${t}\n\nEscribe el mensaje de seguimiento.` }],
   });
   recordTokens((resp as any).usage);
-  const texto = (resp.content as any[]).filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
-  if (!texto || !marca.guardRespuesta) return texto || null;
-  // Las mismas reglas que una respuesta normal: sin markdown, sin fee, sin enlaces no verificados y
-  // sin repetir lo que ya se dijo.
-  const previas = t.split('\n').filter((l) => l.startsWith('Bot: ')).map((l) => l.slice(5));
-  const g = guardarRespuesta(texto, {
-    mensajeCliente: '',
-    respuestasPrevias: previas,
-    urlsPermitidas: URLS_OFICIALES_CARVER,
-    maxCaracteres: Number.MAX_SAFE_INTEGER,
-  });
-  return g.texto || null;
+  let texto: string = (resp.content as any[]).filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
+  if (texto && marca.guardRespuesta) {
+    // Las mismas reglas que una respuesta normal: sin markdown, sin fee, sin enlaces no verificados y
+    // sin repetir lo que ya se dijo.
+    const previas = t.split('\n').filter((l) => l.startsWith('Bot: ')).map((l) => l.slice(5));
+    texto = guardarRespuesta(texto, {
+      mensajeCliente: '',
+      respuestasPrevias: previas,
+      urlsPermitidas: URLS_OFICIALES_CARVER,
+      maxCaracteres: Number.MAX_SAFE_INTEGER,
+    }).texto;
+  }
+  if (!texto) return null;
+  return contacto ? `${texto} ${contacto}` : texto;
 }
 
 /** Motivo por el que un recordatorio vencido NO debe enviarse, o null si se puede enviar. Cada uno
@@ -258,7 +391,7 @@ async function motivoParaNoEnviar(dialogId: string, auth?: Auth): Promise<string
   return null;
 }
 
-async function registrarEnvio(dialogId: string, etapa: 1 | 2): Promise<void> {
+async function registrarEnvio(dialogId: string, etapa: number): Promise<void> {
   const enviados = ((await getJson<number[]>(ENVIADOS_KEY(dialogId))) ?? []).filter((x) => Date.now() - x < 24 * 3600_000);
   await setJson(ENVIADOS_KEY(dialogId), [...enviados, Date.now()], 24 * 3600);
   await setJson(ULTIMO_KEY(dialogId), { etapa, at: Date.now() }, 3 * 24 * 3600);
@@ -282,11 +415,43 @@ export async function registrarRespuestaASeguimiento(dialogId: string): Promise<
   }
 }
 
+type RedisCliente = NonNullable<ReturnType<typeof getRedisClient>>;
+
+/** Agenda el paso siguiente del plan, o lo da por terminado si era el último. No toca un plan que ya
+ *  no es el vigente: si el cliente respondió mientras este paso se enviaba, manda la secuencia nueva. */
+async function avanzarPlan(r: RedisCliente, dialogId: string, plan: Plan): Promise<void> {
+  const vigente = await getJson<Plan>(PLAN_KEY(dialogId));
+  if (!vigente || vigente.id !== plan.id) return;
+  const siguiente = plan.siguiente + 1;
+  if (siguiente >= plan.pasos.length) {
+    await kvDel(PLAN_KEY(dialogId));
+    return;
+  }
+  await setJson(PLAN_KEY(dialogId), { ...plan, siguiente } satisfies Plan, PLAN_TTL_SEC);
+  // Si el barrido se atrasó, el paso siguiente no sale pegado a este.
+  await r.zadd(PASOS_KEY, Math.max(plan.pasos[siguiente], Date.now() + 15 * 60_000), dialogId);
+}
+
+async function terminarPlan(dialogId: string, plan: Plan): Promise<void> {
+  const vigente = await getJson<Plan>(PLAN_KEY(dialogId));
+  if (vigente?.id === plan.id) await kvDel(PLAN_KEY(dialogId));
+}
+
+/** Suma el recordatorio a la instantánea de la conversación. La memoria del chat vence a las 6 h y el
+ *  paso siguiente puede salir a la mañana siguiente: sin esto se escribiría sin saber qué dijeron los
+ *  anteriores, y los repetiría. */
+async function sumarAInstantanea(dialogId: string, mensaje: string): Promise<void> {
+  const snap = await getJson<Snapshot>(SNAPSHOT_KEY(dialogId));
+  if (!snap) return;
+  await setJson(SNAPSHOT_KEY(dialogId), { ...snap, transcript: `${snap.transcript}\nBot: ${mensaje}` } satisfies Snapshot, SNAPSHOT_TTL_SEC);
+}
+
 /** Recorre los diálogos vencidos de una cola de recordatorios y envía el mensaje (una sola vez cada
  *  uno — ZREM es el reclamo atómico: si hay más de una réplica corriendo el barrido, solo una logra
- *  "borrar y procesar"). `etapa` decide el tono del mensaje (ver sistemaSeguimiento) y queda en la
- *  auditoría, para poder separar después cuántos respondieron al primero y cuántos al último. */
-async function barrerRecordatorios(key: string, etapa: 1 | 2): Promise<void> {
+ *  "borrar y procesar"). En las colas fijas la etapa la da la cola (`etapaFija`); en la secuencia por
+ *  etapas, el plan del chat. La etapa decide el tono del mensaje (ver sistemaSeguimiento) y queda en
+ *  la auditoría, para poder separar después cuántos respondieron a cada uno. */
+async function barrerRecordatorios(key: string, etapaFija?: 1 | 2): Promise<void> {
   const r = getRedisClient();
   if (!r) return;
   let vencidos: string[] = [];
@@ -307,6 +472,8 @@ async function barrerRecordatorios(key: string, etapa: 1 | 2): Promise<void> {
     const reclamado = await r.zrem(key, dialogId).catch(() => 0);
     if (!reclamado) continue; // otra réplica ya lo tomó
 
+    let etapa: number = etapaFija ?? 1;
+    let plan: Plan | null = null;
     try {
       // Chequeo defensivo: el plazo se calcula ya respetando el horario (ver programarSeguimiento),
       // pero puede llegar acá fuera de ventana si el barrido se atrasó, o si el recordatorio quedó
@@ -324,18 +491,32 @@ async function barrerRecordatorios(key: string, etapa: 1 | 2): Promise<void> {
         continue;
       }
 
+      if (!etapaFija) {
+        plan = await getJson<Plan>(PLAN_KEY(dialogId));
+        if (!plan) continue; // la secuencia se canceló mientras este paso esperaba
+        etapa = plan.siguiente + 1;
+      }
+      const total = plan ? plan.pasos.length : etapa;
+      const tipo = tipoDeEtapa(etapa, total);
+      const detalleEtapa = plan ? { etapa, de: total } : { etapa };
+
       const motivo = await motivoParaNoEnviar(dialogId, auth);
       if (motivo) {
         inc(`seguimiento_omitido:${motivo}`);
-        await audit({ type: 'seguimiento_omitido', dialogId, detail: { etapa, motivo } });
+        await audit({ type: 'seguimiento_omitido', dialogId, detail: { ...detalleEtapa, motivo } });
+        // El tope diario frena solo este paso. Lo demás (una persona a cargo, la baja, la ventana de
+        // WhatsApp vencida, el modo prueba) vale igual para los que siguen.
+        if (plan) await (motivo === 'tope_diario' ? avanzarPlan(r, dialogId, plan) : terminarPlan(dialogId, plan));
         continue;
       }
 
       inc('seguimiento_ejecutado');
-      const mensaje = await generarMensajeSeguimiento(dialogId, etapa);
+      const contacto = tipo === 'cierre' ? await contactoParaElCierre(dialogId, auth) : '';
+      const mensaje = await generarMensajeSeguimiento(dialogId, tipo, etapa, contacto);
       if (!mensaje) {
         inc('seguimiento_omitido:sin_conversacion');
-        await audit({ type: 'seguimiento_omitido', dialogId, detail: { etapa, motivo: 'sin_conversacion' } });
+        await audit({ type: 'seguimiento_omitido', dialogId, detail: { ...detalleEtapa, motivo: 'sin_conversacion' } });
+        if (plan) await terminarPlan(dialogId, plan);
         continue;
       }
 
@@ -345,9 +526,15 @@ async function barrerRecordatorios(key: string, etapa: 1 | 2): Promise<void> {
       await registrarEnvio(dialogId, etapa);
       const history = await getHistory(dialogId);
       await setHistory(dialogId, [...history, { role: 'assistant', content: mensaje }]);
+      if (plan) await sumarAInstantanea(dialogId, mensaje);
       inc('seguimiento');
-      await audit({ type: 'seguimiento', dialogId, detail: { mensaje, etapa } });
+      await audit({
+        type: 'seguimiento',
+        dialogId,
+        detail: plan ? { mensaje, ...detalleEtapa, conContacto: Boolean(contacto) } : { mensaje, etapa },
+      });
       log.info('seguimiento enviado', { dialogId, etapa });
+      if (plan) await avanzarPlan(r, dialogId, plan);
     } catch (e) {
       // Un recordatorio que no se envía es un cliente al que el bot cree haber contactado y no lo
       // hizo. Antes solo quedaba este log y nada en el panel: la auditoría de 'seguimiento' se
@@ -357,11 +544,18 @@ async function barrerRecordatorios(key: string, etapa: 1 | 2): Promise<void> {
       await audit({
         type: 'error',
         dialogId,
-        detail: { etapa: etapa === 2 ? 'recordatorio_2' : 'recordatorio_1', err: String(e) },
+        detail: { etapa: `recordatorio_${etapa}`, err: String(e) },
       }).catch(() => {});
       log.warn('barrerRecordatorios: falló para un diálogo', { err: String(e), dialogId, key });
+      // Un envío fallido no corta la secuencia: el paso siguiente lo vuelve a intentar.
+      if (plan) await avanzarPlan(r, dialogId, plan).catch(() => {});
     }
   }
+}
+
+/** Secuencia por etapas (SEGUIMIENTO_ETAPAS_HORAS): el paso que le toca a cada chat. */
+export async function barrerPasosVencidos(): Promise<void> {
+  await barrerRecordatorios(PASOS_KEY);
 }
 
 /** Primer recordatorio (SEGUIMIENTO_HORAS): retoma el hilo de la conversación. */
@@ -399,6 +593,8 @@ export async function barrerTransferenciasVencidas(): Promise<void> {
   for (const dialogId of vencidos) {
     const reclamado = await r.zrem(TRANSFER_KEY, dialogId).catch(() => 0);
     if (!reclamado) continue; // otra réplica ya lo tomó
+    // Apagada (Carver, 03-11-2026): lo que quedó agendado antes de apagarla vence sin derivar.
+    if (config.seguimientoTransferenciaHoras <= 0) continue;
 
     try {
       const sess = await getSession(dialogId);
@@ -458,6 +654,7 @@ export function iniciarBarridoSeguimientos(): void {
   if (config.seguimientoHoras <= 0 && config.derivacionAlertaHoras <= 0) return;
   intervalo = setInterval(() => {
     barrerSeguimientosVencidos().catch((e) => log.warn('barrerSeguimientosVencidos (intervalo) falló', { err: String(e) }));
+    barrerPasosVencidos().catch((e) => log.warn('barrerPasosVencidos (intervalo) falló', { err: String(e) }));
     barrerSegundosRecordatoriosVencidos().catch((e) => log.warn('barrerSegundosRecordatoriosVencidos (intervalo) falló', { err: String(e) }));
     barrerTransferenciasVencidas().catch((e) => log.warn('barrerTransferenciasVencidas (intervalo) falló', { err: String(e) }));
     barrerVigilanciaDerivaciones().catch((e) => log.warn('barrerVigilanciaDerivaciones (intervalo) falló', { err: String(e) }));
@@ -465,6 +662,7 @@ export function iniciarBarridoSeguimientos(): void {
   intervalo.unref();
   log.info('seguimiento: barrido activo', {
     horas: config.seguimientoHoras,
+    etapasHoras: config.seguimientoEtapasHoras,
     segundoHoras: config.seguimientoSegundoHoras,
     transferenciaHoras: config.seguimientoTransferenciaHoras,
     intervaloMin: config.seguimientoIntervaloMin,

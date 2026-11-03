@@ -66,7 +66,10 @@ mock.module('../src/crm/exclusion.ts', {
 
 
 mock.module('../src/crm/directory.ts', {
-  namedExports: { getUsuarios: async (ids: number[]) => ids.map((id) => ({ id, nombre: `Asesor ${id}` })) },
+  namedExports: {
+    getUsuarios: async (ids: number[]) => ids.map((id) => ({ id, nombre: `Asesor ${id}` })),
+    getIdentidadAsesor: async () => null, // lo importa ai/seguimiento.ts
+  },
 });
 
 const { candidatosPrimerContacto, enviarPrimerContacto, correrPrimerContacto, aE164, paisPermitido, paramsDe, plantillaPara } = await import(

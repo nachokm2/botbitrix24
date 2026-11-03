@@ -37,7 +37,10 @@ mock.module('../src/bitrix/client.ts', {
 });
 
 mock.module('../src/crm/directory.ts', {
-  namedExports: { getUsuarios: async (ids: number[]) => ids.map((id) => ({ id, nombre: `Asesor ${id}` })) },
+  namedExports: {
+    getUsuarios: async (ids: number[]) => ids.map((id) => ({ id, nombre: `Asesor ${id}` })),
+    getIdentidadAsesor: async () => null, // lo importa ai/seguimiento.ts
+  },
 });
 
 let excluido = false;

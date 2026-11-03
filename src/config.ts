@@ -126,6 +126,14 @@ function listaNumeros(valor: string | undefined, def: number[]): number[] {
 
 const esCarver = marca.key === 'carver';
 
+// Secuencia de recordatorios por etapas, en horas desde la última respuesta del bot (ver
+// ai/seguimiento.ts). Carver, reunión del 02-11-2026: cinco mensajes para que la persona alcance a
+// decir que sí o que no, y el último a la hora 23, antes de que WhatsApp cierre la ventana de 24 h,
+// con el WhatsApp y el correo del asesor. Vacía = la secuencia anterior de dos recordatorios fijos.
+const etapasSeguimiento = [
+  ...new Set(listaNumeros(process.env.SEGUIMIENTO_ETAPAS_HORAS, esCarver ? [3, 5, 7, 9, 23] : []).filter((h) => h > 0)),
+].sort((a, b) => a - b);
+
 export const config = {
   port: Number(process.env.PORT ?? 3000),
   /** URL pública del app (Railway o túnel), sin slash final. */
@@ -232,10 +240,15 @@ export const config = {
   // variable— empezaría a recibir un mensaje que jamás recibió; por eso su default pasa a 0 y solo
   // quien lo configura explícitamente (Carver: 10) lo envía.
   seguimientoSegundoHoras: Number(process.env.SEGUIMIENTO_SEGUNDO_HORAS ?? (marca.key === 'postgrados' ? 0 : 10)),
+  // Secuencia por etapas (SEGUIMIENTO_ETAPAS_HORAS, ej. "3,5,7,9,23"). Con etapas, reemplaza al
+  // recordatorio de SEGUIMIENTO_HORAS y al de SEGUIMIENTO_SEGUNDO_HORAS; SEGUIMIENTO_HORAS=0 sigue
+  // apagando todo. Ver la constante de arriba.
+  seguimientoEtapasHoras: etapasSeguimiento,
   // Tope de recordatorios proactivos por conversación en 24 h, sumando todas las etapas. Cada
   // respuesta del bot rearma la secuencia; sin tope, alguien que contesta y se calla varias veces en
-  // el día recibe un recordatorio por cada silencio.
-  seguimientoMaxPorDia: Number(process.env.SEGUIMIENTO_MAX_POR_DIA ?? (marca.key === 'carver' ? 2 : 0)) || 0,
+  // el día recibe un recordatorio por cada silencio. En Carver alcanza para la secuencia completa.
+  seguimientoMaxPorDia:
+    Number(process.env.SEGUIMIENTO_MAX_POR_DIA ?? (marca.key === 'carver' ? Math.max(2, etapasSeguimiento.length) : 0)) || 0,
   // Generar el recordatorio desde una instantánea de la conversación cuando la memoria del chat ya
   // venció (6 h). Sin ella se pierden el segundo recordatorio y los que el horario corre a la mañana
   // siguiente. Activa en Carver; en Postgrados queda como estaba salvo que se active.
@@ -243,7 +256,9 @@ export const config = {
   // Si tras el recordatorio el cliente SIGUE sin responder hasta esta cantidad de horas (desde la
   // misma última respuesta del bot), se deriva el lead al asesor por turno (ver
   // crm/asignacionAsesores.ts) — no urgente, solo para contacto temprano. 0 = desactivado.
-  seguimientoTransferenciaHoras: Number(process.env.SEGUIMIENTO_TRANSFERENCIA_HORAS ?? 4),
+  // Apagada en Carver desde el 03-11-2026: le cargaba al asesor gente que solo había dejado de
+  // responder. Allá se deriva únicamente cuando el caso escala; del silencio se encarga la secuencia.
+  seguimientoTransferenciaHoras: Number(process.env.SEGUIMIENTO_TRANSFERENCIA_HORAS ?? (esCarver ? 0 : 4)),
   // Horario permitido para ENVIAR el seguimiento proactivo (hora local Chile, 0-23). Si el plazo
   // cae fuera de esta ventana, se reprograma para el inicio de la ventana siguiente en vez de
   // mandarlo de madrugada. No afecta las respuestas normales del bot a mensajes del cliente.
