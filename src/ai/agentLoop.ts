@@ -16,6 +16,7 @@ import { URLS_OFICIALES_CARVER } from '../core/promptObjeciones';
 import { promptVigente } from '../core/ajustes';
 import { bloqueMomento } from '../core/momento';
 import { promesaDeSeguimiento, intencionDePago } from '../core/promesas';
+import { asegurarPresentacion } from '../core/presentacion';
 import { recortar } from '../core/textoSeguro';
 import { avisarAlResponsable } from '../crm/avisoAsesor';
 
@@ -153,7 +154,7 @@ export function bloqueIdentidad(
     ? [
         `
 
-IDENTIDAD: tu nombre es ${a.nombre}. Preséntate con él en ESTE mensaje ("Hola, soy ${a.nombre}") y habla en primera persona como esa persona.`,
+IDENTIDAD: tu nombre es ${a.nombre}. Preséntate con él en ESTE mensaje, al comienzo ("Hola, soy ${a.nombre} y le acompaño en su proceso de admisión"), aunque la plantilla que la persona recibió antes ya te haya nombrado, y habla en primera persona como esa persona.`,
         'NO vuelvas a mencionar tu nombre en los mensajes siguientes: ya te habrás presentado.',
       ]
     : [
@@ -436,7 +437,7 @@ export async function runAgentTurn(
     // Reglas comerciales impuestas en código sobre el texto final (ver core/guardRespuesta.ts). Lo
     // que se guarda en el historial es lo que de verdad se envía: si no, el modelo "recordaría" haber
     // dicho algo que el cliente nunca leyó.
-    const enviado = marca.guardRespuesta
+    let enviado = marca.guardRespuesta
       ? await aplicarGuardian(text, {
           dialogId: ctx.conversationId,
           mensajeCliente: textoDelUsuario(userText),
@@ -445,6 +446,11 @@ export async function runAgentTurn(
           urlsDelAsesor: ctx.identidadAsesor?.formulario ? [ctx.identidadAsesor.formulario] : [],
         })
       : text;
+    // El primer mensaje del bot dice el nombre del asesor a cargo, aunque el modelo se lo salte
+    // (ver core/presentacion.ts).
+    if (marca.sePresentaComoAsesor && ctx.identidadAsesor && history.length === 0) {
+      enviado = asegurarPresentacion(enviado, ctx.identidadAsesor.nombre, marca.organizacion, ctx.datosConocidos?.nombre);
+    }
     if (enviado !== text) reemplazarUltimaRespuesta(finalMsgs, enviado);
     // No persistimos imágenes (base64) en el historial: se reemplazan por un marcador de texto para
     // no inflar Redis ni re-enviarlas en cada turno (el modelo ya las "vio" en este turno).
