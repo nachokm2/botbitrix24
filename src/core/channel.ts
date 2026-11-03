@@ -55,7 +55,7 @@ export type AgentContext = {
   /** Identidad que el bot debe adoptar en ESTE turno: el asesor dueño de la negociación. Solo la
    *  usan las marcas con sePresentaComoAsesor (ver marca.ts). Viaja por turno, no en el prompt fijo,
    *  porque el asesor puede asignarse a mitad de la conversación. */
-  identidadAsesor?: { nombre: string; email?: string; telefono?: string } | null;
+  identidadAsesor?: { nombre: string; email?: string; telefono?: string; formulario?: string } | null;
   /** Lo que el CRM ya sabe de la persona (nombre, correo, teléfono), para no volver a pedírselo. */
   datosConocidos?: { nombre?: string; email?: string; telefono?: string } | null;
   /** Última imagen recibida EN ESTE TURNO (WhatsApp) — el modelo ya la "ve" vía visión; se deja acá

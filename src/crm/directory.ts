@@ -1,6 +1,7 @@
 import { callCrm } from '../bitrix/client';
 import { config } from '../config';
 import { esAsesorValido } from './equipo';
+import { contactoDelAsesor } from './contactoAsesores';
 import { marca } from '../marca';
 import { log } from '../log';
 import type { Auth } from '../store';
@@ -14,9 +15,11 @@ export type Responsable = {
   email?: string;
   /** Movil de la ficha de Bitrix (PERSONAL_MOBILE). Viene vacio donde la marca declara que esos
    *  numeros no estan al dia (marca.telefonoAsesorVigente): en Carver estan desactualizados y no
-   *  deben llegar a un cliente. Ahi el numero de contacto es institucional y sale de otro lado
-   *  (data/carver/advisors.json), nunca de la ficha particular de cada persona. */
+   *  deben llegar a un cliente. Ahi el numero sale solo de la lista que entrego la coordinacion
+   *  (crm/contactoAsesores.ts), nunca de la ficha particular de cada persona. */
   telefono?: string;
+  /** Formulario de postulación del asesor, de la misma lista. */
+  formulario?: string;
   activo?: boolean;
   /** Departamentos de la estructura de Bitrix (UF_DEPARTMENT): define a qué equipo pertenece. */
   departamentos?: number[];
@@ -99,13 +102,17 @@ export async function getUsuarios(ids: number[], auth: Auth): Promise<Responsabl
       if (u && (u.NAME || u.LAST_NAME || u.EMAIL)) {
         const nombre = [u.NAME, u.LAST_NAME].filter(Boolean).join(' ').trim() || String(u.EMAIL) || `Usuario ${id}`;
         const email = Array.isArray(u.EMAIL) ? u.EMAIL?.[0]?.VALUE : u.EMAIL;
+        // Lo que entregó la coordinación manda sobre la ficha: en Carver el correo de la cuenta suele
+        // ser un Gmail personal y el móvil está viejo.
+        const entregado = contactoDelAsesor(id);
         const r: Responsable = {
           id,
           nombre,
-          email,
+          email: entregado.email ?? email,
           // Unico punto donde se lee PERSONAL_MOBILE: cortarlo aca deja a toda la marca sin ese
           // dato, en vez de confiar en que cada consumidor se acuerde de no usarlo.
-          telefono: marca.telefonoAsesorVigente ? u.PERSONAL_MOBILE || undefined : undefined,
+          telefono: entregado.whatsapp ?? (marca.telefonoAsesorVigente ? u.PERSONAL_MOBILE || undefined : undefined),
+          formulario: entregado.formulario,
           activo: u.ACTIVE !== false,
           departamentos: toIdArray(u.UF_DEPARTMENT),
         };
@@ -167,8 +174,9 @@ export async function getDealAsesores(
 const IDENTIDAD_TTL_MS = 5 * 60 * 1000;
 const identidadCacheK = new Map<string, { at: number; valor: IdentidadAsesor | null }>();
 
-// El telefono llega vacio donde marca.telefonoAsesorVigente es false (ver getUsuarios).
-export type IdentidadAsesor = { nombre: string; email?: string; telefono?: string };
+// El telefono llega vacio donde marca.telefonoAsesorVigente es false, salvo que la coordinacion lo
+// haya entregado (ver getUsuarios).
+export type IdentidadAsesor = { nombre: string; email?: string; telefono?: string; formulario?: string };
 
 /** Nombre, correo y teléfono del responsable de una NEGOCIACIÓN, un LEAD o un CONTACTO — en ese orden
  *  de preferencia. El lead importa: la mitad de las conversaciones nuevas de WhatsApp entran como
@@ -213,7 +221,7 @@ export async function getIdentidadAsesor(
     // a quien de verdad puede atender: persona activa del equipo de la marca, no un robot ni el
     // responsable por defecto del embudo (ver crm/equipo.ts).
     if (u && !u.nombre.startsWith('Usuario ') && esAsesorValido(u)) {
-      valor = { nombre: u.nombre, email: u.email, telefono: u.telefono };
+      valor = { nombre: u.nombre, email: u.email, telefono: u.telefono, formulario: u.formulario };
     }
   } catch (e) {
     log.warn('getIdentidadAsesor falló', { err: String(e), entidad: clave });

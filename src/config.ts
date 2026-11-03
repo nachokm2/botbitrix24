@@ -380,6 +380,12 @@ export const config = {
   // Personas del equipo que no están en esos departamentos. El punto de entrada (BITRIX_DERIVAR_A)
   // siempre cuenta como del equipo.
   equipoUsuarios: listaNumeros(process.env.BITRIX_EQUIPO_USUARIOS, []),
+  // CONTACTO DE CADA ASESOR que la coordinación entregó para dárselo a los clientes: WhatsApp, correo
+  // institucional y formulario de postulación, por id de usuario de Bitrix (ver crm/contactoAsesores.ts).
+  // Es una variable y no un archivo porque el repositorio es público y los números son personales.
+  // Ej.: ASESORES_CONTACTO=[{"id":123,"whatsapp":"+56912345678","email":"x@carver.university","formulario":"https://…"}]
+  // Vacío = el bot usa solo lo que trae la ficha de Bitrix, como antes.
+  asesoresContacto: process.env.ASESORES_CONTACTO ?? '',
   // Leer nombre/correo/teléfono ya registrados en un LEAD (no solo en el contacto) para no volver a
   // pedirlos (hallazgo 4). Activo en Carver; Postgrados queda como estaba salvo que se active.
   datosConocidosDesdeLead: (process.env.DATOS_CONOCIDOS_DESDE_LEAD ?? (esCarver ? 'true' : 'false')).toLowerCase() === 'true',

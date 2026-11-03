@@ -142,7 +142,7 @@ DATOS QUE EL CRM YA TIENE de esta persona — ${tiene.join(', ')}. ` +
 }
 
 export function bloqueIdentidad(
-  a: { nombre: string; email?: string; telefono?: string },
+  a: { nombre: string; email?: string; telefono?: string; formulario?: string },
   esPrimerTurno: boolean,
 ): string {
   // El nombre se dice UNA sola vez, al presentarse. Después no se repite: así, si reasignan la
@@ -172,8 +172,18 @@ IDENTIDAD: eres ${a.nombre} y ya te presentaste al inicio de esta conversación.
   // ya no va acá: vale también sin asesor asignado, así que está en el prompt fijo de Carver
   // (DERIVACION_CARVER en core/promptObjeciones.ts).
   if (a.email) lineas.push(`Tu correo es ${a.email}: compártelo solo si el cliente lo pide.`);
-  // Llega vacio donde la marca declara que los moviles de Bitrix no estan al dia (Carver).
+  // En Carver llega solo si la coordinacion lo entrego (crm/contactoAsesores.ts): los moviles de
+  // Bitrix no estan al dia.
   if (a.telefono) lineas.push(`Tu teléfono es ${a.telefono}: compártelo solo si el cliente lo pide.`);
+  // Carver, 02-11-2026: cuando el lead avanza, la coordinación pide enviarle el formulario de
+  // postulación de SU asesor. Se ofrece junto a la ficha en el chat, que sigue siendo la vía que no
+  // obliga a salir a otra página.
+  if (a.formulario) {
+    lineas.push(
+      `Tu formulario de postulación es ${a.formulario}. Cuando la persona decida matricularse, ofrécele en UNA sola pregunta las dos vías: completar ese formulario en línea o darte sus datos aquí mismo en el chat. ` +
+        'Si elige el formulario, envíale ese enlace tal cual y no le pidas la ficha en el chat; cuando te confirme que lo completó, sigue con las instrucciones de pago. Si elige el chat, reúne la ficha como siempre.',
+    );
+  }
   lineas.push('NUNCA digas que eres un bot, un asistente virtual ni una inteligencia artificial llamada de otra forma, y NUNCA inventes datos de contacto distintos de los de arriba.');
   return lineas.join(' ');
 }
@@ -432,6 +442,7 @@ export async function runAgentTurn(
           mensajeCliente: textoDelUsuario(userText),
           history,
           mensajesDelTurno: finalMsgs.slice(inicioTurno),
+          urlsDelAsesor: ctx.identidadAsesor?.formulario ? [ctx.identidadAsesor.formulario] : [],
         })
       : text;
     if (enviado !== text) reemplazarUltimaRespuesta(finalMsgs, enviado);
@@ -587,14 +598,15 @@ export function datosDuros(texto: string): string[] {
  *  condensación de un mensaje demasiado largo. Con `simulacion` no deja rastro en métricas ni auditoría. */
 export async function aplicarGuardian(
   texto: string,
-  t: { dialogId?: string; mensajeCliente: string; history: any[]; mensajesDelTurno: any[]; simulacion?: boolean },
+  t: { dialogId?: string; mensajeCliente: string; history: any[]; mensajesDelTurno: any[]; simulacion?: boolean; urlsDelAsesor?: string[] },
 ): Promise<string> {
   const ctxGuard = {
     mensajeCliente: t.mensajeCliente,
     respuestasPrevias: respuestasPreviasDe(t.history),
     // Enlaces que devolvió una herramienta en esta conversación (este turno o uno anterior): reenviar
-    // un brochure ya verificado es legítimo. Lo que se bloquea es lo que no vino de ninguna.
-    urlsPermitidas: [...URLS_OFICIALES_CARVER, ...urlsDeHerramientas([...t.history, ...t.mensajesDelTurno])],
+    // un brochure ya verificado es legítimo. Lo que se bloquea es lo que no vino de ninguna. El
+    // formulario del asesor no viene de una herramienta sino de su identidad, que ya está validada.
+    urlsPermitidas: [...URLS_OFICIALES_CARVER, ...(t.urlsDelAsesor ?? []), ...urlsDeHerramientas([...t.history, ...t.mensajesDelTurno])],
     maxCaracteres: marca.maxCaracteresRespuesta || Number.MAX_SAFE_INTEGER,
     crmFallo: escrituraCrmFallida(t.mensajesDelTurno),
     derivacionInterna: marca.sePresentaComoAsesor,
