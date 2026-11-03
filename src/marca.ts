@@ -221,7 +221,9 @@ const CARVER: Marca = {
   presentacionSinAsesor: env('CARVER_PRESENTACION_SIN_ASESOR', `el equipo de admisiones de ${CARVER_INSTITUCION}`),
   tiposComercializables: ['licenciatura', 'maestria'],
   guardRespuesta: true,
-  maxCaracteresRespuesta: Number(env('MAX_CARACTERES_RESPUESTA', '750')) || 0,
+  // 500 desde el 03-11-2026: la mediana era 324 caracteres pero el 42% pasaba de 400, y la mitad de
+  // los interesados no contestaba después de la primera respuesta. El prompt apunta a unos 350.
+  maxCaracteresRespuesta: Number(env('MAX_CARACTERES_RESPUESTA', '500')) || 0,
   ignoraRespuestasAutomaticas: true,
   traspasoPorSesion: true,
   soporteEstudiantes: true,

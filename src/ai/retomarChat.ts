@@ -135,24 +135,19 @@ export function transcriptDelChat(mensajes: Mensaje[], clienteId: string | null)
     .join('\n');
 }
 
-/** Le devuelve la sesión al bot. Primero como traspaso directo; si Bitrix lo exige, interceptándola antes. */
-async function devolverAlBot(chatId: string, botId: number, auth: Auth): Promise<{ ok: boolean; metodo?: string; errores: string[] }> {
-  const errores: string[] = [];
-  const transferir = () => callBitrix('imopenlines.operator.transfer', { CHAT_ID: chatId, TRANSFER_ID: botId }, auth);
+/**
+ * Le devuelve la sesión al bot con un traspaso directo. Si Bitrix lo rechaza, el chat se queda como
+ * estaba. Antes se probaba además interceptando la sesión, pero interceptar la deja a nombre del
+ * dueño del token (quien instaló la app, no la asesora): si el traspaso posterior fallaba, el chat
+ * quedaba asignado a esa persona, como si se lo hubiera tomado ella.
+ */
+export async function devolverAlBot(chatId: string, botId: number, auth: Auth): Promise<{ ok: boolean; metodo?: string; errores: string[] }> {
   try {
-    await transferir();
-    return { ok: true, metodo: 'transfer', errores };
+    await callBitrix('imopenlines.operator.transfer', { CHAT_ID: chatId, TRANSFER_ID: botId }, auth);
+    return { ok: true, metodo: 'transfer', errores: [] };
   } catch (e) {
-    errores.push(`transfer: ${String(e).slice(0, 160)}`);
+    return { ok: false, errores: [`transfer: ${String(e).slice(0, 160)}`] };
   }
-  try {
-    await callBitrix('imopenlines.session.intercept', { CHAT_ID: chatId }, auth);
-    await transferir();
-    return { ok: true, metodo: 'intercept+transfer', errores };
-  } catch (e) {
-    errores.push(`intercept+transfer: ${String(e).slice(0, 160)}`);
-  }
-  return { ok: false, errores };
 }
 
 const participantesDe = async (dialogId: string, auth: Auth) => {

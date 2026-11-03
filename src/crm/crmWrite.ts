@@ -19,7 +19,7 @@ import { estaCerrada, etapaMovidaPorPersona } from './etapas';
 // Escrituras al CRM: creación/actualización de contacto/lead/deal, notas de timeline,
 // persistencia del scoring y lectura del teléfono del cliente.
 
-export type LeadEval = { score: number; intencion: string; sentimiento: string; justificacion: string };
+export type LeadEval = { score: number; intencion: string; sentimiento: string; justificacion: string; resumen?: string };
 
 export type DatosCliente = {
   nombre?: string;
@@ -686,6 +686,7 @@ export async function guardarEvaluacionCrm(
     if (config.ufScore) ufFields[config.ufScore] = evalData.score;
     if (config.ufIntent) ufFields[config.ufIntent] = evalData.intencion;
     if (config.ufSentiment) ufFields[config.ufSentiment] = evalData.sentimiento;
+    if (config.ufResumen && evalData.resumen) ufFields[config.ufResumen] = evalData.resumen;
     if (Object.keys(ufFields).length) {
       try {
         await callCrm('crm.deal.update', { id: entities.deal, fields: ufFields }, auth);

@@ -75,6 +75,19 @@ const ACADEMICO_KEY = (dialogId: string) => `academico:${dialogId}`;
 // validado en el prompt (core/promptObjeciones.ts).
 const CONTACTO_GENERAL = 'admission@carver.university / +1 (321) 300-1034';
 
+// Carver manda el brochure por iniciativa propia (OFERTA_ENLACES en ai/prompt.ts), así que el modelo
+// lo pediría cada vez que la conversación vuelve al programa. Va una vez por programa y conversación,
+// salvo que la persona pida que se lo manden de nuevo.
+const BROCHURE_ENVIADO_KEY = (dialogId: string, programa: string) => `brochure-enviado:${dialogId}:${programa}`;
+const BROCHURE_ENVIADO_TTL = 30 * 24 * 3600;
+
+/** La persona pide (de nuevo) el brochure, o dice que no le llegó. "Gracias por el brochure" no cuenta. */
+export function pideElBrochure(texto: string): boolean {
+  const t = (texto ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  if (/\b(reenvi\w*|de nuevo|otra vez|nuevamente|no (me )?(llego|abre|abrio|carga)|no (lo )?(veo|encuentro))\b/.test(t)) return true;
+  return /\b(brochure|folleto|pdf)\b/.test(t) && /\b(envi\w*|mand\w*|pas\w*|compart\w*|tien\w*|quier\w*|quisiera|pued\w*|podria)\b/.test(t);
+}
+
 /** Lo que recibe el modelo cuando el brochure se entrega como ENLACE (o no se puede entregar). Lo usa
  *  también el chat simulado del panel (ai/simulador.ts), para que la prueba vea lo mismo. */
 export function brochureComoEnlace(r: Awaited<ReturnType<typeof obtenerBrochure>>) {
@@ -247,6 +260,20 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
           dialogId: ctx.conversationId,
           detail: r.ok ? { programa: r.programa, formato: r.formato } : { programa: r.programa, motivo: r.motivo },
         }).catch(() => {});
+        const enviadoKey = BROCHURE_ENVIADO_KEY(ctx.conversationId, r.programa ?? '');
+        if (r.ok && marca.brochureVerificado) {
+          if ((await getJson<number>(enviadoKey)) && !pideElBrochure(ctx.ultimoMensajeCliente ?? '')) {
+            return {
+              ok: true,
+              programa: r.programa,
+              yaEnviado: true,
+              nota:
+                'El brochure de este programa ya se le envió antes en esta conversación. NO lo vuelvas a ' +
+                'enviar ni pegues enlaces; sigue con lo que la persona preguntó.',
+            };
+          }
+          await setJson(enviadoKey, Date.now(), BROCHURE_ENVIADO_TTL);
+        }
         if (r.ok) {
           // Se intenta mandar el PDF como ARCHIVO por WhatsApp. Un enlace obliga a salir a un
           // navegador y mucha gente no lo hace; el archivo le queda en el telefono. Si no se puede

@@ -1,5 +1,6 @@
 import { callCrm } from '../bitrix/client';
 import { esEmbudoPropio, filtroEmbudosPropios, moverAEtapaDerivado } from './embudos';
+import { estaCerrada } from './etapas';
 import { getUsuarios } from './directory';
 import { esUrgente } from './urgencia';
 import { perteneceAlEquipo } from './equipo';
@@ -253,7 +254,9 @@ export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth)
         'crm.deal.list',
         // Solo negociaciones de los embudos propios: sin el filtro se tomaba la más reciente de
         // CUALQUIER embudo, se descubría que era ajena y la derivación terminaba en nada, en silencio.
-        { filter: { CONTACT_ID: entities.contact, ...filtroEmbudosPropios() }, select: ['ID'], order: { DATE_CREATE: 'DESC' } },
+        // Y solo abiertas: entre el 31-10 y el 03-11 se le crearon tareas a asesores por negociaciones
+        // perdidas hace tiempo (C73:APOLOGY), porque era la más reciente del contacto.
+        { filter: { CONTACT_ID: entities.contact, CLOSED: 'N', ...filtroEmbudosPropios() }, select: ['ID'], order: { DATE_CREATE: 'DESC' } },
         auth,
       );
       const hallado = Array.isArray(r) ? r[0] : undefined;
@@ -270,9 +273,19 @@ export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth)
   }
 
   try {
-    const d: any = await callCrm('crm.deal.get', { id: dealId, select: ['ASSIGNED_BY_ID', 'TITLE'] }, auth);
+    const d: any = await callCrm('crm.deal.get', { id: dealId, select: ['ASSIGNED_BY_ID', 'TITLE', 'CLOSED', 'STAGE_ID'] }, auth);
     const actual = Number(d?.ASSIGNED_BY_ID ?? 0);
     const titulo = String(d?.TITLE ?? '');
+
+    // El chat puede seguir enlazado a una negociación ya cerrada. Su responsable de entonces no es
+    // quien atiende hoy, y reasignarla reescribe la historia: el aviso va al punto de entrada, que
+    // decide si abre una nueva, y la negociación queda como está.
+    if (estaCerrada(d)) {
+      await crearTareaSeguimiento(dealId, destino, titulo, auth);
+      await auditarDerivacion(dealId, 'tarea_al_punto_de_entrada_negociacion_cerrada', { asesor: destino, antes: actual, etapa: d?.STAGE_ID });
+      log.info('derivarAResponsableFijo: la negociación está cerrada; tarea al punto de entrada, sin reasignar', { dealId, etapa: d?.STAGE_ID });
+      return true;
+    }
 
     // La etapa se mueve siempre que se derive, sin importar a quién quede asignada: es lo que hace
     // visible en el propio embudo que el bot ya pasó por ahí. No bloquea la derivación si falla.

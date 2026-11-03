@@ -169,6 +169,9 @@ export const config = {
   ufScore: process.env.BITRIX_UF_SCORE ?? '',
   ufIntent: process.env.BITRIX_UF_INTENT ?? '',
   ufSentiment: process.env.BITRIX_UF_SENTIMENT ?? '',
+  // Campo UF de texto (en el Deal) con el resumen de la conversación en 2 o 3 frases, para que el
+  // asesor lo vea en la tarjeta del embudo sin abrir el chat. Vacío = no se pide ni se escribe.
+  ufResumen: process.env.BITRIX_UF_RESUMEN ?? '',
   // Campo UF (en el Deal) para el "Programa de interés" que el bot actualiza según la conversación.
   ufPrograma: process.env.BITRIX_UF_PROGRAMA ?? '',
   // Campo UF tipo "Archivo" (en el Deal) con el brochure (PDF del Drive) del programa de interés —

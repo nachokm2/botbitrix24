@@ -43,15 +43,24 @@ export type ScoringCtx = {
 // Autónoma de Chile (en Postgrados el texto queda igual).
 const ORGANIZACION_SCORING =
   marca.key === 'postgrados' ? 'programas de postgrado de la Universidad Autónoma de Chile' : `programas de ${marca.organizacion}`;
+// El resumen va a un campo de la negociación (BITRIX_UF_RESUMEN) que el asesor ve en la tarjeta del
+// embudo: sin ese campo no se pide, y el evaluador queda igual que antes.
+const CAMPO_RESUMEN = config.ufResumen ? `, "resumen": "<2 o 3 frases>"` : '';
+const REGLA_RESUMEN = config.ufResumen
+  ? `
+El "resumen" es para el asesor que retoma el caso, en no más de 300 caracteres: qué programa le interesa, qué preguntó o
+le preocupa (precio, plazos, validez del título…), qué se le entregó (valor, brochure, enlace de pago) y en qué quedó o
+cuál es el próximo paso. Sin saludos, sin teléfonos ni correos, y solo con lo que está en la conversación.`
+  : '';
 const SCORING_SYSTEM = `Eres un evaluador de leads comerciales para ${ORGANIZACION_SCORING}.
 Analiza la conversación y devuelve SOLO un JSON (sin texto adicional, sin markdown) con esta forma exacta:
-{"score": <entero 0-100>, "intencion": "alta|media|baja", "sentimiento": "positivo|neutral|negativo", "justificacion": "<1 frase>"}
+{"score": <entero 0-100>, "intencion": "alta|media|baja", "sentimiento": "positivo|neutral|negativo", "justificacion": "<1 frase>"${CAMPO_RESUMEN}}
 El "score" estima la calidad/probabilidad de matrícula del lead. Considera: claridad del interés en un programa concreto,
 datos de contacto entregados (nombre, email), urgencia/decisión y tono. Sé estricto: sin interés claro, score bajo.
 Si el cliente expresa la DECISIÓN concreta de matricularse (no solo consultar o comparar), en cualquier frase — ej.
 "quiero matricularme", "cómo me matriculo", "quiero inscribirme ya", "ya me decidí, cómo postulo", "quiero asegurar mi
 cupo", "tengo la posibilidad de generar la matrícula" — es SIEMPRE intención alta y score >= 80, aunque falten datos
-de contacto.`;
+de contacto.${REGLA_RESUMEN}`;
 
 function transcript(messages: any[]): string {
   return messages
@@ -76,7 +85,7 @@ export async function evaluarLead(messages: any[]): Promise<LeadEval | null> {
   try {
     const resp = await anthropic.messages.create({
       model: CLASSIFIER,
-      max_tokens: 200,
+      max_tokens: config.ufResumen ? 450 : 200,
       system: SCORING_SYSTEM,
       messages: [{ role: 'user', content: `Conversación:\n${t}\n\nDevuelve el JSON.` }],
     });
@@ -88,6 +97,7 @@ export async function evaluarLead(messages: any[]): Promise<LeadEval | null> {
       intencion: String(json.intencion || 'media'),
       sentimiento: String(json.sentimiento || 'neutral'),
       justificacion: String(json.justificacion || ''),
+      ...(config.ufResumen && json.resumen ? { resumen: String(json.resumen).trim().slice(0, 500) } : {}),
     };
   } catch (e) {
     log.warn('evaluarLead falló', { err: String(e) });

@@ -127,6 +127,18 @@ test('derivación: sin negociación en el chat, busca SOLO en los embudos propio
   reset();
   await derivarAResponsableFijo({ contact: 555 }, auth);
   assert.deepEqual(de('crm.deal.list')[0].params.filter['@CATEGORY_ID'], [73, 135]);
+  assert.equal(de('crm.deal.list')[0].params.filter.CLOSED, 'N', 'una negociación perdida no es la del chat de hoy');
+});
+
+test('derivación: con una negociación cerrada, la tarea va al punto de entrada y nadie se reasigna', async () => {
+  // Chat 1460101 (31-10): la negociación del contacto estaba perdida (C73:APOLOGY) y la tarea le
+  // llegó al responsable de entonces como si fuera su caso vigente.
+  reset();
+  deals[8004] = { CATEGORY_ID: '73', ASSIGNED_BY_ID: '685357', TITLE: 'Maestría en Psicología – Eva', CLOSED: 'Y', STAGE_ID: 'C73:APOLOGY' };
+  assert.equal(await derivarAResponsableFijo({ deal: 8004 }, auth), true);
+  assert.equal(de('crm.deal.update').length, 0, 'ni responsable ni etapa');
+  assert.equal(de('tasks.task.add')[0].params.fields.RESPONSIBLE_ID, 1313);
+  assert.ok(auditorias.some((a) => a.type === 'derivacion' && a.detail.decision === 'tarea_al_punto_de_entrada_negociacion_cerrada'));
 });
 
 // ── Hallazgo 10: estudiantes matriculados ────────────────────────────────────────────────────────

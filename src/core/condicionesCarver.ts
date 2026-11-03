@@ -194,6 +194,6 @@ export function buscarCondicionesCarver(programa?: string, opts: { incluirCostos
       totalSemestral: p.semestral ? p.semestral.n * p.semestral.monto : undefined,
       totalContado: p.contado?.total,
     }),
-    nota: `${avisoCupos ? avisoCupos + ' ' : ''}La ${BECA_CARVER} (${p.becaPct}%) puedes ofrecerla directamente. Entrega las tres formas de pago cuando pregunten por el valor.`,
+    nota: `${avisoCupos ? avisoCupos + ' ' : ''}La ${BECA_CARVER} (${p.becaPct}%) puedes ofrecerla directamente. Cuando pregunten por el valor, parte por las mensualidades y ofrece el semestral y el contado; si piden todas las opciones, o una de esas dos, dalas en ese turno.`,
   };
 }

@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 
 // Cuándo el bot retoma un chat que tomó una persona (ai/retomarChat.ts). Caso real del 31-10-2026: una
@@ -6,7 +6,23 @@ import assert from 'node:assert/strict';
 process.env.NODE_ENV = 'test';
 process.env.REDIS_URL = '';
 
-const { leerEstado, motivoParaNoRetomar, motivoParaNoReactivar, transcriptDelChat } = await import('../src/ai/retomarChat');
+const llamadas: string[] = [];
+let transferFalla = false;
+mock.module('../src/bitrix/client.ts', {
+  namedExports: {
+    callBitrix: async (method: string) => {
+      llamadas.push(method);
+      if (method === 'imopenlines.operator.transfer' && transferFalla) throw new Error('ACCESS_DENIED');
+      return {};
+    },
+    callCrm: async () => ({}),
+    callBitrixEnvelope: async () => ({ result: {} }),
+    callCrmEnvelope: async () => ({ result: [], total: 0, next: null }),
+    callWebhook: async () => ({}),
+  },
+});
+
+const { leerEstado, motivoParaNoRetomar, motivoParaNoReactivar, transcriptDelChat, devolverAlBot } = await import('../src/ai/retomarChat');
 
 const BOT = 800185;
 const participantes = [
@@ -117,4 +133,16 @@ test('transcriptDelChat: la conversación del chat con el formato de la memoria 
     '820437',
   );
   assert.equal(t, 'Cliente: Quiero la maestría\nBot: Con la beca son USD 150.\nBot: Hola, soy la asesora');
+});
+
+test('devolverAlBot: si Bitrix rechaza el traspaso, el chat queda como estaba (sin interceptarlo)', async () => {
+  // Interceptar deja la sesión a nombre del dueño del token; si después el traspaso fallaba, el chat
+  // quedaba asignado a esa persona.
+  llamadas.length = 0;
+  transferFalla = true;
+  const r = await devolverAlBot('1562049', BOT, {} as any);
+  assert.equal(r.ok, false);
+  assert.deepEqual(llamadas, ['imopenlines.operator.transfer']);
+  transferFalla = false;
+  assert.equal((await devolverAlBot('1562049', BOT, {} as any)).ok, true);
 });

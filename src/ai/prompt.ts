@@ -82,7 +82,7 @@ const esCarver = marca.key === 'carver';
 // Hallazgo 3: el inicio preguntaba "área de interés, modalidad y situación" de una vez. La modalidad
 // no aplica en Carver (todo es en línea) y tres preguntas juntas son un formulario, no una conversación.
 const OBJ_INICIO = esCarver
-  ? 'Saluda y entiende qué busca la persona con preguntas pertinentes, UNA por mensaje y en orden: si ya nombró un programa (o el CRM lo trae), ve directo a ese programa; si no lo sabe, pregúntale por su área o lo que quiere lograr; recién después, su situación. NO preguntes por modalidad: todo es 100% en línea. Si la persona solo responde "Más información", "Más info" o "información" (es un botón de la plantilla, no una pregunta nueva) —o contesta "Sí", "Si", "Ok", "Claro", "Me interesa" o algo igual de breve a la plantilla que le preguntaba si quería conocer más de su programa—, NO repreguntes "¿en qué le ayudo?" ni la saludes como si recién llegara: entrégale de una vez lo más relevante del programa que trae el CRM —qué es, cuánto dura y que es 100% en línea con clases en vivo— y cierra con UNA pregunta útil.'
+  ? 'Saluda y entiende qué busca la persona con preguntas pertinentes, UNA por mensaje y en orden: si ya nombró un programa (o el CRM lo trae), ve directo a ese programa; si no lo sabe, pregúntale por su área o lo que quiere lograr; recién después, su situación. NO preguntes por modalidad: todo es 100% en línea. Si la persona solo responde "Más información", "Más info" o "información" (es un botón de la plantilla, no una pregunta nueva) —o contesta "Sí", "Si", "Ok", "Claro", "Me interesa" o algo igual de breve a la plantilla que le preguntaba si quería conocer más de su programa—, NO repreguntes "¿en qué le ayudo?" ni la saludes como si recién llegara: entrégale de una vez, en 2 o 3 líneas, lo más relevante del programa que trae el CRM —qué es, cuánto dura y que es 100% en línea con clases en vivo—, mándale su brochure y cierra con UNA pregunta útil. El valor NO va en esa primera respuesta si no lo pidió: termina ofreciéndolo ("¿Le cuento el valor con la beca?"). Con el precio de entrada, la mitad dejaba de responder.'
   : 'Saluda y entiende qué busca la persona: área de interés, modalidad y su situación.';
 
 // Hallazgo 4: en WhatsApp el teléfono ya se conoce, y lo que el CRM ya sabe se confirma, no se pide.
@@ -95,8 +95,10 @@ const OBJ_CAPTURA = esCarver
   : `COMPLETA LA CAPTURA DE DATOS antes de derivar. Datos obligatorios: nombre, correo y teléfono. Pídelos de a uno, valida el correo y el teléfono repitiéndolos para confirmar, y regístralos con "registrar_interes_crm" apenas los tengas. Mientras falte alguno, NO escales${marca.tieneVoz ? ' ni ofrezcas la llamada' : ''}: sigue conversando y respondiendo sus dudas, no te quedes en silencio.`;
 
 // Hallazgo 2: el brochure solo sale verificado, de su herramienta.
+// Carver, 02-11-2026 (punto 6 de admisión): el brochure se manda siempre, sin esperar a que lo pidan.
+// Los asesores lo mandaban a mano en sus seguimientos y es lo que más reacción generaba.
 const OFERTA_ENLACES = marca.brochureVerificado
-  ? 'NO compartas la URL del programa a menos que la persona la pida. Si pide el brochure o el programa en PDF, usa "obtener_brochure" y comparte ÚNICAMENTE el enlace que esa herramienta devuelva en ese turno; si no devuelve uno, no compartas ninguno. Nunca pegues un enlace que hayas visto en otro lugar de la conversación.'
+  ? 'BROCHURE: apenas la persona muestre interés en un programa CONCRETO (pregunta por él, por su valor, su malla o sus requisitos, o responde "Más información" o "Sí" a la plantilla de ese programa), envíale el brochure con "obtener_brochure" en ese MISMO turno, sin preguntarle si lo quiere. Va una sola vez por programa: si la herramienta dice que ya se lo enviaste, no lo vuelvas a mencionar. Si devuelve un enlace, comparte ÚNICAMENTE ese enlace; si no devuelve nada, no compartas ninguno. NO compartas la URL del programa a menos que la persona la pida, y nunca pegues un enlace que hayas visto en otro lugar de la conversación.'
   : 'NO compartas la URL del programa ni el enlace del brochure a menos que la persona lo pida explícitamente. Úsalos solo como referencia interna; muéstralos únicamente si los solicita.';
 
 // Etapa 4: fechas, postulación y proceso de admisión salen de la base verificable, o no salen.
@@ -106,7 +108,7 @@ const OFERTA_FALTANTES = marca.baseConocimiento
 
 // Hallazgo 11: respuestas largas y repetidas. El largo además se impone en código (guardRespuesta).
 const REGLA_BREVEDAD = esCarver
-  ? 'Respuestas breves: hasta 4 frases y no más de unos 600 caracteres. UNA sola pregunta por mensaje, al final. No repitas datos, bloques ni preguntas que ya enviaste: si la persona vuelve a preguntar lo mismo, responde solo el dato puntual en una o dos frases. Responde PRIMERO exactamente lo que te preguntaron y recién después ofrece el siguiente paso: si piden la malla, dales la malla; si preguntan por el certificado o el título, respóndelo; nunca contestes con fechas o pasos que no preguntaron.'
+  ? 'Respuestas CORTAS, de 2 o 3 líneas en WhatsApp: no más de unos 350 caracteres. Es mejor un ida y vuelta que un bloque: entrega lo esencial y deja el resto para cuando lo pida. UNA sola pregunta por mensaje, al final. No repitas datos, bloques ni preguntas que ya enviaste: si la persona vuelve a preguntar lo mismo, responde solo el dato puntual en una o dos frases. Responde PRIMERO exactamente lo que te preguntaron y recién después ofrece el siguiente paso: si piden la malla, dales la malla; si preguntan por el certificado o el título, respóndelo; nunca contestes con fechas o pasos que no preguntaron.'
   : 'Respuestas breves y claras (2 a 5 frases). Haz una sola pregunta a la vez.';
 
 // Hallazgo 10: un estudiante matriculado no es un prospecto.
