@@ -148,7 +148,9 @@ export async function simularTurno(
   const perfil = {
     ...WHATSAPP_PROFILE,
     systemPrompt:
-      WHATSAPP_PROFILE.systemPrompt + bloqueIdioma(detectarIdioma(mensaje)) + (marca.respaldaPromesas ? bloqueMomento() : ''),
+      WHATSAPP_PROFILE.systemPrompt +
+      (marca.respondeSoloEnEspanol ? '' : bloqueIdioma(detectarIdioma(mensaje))) +
+      (marca.respaldaPromesas ? bloqueMomento() : ''),
   };
   const { text, messages: finales } = await runConversation({ profile: perfil, auditId: 'simulacion', simulacion: true }, messages, exec);
   const texto = marca.guardRespuesta

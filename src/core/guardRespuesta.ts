@@ -35,6 +35,15 @@ export function preguntaPorCostosAdicionales(mensaje: string): boolean {
 // título", "derecho de grado").
 const FRASE_FEE = /(titulaci[oó]n|graduaci[oó]n|derecho de grado|emisi[oó]n del t[ií]tulo)[^.\n]{0,80}(usd|us\$|\$|d[oó]lar|pag|cost|cobr|cuota)|(usd|us\$|\$)\s?125\b|\b125\s?(usd|d[oó]lares)|cuota de (procesamiento por )?retiro|retiro[^.\n]{0,30}(usd|us\$|\$)\s?35/i;
 
+/** ¿Preguntó cuánto cuesta la apostilla? Carver pidió decir que se puede gestionar a través de Carver
+ *  sin dar el valor, salvo que lo pregunten (02-11-2026). */
+export function preguntaCostoApostilla(mensaje: string): boolean {
+  const t = norm(mensaje);
+  return /apostill/.test(t) && /cuanto|cost|cuesta|valor|precio|vale|cobr|pag|monto|tarifa/.test(t);
+}
+
+const MONTO = /(usd|us\$|\$)\s?\d|\b\d[\d.,]*\s?(usd|d[oó]lares)/i;
+
 const URL_RE = /https?:\/\/[^\s)\]>"'<]+/gi;
 
 /** Divide en frases conservando los cortes de línea, para poder quitar una frase sin romper el resto. */
@@ -105,6 +114,18 @@ export function guardarRespuesta(textoOriginal: string, ctx: ContextoGuard): Res
     if (sinFee.length < partes.length && sinFee.join(' ').trim()) {
       cambios.push('fee_no_solicitado');
       texto = sinFee.join(' ');
+    }
+  }
+
+  // 2a) El valor de la apostilla, solo si preguntaron cuánto cuesta. Se mira la frase que la nombra y
+  // la siguiente, porque el monto suele ir aparte ("Se gestiona a través de Carver. Tiene un valor de…").
+  if (!preguntaCostoApostilla(ctx.mensajeCliente)) {
+    const partes = frases(texto);
+    const anterior = (i: number) => partes.slice(0, i).reverse().find((p) => p.trim()) ?? '';
+    const sinMonto = partes.filter((f, i) => !(MONTO.test(f) && (/apostill/i.test(f) || /apostill/i.test(anterior(i)))));
+    if (sinMonto.length < partes.length && sinMonto.join(' ').trim()) {
+      cambios.push('apostilla_no_solicitada');
+      texto = sinMonto.join(' ');
     }
   }
 

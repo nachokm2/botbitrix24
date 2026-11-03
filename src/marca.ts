@@ -112,6 +112,10 @@ export type Marca = {
    *  sigue respondiendo. Tampoco se entrega por puntaje a mitad de la ficha de matrícula. Ver
    *  core/retenerChat.ts. */
   retieneFueraDeHorario: boolean;
+  /** ¿Responde siempre en español, salvo que la persona pida otro idioma? Sin esto el idioma se
+   *  detecta por mensaje (ver ai/idioma.ts). Carver lo pidió el 02-11-2026 tras respuestas en
+   *  portugués: la regla va fija en su prompt y la detección no se usa. */
+  respondeSoloEnEspanol: boolean;
 };
 
 /** Valor de una variable de entorno, o el default si no está definida o está vacía. */
@@ -167,6 +171,7 @@ const POSTGRADOS: Marca = {
   respaldaPromesas: false,
   avisaPagoAlAsesor: false,
   retieneFueraDeHorario: false,
+  respondeSoloEnEspanol: false,
 };
 
 // Identidad de Carver, UNIFICADA (hallazgo 1 de la auditoría del piloto). Convivían tres:
@@ -222,6 +227,7 @@ const CARVER: Marca = {
   respaldaPromesas: true,
   avisaPagoAlAsesor: true,
   retieneFueraDeHorario: true,
+  respondeSoloEnEspanol: true,
 };
 
 const MARCAS: Record<MarcaKey, Marca> = { postgrados: POSTGRADOS, carver: CARVER };

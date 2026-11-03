@@ -70,7 +70,8 @@ test('los costos de Precios llegan al prompt y a la política de devolución, si
 test('la cotización trae los costos publicados cuando la persona los pregunta', () => {
   publicarPrecios({ titulacionUsd: 140, inscripcionUsd: 180, retiroUsd: 35 });
   const r: any = buscarCondicionesCarver('Maestría en Psicología', { incluirCostosAdicionales: true });
-  assert.deepEqual(r.costosAdicionales, { titulacionUsd: 140, inscripcionUsd: 180, retiroUsd: 35 });
+  // La apostilla no venía en esa versión publicada: toma el valor de siempre.
+  assert.deepEqual(r.costosAdicionales, { titulacionUsd: 140, inscripcionUsd: 180, retiroUsd: 35, apostillaUsd: 400 });
 });
 
 test('un texto con "$" no se interpreta como patrón al reemplazar', () => {

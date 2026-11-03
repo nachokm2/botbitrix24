@@ -285,10 +285,34 @@ test('marca=carver: el prompt trae el conocimiento institucional de las conversa
 // La clienta preguntó por ACREDITACIÓN y la asesora respondió con la LICENCIA, que es otra cosa: la
 // licencia autoriza a operar, la acreditación certifica calidad académica. Si el bot repite ese
 // encuadre, induce a error sobre una decisión de 4 años y varios miles de dólares.
-test('marca=carver: ante una pregunta de acreditación no la confunde con la licencia y deriva', () => {
+// 02-11-2026: el bot ofrecía "confirmárselo con la documentación oficial", un documento que no existe.
+// Carver entregó el texto exacto: autorización estatal sí, acreditación institucional no.
+test('marca=carver: ante una pregunta de acreditación responde con el texto aprobado, sin ofrecer documentos', () => {
   assert.match(SYSTEM_PROMPT, /no la confundas con la licencia/i);
   assert.match(SYSTEM_PROMPT, /NUNCA afirmes que el programa está acreditado/);
   assert.match(SYSTEM_PROMPT, /la licencia autoriza a operar, la acreditación certifica la calidad académica/);
+  assert.match(SYSTEM_PROMPT, /registrada ante la Florida Commission for Independent Education/);
+  assert.match(SYSTEM_PROMPT, /no cuenta actualmente con acreditación institucional de una agencia acreditadora reconocida por el Departamento de Educación de Estados Unidos/);
+  assert.match(SYSTEM_PROMPT, /NO ofrezcas confirmarlo, averiguarlo ni enviar documentación sobre acreditación/);
+  assert.doesNotMatch(SYSTEM_PROMPT, /prefiero confirmárselo con la documentación oficial/);
+});
+
+// 02-11-2026: el bot decía que todos los documentos van apostillados y que la apostilla venía en el
+// fee de titulación. Son cobros distintos (USD 125 y USD 400), y el valor se da solo si lo preguntan.
+test('marca=carver: la apostilla es un trámite aparte que se gestiona a través de Carver', () => {
+  assert.match(SYSTEM_PROMPT, /los títulos NO vienen apostillados de por sí/);
+  assert.match(SYSTEM_PROMPT, /puede gestionarla a través de Carver\. Dilo así, SIN mencionar su valor/);
+  assert.match(SYSTEM_PROMPT, /Apostilla del título: USD 400, aparte de la titulación/);
+  assert.doesNotMatch(SYSTEM_PROMPT, /emite los títulos con Apostilla/);
+  assert.doesNotMatch(SYSTEM_PROMPT, /título apostillado/);
+});
+
+// 02-11-2026: Carver pidió responder siempre en español, salvo que la persona pida otro idioma. La
+// detección por mensaje no corre en esta marca.
+test('marca=carver: responde siempre en español salvo que pidan otro idioma', () => {
+  assert.equal(marca.respondeSoloEnEspanol, true);
+  assert.match(SYSTEM_PROMPT, /responde SIEMPRE en español/);
+  assert.match(SYSTEM_PROMPT, /Cambia de idioma SOLO si la persona te lo pide expresamente/);
 });
 
 // La primera conversación real de Carver llegó como lead SIN negociación: el bot no tenía asesor

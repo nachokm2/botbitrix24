@@ -248,6 +248,7 @@ export function validarPrecios(entrada: unknown): Validacion<AjustesPrecios> {
     ['titulacionUsd', 'La titulación'],
     ['inscripcionUsd', 'La inscripción'],
     ['retiroUsd', 'La cuota por retiro'],
+    ['apostillaUsd', 'La apostilla'],
   ] as const) {
     const v = costosRecibidos[campo];
     if (!esMonto(v) || v < 0 || v > MAX_MONTO) errores.push({ campo: `costosAdicionales.${campo}`, mensaje: `${nombre} debe ser un monto en dólares (0 si no se cobra).` });

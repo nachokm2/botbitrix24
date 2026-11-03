@@ -608,6 +608,7 @@
       ['titulacionUsd', 'Titulación'],
       ['inscripcionUsd', 'Inscripción'],
       ['retiroUsd', 'Cuota por retiro'],
+      ['apostillaUsd', 'Apostilla'],
     ];
     const costo = (k) => form.querySelector(`[name="costosAdicionales.${k}"]`);
     const campo = (slug, c) => `programas.${slug}.${c}`;

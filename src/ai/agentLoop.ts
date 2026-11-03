@@ -409,8 +409,9 @@ export async function runAgentTurn(
       : profile;
     const extra = ctx.datosConocidos ? bloqueDatosConocidos(ctx.datosConocidos) : '';
     // Idioma del turno: se mira SOLO el mensaje actual, y la instrucción va al system del turno. Si
-    // la persona vuelve al español en el siguiente mensaje, desaparece sola.
-    const idioma = typeof userText === 'string' ? detectarIdioma(userText) : 'es';
+    // la persona vuelve al español en el siguiente mensaje, desaparece sola. Donde se responde siempre
+    // en español, la regla está fija en el prompt y no se detecta nada.
+    const idioma = typeof userText === 'string' && !marca.respondeSoloEnEspanol ? detectarIdioma(userText) : 'es';
     const extraIdioma = bloqueIdioma(idioma);
     // Qué día es y cuándo trabaja el equipo: para que "lo confirmo y le respondo" diga cuándo.
     const extraMomento = marca.respaldaPromesas ? bloqueMomento() : '';

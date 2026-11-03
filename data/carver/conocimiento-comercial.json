@@ -94,7 +94,7 @@
       "entradas": [
         {
           "argumento": "A01 · Universidad estadounidense con licencia estatal vigente en Florida",
-          "detalle": "Universidad estadounidense con sede en Florida, opera bajo la Licencia N.º 12743 de la Commission for Independent Education del Estado de Florida. Esa condición le permite ofrecer programas y otorgar títulos válidos y oficiales dentro del marco regulatorio aplicable. Oferta de licenciaturas y maestrías impartidas desde Estados Unidos, con títulos emitidos allá conforme a su licencia institucional. Diploma digital con apostilla de La Haya: la apostilla acredita la AUTENTICIDAD del documento; su reconocimiento académico o profesional depende de la normativa de cada país."
+          "detalle": "Universidad estadounidense con sede en Florida, opera bajo la Licencia N.º 12743 de la Commission for Independent Education del Estado de Florida. Esa condición le permite ofrecer programas y otorgar títulos válidos y oficiales dentro del marco regulatorio aplicable. Oferta de licenciaturas y maestrías impartidas desde Estados Unidos, con títulos emitidos allá conforme a su licencia institucional. Diploma digital; la apostilla de La Haya es un trámite aparte, no incluido, que se puede gestionar a través de Carver: la apostilla acredita la AUTENTICIDAD del documento; su reconocimiento académico o profesional depende de la normativa de cada país."
         },
         {
           "argumento": "A02 · Faculty internacional con experiencia comprobable",
@@ -254,7 +254,7 @@
       "entradas": [
         {
           "pais": "general (aplica a todos los países)",
-          "puedeAfirmar": "Carver University es una institución oficial estadounidense con sede en Florida, autorizada por la Commission for Independent Education (CIE) del Estado de Florida bajo la Licencia N.º 12743. Sus programas de licenciatura y maestría son válidos y oficiales en EE.UU. y otorgan grado académico. Los títulos se emiten con apostilla de La Haya (certifica la autenticidad del documento) en formato digital, con opción de emisión física apostillada. El reconocimiento, homologación, revalidación o convalidación en otro país lo resuelve la autoridad competente de ese país según su normativa, no Carver.",
+          "puedeAfirmar": "Carver University es una institución oficial estadounidense con sede en Florida, autorizada por la Commission for Independent Education (CIE) del Estado de Florida bajo la Licencia N.º 12743. Sus programas de licenciatura y maestría son válidos y oficiales en EE.UU. y otorgan grado académico. Los títulos se emiten en formato digital, con opción de emisión física. La apostilla de La Haya (certifica la autenticidad del documento) es un trámite aparte, no incluido, que se puede gestionar a través de Carver. El reconocimiento, homologación, revalidación o convalidación en otro país lo resuelve la autoridad competente de ese país según su normativa, no Carver.",
           "noAfirmar": "No afirmes que Carver cuenta hoy con acreditación institucional estadounidense; que la autorización estatal de Florida equivale a una acreditación; que los títulos tienen reconocimiento internacional automático; que la apostilla garantiza el reconocimiento académico o profesional; ni que habilitan automáticamente para ejercer profesiones reguladas.",
           "verificacion": "Registro público oficial de la CIE: https://web02.fldoe.org/CIE/SearchSchools/SchoolSearchDetail.aspx?schoolID=12743 — y cómo verificar la licencia paso a paso: https://www.instagram.com/reel/DZs3mWmJtiw/"
         },

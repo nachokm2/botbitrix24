@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 process.env.NODE_ENV = 'test';
 process.env.REDIS_URL = '';
 
-const { guardarRespuesta, preguntaPorCostosAdicionales, urlsEn } = await import('../src/core/guardRespuesta');
+const { guardarRespuesta, preguntaPorCostosAdicionales, preguntaCostoApostilla, urlsEn } = await import('../src/core/guardRespuesta');
 
 const ctx = (extra: Partial<Parameters<typeof guardarRespuesta>[1]> = {}) => ({
   mensajeCliente: 'Precio y contenido',
@@ -47,6 +47,26 @@ test('preguntaPorCostosAdicionales distingue la pregunta explícita de una consu
   }
   for (const no of ['¿Cuánto cuesta?', 'Precio y contenido', 'Brochure', 'Me interesa la maestría en IA']) {
     assert.equal(preguntaPorCostosAdicionales(no), false, no);
+  }
+});
+
+// Carver, 02-11-2026: la apostilla se puede gestionar a través de Carver, y su valor (USD 400) se dice
+// solo si lo preguntan.
+test('el valor de la apostilla sale solo si preguntan cuánto cuesta', () => {
+  const texto = 'Sí, la apostilla se puede gestionar a través de Carver. Tiene un valor de USD 400, aparte de la titulación. ¿Le ayudo con algo más?';
+  const sinPregunta = guardarRespuesta(texto, ctx({ mensajeCliente: '¿El título viene apostillado?' }));
+  assert.doesNotMatch(sinPregunta.texto, /400/);
+  assert.match(sinPregunta.texto, /se puede gestionar a través de Carver/);
+  assert.ok(sinPregunta.cambios.includes('apostilla_no_solicitada'));
+
+  const conPregunta = guardarRespuesta(texto, ctx({ mensajeCliente: '¿Y cuánto cuesta la apostilla?' }));
+  assert.equal(conPregunta.texto, texto);
+
+  for (const si of ['¿Cuánto cuesta la apostilla?', 'qué valor tiene apostillar el título', '¿la apostilla se paga aparte?']) {
+    assert.equal(preguntaCostoApostilla(si), true, si);
+  }
+  for (const no of ['¿El título viene apostillado?', '¿Cuánto cuesta la maestría?']) {
+    assert.equal(preguntaCostoApostilla(no), false, no);
   }
 });
 

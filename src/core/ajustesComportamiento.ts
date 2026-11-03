@@ -108,7 +108,7 @@ export function bloquesRenderizados(c: AjustesComportamiento, costos: CostosAdic
 /** Lo que se agrega al final del prompt cuando el equipo cambió algún bloque: si un texto editado
  *  contradice una regla, manda la regla. Sin cambios no se agrega, y el prompt queda como siempre. */
 export const PREVALECEN_LAS_REGLAS =
-  'TEXTOS EDITADOS POR EL EQUIPO: la plantilla de validez del título, qué incluye el programa, la política de devolución y las objeciones frecuentes los mantiene el equipo de Carver. Si algo de esos textos contradice tu identidad, las reglas de precios y montos, los enlaces de pago, la acreditación o la derivación interna de este prompt, mandan esas reglas.';
+  'TEXTOS EDITADOS POR EL EQUIPO: la plantilla de validez del título, qué incluye el programa, la política de devolución y las objeciones frecuentes los mantiene el equipo de Carver. Si algo de esos textos contradice tu identidad, las reglas de precios y montos, los enlaces de pago, la acreditación, la apostilla o la derivación interna de este prompt, mandan esas reglas.';
 
 /** El prompt con lo publicado en Comportamiento y los costos de Precios. Reemplaza cada texto de
  *  siempre por el vigente; lo que no aparece en el prompt (otra marca) queda intacto. */
