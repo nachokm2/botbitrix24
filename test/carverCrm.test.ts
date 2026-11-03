@@ -26,10 +26,12 @@ const usuarios: Record<number, any> = {
 let deals: Record<number, any> = {};
 let dealsPorContacto: Record<number, any[]> = {};
 let crmCaido = false;
+let rechazaTraspaso = false;
 
 async function crm(method: string, params: any) {
   llamadas.push({ method, params });
   if (crmCaido) throw new Error('Bitrix no responde (simulado)');
+  if (method === 'imopenlines.bot.session.transfer' && rechazaTraspaso) throw new Error('OPERATOR_WRONG You cannot redirect to this operator');
   if (method === 'user.get') return [usuarios[params.ID]].filter(Boolean);
   if (method === 'crm.deal.get') return deals[params.id] ?? {};
   if (method === 'crm.deal.list') return dealsPorContacto[params.filter?.CONTACT_ID] ?? [];
@@ -62,6 +64,7 @@ function reset() {
   deals = {};
   dealsPorContacto = {};
   crmCaido = false;
+  rechazaTraspaso = false;
   // Las pruebas cambian la ficha de una misma Advisor (activa, correo, móvil): sin esto, getUsuarios
   // devolvería la que recordó de la prueba anterior.
   _vaciarCacheUsuarios();
@@ -98,7 +101,7 @@ test('identidad: NO se presenta como el robot "Resp. Autom."', async () => {
 test('derivación: el asesor vigente de Carver conserva el lead y recibe la tarea', async () => {
   reset();
   deals[8001] = { CATEGORY_ID: '135', ASSIGNED_BY_ID: '685357', TITLE: 'Maestría en Psicología – Ana' };
-  assert.equal(await derivarAResponsableFijo({ deal: 8001 }, auth), true);
+  assert.deepEqual(await derivarAResponsableFijo({ deal: 8001 }, auth), { asesor: 685357, alPuntoDeEntrada: false });
   assert.equal(de('crm.deal.update').length, 0, 'no se le quita el lead');
   assert.equal(de('tasks.task.add')[0].params.fields.RESPONSIBLE_ID, 685357);
   assert.ok(auditorias.some((a) => a.type === 'derivacion' && a.detail.decision === 'tarea_al_asesor_vigente'));
@@ -107,7 +110,7 @@ test('derivación: el asesor vigente de Carver conserva el lead y recibe la tare
 test('derivación: un lead en manos de otro equipo pasa al punto de entrada, con constancia del anterior', async () => {
   reset();
   deals[8002] = { CATEGORY_ID: '135', ASSIGNED_BY_ID: '9', TITLE: 'Licenciatura en Psicología – Luis' };
-  assert.equal(await derivarAResponsableFijo({ deal: 8002 }, auth), true);
+  assert.deepEqual(await derivarAResponsableFijo({ deal: 8002 }, auth), { asesor: 1313, alPuntoDeEntrada: true });
   assert.equal(de('crm.deal.update')[0].params.fields.ASSIGNED_BY_ID, 1313);
   assert.equal(de('tasks.task.add')[0].params.fields.RESPONSIBLE_ID, 1313, 'la tarea NO va al ejecutivo ajeno');
   const nota = de('crm.timeline.comment.add')[0].params.fields.COMMENT;
@@ -135,7 +138,7 @@ test('derivación: con una negociación cerrada, la tarea va al punto de entrada
   // llegó al responsable de entonces como si fuera su caso vigente.
   reset();
   deals[8004] = { CATEGORY_ID: '73', ASSIGNED_BY_ID: '685357', TITLE: 'Maestría en Psicología – Eva', CLOSED: 'Y', STAGE_ID: 'C73:APOLOGY' };
-  assert.equal(await derivarAResponsableFijo({ deal: 8004 }, auth), true);
+  assert.deepEqual(await derivarAResponsableFijo({ deal: 8004 }, auth), { asesor: 1313, alPuntoDeEntrada: true });
   assert.equal(de('crm.deal.update').length, 0, 'ni responsable ni etapa');
   assert.equal(de('tasks.task.add')[0].params.fields.RESPONSIBLE_ID, 1313);
   assert.ok(auditorias.some((a) => a.type === 'derivacion' && a.detail.decision === 'tarea_al_punto_de_entrada_negociacion_cerrada'));
@@ -414,6 +417,53 @@ test('soporte a estudiante: la derivación va a SU Advisor, sin tocar la negocia
   assert.deepEqual(de('tasks.task.add')[0].params.fields.UF_CRM_TASK, ['D_6010'], 'la tarea cuelga de la ficha de acompañamiento');
   assert.equal(de('crm.deal.update').length, 0, 'no reasigna nada');
   assert.notEqual((c as any).transferirAOperador, true, 'no entrega la sesión a la cola de ventas');
+});
+
+// ── A quién va el CHAT al derivar (03-11-2026) ───────────────────────────────────────────────────
+// La negociación y la tarea quedaban con el punto de entrada, pero el chat iba a la cola de la línea
+// y Bitrix se lo daba a cualquiera de sus operadores. Ahora, sin asesor vigente, va a esa persona.
+test('escalar sin asesor vigente: el chat va al punto de entrada; con asesor vigente, a la cola', async () => {
+  const { config } = await import('../src/config');
+  const antes = { dias: config.horarioAsesoresDias, ini: config.horarioAsesoresInicio, fin: config.horarioAsesoresFin };
+  // El equipo trabaja a toda hora: así no se retiene el chat por la hora en que corra la prueba.
+  Object.assign(config, { horarioAsesoresDias: [0, 1, 2, 3, 4, 5, 6], horarioAsesoresInicio: '00:00', horarioAsesoresFin: '24:00' });
+  const escalar = async (crmEntities: any) => {
+    const c: any = ctx({ crmEntities });
+    await executeTool('escalar_a_humano', { motivo: 'quiere hablar con una persona' }, c);
+    assert.equal(c.transferirAOperador, true);
+    return c.entregarA;
+  };
+
+  reset();
+  assert.equal(await escalar({ contact: 556 }), 1313, 'chat con solo un contacto, sin negociación abierta');
+  reset();
+  deals[8002] = { CATEGORY_ID: '135', ASSIGNED_BY_ID: '9', TITLE: 'x' };
+  assert.equal(await escalar({ deal: 8002 }), 1313, 'negociación en manos de otro equipo');
+  reset();
+  deals[8004] = { CATEGORY_ID: '73', ASSIGNED_BY_ID: '685357', TITLE: 'x', CLOSED: 'Y', STAGE_ID: 'C73:APOLOGY' };
+  assert.equal(await escalar({ deal: 8004 }), 1313, 'negociación cerrada');
+  reset();
+  deals[8001] = { CATEGORY_ID: '135', ASSIGNED_BY_ID: '685357', TITLE: 'x' };
+  assert.equal(await escalar({ deal: 8001 }), 0, 'con asesor vigente sigue yendo a la cola, como antes');
+
+  Object.assign(config, { horarioAsesoresDias: antes.dias, horarioAsesoresInicio: antes.ini, horarioAsesoresFin: antes.fin });
+});
+
+test('entregar el chat: a la persona; si Bitrix no lo acepta, a la cola para que no quede sin nadie', async () => {
+  const { entregarSesion } = await import('../src/crm/entregaChat');
+  reset();
+  assert.equal(await entregarSesion('123', 1313, auth), 'persona');
+  assert.deepEqual(de('imopenlines.bot.session.transfer')[0].params, { CHAT_ID: '123', USER_ID: 1313, LEAVE: 'N' });
+  assert.equal(de('imopenlines.bot.session.operator').length, 0);
+
+  reset();
+  rechazaTraspaso = true;
+  assert.equal(await entregarSesion('123', 1313, auth), 'cola');
+  assert.equal(de('imopenlines.bot.session.operator').length, 1);
+
+  reset();
+  assert.equal(await entregarSesion('123', 0, auth), 'cola', 'sin destino, la cola de siempre');
+  assert.equal(de('imopenlines.bot.session.transfer').length, 0);
 });
 
 test('herramienta de brochure: un NOOC devuelve ok=false sin enlace', async () => {

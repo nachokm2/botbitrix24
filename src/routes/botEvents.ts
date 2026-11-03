@@ -25,6 +25,7 @@ import { esperarComoHumano } from '../core/ritmoHumano';
 import { anotarEntrante, fueAbsorbido, esperarFinDeRafaga, tomarRafaga } from '../core/rafaga';
 import { esEnvioNuestroPorChatApp, esRespuestaAutomaticaDeNegocio, adjuntosSonDeLaPlantilla } from '../core/ecos';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
+import { entregarSesion } from '../crm/entregaChat';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
 import { WHATSAPP_PROFILE, type AgentContext } from '../core/channel';
@@ -501,8 +502,8 @@ async function handle(req: Request) {
   // asignado con su tarea (ver crm/asignacionAsesores.ts), así que no se corta el turno.
   if (ctxTurno.transferirAOperador) {
     try {
-      await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: chatId }, auth);
-      log.info('sesión entregada al operador tras responder', { dialogId, chatId });
+      const via = await entregarSesion(chatId, ctxTurno.entregarA ?? 0, auth);
+      log.info('sesión entregada al operador tras responder', { dialogId, chatId, via, a: ctxTurno.entregarA || null });
     } catch (e) {
       // "Operator is not a bot": la sesión ya la atiende una persona. El bot igual queda en silencio
       // (escalar_a_humano ya lo marcó); se deja constancia de por qué no hubo traspaso.

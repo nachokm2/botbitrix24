@@ -60,7 +60,7 @@ test('si ya hay un asesor vigente, NO se le quita el lead: se le crea una tarea'
   reset(777);
   const ok = await derivarAResponsableFijo({ deal: 500 }, auth);
 
-  assert.equal(ok, true);
+  assert.deepEqual(ok, { asesor: 777, alPuntoDeEntrada: false });
   assert.equal(update(), undefined, 'el lead sigue siendo del asesor que lo trabajaba');
   assert.equal(tarea()!.params.fields.RESPONSIBLE_ID, 777);
   assert.match(tarea()!.params.fields.DESCRIPTION, /sigue siendo tuya/);
@@ -71,7 +71,7 @@ test('sin asesor real, el punto de entrada sí la recibe', async () => {
   reset(45); // responsable por defecto / robot
   const ok = await derivarAResponsableFijo({ deal: 501 }, auth);
 
-  assert.equal(ok, true);
+  assert.deepEqual(ok, { asesor: 1313, alPuntoDeEntrada: true });
   assert.equal(update()!.params.fields.ASSIGNED_BY_ID, 1313);
   assert.equal(tarea()!.params.fields.RESPONSIBLE_ID, 1313);
 });
@@ -88,7 +88,7 @@ test('si ya es del punto de entrada, no reescribe pero sí avisa', async () => {
   reset(1313);
   const ok = await derivarAResponsableFijo({ deal: 503 }, auth);
 
-  assert.equal(ok, true);
+  assert.deepEqual(ok, { asesor: 1313, alPuntoDeEntrada: true });
   assert.equal(update(), undefined, 'escribir de nuevo lo mismo es ruido en el timeline');
   assert.equal(tarea()!.params.fields.RESPONSIBLE_ID, 1313);
 });
@@ -109,7 +109,7 @@ test('sin negociación en el chat, la busca por el contacto', async () => {
   reset(45);
   const ok = await derivarAResponsableFijo({ contact: 9001 }, auth);
 
-  assert.equal(ok, true);
+  assert.ok(ok);
   assert.equal(update()!.params.id, 4242, 'la negociación que encontró por el contacto');
 });
 

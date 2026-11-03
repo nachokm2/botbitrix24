@@ -20,7 +20,8 @@ import { callBitrix } from '../bitrix/client';
 import { marca } from '../marca';
 import { once } from '../store/kv';
 import { marcarTraspaso } from '../session';
-import { derivarAResponsableFijo } from '../crm/asignacionAsesores';
+import { derivarAResponsableFijo, type Derivacion } from '../crm/asignacionAsesores';
+import { destinoDelChat, entregarSesion } from '../crm/entregaChat';
 import { motivoParaRetener, fichaDeMatriculaEnCurso } from '../core/retenerChat';
 import { config } from '../config';
 import { inc, recordTokens } from '../obs/metrics';
@@ -306,10 +307,11 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
       // claro y datos entregados, pero en el embudo se ve igual que cualquier otra.
       await marcarUrgente(crmEntities.deal, auth, { score: evalData.score, motivo: 'score_alto' });
 
+      let derivacion: Derivacion | false = false;
       if (marca.sePresentaComoAsesor) {
         // El bot habla COMO el asesor: anunciar "te conecto con un asesor" contradice su identidad (y
         // tuteaba). Se deriva sin anunciarlo, por el mismo camino que una derivación explícita.
-        await derivarAResponsableFijo(crmEntities, auth);
+        derivacion = await derivarAResponsableFijo(crmEntities, auth);
       } else {
         await callBitrix(
           'imbot.message.add',
@@ -323,7 +325,8 @@ export async function procesarScoring(ctx: ScoringCtx): Promise<void> {
       }
       if (!retenida) {
         try {
-          await callBitrix('imopenlines.bot.session.operator', { CHAT_ID: chatId }, auth);
+          // Sin asesor vigente a cargo, al punto de entrada y no a la cola (ver crm/entregaChat.ts).
+          await entregarSesion(chatId!, destinoDelChat(derivacion), auth); // autoEscalarPorScore exige chatId
         } catch (e) {
           // "Operator is not a bot": la sesión ya la atiende una persona. No es una falla del traspaso:
           // es la confirmación de que el bot no debe seguir hablando en esta sesión.

@@ -45,11 +45,14 @@ mock.module('../src/obs/audit.ts', { namedExports: { audit: async (e: any) => vo
 let turnos = 0;
 /** Lo que recibió el motor en cada turno: con una ráfaga, todos los mensajes juntos. */
 let textosDeTurno: any[] = [];
+/** Lo que el motor deja marcado en el contexto del turno, como hace escalar_a_humano al derivar. */
+let marcarEnContexto: Record<string, unknown> = {};
 mock.module('../src/ai/agentLoop.ts', {
   namedExports: {
-    runAgentTurn: async (_ctx: any, texto: any) => {
+    runAgentTurn: async (ctx: any, texto: any) => {
       turnos++;
       textosDeTurno.push(texto);
+      Object.assign(ctx, marcarEnContexto);
       return 'respuesta del bot';
     },
   },
@@ -367,4 +370,30 @@ test('mensajes en ráfaga: el bot responde una sola vez, con todo junto', async 
   assert.equal(llamadas.filter((c) => c.method === 'imbot.message.add').length, 1, 'una sola respuesta');
   config.rafagaVentanaS = antes;
   _limpiarRafagas();
+});
+
+// ── A quién va el chat al derivar ────────────────────────────────────────────────────────────────
+// Sin asesor vigente, el chat iba a la cola de la línea y Bitrix se lo daba a cualquiera de sus
+// operadores, aunque la negociación y la tarea quedaran con el punto de entrada (03-11-2026).
+test('al derivar sin asesor vigente, el chat va a esa persona y no a la cola, DESPUÉS de la respuesta', async () => {
+  const { _limpiarCacheOperadores } = await import('../src/crm/operadorEnChat');
+  _limpiarCacheOperadores();
+  usuarioDelPortal = [];
+  participantes = [
+    { id: 800185, bot: true, name: 'Carver University' },
+    { id: 767389, extranet: true, name: 'cliente' },
+  ];
+  llamadas.length = 0;
+  marcarEnContexto = { transferirAOperador: true, entregarA: 62741 };
+  botMessageHandler(eventoDe(80, '1900001', '767389', 'chat-entrega') as any, res);
+  await esperar(() => llamadas.some((c) => c.method === 'imopenlines.bot.session.transfer'));
+  marcarEnContexto = {};
+
+  const respuesta = llamadas.findIndex((c) => c.method === 'imbot.message.add');
+  const traspaso = llamadas.findIndex((c) => c.method === 'imopenlines.bot.session.transfer');
+  assert.ok(respuesta >= 0 && traspaso > respuesta, 'primero la respuesta: después Bitrix ya no deja escribir al bot');
+  assert.equal(llamadas[traspaso].params.USER_ID, 62741);
+  assert.equal(llamadas[traspaso].params.LEAVE, 'N');
+  assert.equal(llamadas.filter((c) => c.method === 'imopenlines.bot.session.operator').length, 0, 'no pasa por la cola');
+  _limpiarCacheOperadores();
 });

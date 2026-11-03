@@ -233,6 +233,9 @@ export async function asignarAsesorPorTurno(
   }
 }
 
+/** A quién quedó una derivación: al asesor vigente de la negociación o al punto de entrada. */
+export type Derivacion = { asesor: number; alPuntoDeEntrada: boolean };
+
 /**
  * Asigna la negociación a UN responsable fijo (config.derivarATodo), ignorando el reparto por turno.
  *
@@ -241,9 +244,10 @@ export async function asignarAsesorPorTurno(
  * configurados, asignarAsesorPorTurno devuelve false y las derivaciones POR SILENCIO no llegaban a
  * nadie: el barrido las descartaba sin asignar ni auditar.
  *
- * Devuelve true solo si realmente asignó, para que el llamador distinga "se derivó" de "no aplicaba".
+ * Devuelve a quién quedó (falso si no derivó), para que el llamador distinga "se derivó" de "no
+ * aplicaba" y sepa a quién entregarle el chat (ver crm/entregaChat.ts).
  */
-export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth): Promise<boolean> {
+export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth): Promise<Derivacion | false> {
   const destino = config.derivarATodo;
   if (!destino) return false;
 
@@ -284,7 +288,7 @@ export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth)
       await crearTareaSeguimiento(dealId, destino, titulo, auth);
       await auditarDerivacion(dealId, 'tarea_al_punto_de_entrada_negociacion_cerrada', { asesor: destino, antes: actual, etapa: d?.STAGE_ID });
       log.info('derivarAResponsableFijo: la negociación está cerrada; tarea al punto de entrada, sin reasignar', { dealId, etapa: d?.STAGE_ID });
-      return true;
+      return { asesor: destino, alPuntoDeEntrada: true };
     }
 
     // La etapa se mueve siempre que se derive, sin importar a quién quede asignada: es lo que hace
@@ -294,7 +298,7 @@ export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth)
     if (actual === destino) {
       await crearTareaSeguimiento(dealId, destino, titulo, auth);
       await auditarDerivacion(dealId, 'tarea_al_punto_de_entrada', { asesor: destino });
-      return true;
+      return { asesor: destino, alPuntoDeEntrada: true };
     }
 
     // Si ya hay un asesor de verdad a cargo, NO se le quita el lead: se le avisa con una tarea.
@@ -305,7 +309,7 @@ export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth)
       await crearTareaSeguimiento(dealId, actual, titulo, auth);
       await auditarDerivacion(dealId, 'tarea_al_asesor_vigente', { asesor: actual });
       log.info('derivarAResponsableFijo: la negociación ya tiene asesor; se le creó tarea en vez de reasignar', { dealId, asesor: actual });
-      return true;
+      return { asesor: actual, alPuntoDeEntrada: false };
     }
 
     // Sin asesor que pueda atenderla (responsable por defecto, robot, alguien dado de baja o de OTRO
@@ -329,7 +333,7 @@ export async function derivarAResponsableFijo(entities: CrmEntities, auth: Auth)
     ).catch((e) => log.warn('derivarAResponsableFijo: no se pudo dejar la nota de reasignación', { err: String(e), dealId }));
     await auditarDerivacion(dealId, 'asignada_al_punto_de_entrada', { asesor: destino, antes: actual, motivo: vigencia });
     log.info('derivarAResponsableFijo: negociación sin asesor válido; asignada al punto de entrada', { dealId, destino, antes: actual, motivo: vigencia });
-    return true;
+    return { asesor: destino, alPuntoDeEntrada: true };
   } catch (e) {
     log.warn('derivarAResponsableFijo: no se pudo derivar', { err: String(e), dealId, destino });
     return false;

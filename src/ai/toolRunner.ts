@@ -5,6 +5,7 @@ import type { AgentContext } from '../core/channel';
 import { actualizarDatosCliente, obtenerContextoLlamada } from '../crm/crmWrite';
 import { getDealAsesores } from '../crm/directory';
 import { asignarAsesorPorTurno, derivarAResponsableFijo } from '../crm/asignacionAsesores';
+import { destinoDelChat } from '../crm/entregaChat';
 import { vigilarDerivacion } from '../crm/vigilanciaDerivaciones';
 import { generarBriefing } from './briefing';
 import { iniciarLlamadaSaliente } from '../voice/outbound';
@@ -477,16 +478,19 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
         // no confía en la regla de "asesor por oferta" de Bitrix (no reasigna un deal que ya tiene
         // responsable; ver crm/asignacionAsesores.ts). Se ejecuta ANTES de leer el responsable más
         // abajo, para que el bot le diga al cliente el asesor recién asignado, no uno viejo.
+        let fijo: Awaited<ReturnType<typeof derivarAResponsableFijo>> = false;
         if (ctx.crmEntities) {
           // Con un punto de entrada único configurado, la negociación va a ESA persona y el reparto
           // por turno no corre: son dos políticas que se excluyen.
-          const fijo = await derivarAResponsableFijo(ctx.crmEntities, ctx.auth);
+          fijo = await derivarAResponsableFijo(ctx.crmEntities, ctx.auth);
           if (!fijo) await asignarAsesorPorTurno(ctx.crmEntities, ctx.auth);
 
           // Arranca el reloj: si nadie trabaja esta negociación en las próximas horas, se le avisa. No
           // si el bot se quedó atendiendo: el aviso llegaría de madrugada por un caso que no espera.
           if (ctx.crmEntities.deal && !retenida) void vigilarDerivacion(ctx.crmEntities.deal, ctx.conversationId);
         }
+        // Sin asesor vigente a cargo, el chat va al punto de entrada y no a la cola de la línea.
+        if (ctx.transferirAOperador) ctx.entregarA = destinoDelChat(fijo);
 
         // Genera (una vez) un resumen del lead para el asesor y lo deja en el CRM.
         const entityBrief = ctx.crmEntity ?? null;

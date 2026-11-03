@@ -68,6 +68,9 @@ export type AgentContext = {
    *  queda sin ninguna respuesta (pasaba en el 100% de los escalamientos explícitos). El adaptador
    *  del canal es quien ejecuta la transferencia al final del turno (ver routes/botEvents.ts). */
   transferirAOperador?: boolean;
+  /** A quién va esa sesión: una persona (el punto de entrada, si nadie vigente quedó a cargo) o, con
+   *  0 o sin definir, la cola de la línea (ver crm/entregaChat.ts). */
+  entregarA?: number;
   /** Texto del cliente en ESTE turno. Lo usan las reglas que dependen de lo que preguntó (p. ej. el
    *  fee de titulación solo se informa si lo pregunta explícitamente; ver core/guardRespuesta.ts). */
   ultimoMensajeCliente?: string;
