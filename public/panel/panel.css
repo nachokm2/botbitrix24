@@ -178,10 +178,10 @@ details.programa .cuerpo { padding: 4px 16px 16px; }
 .vista-precio li { margin: 3px 0; }
 #precios-lista.desactualizada .vista-precio { opacity: 0.4; }
 
-.resultado-brochure { margin: 6px 0 0; font-size: 0.9rem; }
-.resultado-brochure:empty { display: none; }
-.resultado-brochure.ok { color: var(--ok-texto); }
-.resultado-brochure.mal { color: var(--error-texto); }
+.resultado-brochure, .resultado-adjunto { margin: 6px 0 0; font-size: 0.9rem; }
+.resultado-brochure:empty, .resultado-adjunto:empty { display: none; }
+.resultado-brochure.ok, .resultado-adjunto.ok { color: var(--ok-texto); }
+.resultado-brochure.mal, .resultado-adjunto.mal { color: var(--error-texto); }
 
 /* Conocimiento institucional: un tema por pestaña, filas editables */
 .pestanas { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }

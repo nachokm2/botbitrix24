@@ -77,10 +77,24 @@ export const INSTRUCCION_SIN_DATO =
   'plazos. Dilo con naturalidad en una frase y ofrece confirmarlo y responderle por este medio. Si la persona lo ' +
   'necesita para decidir, deja la consulta registrada con registrar_interes_crm (en "comentario").';
 
+// Los documentos se suben desde el panel (core/ajustesConocimiento.ts): el título de ejemplo, la licencia.
+export const INSTRUCCION_DOCUMENTO =
+  'Las filas con "documento" traen una imagen o un PDF aprobado por la universidad. Compártelo tal cual, en una ' +
+  'línea aparte, cuando la persona pida verlo o cuando muestre justo lo que pregunta (por ejemplo, cómo es el ' +
+  'título). No digas que va adjunto: es un enlace que se abre en el navegador.';
+
 export type ResultadoConocimiento =
   | { ok: false; error: 'TEMA_DESCONOCIDO'; temas: readonly string[] }
   | { ok: true; tema: Tema; disponible: false; motivo: string; instruccion: string }
-  | { ok: true; tema: Tema; disponible: true; contenido: EntradaTema[]; fuente: string | null; vigenteHasta: string | null };
+  | {
+      ok: true;
+      tema: Tema;
+      disponible: true;
+      contenido: EntradaTema[];
+      fuente: string | null;
+      vigenteHasta: string | null;
+      instruccionDocumento?: string;
+    };
 
 const hoyISO = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -138,8 +152,16 @@ export function consultarInformacionInstitucional(
     });
   }
 
-
-  return { ok: true, tema, disponible: true, contenido: entradas, fuente: def.fuente, vigenteHasta: def.vigenteHasta };
+  const conDocumento = entradas.some((e) => String(e.documento ?? '').trim());
+  return {
+    ok: true,
+    tema,
+    disponible: true,
+    contenido: entradas,
+    fuente: def.fuente,
+    vigenteHasta: def.vigenteHasta,
+    ...(conDocumento ? { instruccionDocumento: INSTRUCCION_DOCUMENTO } : {}),
+  };
 }
 
 /** Estado de cada tema, para el informe de aceptación comercial. */

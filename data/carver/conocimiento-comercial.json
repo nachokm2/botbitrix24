@@ -339,10 +339,10 @@
     "datos_operativos": {
       "titulo": "Puntos operativos aprobados (horario, pagos, convalidación, certificado, inglés)",
       "estado": "validado",
-      "fuente": "Carver_02_Puntos_Operativos_Chatbot.docx (área de admisión / dirección Carver)",
+      "fuente": "Carver_02_Puntos_Operativos_Chatbot.docx (área de admisión / dirección Carver); título digital: correo de la dirección de Carver del 03-11-2026",
       "responsable": "Área de Admisión Carver University",
       "vigenteHasta": "2027-06-30",
-      "actualizado": "2026-10-28",
+      "actualizado": "2026-11-03",
       "formato": "Una respuesta aprobada por entrada, de uso directo en conversación. 'instruccionInterna' es guía para el agente, no se le dice a la persona.",
       "camposObligatorios": [
         "tema",
@@ -365,6 +365,11 @@
         {
           "tema": "Certificado de egreso, título y transcript",
           "respuesta": "Al terminar tus estudios puedes solicitar tu certificado de egreso y, una vez titulado, recibes tu diploma y tu transcript (concentración de notas) en formato digital. Si necesitas los documentos físicos apostillados, la universidad te apoya con el proceso y los costos de emisión y tramitación corren por tu cuenta."
+        },
+        {
+          "tema": "Título digital con blockchain y verificación",
+          "respuesta": "Carver University emite el título en formato digital con tecnología blockchain, que protege la integridad de la credencial y permite verificar su autenticidad mediante un código QR. Así, los empleadores pueden comprobarla en línea de forma rápida y segura. También puedes compartir el título en LinkedIn para incorporarlo a la sección de credenciales de tu perfil. Si lo necesitas, puedes solicitar el diploma físico y gestionar su apostilla para presentarlo ante instituciones o empleadores en el extranjero.",
+          "instruccionInterna": "Texto aprobado por la dirección de Carver el 03-11-2026. Si piden ver un ejemplo del título y esta fila trae «documento», compártelo. Si no lo trae, no inventes un enlace ni prometas enviarlo: describe cómo es (digital, verificable con código QR). La apostilla es un trámite aparte: su costo solo si lo preguntan."
         },
         {
           "tema": "Programas en inglés",

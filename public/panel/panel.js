@@ -416,7 +416,7 @@
       }
       salida.textContent = 'Subiendo el PDF…';
       try {
-        const r = await fetch(`/panel/api/archivos?nombre=${encodeURIComponent(base.programas[slug]?.nombre ?? 'brochure')}`, {
+        const r = await fetch(`/panel/api/archivos?solo=pdf&nombre=${encodeURIComponent(base.programas[slug]?.nombre ?? 'brochure')}`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${SESION}`, 'Content-Type': 'application/pdf' },
           body: archivo,
@@ -818,14 +818,59 @@
       estado.classList.add('ok');
     }
 
+    /** Sube la imagen o el PDF elegido y deja su enlace en el campo, como si se hubiera pegado. */
+    async function subirAdjunto(campoNombre, entrada) {
+      const archivo = entrada.files?.[0];
+      entrada.value = '';
+      if (!archivo) return;
+      const salida = entrada.closest('.campo').querySelector('.resultado-adjunto');
+      salida.className = 'resultado-adjunto';
+      if (archivo.size > 15 * 1024 * 1024) {
+        salida.textContent = 'El archivo pesa más de 15 MB. Comprímelo o pide una versión más liviana.';
+        salida.classList.add('mal');
+        return;
+      }
+      salida.textContent = `Subiendo «${archivo.name}»…`;
+      try {
+        const r = await fetch(`/panel/api/archivos?nombre=${encodeURIComponent(archivo.name)}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${SESION}`, 'Content-Type': archivo.type || 'application/octet-stream' },
+          body: archivo,
+        });
+        let j = {};
+        try {
+          j = await r.json();
+        } catch {
+          /* respuesta inesperada: se informa abajo */
+        }
+        if (r.status === 401) return bloquear(j.error || 'Tu sesión venció. Vuelve a abrir el panel desde Bitrix24.');
+        if (!r.ok || !j.ok) {
+          salida.textContent = j.error ?? 'No pudimos subir el archivo. Usa una imagen JPG o PNG, o un PDF.';
+          salida.classList.add('mal');
+          return;
+        }
+        control(campoNombre).value = j.url;
+        cambio();
+        salida.textContent = `Archivo subido (${j.nombre}). Guarda y publica para que el bot lo pueda compartir.`;
+        salida.classList.add('ok');
+      } catch {
+        salida.textContent = 'No pudimos comunicarnos con el servidor. Intenta de nuevo.';
+        salida.classList.add('mal');
+      }
+    }
+
     function iniciar() {
       form.addEventListener('change', (e) => {
         const entrada = e.target.closest('input[data-documento]');
         if (entrada) importar(entrada.dataset.documento.split(':')[1], entrada);
+        const adjunto = e.target.closest('input[data-adjunto]');
+        if (adjunto) subirAdjunto(adjunto.dataset.adjunto, adjunto);
       });
       form.addEventListener('click', (e) => {
         const imp = e.target.closest('[data-importar]');
         if (imp) form.querySelector(`input[data-documento="${imp.dataset.importar}"]`).click();
+        const adj = e.target.closest('[data-adjuntar]');
+        if (adj) form.querySelector(`input[data-adjunto="${adj.dataset.adjuntar}"]`).click();
         const b = e.target.closest('button[data-accion]');
         if (!b) return;
         const { accion, tema } = b.dataset;
@@ -856,6 +901,24 @@
 
     function campo(c, n, valor) {
       const props = { name: n, maxlength: c.max };
+      if (c.tipo === 'documento') {
+        const enlace = el('input', { ...props, type: 'url', placeholder: 'https://…', inputmode: 'url' });
+        enlace.value = valor ?? '';
+        return el(
+          'div',
+          { class: 'campo largo' },
+          el('label', {}, c.etiqueta, enlace),
+          el(
+            'div',
+            { class: 'fila' },
+            el('button', { type: 'button', class: 'secundario', 'data-adjuntar': n, text: 'Subir imagen o PDF' }),
+            el('input', { type: 'file', accept: 'image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf', 'data-adjunto': n, 'data-no-cambio': true, hidden: true }),
+          ),
+          el('p', { class: 'resultado-adjunto', 'aria-live': 'polite' }),
+          c.ayuda ? el('small', { class: 'nota', text: c.ayuda }) : null,
+          errorDe(n),
+        );
+      }
       const ctl =
         c.tipo === 'largo'
           ? el('textarea', { ...props, rows: 3 })
@@ -879,8 +942,10 @@
         const n = (clave) => nombre(tema, 'entradas', i, clave);
         const boton = (accion, texto, etiqueta, deshabilitado) =>
           el('button', { type: 'button', class: accion === 'quitar' ? 'mini quitar' : 'mini', 'data-accion': accion, 'data-tema': tema, 'data-indice': i, 'aria-label': etiqueta, title: etiqueta, text: texto, disabled: deshabilitado });
-        const cortos = e.campos.filter((c) => c.tipo !== 'largo');
-        const largos = e.campos.filter((c) => c.tipo === 'largo');
+        // Los textos largos y el documento (con su botón) van a lo ancho, debajo de los cortos.
+        const ancho = (c) => c.tipo === 'largo' || c.tipo === 'documento';
+        const cortos = e.campos.filter((c) => !ancho(c));
+        const largos = e.campos.filter(ancho);
         ol.append(
           el(
             'li',

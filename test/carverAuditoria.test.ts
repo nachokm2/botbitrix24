@@ -348,12 +348,16 @@ test('reconocimiento_titulo: solo los enlaces aprobados quedan habilitados para 
   );
 });
 
-test('datos_operativos: las cinco respuestas aprobadas están disponibles', () => {
+test('datos_operativos: las seis respuestas aprobadas están disponibles', () => {
   const r: any = consultarInformacionInstitucional('datos_operativos');
   assert.equal(r.disponible, true);
-  assert.equal(r.contenido.length, 5);
+  assert.equal(r.contenido.length, 6);
   const pagos = r.contenido.find((e: any) => /primera cuota/i.test(e.tema));
   assert.match(pagos.respuesta, /día 30|mes siguiente/i, 'la regla de vencimiento de la primera cuota está');
+  // Texto aprobado por la dirección de Carver el 03-11-2026.
+  const titulo = r.contenido.find((e: any) => /blockchain/i.test(e.tema));
+  assert.match(titulo.respuesta, /código QR/);
+  assert.match(titulo.respuesta, /LinkedIn/);
 });
 
 test('prueba_social: cinco testimonios aprobados, con texto y enlace enviable', () => {

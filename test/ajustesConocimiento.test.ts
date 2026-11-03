@@ -127,6 +127,32 @@ test('un país corregido en el panel es lo que responde el bot', () => {
   assert.equal(r.contenido.find((x) => /Colombia/i.test(String(x.pais)))?.puedeAfirmar, 'Texto revisado por admisión.');
 });
 
+// ── Documentos para compartir (dirección de Carver, 03-11-2026: el título de ejemplo) ────────────
+test('un documento subido se publica con su fila y el bot lo recibe para compartirlo', async () => {
+  const { urlsEn } = await import('../src/core/guardRespuesta');
+  const url = 'https://botcarver-production.up.railway.app/archivos/tok000000000000000000001/diploma-carver.jpg';
+  publicar(
+    con('datos_operativos', (t) => ({
+      ...t,
+      entradas: t.entradas.map((x: any) => (/blockchain/i.test(x.tema) ? { ...x, documento: url } : x)),
+    })),
+  );
+  const r: any = consultarInformacionInstitucional('datos_operativos', HOY);
+  assert.equal(r.contenido.find((x: any) => /blockchain/i.test(x.tema)).documento, url);
+  assert.match(r.instruccionDocumento, /Compártelo tal cual/);
+  assert.ok(urlsEn(r).includes(url), 'el guardián deja pasar el enlace del documento');
+});
+
+test('sin documento cargado, el bot no recibe la instrucción de compartir uno', () => {
+  const r: any = consultarInformacionInstitucional('datos_operativos', HOY);
+  assert.equal(r.instruccionDocumento, undefined);
+});
+
+test('el documento tiene que ser un enlace público con https', () => {
+  const e = errores(con('datos_operativos', (t) => ({ ...t, entradas: [{ ...t.entradas[0], documento: 'http://archivos.ejemplo.com/titulo.jpg' }] })));
+  assert.ok(e.some((x) => x.campo === 'temas.datos_operativos.entradas.0.documento'));
+});
+
 test('publicar conocimiento no toca los medios de pago', () => {
   publicar(con('argumentos_venta', (t) => ({ ...t, entradas: t.entradas.slice(0, 2) })));
   assert.deepEqual(conocimientoVigente().temas.medios_de_pago, BASE_CONOCIMIENTO.temas.medios_de_pago);

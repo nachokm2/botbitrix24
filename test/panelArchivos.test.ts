@@ -74,6 +74,38 @@ test('el enlace sirve el PDF a cualquiera, y un token inválido o desconocido da
   assert.equal(desconocido.statusCode, 404);
 });
 
+// Documentos de "Conocimiento" (dirección de Carver, 03-11-2026): el título de ejemplo llegó como JPG.
+const JPG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
+
+test('para Conocimiento se suben también imágenes JPG y PNG, y se sirven como imagen', async () => {
+  const jpg = respuesta();
+  await panelSubirArchivo({ body: JPG, query: { nombre: 'Diploma Carver.jpg' } } as any, jpg);
+  assert.equal(jpg.statusCode, 200);
+  assert.match(jpg.cuerpo.url, /\/diploma-carver\.jpg$/);
+  const [, , token, nombre] = new URL(jpg.cuerpo.url).pathname.split('/');
+  const res = respuesta();
+  await servirArchivo({ params: { token, nombre } } as any, res);
+  assert.equal(res.headers['content-type'], 'image/jpeg');
+
+  const png = respuesta();
+  await panelSubirArchivo({ body: PNG, query: { nombre: 'Licencia.png' } } as any, png);
+  assert.match(png.cuerpo.url, /\/licencia\.png$/);
+});
+
+test('el brochure de un programa sigue siendo solo PDF, y un GIF no entra en ningún lado', async () => {
+  const imagenComoBrochure = respuesta();
+  await panelSubirArchivo({ body: JPG, query: { nombre: 'MBA', solo: 'pdf' } } as any, imagenComoBrochure);
+  assert.equal(imagenComoBrochure.statusCode, 400);
+  assert.equal(imagenComoBrochure.cuerpo.error, 'El archivo no es un PDF.');
+  const pdf = respuesta();
+  await panelSubirArchivo({ body: PDF, query: { nombre: 'MBA', solo: 'pdf' } } as any, pdf);
+  assert.equal(pdf.statusCode, 200);
+  const gif = respuesta();
+  await panelSubirArchivo({ body: Buffer.from('GIF89a contenido'), query: { nombre: 'x.gif' } } as any, gif);
+  assert.equal(gif.statusCode, 400);
+});
+
 test('el enlace de un PDF subido se puede publicar como brochure de un programa', async () => {
   const subida = respuesta();
   await panelSubirArchivo({ body: PDF, query: { nombre: 'Maestría en Psicología' } } as any, subida);

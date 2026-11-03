@@ -19,7 +19,9 @@ import type { BaseConocimiento } from './conocimientoComercial';
  * de PayPal, con sus propias reglas.
  */
 
-export type TipoCampo = 'texto' | 'largo' | 'fecha' | 'url';
+/** 'documento' es un enlace como 'url', pero el panel ofrece subir el archivo (imagen o PDF) en vez de
+ *  pegar la dirección: lo sirve el propio bot (routes/panelArchivos.ts). */
+export type TipoCampo = 'texto' | 'largo' | 'fecha' | 'url' | 'documento';
 export type CampoEsquema = { clave: string; etiqueta: string; tipo: TipoCampo; obligatorio: boolean; max: number; ayuda?: string };
 export type TemaEsquema = {
   tema: string;
@@ -28,6 +30,17 @@ export type TemaEsquema = {
   campos: CampoEsquema[];
   /** Campo que se numera solo según el orden (los pasos de admisión). */
   numerado?: string;
+};
+
+/** Un documento aprobado para compartir: el título de ejemplo, la licencia apostillada (dirección de
+ *  Carver, 03-11-2026). El bot lo comparte cuando la persona pide verlo (core/conocimientoComercial.ts). */
+const DOCUMENTO: CampoEsquema = {
+  clave: 'documento',
+  etiqueta: 'Documento para compartir (opcional)',
+  tipo: 'documento',
+  obligatorio: false,
+  max: 500,
+  ayuda: 'Una imagen o un PDF aprobado, como un título de ejemplo o la licencia. El bot lo comparte cuando la persona pide verlo. Súbelo con el botón o pega el enlace.',
 };
 
 /** Qué se edita de cada tema y cómo lo ve quien no programa. El orden es el del menú del panel. */
@@ -68,6 +81,7 @@ export const ESQUEMA_CONOCIMIENTO: TemaEsquema[] = [
       { clave: 'puedeAfirmar', etiqueta: 'Lo que el bot SÍ puede afirmar', tipo: 'largo', obligatorio: true, max: 900 },
       { clave: 'noAfirmar', etiqueta: 'Lo que el bot NUNCA debe afirmar', tipo: 'largo', obligatorio: true, max: 600 },
       { clave: 'verificacion', etiqueta: 'Verificación (opcional)', tipo: 'largo', obligatorio: false, max: 400, ayuda: 'Un enlace oficial para verificar, con una frase que diga qué es. Sin esto, el bot nombra la entidad sin dar enlaces.' },
+      DOCUMENTO,
     ],
   },
   {
@@ -78,6 +92,7 @@ export const ESQUEMA_CONOCIMIENTO: TemaEsquema[] = [
       { clave: 'tema', etiqueta: 'Tema', tipo: 'texto', obligatorio: true, max: 80 },
       { clave: 'respuesta', etiqueta: 'Respuesta aprobada', tipo: 'largo', obligatorio: true, max: 600 },
       { clave: 'instruccionInterna', etiqueta: 'Instrucción interna (opcional)', tipo: 'largo', obligatorio: false, max: 500, ayuda: 'Guía para el bot. No se le dice a la persona.' },
+      DOCUMENTO,
     ],
   },
   {
@@ -188,7 +203,7 @@ export function validarConocimiento(entrada: unknown): Validacion<AjustesConocim
           }
           if (valor.length > c.max) error(campo, `«${c.etiqueta}» es demasiado largo (hasta ${c.max} letras).`);
           if (c.tipo === 'fecha' && !fechaValida(valor)) error(campo, `«${c.etiqueta}» no es una fecha válida.`);
-          if (c.tipo === 'url') {
+          if (c.tipo === 'url' || c.tipo === 'documento') {
             const motivo = motivoEnlaceInvalido(valor);
             if (motivo) error(campo, motivo);
           }

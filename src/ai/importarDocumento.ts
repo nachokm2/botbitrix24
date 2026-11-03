@@ -65,6 +65,7 @@ function herramienta(destino: Destino) {
   const e = ESQUEMA_CONOCIMIENTO.find((x) => x.tema === destino.tema)!;
   const campos: Record<string, unknown> = {};
   for (const c of e.campos) {
+    if (c.tipo === 'documento') continue; // el archivo se sube aparte: de un texto no se saca
     campos[c.clave] = {
       type: 'string',
       description: `${c.etiqueta}${c.ayuda ? `. ${c.ayuda}` : ''}${c.tipo === 'fecha' ? ' Formato AAAA-MM-DD.' : ''}${c.obligatorio ? '' : ' Vacío si el documento no lo dice.'}`,
