@@ -1586,6 +1586,24 @@ export async function dbEmbudoCierre(dias = 7, offset = 0): Promise<EmbudoCierre
   return { atendidas, captura, escal, matriculaInicia, enlacePago, interesPerdido };
 }
 
+/** Las mejoras que propuso el control diario (ai/controlDiario.ts) en los últimos `dias`: se le pasan
+ *  al del día para que marque lo que sigue sin resolverse en vez de proponerlo como nuevo. */
+export async function dbMejorasPrevias(dias = 3): Promise<Array<{ ts: string; mejoras: any[] }>> {
+  if (!pool) return [];
+  const d = Math.max(1, Math.min(14, Math.trunc(dias))); // se interpola en SQL: se acota a un entero sano
+  try {
+    const r = await pool.query(
+      `SELECT ts, detail FROM audit_log
+       WHERE type='control_diario' AND ts >= now() - interval '${d} days'
+       ORDER BY ts DESC`,
+    );
+    return r.rows.map((x: any) => ({ ts: x.ts, mejoras: Array.isArray(x.detail?.mejoras) ? x.detail.mejoras : [] }));
+  } catch (err) {
+    log.warn('dbMejorasPrevias falló', { err: String(err) });
+    return [];
+  }
+}
+
 /** Cuándo entró el último mensaje de un cliente, en minutos. null si no hay base o nunca hubo uno.
  *  Es la señal de vida del canal: la usa la alarma de silencio (ai/vigilanciaCanal.ts). */
 export async function dbMinutosDesdeUltimoTurno(): Promise<number | null> {

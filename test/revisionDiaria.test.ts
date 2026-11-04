@@ -72,6 +72,9 @@ mock.module('../src/store.ts', {
   },
 });
 
+// El control diario tiene sus pruebas (controlDiario.test.ts); acá solo se revisa la lectura.
+mock.module('../src/ai/controlDiario.ts', { namedExports: { enviarControlDiario: async () => null } });
+
 const { revisarConversacion, revisarConversacionesRecientes } = await import('../src/ai/revisionDiaria');
 
 const CONV = 'Cliente: hola, cuánto vale el magíster\nBot: te cuento, el arancel es...\nCliente: y cuándo empieza\nBot: ...';
@@ -142,12 +145,15 @@ test('deja un hallazgo por problema, con el diálogo y la ficha', async () => {
   assert.equal(auditCalls[0].dialogId, 'chat1');
   assert.equal(auditCalls[0].crmEntity, 'deal#500');
   assert.equal(auditCalls[1].crmEntity, undefined, 'sin ficha no inventa una');
+  // El control diario recibe cada conversación revisada, con su transcripción y lo que se le encontró.
+  assert.deepEqual(r.casos.map((c) => [c.dialogId, c.crmEntity, c.hallazgos.length]), [['chat1', 'deal#500', 1], ['chat2', null, 1]]);
+  assert.equal(r.casos[0].texto, CONV);
 });
 
 test('sin conversaciones no llama al modelo ni deja nada', async () => {
   reset();
   const r = await revisarConversacionesRecientes(24, 10);
-  assert.deepEqual(r, { revisadas: 0, conProblemas: 0, porTipo: {}, graves: 0 });
+  assert.deepEqual(r, { revisadas: 0, conProblemas: 0, porTipo: {}, graves: 0, casos: [] });
   assert.equal(llamadasModelo, 0);
   assert.equal(auditCalls.length, 0);
 });

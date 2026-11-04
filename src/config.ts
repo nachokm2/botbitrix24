@@ -504,6 +504,13 @@ export const config = {
   revisionDiariaHora: process.env.REVISION_DIARIA_HORA ? Number(process.env.REVISION_DIARIA_HORA) : 22,
   // Tope de conversaciones por revisión: acota el costo (son llamadas al clasificador) y el tiempo.
   revisionMaxConversaciones: Number(process.env.REVISION_MAX_CONVERSACIONES ?? 40) || 40,
+  // Control diario de cierre (ai/controlDiario.ts): al terminar la revisión diaria, manda a estas
+  // personas cómo cerró el bot en las últimas 24 h, qué falló y qué cambiar para convertir más.
+  // Llega a la hora de la revisión (REVISION_DIARIA_HORA). Vacío = no se manda a nadie.
+  controlDiarioDestinatarios: (process.env.CONTROL_DIARIO_USUARIOS ?? '')
+    .split(',')
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0),
   // Resumen semanal empujado a Bitrix (ai/resumenSemanal.ts). El panel existe y está completo, pero
   // hay que acordarse de abrirlo: esto manda las cinco líneas que importan adonde la gente ya mira.
   // Vacío = no se manda a nadie.

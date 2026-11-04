@@ -9,6 +9,7 @@ import { marca } from '../marca';
 import { audit } from '../obs/audit';
 import { inc, recordTokens } from '../obs/metrics';
 import { horaEnChile } from './seguimiento';
+import { enviarControlDiario } from './controlDiario';
 import { log } from '../log';
 
 /**
@@ -79,12 +80,21 @@ export async function revisarConversacion(texto: string): Promise<Hallazgo[]> {
   }
 }
 
-export type ResumenRevision = { revisadas: number; conProblemas: number; porTipo: Record<string, number>; graves: number };
+/** Una conversación revisada, con lo que necesita después el control diario para analizarla. */
+export type CasoRevisado = { dialogId: string; crmEntity: string | null; turnos: number; hallazgos: Hallazgo[]; texto: string };
+
+export type ResumenRevision = {
+  revisadas: number;
+  conProblemas: number;
+  porTipo: Record<string, number>;
+  graves: number;
+  casos: CasoRevisado[];
+};
 
 /** Revisa las conversaciones con actividad reciente y deja los hallazgos en la auditoría. */
 export async function revisarConversacionesRecientes(horas = 24, limite = config.revisionMaxConversaciones): Promise<ResumenRevision> {
   const filas = await dbTranscripcionesRecientes(horas, limite);
-  const resumen: ResumenRevision = { revisadas: 0, conProblemas: 0, porTipo: {}, graves: 0 };
+  const resumen: ResumenRevision = { revisadas: 0, conProblemas: 0, porTipo: {}, graves: 0, casos: [] };
   if (!filas.length) return resumen;
 
   // De a 4: son llamadas al clasificador, no hay apuro, y así no se dispara un pico de rate limit
@@ -96,6 +106,7 @@ export async function revisarConversacionesRecientes(horas = 24, limite = config
       const fila = lote[j];
       const hallazgos = resultados[j];
       resumen.revisadas++;
+      resumen.casos.push({ dialogId: fila.dialogId, crmEntity: fila.crmEntity ?? null, turnos: fila.turnos, hallazgos, texto: fila.texto });
       if (!hallazgos.length) continue;
       resumen.conProblemas++;
       for (const h of hallazgos) {
@@ -111,7 +122,8 @@ export async function revisarConversacionesRecientes(horas = 24, limite = config
     }
   }
   inc('revision_diaria');
-  log.info('revisión diaria terminada', resumen as any);
+  const { casos: _casos, ...cifras } = resumen; // las transcripciones no van al log: traen datos personales
+  log.info('revisión diaria terminada', cifras as any);
   return resumen;
 }
 
@@ -149,11 +161,16 @@ export function iniciarRevisionDiaria(): void {
       if (!(await once(`revision:${dia}`, 36 * 3600))) return;
       const r = await revisarConversacionesRecientes();
       await avisarSupervisor(r);
+      await enviarControlDiario(r); // no-op sin CONTROL_DIARIO_USUARIOS
     } catch (e) {
       log.warn('revisión diaria falló', { err: String(e) });
     }
   };
   intervalo = setInterval(() => void tick(), CHEQUEO_MIN * 60_000);
   intervalo.unref();
-  log.info('revisión diaria activa', { hora: config.revisionDiariaHora, max: config.revisionMaxConversaciones });
+  log.info('revisión diaria activa', {
+    hora: config.revisionDiariaHora,
+    max: config.revisionMaxConversaciones,
+    control: config.controlDiarioDestinatarios.length,
+  });
 }
