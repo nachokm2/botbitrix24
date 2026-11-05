@@ -106,6 +106,26 @@ export const ESQUEMA_CONOCIMIENTO: TemaEsquema[] = [
       { clave: 'programa', etiqueta: 'Programa', tipo: 'texto', obligatorio: false, max: 120, ayuda: '«general» o el programa al que corresponde: el bot elige el que calce con el interés de la persona.' },
     ],
   },
+  {
+    // Lo usa solo el modo internacional (core/internacional.ts), nunca el bot de Latinoamérica: su
+    // herramienta de conocimiento no conoce este tema.
+    tema: 'programa_internacional',
+    titulo: 'Programa internacional',
+    ayuda:
+      'Todo lo que el bot puede decir del programa que se ofrece fuera de Latinoamérica, y nada más. Lo usa solo con quien escribe desde los países o con las palabras configuradas, y le responde en su idioma. Una fila por dato: nombre, descripción, horario, requisitos, certificado, precio, cómo pagar (con su enlace de pago), brochure (con su enlace), y una fila con lo que nunca se debe decir.',
+    campos: [
+      { clave: 'apartado', etiqueta: 'Dato', tipo: 'texto', obligatorio: true, max: 80, ayuda: 'Ej.: Precio, Horario de clases, Pago al contado.' },
+      { clave: 'contenido', etiqueta: 'Contenido', tipo: 'largo', obligatorio: true, max: 900, ayuda: 'Puede ir en inglés o en español: el bot lo dice en el idioma de la persona.' },
+      {
+        clave: 'enlace',
+        etiqueta: 'Enlace o archivo (opcional)',
+        tipo: 'documento',
+        obligatorio: false,
+        max: 500,
+        ayuda: 'Pega el enlace de pago, o sube el brochure en PDF con el botón. El bot comparte solo los enlaces que estén acá.',
+      },
+    ],
+  },
 ];
 
 export type Entrada = Record<string, string | number>;

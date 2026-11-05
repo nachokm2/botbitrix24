@@ -30,6 +30,12 @@ export type ChannelProfile = {
   systemPrompt: string;
   /** Herramientas habilitadas para el canal (subconjunto del registro). */
   toolNames: string[];
+  /** Responde en el idioma de la persona aunque la marca responda solo en español (modo internacional,
+   *  ver core/internacional.ts). */
+  respondeEnIdiomaDelCliente?: boolean;
+  /** Descripción propia de alguna herramienta en este perfil (por nombre), cuando la de siempre no
+   *  aplica: en el modo internacional derivar no entrega el chat a nadie. */
+  descripcionesDeTools?: Record<string, string>;
   /** Presentación de las tools de catálogo (top-N, verbosidad, notas). */
   catalog: {
     consultar: ConsultarPresentation;
@@ -77,6 +83,12 @@ export type AgentContext = {
   /** Sesión de Open Lines del turno (ver session.ts:sesionOpenLines), para recordar un traspaso a una
    *  persona mientras dure esa sesión. */
   sesionOpenLines?: string | null;
+  /** Conversación del modo internacional (ver core/internacional.ts): sin asesores, así que derivar
+   *  avisa al equipo y el bot sigue atendiendo. */
+  internacional?: boolean;
+  /** Enlaces que el bot puede compartir además de los que devuelvan sus herramientas (los de la ficha
+   *  del modo internacional). */
+  urlsPermitidas?: string[];
 };
 
 // Prompt de voz (M2, Custom LLM): réplica exacta del prompt "Sofía" que vivía en el dashboard de

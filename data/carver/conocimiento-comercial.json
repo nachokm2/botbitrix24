@@ -424,6 +424,20 @@
           "programa": "Psicología (licenciatura)"
         }
       ]
+    },
+    "programa_internacional": {
+      "titulo": "Programa internacional (ficha que usa el modo internacional)",
+      "estado": "pendiente",
+      "fuente": null,
+      "responsable": null,
+      "vigenteHasta": null,
+      "actualizado": null,
+      "formato": "Una fila por dato del programa: nombre, descripción, horario, requisitos, certificado, precio, cómo pagar (con su enlace), brochure (con su enlace), lo que nunca se debe decir. El contenido se carga SOLO desde el panel: este repositorio es público y el programa no se publica acá.",
+      "camposObligatorios": [
+        "apartado",
+        "contenido"
+      ],
+      "entradas": []
     }
   },
   "_sobreLaPostulacion": "No hay tema de \"enlace de postulacion\" y es a proposito: cada asesor tenia su formulario externo, y ahora el bot pide los 14 antecedentes en la propia conversacion y los deja en el CRM (ver src/crm/matricula.ts). Mandar a la persona a otra pagina es donde se cae la mitad de la gente."

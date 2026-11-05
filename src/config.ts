@@ -488,6 +488,24 @@ export const config = {
     .split(',')
     .map((x) => Number(x.trim()))
     .filter((n) => Number.isFinite(n) && n > 0),
+  // Modo internacional (core/internacional.ts): el programa que se ofrece fuera de Latinoamérica por el
+  // MISMO número de WhatsApp, sin asesores. Entra quien escribe desde uno de estos prefijos de país o
+  // menciona una de estas palabras (el texto que el anuncio deja escrito). Viven acá y no en el repo
+  // porque nombran un programa que todavía no se lanza. Sin prefijos ni palabras, el modo no existe.
+  internacionalPrefijos: (process.env.INTERNACIONAL_PREFIJOS ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter((x) => /^\+\d{1,4}$/.test(x)),
+  internacionalPalabras: (process.env.INTERNACIONAL_PALABRAS ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter((x) => x.length >= 3),
+  // Quiénes reciben los avisos de ese modo (pagos informados, casos que el bot no puede resolver). Sin
+  // nadie, BITRIX_SUPERVISOR_ID.
+  internacionalAvisarA: (process.env.INTERNACIONAL_AVISAR_A ?? '')
+    .split(',')
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0),
   // Comprobación horaria de que los DOS caminos hacia Bitrix siguen vivos (webhook y OAuth). El
   // OAuth de Postgrados llevaba días sin poder renovarse y nada lo decía: las conversaciones
   // andaban, pero todo lo proactivo fallaba en silencio.

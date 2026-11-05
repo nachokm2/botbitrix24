@@ -82,7 +82,7 @@ test('la página ofrece Programas, Precios, Conocimiento y Comportamiento solo d
 test('conocimiento: la sección trae el esquema de cada tema para dibujar el formulario', async () => {
   const res = respuesta();
   await panelLeerSeccion(pedido({ params: { seccion: 'conocimiento' } }), res);
-  assert.equal(res.cuerpo.esquema.length, 6);
+  assert.equal(res.cuerpo.esquema.length, 7);
   assert.ok(res.cuerpo.esquema.every((e: any) => e.campos.length && res.cuerpo.vigente.temas[e.tema]));
 });
 

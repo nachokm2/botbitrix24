@@ -1456,6 +1456,9 @@ const FUENTE_DE_HERRAMIENTA: Record<string, string> = {
   consultar_estado_estudiante: 'estado del estudiante en el CRM',
 };
 
+const FUENTE_INTERNACIONAL =
+  'ficha del programa internacional del panel (precios y datos propios, distintos de la planilla de Latinoamérica; sin asesores; responde en el idioma de la persona)';
+
 type FilaAuditoria = { dialog_id: string; ts: string | Date; type: string; crm_entity: string | null; detail: any };
 
 /** Arma la conversación de cada chat para el auditor: "Cliente:" y "Bot:", y entre ambos, si el bot
@@ -1481,6 +1484,9 @@ export function transcripcionesConFuentes(
     c.turnos++;
     c.fin = new Date(f.ts).toISOString();
     if (!c.crmEntity && f.crm_entity) c.crmEntity = f.crm_entity;
+    // El modo internacional (core/internacional.ts) no consulta herramientas: responde con la ficha del
+    // programa. Sin decirlo, el auditor compararía sus precios con la planilla de Latinoamérica.
+    if (d.internacional && !c.fuentes.includes(FUENTE_INTERNACIONAL)) c.fuentes.push(FUENTE_INTERNACIONAL);
     c.lineas.push(`Cliente: ${String(d.message ?? '')}`);
     if (c.fuentes.length) c.lineas.push(`[Fuentes verificadas que consultó el bot antes de responder: ${c.fuentes.join('; ')}]`);
     c.lineas.push(`Bot: ${String(d.reply ?? '')}`);

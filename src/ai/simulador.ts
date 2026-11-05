@@ -10,6 +10,7 @@ import { obtenerBrochure } from '../core/brochures';
 import { consultarInformacionInstitucional, INSTRUCCION_SIN_DATO } from '../core/conocimientoComercial';
 import { enlaceDePago } from '../core/mediosPago';
 import { bloqueMomento } from '../core/momento';
+import { fichaInternacional, mencionaPalabraInternacional, perfilInternacional, urlsDeLaFicha } from '../core/internacional';
 import { marca } from '../marca';
 
 /**
@@ -60,8 +61,12 @@ const TEMAS: Record<string, string> = {
   prueba_social: 'Testimonios',
 };
 
-async function ejecutar(nombre: string, input: any, mensajeCliente: string): Promise<any> {
+async function ejecutar(nombre: string, input: any, mensajeCliente: string, internacional: boolean): Promise<any> {
   const catalogo = WHATSAPP_PROFILE.catalog;
+  // Lo que respondería la real en el modo internacional: avisa al equipo y el bot sigue atendiendo.
+  if (internacional && nombre === 'escalar_a_humano') {
+    return { ok: true, avisado: true, mensaje: 'The admissions team was notified. Tell them in their language that the team will review it and reply here or by email, without promising a time.' };
+  }
   switch (nombre) {
     case 'consultar_programas':
       return consultarProgramas(input, catalogo.consultar);
@@ -131,31 +136,59 @@ function describir(nombre: string, input: any, r: any): string {
   }
 }
 
+/** Lo que escribió la persona en los turnos anteriores (para saber si mencionó el programa internacional). */
+function textosDelCliente(historial: any[]): string[] {
+  return historial.filter((m) => m?.role === 'user' && typeof m.content === 'string').map((m) => m.content as string);
+}
+
 /** Un turno de la conversación de prueba. `historial` son los mensajes de turnos anteriores tal como
- *  los devolvió esta misma función: así el bot recuerda lo que consultó antes, como en la real. */
+ *  los devolvió esta misma función: así el bot recuerda lo que consultó antes, como en la real.
+ *
+ *  El modo internacional (core/internacional.ts) entra como en la real: si la conversación menciona una
+ *  de sus palabras. `internacional: true` lo fuerza, para probar a quien escribe desde uno de sus países. */
 export async function simularTurno(
   historial: any[],
   mensaje: string,
-): Promise<{ texto: string; historial: any[]; herramientas: HerramientaUsada[] }> {
+  opts: { internacional?: boolean } = {},
+): Promise<{ texto: string; historial: any[]; herramientas: HerramientaUsada[]; internacional: boolean }> {
   const messages = [...historial, { role: 'user', content: mensaje }];
   const inicioTurno = messages.length;
+  const ficha = fichaInternacional();
+  const internacional =
+    !!ficha && (!!opts.internacional || [mensaje, ...textosDelCliente(historial)].some((t) => mencionaPalabraInternacional(t)));
   const herramientas: HerramientaUsada[] = [];
   const exec = async (nombre: string, input: any) => {
-    const r = await ejecutar(nombre, input, mensaje);
-    herramientas.push({ nombre, descripcion: describir(nombre, input, r), simulada: !SOLO_LECTURA.has(nombre) });
+    const r = await ejecutar(nombre, input, mensaje, internacional);
+    herramientas.push({
+      nombre,
+      descripcion: internacional && nombre === 'escalar_a_humano' ? describirAvisoInternacional(input) : describir(nombre, input, r),
+      simulada: !SOLO_LECTURA.has(nombre),
+    });
     return r;
   };
+  const base = ficha && internacional ? perfilInternacional(WHATSAPP_PROFILE, ficha) : WHATSAPP_PROFILE;
   const perfil = {
-    ...WHATSAPP_PROFILE,
+    ...base,
     systemPrompt:
-      WHATSAPP_PROFILE.systemPrompt +
-      (marca.respondeSoloEnEspanol ? '' : bloqueIdioma(detectarIdioma(mensaje))) +
-      (marca.respaldaPromesas ? bloqueMomento() : ''),
+      base.systemPrompt +
+      (marca.respondeSoloEnEspanol && !internacional ? '' : bloqueIdioma(detectarIdioma(mensaje))) +
+      (marca.respaldaPromesas && !internacional ? bloqueMomento() : ''),
   };
   const { text, messages: finales } = await runConversation({ profile: perfil, auditId: 'simulacion', simulacion: true }, messages, exec);
   const texto = marca.guardRespuesta
-    ? await aplicarGuardian(text, { mensajeCliente: mensaje, history: historial, mensajesDelTurno: finales.slice(inicioTurno), simulacion: true })
+    ? await aplicarGuardian(text, {
+        mensajeCliente: mensaje,
+        history: historial,
+        mensajesDelTurno: finales.slice(inicioTurno),
+        simulacion: true,
+        urlsDelAsesor: ficha && internacional ? urlsDeLaFicha(ficha) : [],
+        internacional,
+      })
     : text;
   if (texto !== text) reemplazarUltimaRespuesta(finales, texto);
-  return { texto, historial: finales, herramientas };
+  return { texto, historial: finales, herramientas, internacional };
+}
+
+function describirAvisoInternacional(input: any): string {
+  return `Avisaría al equipo, sin entregar el chat (modo internacional)${input?.motivo ? `: «${input.motivo}»` : ''}.`;
 }

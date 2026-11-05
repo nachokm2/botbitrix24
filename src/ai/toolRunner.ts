@@ -25,6 +25,7 @@ import { registrarDocumentoAcademico, nivelDelPrograma, DOCUMENTO_DE } from '../
 import { getDealInfo } from '../crm/directory';
 import { avisarAlResponsable } from '../crm/avisoAsesor';
 import { motivoParaRetener, cuandoVuelveElEquipo } from '../core/retenerChat';
+import { avisarEquipoInternacional } from '../core/internacional';
 import { audit } from '../obs/audit';
 import { config } from '../config';
 import { log } from '../log';
@@ -438,6 +439,36 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
       }
 
       case 'escalar_a_humano': {
+        // Modo internacional (core/internacional.ts): no hay asesores a quienes entregar el chat. Se
+        // avisa al equipo y el bot sigue atendiendo; no se marca traspaso, no se asigna negociación ni
+        // se cancela nada. Si alguien del equipo escribe en el chat, el bot se calla como siempre.
+        if (ctx.internacional) {
+          const motivo = String(input?.motivo ?? '').trim() || 'Sin detalle';
+          const pago = /pago informado/i.test(motivo);
+          const avisados = await avisarEquipoInternacional(
+            {
+              dialogId: ctx.conversationId,
+              titulo: pago ? '💳 Programa internacional: un alumno dice que pagó' : '📌 Programa internacional: el bot necesita ayuda',
+              detalle: `${motivo}\nEl bot sigue atendiendo este chat. Si escribe en él, el bot deja de responder en esta sesión.`,
+            },
+            ctx.auth,
+          );
+          void audit({
+            type: 'derivacion_internacional',
+            dialogId: ctx.conversationId,
+            crmEntity: ctx.crmEntities?.deal ? `deal#${ctx.crmEntities.deal}` : undefined,
+            detail: { motivo, pago, avisados },
+          }).catch(() => {});
+          log.info('tool escalar_a_humano (internacional)', { dialogId: ctx.conversationId, pago, avisados });
+          return {
+            ok: true,
+            avisado: avisados > 0,
+            mensaje: pago
+              ? 'The admissions team was notified to confirm the payment. Thank them, and tell them in their language that the team will confirm it and send their access by email. Do not promise a time.'
+              : 'The admissions team was notified. Tell them in their language that the team will review it and reply here or by email, without promising a time, and keep helping with anything you can answer from PROGRAMME FACTS.',
+          };
+        }
+
         // Estudiante matriculado: va a SU Advisor con una tarea. No se toca la negociación comercial,
         // no se reasigna nada y el bot sigue disponible (no se entrega la sesión a la cola de ventas).
         if (input?.tipo === 'soporte_estudiante' && marca.soporteEstudiantes) {

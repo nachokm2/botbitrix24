@@ -27,6 +27,7 @@ import { elegirMedio, type Concepto } from '../core/mediosPago';
 import { verificarEnlace, archivoCorrespondeAPrograma } from '../core/brochures';
 import { ESQUEMA_CONOCIMIENTO, aplicarAjustesAConocimiento, type AjustesConocimiento } from '../core/ajustesConocimiento';
 import { BASE_CONOCIMIENTO, consultarInformacionInstitucional } from '../core/conocimientoComercial';
+import { TEMA_INTERNACIONAL, leerFicha, textoVistaInternacional } from '../core/internacional';
 import {
   dbConfigPublicadas,
   dbConfigSeccion,
@@ -315,6 +316,14 @@ export async function panelVistaConocimiento(req: Request, res: Response) {
   const base = aplicarAjustesAConocimiento(BASE_CONOCIMIENTO, v.valor as AjustesConocimiento);
   const temas: Record<string, { disponible: boolean; texto: string }> = {};
   for (const e of ESQUEMA_CONOCIMIENTO) {
+    // La ficha del modo internacional no la consulta la herramienta de Latinoamérica: tiene su lectura.
+    if (e.tema === TEMA_INTERNACIONAL) {
+      const f = leerFicha(base);
+      temas[e.tema] = f.filas
+        ? textoVistaInternacional(f.filas.length)
+        : { disponible: false, texto: TEMA_NO_DISPONIBLE[f.motivo] ?? 'El bot no lo usa.' };
+      continue;
+    }
     const r = consultarInformacionInstitucional(e.tema, {}, base);
     if (!r.ok) continue;
     if (!r.disponible) {

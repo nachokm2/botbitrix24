@@ -14,7 +14,7 @@
  * que marcar portugués por error haría que el bot le conteste en portugués a un chileno.
  */
 
-export type Idioma = 'es' | 'pt' | 'en';
+export type Idioma = 'es' | 'pt' | 'en' | 'hi';
 
 /**
  * Palabras que casi solo aparecen en un idioma. Se evitan las que comparten español y portugués
@@ -52,6 +52,18 @@ const MARCAS: Record<Exclude<Idioma, 'es'>, RegExp[]> = {
     /\b(would like|want to|how much|how can)\b/,
     /\b(information|program|degree|bachelor)\b/,
     /\b(please|could you|can you)\b/,
+    // El texto que Meta deja escrito en los anuncios de WhatsApp: "Hello! Can I get more info on
+    // this?". Sin esto sumaba una sola marca y quedaba como español.
+    /\b(can i|get more|more info|on this)\b/,
+  ],
+  // Hindi escrito con letras latinas (hinglish), como se escribe mucho por WhatsApp en India. El hindi
+  // en devanagari no necesita marcas: se reconoce por la escritura (ver detectarIdioma).
+  hi: [
+    /\b(hai|hain|hoon|hu)\b/,
+    /\b(kya|kitna|kitni|kaise|kab|kyun)\b/,
+    /\b(mujhe|mera|meri|aap|aapka|aapke)\b/,
+    /\b(chahiye|milegi|milega|karna|karu|sakte|dekha)\b/,
+    /\b(nahi|haan|accha|theek)\b/,
   ],
 };
 
@@ -81,6 +93,7 @@ const norm = (s: string) =>
     .trim();
 
 export function detectarIdioma(texto: string): Idioma {
+  if (/[ऀ-ॿ]/.test(String(texto ?? ''))) return 'hi'; // devanagari: no hay duda posible
   const t = norm(texto);
   if (t.length < MINIMO_CARACTERES) return 'es';
   const puntajes = (Object.keys(MARCAS) as Array<Exclude<Idioma, 'es'>>)
@@ -88,14 +101,14 @@ export function detectarIdioma(texto: string): Idioma {
     .sort((a, b) => b.n - a.n);
   const mejor = puntajes[0];
   if (!mejor || mejor.n < MINIMO_MARCAS) return 'es';
-  // Empate entre portugués e inglés: no hay señal clara, se queda en español.
+  // Empate entre dos idiomas: no hay señal clara, se queda en español.
   if (puntajes.length > 1 && puntajes[1].n === mejor.n) return 'es';
   // El otro idioma tiene que ganarle al español, no solo llegar al mínimo.
   if (ESPANOL.filter((re) => re.test(t)).length >= mejor.n) return 'es';
   return mejor.idioma;
 }
 
-const NOMBRE: Record<Idioma, string> = { es: 'español', pt: 'portugués', en: 'inglés' };
+const NOMBRE: Record<Idioma, string> = { es: 'español', pt: 'portugués', en: 'inglés', hi: 'hindi' };
 
 /**
  * Instrucción para el prompt cuando el cliente no escribe en español. Se anexa al system del turno,
@@ -104,6 +117,15 @@ const NOMBRE: Record<Idioma, string> = { es: 'español', pt: 'portugués', en: '
  */
 export function bloqueIdioma(idioma: Idioma): string {
   if (idioma === 'es') return '';
+  // El hindi se escribe de dos maneras, y contestar en devanagari a quien escribe con letras latinas
+  // (o al revés) se lee tan raro como contestar en otro idioma.
+  if (idioma === 'hi') {
+    return (
+      '\n\nIDIOMA: este cliente te está escribiendo en hindi. Respóndele en hindi y con la MISMA escritura que usa: ' +
+      'si escribe en devanagari, en devanagari; si escribe hindi con letras latinas (hinglish), en hinglish. ' +
+      'Los términos técnicos (AI, Python, AWS, USD, EMI) y el nombre del programa déjalos como están.'
+    );
+  }
   return (
     `\n\nIDIOMA: este cliente te está escribiendo en ${NOMBRE[idioma]}. Respóndele en ${NOMBRE[idioma]}, ` +
     'con el mismo tono cordial de siempre, y sigue en ese idioma mientras él lo use. Los nombres ' +

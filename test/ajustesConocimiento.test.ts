@@ -31,15 +31,19 @@ const errores = (contenido: unknown) => {
 };
 
 // ── Sin publicar, nada cambia ────────────────────────────────────────────────────────────────────
-test('se editan seis temas; medios de pago queda fuera', () => {
+test('se editan siete temas (el séptimo, la ficha del modo internacional); medios de pago queda fuera', () => {
   assert.deepEqual(Object.keys(ac.conocimientoPorDefecto().temas).sort(), [
     'argumentos_venta',
     'calendario_ingresos',
     'datos_operativos',
     'proceso_admision',
+    'programa_internacional',
     'prueba_social',
     'reconocimiento_titulo',
   ]);
+  // En el repositorio la ficha viene vacía y desactivada: el contenido se carga desde el panel.
+  assert.equal(ac.conocimientoPorDefecto().temas.programa_internacional.activo, false);
+  assert.deepEqual(ac.conocimientoPorDefecto().temas.programa_internacional.entradas, []);
   assert.ok(seccionesDisponibles().includes('conocimiento'));
 });
 

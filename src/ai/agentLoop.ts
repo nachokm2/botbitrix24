@@ -205,6 +205,13 @@ function cachedSystem(text: string) {
   return [{ type: 'text' as const, text, cache_control: { type: 'ephemeral' as const } }];
 }
 
+/** Las herramientas del perfil, con la descripción propia que traiga para alguna. */
+export function herramientasDelPerfil(profile: ChannelProfile) {
+  return tools
+    .filter((t) => profile.toolNames.includes(t.name))
+    .map((t) => (profile.descripcionesDeTools?.[t.name] ? { ...t, description: profile.descripcionesDeTools[t.name] } : t));
+}
+
 /** Lo mínimo que el motor necesita del turno, independiente del canal. */
 export type ConversationOpts = {
   profile: ChannelProfile;
@@ -232,7 +239,7 @@ export async function runConversation(
   // Con los bloques editados en el panel (Comportamiento) y los costos de Precios; sin nada publicado,
   // el mismo texto de siempre.
   const system = promptVigente(profile.systemPrompt);
-  const allowedTools = tools.filter((t) => profile.toolNames.includes(t.name));
+  const allowedTools = herramientasDelPerfil(profile);
   let reintentoPorVacio = false;
 
   for (let step = 0; step < MAX_STEPS; step++) {
@@ -274,7 +281,7 @@ export async function runConversation(
         });
         continue;
       }
-      return { text: textOf(resp, simulacion ? null : auditId), messages };
+      return { text: textOf(resp, simulacion ? null : auditId, profile.respondeEnIdiomaDelCliente), messages };
     }
 
     // Ejecuta las tools del turno en paralelo, preservando el orden por tool_use_id.
@@ -299,9 +306,11 @@ export async function runConversation(
   // Tope de iteraciones. En Carver la frase de siempre anunciaba una derivación que nunca ocurría
   // (no se llamó a escalar_a_humano) y tuteaba: ahí se pide precisar, sin prometer nada.
   return {
-    text: marca.sePresentaComoAsesor
-      ? 'Para responderle con precisión, ¿me confirma qué es lo que más le interesa saber?'
-      : 'Permíteme derivarte con un asesor para ayudarte mejor 🙌',
+    text: profile.respondeEnIdiomaDelCliente
+      ? RESERVA_INTERNACIONAL.tope
+      : marca.sePresentaComoAsesor
+        ? 'Para responderle con precisión, ¿me confirma qué es lo que más le interesa saber?'
+        : 'Permíteme derivarte con un asesor para ayudarte mejor 🙌',
     messages,
   };
 }
@@ -320,7 +329,7 @@ export async function runConversationStream(
 ): Promise<{ text: string; messages: any[] }> {
   const { profile, auditId, crmEntity } = opts;
   const system = promptVigente(profile.systemPrompt);
-  const allowedTools = tools.filter((t) => profile.toolNames.includes(t.name));
+  const allowedTools = herramientasDelPerfil(profile);
   let fullText = '';
   let lastFiller = -1; // último relleno usado en esta llamada, para no repetirlo seguido
 
@@ -421,11 +430,13 @@ export async function runAgentTurn(
     const extra = ctx.datosConocidos ? bloqueDatosConocidos(ctx.datosConocidos) : '';
     // Idioma del turno: se mira SOLO el mensaje actual, y la instrucción va al system del turno. Si
     // la persona vuelve al español en el siguiente mensaje, desaparece sola. Donde se responde siempre
-    // en español, la regla está fija en el prompt y no se detecta nada.
-    const idioma = typeof userText === 'string' && !marca.respondeSoloEnEspanol ? detectarIdioma(userText) : 'es';
+    // en español, la regla está fija en el prompt y no se detecta nada (salvo en el modo internacional).
+    const idioma =
+      typeof userText === 'string' && (profile.respondeEnIdiomaDelCliente || !marca.respondeSoloEnEspanol) ? detectarIdioma(userText) : 'es';
     const extraIdioma = bloqueIdioma(idioma);
-    // Qué día es y cuándo trabaja el equipo: para que "lo confirmo y le respondo" diga cuándo.
-    const extraMomento = marca.respaldaPromesas ? bloqueMomento() : '';
+    // Qué día es y cuándo trabaja el equipo: para que "lo confirmo y le respondo" diga cuándo. No en el
+    // modo internacional: ese horario es el de Chile, y ahí no hay asesores que vayan a responder.
+    const extraMomento = marca.respaldaPromesas && !ctx.internacional ? bloqueMomento() : '';
     const sumado = extra + extraIdioma + extraMomento;
     const perfilFinal = sumado ? { ...perfilDelTurno, systemPrompt: perfilDelTurno.systemPrompt + sumado } : perfilDelTurno;
     const inicioTurno = messages.length;
@@ -443,7 +454,8 @@ export async function runAgentTurn(
           mensajeCliente: textoDelUsuario(userText),
           history,
           mensajesDelTurno: finalMsgs.slice(inicioTurno),
-          urlsDelAsesor: ctx.identidadAsesor?.formulario ? [ctx.identidadAsesor.formulario] : [],
+          urlsDelAsesor: [...(ctx.identidadAsesor?.formulario ? [ctx.identidadAsesor.formulario] : []), ...(ctx.urlsPermitidas ?? [])],
+          internacional: ctx.internacional,
         })
       : text;
     // El primer mensaje del bot dice el nombre del asesor a cargo, aunque el modelo se lo salte
@@ -455,7 +467,9 @@ export async function runAgentTurn(
     // No persistimos imágenes (base64) en el historial: se reemplazan por un marcador de texto para
     // no inflar Redis ni re-enviarlas en cada turno (el modelo ya las "vio" en este turno).
     await setHistory(ctx.conversationId, sanitizeHistory(finalMsgs));
-    if (marca.respaldaPromesas || marca.avisaPagoAlAsesor) {
+    // En el modo internacional los avisos los da el propio bot con escalar_a_humano: estos leen frases
+    // en español y le avisan al responsable de la negociación, que ahí no existe.
+    if ((marca.respaldaPromesas || marca.avisaPagoAlAsesor) && !ctx.internacional) {
       void avisosDelTurno(ctx, textoDelUsuario(userText), enviado, finalMsgs.slice(inicioTurno)).catch((e) =>
         log.warn('avisos del turno fallaron', { err: String(e), dialogId: ctx.conversationId }),
       );
@@ -467,6 +481,7 @@ export async function runAgentTurn(
     // el cliente recibió una disculpa genérica en vez de una respuesta real, y eso debe verse.
     void audit({ type: 'error', dialogId: ctx.conversationId, detail: { etapa: 'motor', err: String(e) } });
     log.error('agentLoop error', { err: String(e) });
+    if (ctx.internacional) return RESERVA_INTERNACIONAL.error;
     // Carver trata de "usted" en todo momento, también al disculparse.
     return marca.sePresentaComoAsesor
       ? 'Disculpe, tuve un inconveniente técnico. ¿Podría repetirme su consulta?'
@@ -604,7 +619,16 @@ export function datosDuros(texto: string): string[] {
  *  condensación de un mensaje demasiado largo. Con `simulacion` no deja rastro en métricas ni auditoría. */
 export async function aplicarGuardian(
   texto: string,
-  t: { dialogId?: string; mensajeCliente: string; history: any[]; mensajesDelTurno: any[]; simulacion?: boolean; urlsDelAsesor?: string[] },
+  t: {
+    dialogId?: string;
+    mensajeCliente: string;
+    history: any[];
+    mensajesDelTurno: any[];
+    simulacion?: boolean;
+    urlsDelAsesor?: string[];
+    /** Modo internacional (core/internacional.ts): la respuesta puede no estar en español. */
+    internacional?: boolean;
+  },
 ): Promise<string> {
   const ctxGuard = {
     mensajeCliente: t.mensajeCliente,
@@ -624,17 +648,29 @@ export async function aplicarGuardian(
   // Un mensaje de dos pantallas en WhatsApp no se lee (hallazgo 11). Se condensa UNA vez con el
   // modelo rápido y solo se acepta si conserva todos los montos y enlaces: si se pierde un dato, se
   // prefiere el mensaje largo a uno corto e incompleto.
+  //
+  // El idioma se pide explícito. Sin eso, este editor —con instrucciones en español— devolvía en
+  // español los mensajes en inglés, y desde ahí el bot seguía en español al leer su propio historial
+  // (prueba del modo internacional, 05-11-2026: una conversación entera en inglés terminó en español).
   if (r.excedeLargo) {
     try {
       const resp = await anthropic.messages.create({
         model: CLASSIFIER,
         max_tokens: 500,
         temperature: 0,
-        system:
-          `Eres editor de mensajes de WhatsApp de un asesor de admisión que trata de "usted". Reescribe el mensaje en ` +
-          `MÁXIMO ${marca.maxCaracteresRespuesta} caracteres. Conserva EXACTAMENTE todas las cifras y montos, los nombres de ` +
-          `programas, los enlaces y los correos. Quita lo accesorio y lo repetido, sin agregar información nueva. Una sola ` +
-          `pregunta al final como máximo. Sin negritas ni títulos. Devuelve SOLO el mensaje.`,
+        // En el modo internacional, en inglés: con estas mismas instrucciones en español y el aviso de
+        // mantener el idioma, igual cerró un mensaje en inglés con una pregunta en español.
+        system: t.internacional
+          ? `You edit WhatsApp messages from a university admissions assistant. Rewrite the message in AT MOST ` +
+            `${marca.maxCaracteresRespuesta} characters, in the SAME language and script as the original (English stays ` +
+            `English, Hindi in Devanagari stays Devanagari, Hinglish stays Hinglish, Spanish stays Spanish). Keep EXACTLY ` +
+            `every figure, amount, programme name, link and email. Remove what is accessory or repeated and add nothing new. ` +
+            `At most one question, at the end. No bold or headings. Return ONLY the message.`
+          : `Eres editor de mensajes de WhatsApp de un asesor de admisión que trata de "usted". Reescribe el mensaje en ` +
+            `MÁXIMO ${marca.maxCaracteresRespuesta} caracteres. Escríbelo en el MISMO idioma y la misma escritura del mensaje ` +
+            `original (si viene en inglés, en inglés; si viene en hindi, en hindi), sin traducirlo. Conserva EXACTAMENTE todas ` +
+            `las cifras y montos, los nombres de programas, los enlaces y los correos. Quita lo accesorio y lo repetido, sin ` +
+            `agregar información nueva. Una sola pregunta al final como máximo. Sin negritas ni títulos. Devuelve SOLO el mensaje.`,
         messages: [{ role: 'user', content: final }],
       });
       recordTokens((resp as any).usage);
@@ -655,8 +691,9 @@ export async function aplicarGuardian(
 
   // Se trata de "usted" y el modelo igual tutea a veces, sobre todo si la persona tutea o si una
   // plantilla vino en tú (chat 1570307, 03-11-2026). Se corrige UNA vez con el modelo rápido y solo
-  // se acepta si ya no tutea y conserva cifras y enlaces.
-  if (detectarTuteo(final).length) {
+  // se acepta si ya no tutea y conserva cifras y enlaces. En el modo internacional, solo si la respuesta
+  // está en español: en hinglish "tu" y "te" son otras palabras, y el editor la reescribiría en español.
+  if ((!t.internacional || pareceEspanol(final)) && detectarTuteo(final).length) {
     try {
       const resp = await anthropic.messages.create({
         model: CLASSIFIER,
@@ -692,6 +729,11 @@ export async function aplicarGuardian(
     }).catch(() => {});
   }
   return final || texto;
+}
+
+/** ¿El texto está escrito en español? Por su ortografía: ni el inglés ni el hinglish llevan ¿, ¡, ñ ni tildes. */
+export function pareceEspanol(texto: string): boolean {
+  return /[¿¡ñáéíóú]/i.test(texto) && !/[ऀ-ॿ]/.test(texto);
 }
 
 /** Reemplaza los bloques de imagen (base64) de los mensajes del usuario por un marcador de texto,
@@ -731,7 +773,7 @@ function soloTexto(resp: any): string {
 }
 
 /** `auditId` null = no auditar (chat simulado del panel). */
-export function textOf(resp: any, auditId?: string | null): string {
+export function textOf(resp: any, auditId?: string | null, enIngles = false): string {
   const text = (resp.content as any[])
     .filter((b) => b.type === 'text')
     .map((b) => b.text)
@@ -745,7 +787,16 @@ export function textOf(resp: any, auditId?: string | null): string {
       detail: { etapa: 'respuesta_vacia', err: 'el modelo no devolvió texto; se usó la frase de reserva' },
     }).catch(() => {});
   }
+  if (enIngles) return RESERVA_INTERNACIONAL.vacio;
   return marca.sePresentaComoAsesor
     ? `¿En qué puedo ayudarle con los programas de ${marca.organizacion}?`
     : '¿En qué puedo ayudarte con nuestros postgrados?';
 }
+
+// Frases de reserva del modo internacional (core/internacional.ts). En inglés: en español serían otro
+// idioma para la persona, y las de Carver hablan de "los programas" o de derivar a un asesor que no existe.
+const RESERVA_INTERNACIONAL = {
+  tope: 'To answer you precisely, could you tell me what you would most like to know?',
+  vacio: 'How can I help you with the programme?',
+  error: 'Sorry, I had a technical issue. Could you repeat your question?',
+};

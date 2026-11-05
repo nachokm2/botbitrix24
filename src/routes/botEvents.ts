@@ -20,7 +20,8 @@ import { esEmpleadoBitrix, getIdentidadAsesor, getDatosConocidosDeEntidades, get
 import { esAsesorValido } from '../crm/equipo';
 import { asesoresDisponibles, motivoHorario } from '../core/horarioAsesores';
 import { hayOperadorEnElChat } from '../crm/operadorEnChat';
-import { listaBlancaActiva, puedeResponder, lineaDelChat } from '../core/listaBlanca';
+import { listaBlancaActiva, puedeResponder, lineaDelChat, telefonoDelChat } from '../core/listaBlanca';
+import { fichaSiEsInternacional, perfilInternacional, urlsDeLaFicha } from '../core/internacional';
 import { esperarComoHumano } from '../core/ritmoHumano';
 import { anotarEntrante, fueAbsorbido, esperarFinDeRafaga, tomarRafaga } from '../core/rafaga';
 import { esEnvioNuestroPorChatApp, esRespuestaAutomaticaDeNegocio, adjuntosSonDeLaPlantilla } from '../core/ecos';
@@ -285,7 +286,17 @@ async function handle(req: Request) {
     return log.info('botMessage: una persona está en el chat; bot en silencio', { dialogId, chatId });
   }
 
-  if (asesoresDisponibles()) {
+  // Modo internacional (core/internacional.ts): el programa que se ofrece fuera de Latinoamérica por
+  // este mismo número, sin asesores. Se decide antes del horario de asesores porque esos chats no son
+  // de la cola de Latinoamérica: ahí no hay nadie que los atienda.
+  const fichaInternacional = await fichaSiEsInternacional({
+    dialogId,
+    telefono: () => telefonoDelChat(chatId, auth),
+    textos: [message ?? ''],
+  });
+  const internacional = !!fichaInternacional;
+
+  if (asesoresDisponibles() && !internacional) {
     // No basta con callar: el canal está configurado con "No transferir", así que si el bot recibe
     // la conversación y no hace nada, NADIE la recibe después y la persona queda esperando para
     // siempre. Se entrega a la cola en el acto, que es lo que haría el canal si el bot no existiera.
@@ -386,9 +397,12 @@ async function handle(req: Request) {
   // dato, al escalar o por silencio: quien preguntaba y no dejaba nada se quedaba con el responsable
   // por defecto del embudo (caso real: deal #3581633). Sin tarea, para no llenarle los pendientes al
   // asesor por cada consulta suelta — la tarea se crea igual cuando el bot escala o tras el silencio.
-  void asignarAsesorPorTurno(crmEntities, auth, 'automatico', { crearTarea: false }).catch((e) =>
-    log.warn('asignación temprana falló', { err: String(e), dialogId }),
-  );
+  // En el modo internacional no hay asesores a quienes asignar.
+  if (!internacional) {
+    void asignarAsesorPorTurno(crmEntities, auth, 'automatico', { crearTarea: false }).catch((e) =>
+      log.warn('asignación temprana falló', { err: String(e), dialogId }),
+    );
+  }
 
   // Memoria entre sesiones: al iniciar una conversación nueva, carga notas previas del CRM.
   const esNueva = (await getHistory(dialogId)).length === 0;
@@ -427,8 +441,9 @@ async function handle(req: Request) {
   // Identidad del turno: con marca.sePresentaComoAsesor el bot habla como el asesor dueño de la
   // negociación, no como sí mismo. Se resuelve por turno (cacheado 5 min) porque el responsable
   // puede cambiar a mitad de la conversación — p. ej. cuando el reparto automático la asigna.
+  // En el modo internacional el bot es el asistente de admisiones, no un asesor de Latinoamérica.
   const identidadAsesor =
-    marca.sePresentaComoAsesor && (crmEntities?.deal || crmEntities?.lead || crmEntities?.contact)
+    marca.sePresentaComoAsesor && !internacional && (crmEntities?.deal || crmEntities?.lead || crmEntities?.contact)
       ? await getIdentidadAsesor(crmEntities, auth)
       : null;
 
@@ -452,10 +467,12 @@ async function handle(req: Request) {
     botId,
     crmEntity,
     crmEntities,
-    profile: WHATSAPP_PROFILE,
+    profile: fichaInternacional ? perfilInternacional(WHATSAPP_PROFILE, fichaInternacional) : WHATSAPP_PROFILE,
     pendingImage,
     ultimoMensajeCliente: turnText,
     sesionOpenLines: sesion,
+    internacional,
+    urlsPermitidas: fichaInternacional ? urlsDeLaFicha(fichaInternacional) : undefined,
   };
   const reply = await runAgentTurn(ctxTurno, turnContent ?? turnText, priorContext, undefined, historialPrevio);
 
@@ -465,7 +482,7 @@ async function handle(req: Request) {
   // Modo copiloto: el borrador va al asesor y el cliente NO recibe nada automático. Si el borrador
   // no se puede entregar, se responde normalmente: dejar al cliente sin respuesta sería peor que
   // saltarse el modo, y el asesor ya tiene el caso en su panel igual.
-  if (await aplicaCopiloto(crmEntities, auth)) {
+  if (!internacional && (await aplicaCopiloto(crmEntities, auth))) {
     const r = await entregarBorrador({ respuesta: reply, mensajeCliente: turnText, dialogId, crmEntities, auth });
     if (r.entregado) {
       inc('copiloto_borrador');
@@ -510,14 +527,16 @@ async function handle(req: Request) {
       log.warn('no se pudo entregar la sesión al operador', { err: String(e), dialogId, chatId });
     }
   }
-  void programarSeguimiento(dialogId, crmEntities, sesion); // si el cliente no vuelve a escribir: recordatorio y, si sigue en silencio, transferencia al asesor (ver ai/seguimiento.ts)
+  // Los recordatorios están escritos en español y terminan derivando a un asesor: no en el modo
+  // internacional.
+  if (!internacional) void programarSeguimiento(dialogId, crmEntities, sesion); // si el cliente no vuelve a escribir: recordatorio y, si sigue en silencio, transferencia al asesor (ver ai/seguimiento.ts)
 
   // Auditoría del turno (compliance) — independiente del CRM.
   await audit({
     type: 'turn',
     dialogId,
     crmEntity: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : undefined,
-    detail: { message: logText, reply, responseMs: Date.now() - t0 },
+    detail: { message: logText, reply, responseMs: Date.now() - t0, ...(internacional ? { internacional: true } : {}) },
   });
 
   // Registra automáticamente la conversación en el timeline del CRM (no bloquea la respuesta).
@@ -528,9 +547,12 @@ async function handle(req: Request) {
   }
 
   // Lead scoring en segundo plano (Haiku): puntúa, mueve etapa del deal y auto-escala si el score es alto.
-  void procesarScoring({ dialogId, chatId, botId, crmEntities, auth, sesionOpenLines: sesion }).catch((e) =>
-    log.warn('procesarScoring falló', { err: String(e) }),
-  );
+  // No en el modo internacional: auto-escalar entrega el chat a un asesor que no existe.
+  if (!internacional) {
+    void procesarScoring({ dialogId, chatId, botId, crmEntities, auth, sesionOpenLines: sesion }).catch((e) =>
+      log.warn('procesarScoring falló', { err: String(e) }),
+    );
+  }
 }
 
 function firstBotId(bot: any): number | undefined {
