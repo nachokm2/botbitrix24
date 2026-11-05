@@ -68,6 +68,11 @@ export async function telefonoDelChat(chatId: string | number | undefined, auth:
   return (await entidadDelChat(chatId, auth)).telefono;
 }
 
+/** El conector del chat (p. ej. "ank_chats_app24_ca_whats_app" o "livechat"). null si no se pudo leer. */
+export async function conectorDelChat(chatId: string | number | undefined, auth: Auth): Promise<string | null> {
+  return (await entidadDelChat(chatId, auth)).connector;
+}
+
 /** El ID de la LÍNEA de Open Lines del chat (p. ej. "31" WhatsApp, "93" Live Chat). Lo usa la
  *  compuerta de líneas permitidas (config.openlinesLineasPermitidas) en routes/botEvents.ts. null si
  *  no se pudo determinar. */

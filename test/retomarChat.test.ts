@@ -7,13 +7,12 @@ process.env.NODE_ENV = 'test';
 process.env.REDIS_URL = '';
 
 const llamadas: string[] = [];
-let transferFalla = false;
+const respuestas: Record<string, unknown> = {};
 mock.module('../src/bitrix/client.ts', {
   namedExports: {
     callBitrix: async (method: string) => {
       llamadas.push(method);
-      if (method === 'imopenlines.operator.transfer' && transferFalla) throw new Error('ACCESS_DENIED');
-      return {};
+      return respuestas[method] ?? {};
     },
     callCrm: async () => ({}),
     callBitrixEnvelope: async () => ({ result: {} }),
@@ -22,7 +21,18 @@ mock.module('../src/bitrix/client.ts', {
   },
 });
 
-const { leerEstado, motivoParaNoRetomar, motivoParaNoReactivar, transcriptDelChat, devolverAlBot } = await import('../src/ai/retomarChat');
+mock.module('../src/store.ts', {
+  namedExports: {
+    getState: async () => ({ auth: { domain: 'test.bitrix24.com', access_token: 'tok' }, botId: 800185 }),
+    setAuth: async () => {},
+    setBotId: async () => {},
+    setAppToken: async () => {},
+    requireAuth: async () => ({ domain: 'test.bitrix24.com', access_token: 'tok' }),
+    EMPTY_AUTH: { domain: '', access_token: '' },
+  },
+});
+
+const { leerEstado, motivoParaNoRetomar, motivoParaNoReactivar, transcriptDelChat, retomarChat } = await import('../src/ai/retomarChat');
 
 const BOT = 800185;
 const participantes = [
@@ -135,14 +145,31 @@ test('transcriptDelChat: la conversación del chat con el formato de la memoria 
   assert.equal(t, 'Cliente: Quiero la maestría\nBot: Con la beca son USD 150.\nBot: Hola, soy la asesora');
 });
 
-test('devolverAlBot: si Bitrix rechaza el traspaso, el chat queda como estaba (sin interceptarlo)', async () => {
-  // Interceptar deja la sesión a nombre del dueño del token; si después el traspaso fallaba, el chat
-  // quedaba asignado a esa persona.
+test('el brochure que mandó el bot vuelve a nombre del cliente: no es un mensaje pendiente', () => {
+  // Chat 1572191: el conector devuelve el PDF con el autor del cliente y un id posterior a la
+  // respuesta del bot. Contarlo como mensaje dejaba al cliente "esperando" sin haber escrito nada.
+  const e = leerEstado(
+    participantes,
+    [
+      msj(1, 820437, 3, 'Más información'),
+      msj(2, BOT, 2.9, 'Le acabo de enviar el brochure. ¿Le cuento el valor con la beca incluida?'),
+      msj(3, 820437, 2.9, '[B]Sent from external application[/B]\n[URL=https://cdn.example/b.pdf]Open[/URL] Brochure — Licenciatura en Psicología'),
+    ],
+    BOT,
+  );
+  assert.deepEqual(e.pendientes, []);
+  assert.equal(e.ultimaDelCliente, ahora - 3 * 3600_000);
+});
+
+test('con una persona del equipo dentro, no intenta traspasarle la sesión al bot', async () => {
+  // Bitrix lo rechazó en todos los intentos del 03 al 05-11-2026 (OPERATOR_WRONG) y el barrido
+  // reintentaba los mismos chats cada dos horas.
   llamadas.length = 0;
-  transferFalla = true;
-  const r = await devolverAlBot('1562049', BOT, {} as any);
-  assert.equal(r.ok, false);
-  assert.deepEqual(llamadas, ['imopenlines.operator.transfer']);
-  transferFalla = false;
-  assert.equal((await devolverAlBot('1562049', BOT, {} as any)).ok, true);
+  respuestas['im.dialog.users.list'] = participantes;
+  respuestas['im.dialog.messages.get'] = { messages: [msj(1, 820437, 5, '¿Hay que hacer convalidación?')] };
+  const r = await retomarChat('chat1528637');
+  assert.equal(r.retomado, false);
+  assert.equal(r.motivo, 'persona_a_cargo');
+  assert.ok(!llamadas.includes('imopenlines.operator.transfer'));
+  assert.ok(!llamadas.includes('imopenlines.session.intercept'));
 });

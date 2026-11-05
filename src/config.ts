@@ -465,15 +465,29 @@ export const config = {
   // llegue otro mensaje del mismo chat, y responde todos juntos en un solo turno. 0 = cada mensaje
   // se responde por separado, como antes. Ver core/rafaga.ts.
   rafagaVentanaS: Number(process.env.RAFAGA_VENTANA_S ?? 0) || 0,
-  // Si una persona tomó el chat y lleva estas horas sin escribir mientras el cliente espera, el bot
-  // retoma la conversación y responde lo pendiente. 0 = nunca (el bot calla hasta que la sesión se
-  // cierre, como antes). Ver ai/retomarChat.ts.
+  // Si el bot quedó solo en un chat traspasado (la persona salió) y el cliente lleva estas horas
+  // esperando, el bot responde lo pendiente. 0 = nunca (el bot calla hasta que la sesión se cierre,
+  // como antes). Con una persona DENTRO del chat no retoma: Bitrix no deja traspasarle la sesión a un
+  // bot; para eso están los avisos de AVISO_ESPERA_HORAS. Ver ai/retomarChat.ts.
   retomarChatHoras: Number(process.env.RETOMAR_CHAT_HORAS ?? 0) || 0,
-  // Si el bot DERIVÓ (escalar_a_humano o por puntaje) y en estas horas nadie del equipo escribió en el
-  // chat, el chat vuelve al bot y se reactivan los recordatorios. Corre dentro del mismo barrido que
-  // RETOMAR_CHAT_HORAS, así que necesita que esa esté encendida. Carver, 03-11-2026: 8 leads con
+  // Si el bot DERIVÓ (escalar_a_humano o por puntaje), nadie del equipo escribió en el chat en estas
+  // horas y el bot sigue solo en él, se reactivan los recordatorios. Corre dentro del mismo barrido
+  // que RETOMAR_CHAT_HORAS, así que necesita que esa esté encendida. Carver, 03-11-2026: 8 leads con
   // puntaje alto pasaron 24 h sin que nadie los tomara, con los recordatorios apagados. 0 = nunca.
   reactivarSinTomarHoras: Number(process.env.REACTIVAR_SIN_TOMAR_HORAS ?? (esCarver ? 4 : 0)) || 0,
+  // Si el cliente espera estas horas en un chat con una persona del equipo dentro (porque escribió y
+  // nadie le contestó, o porque el bot se lo derivó y nadie le escribió), se avisa por notificación
+  // de Bitrix a las personas del chat y a BITRIX_SUPERVISOR_ID. Carver, 05-11-2026: cuatro clientes
+  // pasaron más de 20 h sin respuesta en chats así. Ver ai/avisoEspera.ts. 0 = nunca.
+  avisoEsperaHoras: Number(process.env.AVISO_ESPERA_HORAS ?? (esCarver ? 2 : 0)) || 0,
+  // Segundo aviso, a estas horas del último mensaje del cliente, cuando quedan pocas de la ventana de
+  // 24 h de WhatsApp. Por encima de 23 no sale nunca. 0 = sin segundo aviso.
+  avisoEsperaEscalarHoras: Number(process.env.AVISO_ESPERA_ESCALAR_HORAS ?? 20) || 0,
+  // Quién recibe ese segundo aviso. Vacío = quienes reciben el control diario (CONTROL_DIARIO_USUARIOS).
+  avisoEsperaUsuarios: (process.env.AVISO_ESPERA_USUARIOS ?? '')
+    .split(',')
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0),
   // Comprobación horaria de que los DOS caminos hacia Bitrix siguen vivos (webhook y OAuth). El
   // OAuth de Postgrados llevaba días sin poder renovarse y nada lo decía: las conversaciones
   // andaban, pero todo lo proactivo fallaba en silencio.

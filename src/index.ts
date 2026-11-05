@@ -209,7 +209,7 @@ app.get('/setup/mover-derivados', manejarAsync(moverDerivados)); // simula por d
 app.get('/setup/bind-calls', manejarAsync(bindCallsManual));
 app.get('/setup/bind-panel', manejarAsync(bindPanelManual)); // pestaña "Configuración bot" dentro de Bitrix24
 app.get('/setup/limpiar-placements', manejarAsync(limpiarPlacementsManual)); // quita paneles con token viejo del menú
-app.get('/setup/retomar-chat', manejarAsync(retomarChatManual)); // devuelve UN chat tomado por una persona al bot (prueba)
+app.get('/setup/retomar-chat', manejarAsync(retomarChatManual)); // prueba UN chat traspasado: retomarlo o avisar (ver ai/retomarChat.ts)
 app.get('/setup/sync-calls', manejarAsync(syncCallsManual));
 
 // Campaña de voz saliente. Panel y datos con DASHBOARD_TOKEN (embebible en Bitrix); acciones
