@@ -35,6 +35,13 @@ mock.module('../src/store/db.ts', {
     dbEmbudoCierre: async (_dias: number, offset: number) => (offset === 0 ? embudoHoy : embudoSemana),
     dbMejorasPrevias: async () => previas,
     dbInsertAudit: async () => {},
+    // Lo que arrastra revisionDiaria.ts (seguimiento.ts → vigilanciaDerivaciones.ts), que acá se
+    // importa para ver qué recibe el auditor en Carver.
+    dbTranscripcionesRecientes: async () => [],
+    dbUltimaDerivacion: async () => null,
+    dbHuboOperadorDespuesDe: async () => false,
+    dbDialogosConDeal: async () => [],
+    dbDialogosPorTextoPrograma: async () => [],
   },
 });
 
@@ -69,6 +76,8 @@ mock.module('../src/store.ts', {
 });
 
 const { redactarControl, enviarControlDiario, elegirConversaciones, fechaEnChile } = await import('../src/ai/controlDiario');
+const { revisarConversacion } = await import('../src/ai/revisionDiaria');
+const { referenciaPreciosCarver } = await import('../src/core/condicionesCarver');
 const { config } = await import('../src/config');
 
 const DOM = 'carver.bitrix24.com';
@@ -177,6 +186,8 @@ test('se envía a cada destinatario, con las mejoras del modelo y la memoria de 
   assert.match(material, /De 3 conversaciones revisadas, 1 quedaron en un solo intercambio/);
   assert.match(material, /ningún asesor trabajó: 1/);
   assert.ok(material.indexOf('=== chat4 ===') < material.indexOf('=== chat2 ==='), 'primero el chat donde se perdió a alguien');
+  assert.match(material, /contado: USD 585 al año durante 4 años/, 'tiene la planilla para no proponer corregir un precio correcto');
+  assert.match(material, /la revisión se equivocó: no propongas corregirlo/);
   assert.doesNotMatch(material, /=== chat1 ===/, 'una conversación normal no se manda a analizar');
 
   assert.match(texto!, /3\. \[B\]Bot:\[\/B\] Llamar a los derivados/, 'un "donde" desconocido cae en Bot');
@@ -218,6 +229,30 @@ test('sin destinatarios no hace nada', async () => {
   }
   assert.equal(pedidos.length, 0);
   assert.equal(notificaciones.length, 0);
+});
+
+// 05-11-2026: la revisión marcó como dudosos el contado de Psicología (USD 585 al año durante 4 años)
+// y el de una maestría (USD 900) porque eran menores que el arancel con beca, y el control propuso
+// "corregirlos" en el panel. Estaban bien: la planilla los fija así.
+test('la planilla de precios trae las cifras vigentes y explica por qué el contado es menor', () => {
+  const t = referenciaPreciosCarver();
+  assert.match(t, /semestral y el contado son precios fijos, sin matrícula y con un descuento adicional/);
+  assert.match(
+    t,
+    /- Licenciatura en Psicología: lista USD 8\.000; con la beca del 50%, USD 4\.000 en 40 cuotas de USD 100 más matrícula de USD 50; semestral: 8 pagos de USD 410; contado: USD 585 al año durante 4 años \(USD 2\.340 en total\)\./,
+  );
+  assert.match(t, /- Maestría en Educación en Salud y Simulación Clínica: lista USD 3\.600;.*contado: USD 900\./);
+  assert.match(t, /- Licenciatura en Administración de Empresas: .* Cupos completos: la matrícula reabre en marzo de 2027\./);
+  assert.doesNotMatch(t, /Curso de/, 'los cursos no se cotizan');
+});
+
+test('en Carver el auditor revisa cada conversación con la planilla a la vista', async () => {
+  pedidos.length = 0;
+  respuestaModelo = '{"problemas":[]}';
+  await revisarConversacion('Cliente: cuánto sale psicología al contado\nBot: USD 585 al año durante 4 años, sin matrícula.');
+  const system = pedidos[0].system as string;
+  assert.match(system, /^Eres un auditor de calidad/, 'las reglas del auditor no cambian');
+  assert.match(system, /Licenciatura en Psicología: .*contado: USD 585 al año durante 4 años/);
 });
 
 test('la fecha va en la hora de Chile, no la del servidor', () => {

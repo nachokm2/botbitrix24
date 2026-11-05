@@ -10,6 +10,7 @@ import { audit } from '../obs/audit';
 import { inc, recordTokens } from '../obs/metrics';
 import { horaEnChile } from './seguimiento';
 import { enviarControlDiario } from './controlDiario';
+import { referenciaPreciosCarver } from '../core/condicionesCarver';
 import { log } from '../log';
 
 /**
@@ -50,6 +51,14 @@ const CONCURRENCIA = 4;
 
 export type Hallazgo = { tipo: string; gravedad: string; detalle: string };
 
+/** El auditor con la planilla de precios a la vista, donde la hay (Carver; en Postgrados queda igual).
+ *  Sin ella veía que el bot consultó los precios pero no las cifras, y marcaba como dudoso un precio
+ *  correcto. */
+function sistema(): string {
+  const precios = referenciaPreciosCarver();
+  return precios ? `${SISTEMA}\n\n${precios}` : SISTEMA;
+}
+
 /** Revisa UNA conversación. Devuelve [] si está bien o si no se pudo revisar. */
 export async function revisarConversacion(texto: string): Promise<Hallazgo[]> {
   const t = texto.length > LARGO_MAX_TRANSCRIPCION ? texto.slice(-LARGO_MAX_TRANSCRIPCION) : texto;
@@ -58,7 +67,7 @@ export async function revisarConversacion(texto: string): Promise<Hallazgo[]> {
     const resp = await anthropic.messages.create({
       model: CLASSIFIER,
       max_tokens: 500,
-      system: SISTEMA,
+      system: sistema(),
       messages: [{ role: 'user', content: `Conversación:\n${t}\n\nDevuelve el JSON.` }],
     });
     recordTokens((resp as any).usage);

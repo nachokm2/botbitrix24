@@ -4,6 +4,7 @@ import { equivalencias } from './tipoCambio';
 import { esTipoComercializable, MENSAJE_NO_COMERCIALIZABLE } from './oferta';
 import { condicionVigente, ajustesPrecios } from './ajustes';
 import { REABRE_POR_DEFECTO } from './ajustesProgramas';
+import { marca } from '../marca';
 
 // Planilla comercial de Carver, validada con la dirección. La genera scripts/build-carver-precios.ts
 // desde data/carver/precios-carver.csv — ver ese script antes de tocar nada acá.
@@ -64,6 +65,43 @@ export function matchProgramaCarver(nombre: string): ProgramaCarver[] {
 /** Cuándo reabre la matrícula de un programa con cupos completos, en palabras ("marzo de 2027"). */
 export function reaperturaDe(nombre: string): string {
   return matchProgramaCarver(nombre)[0]?.reabre || REABRE_POR_DEFECTO;
+}
+
+const usd = (n?: number) => `USD ${(n ?? 0).toLocaleString('es-CL')}`;
+
+/** La planilla vigente entera, una línea por programa, para quien revisa conversaciones
+ *  (ai/revisionDiaria.ts y ai/controlDiario.ts). Vacía fuera de Carver.
+ *
+ *  La transcripción solo dice que el bot consultó "precios, becas y formas de pago", no las cifras.
+ *  Sin la planilla, el auditor marcaba como dudoso un contado correcto (USD 585 al año durante 4 años
+ *  en Psicología, USD 900 en una maestría) porque era menor que el arancel con beca, y el control
+ *  diario del 05-11-2026 propuso "corregirlo" en el panel. */
+export function referenciaPreciosCarver(): string {
+  if (marca.catalogo !== 'carver') return '';
+  const lineas = programasVigentes()
+    .filter((p) => esTipoComercializable(p.tipo) && !p.gratis)
+    .map((p) => {
+      const partes = [`lista ${usd(p.arancelLista)}`];
+      if (p.mensualidades) {
+        partes.push(`con la beca del ${p.becaPct}%, ${usd(p.arancelConBeca)} en ${p.mensualidades.n} cuotas de ${usd(p.mensualidades.monto)} más matrícula de ${usd(p.matricula)}`);
+      }
+      if (p.semestral) partes.push(`semestral: ${p.semestral.n} pagos de ${usd(p.semestral.monto)}`);
+      if (p.contado) {
+        partes.push(
+          p.contado.anios && p.contado.anios > 1 && p.contado.porAnio
+            ? `contado: ${usd(p.contado.porAnio)} al año durante ${p.contado.anios} años (${usd(p.contado.total)} en total)`
+            : `contado: ${usd(p.contado.total)}`,
+        );
+      }
+      const cupos = !p.cotizable && p.motivoNoCotizable === 'cupos completos' ? ` Cupos completos: la matrícula reabre en ${p.reabre || REABRE_POR_DEFECTO}.` : '';
+      return `- ${p.nombre}: ${partes.join('; ')}.${cupos}`;
+    });
+  if (!lineas.length) return '';
+  return [
+    `Planilla de precios vigente: es la fuente que consulta el bot ("precios, becas y formas de pago"), y la ${BECA_CARVER} existe y el bot la ofrece directamente.`,
+    'El semestral y el contado son precios fijos, sin matrícula y con un descuento adicional ya aplicado, así que suman menos que el arancel con beca y no es un error. Un monto que calce con esta planilla es correcto.',
+    ...lineas,
+  ].join('\n');
 }
 
 /** Condiciones comerciales de UN programa de Carver, en cifras y no en prosa.

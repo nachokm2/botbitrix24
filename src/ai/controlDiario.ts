@@ -6,6 +6,7 @@ import { callBitrix } from '../bitrix/client';
 import { getState } from '../store';
 import { config } from '../config';
 import { marca } from '../marca';
+import { referenciaPreciosCarver } from '../core/condicionesCarver';
 import { audit } from '../obs/audit';
 import { recordTokens } from '../obs/metrics';
 import { log } from '../log';
@@ -189,6 +190,13 @@ function armarMaterial(m: Material): string {
     `De ${m.revision.revisadas} conversaciones revisadas, ${m.unIntercambio} quedaron en un solo intercambio.`,
   ];
   if (m.sinTrabajar) p.push(`Casos derivados en los últimos 7 días que ningún asesor trabajó: ${m.sinTrabajar}.`);
+
+  // Sin la planilla, el primer control (05-11-2026) propuso "corregir" en el panel dos contados que
+  // estaban bien, tomando al pie de la letra un "info_dudosa" de la revisión.
+  const precios = referenciaPreciosCarver();
+  if (precios) {
+    p.push('', precios, 'Si la revisión marcó como dudoso un precio que calza con esta planilla, la revisión se equivocó: no propongas corregirlo.');
+  }
 
   const hallazgos = m.revision.casos.flatMap((c) => c.hallazgos.map((h) => `- [${h.tipo}, ${h.gravedad}] ${c.dialogId}: ${h.detalle}`));
   p.push('', 'Problemas que marcó la revisión automática:', hallazgos.length ? hallazgos.join('\n') : '(ninguno)');

@@ -9,12 +9,14 @@ process.env.REDIS_URL = '';
 
 let respuestaModelo = '{"problemas":[]}';
 let llamadasModelo = 0;
+let ultimoPedido: any = null;
 mock.module('../src/ai/client.ts', {
   namedExports: {
     anthropic: {
       messages: {
-        create: async () => {
+        create: async (p: any) => {
           llamadasModelo++;
+          ultimoPedido = p;
           return { content: [{ type: 'text', text: respuestaModelo }], usage: {} };
         },
       },
@@ -90,6 +92,12 @@ function reset() {
 test('una conversación sin problemas no genera hallazgos', async () => {
   reset();
   assert.deepEqual(await revisarConversacion(CONV), []);
+});
+
+test('en Postgrados el auditor no recibe la planilla de Carver', async () => {
+  reset();
+  await revisarConversacion(CONV);
+  assert.doesNotMatch(ultimoPedido.system, /Planilla de precios|Carver/);
 });
 
 test('reconoce un problema y lo normaliza', async () => {
