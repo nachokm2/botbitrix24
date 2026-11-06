@@ -7,6 +7,7 @@ import { getUsuarios } from './directory';
 import { once, getRedisClient } from '../store/kv';
 import { getState, type Auth } from '../store';
 import { config } from '../config';
+import { esAsesorSinBot } from './asesorSinBot';
 import { horarios } from '../core/ajustes';
 import { marca } from '../marca';
 import { audit } from '../obs/audit';
@@ -97,7 +98,7 @@ export async function candidatosReactivacion(auth: Auth, limite = 100): Promise<
   const out: Frio[] = [];
   for (const f of frias) {
     const d = porDeal.get(f.dealId);
-    if (!d) continue;
+    if (!d || esAsesorSinBot(d.ASSIGNED_BY_ID)) continue;
     const contactId = Number(d.CONTACT_ID ?? 0);
     const c = contactos.get(contactId);
     if (!c || vistos.has(contactId)) continue; // una persona, un mensaje

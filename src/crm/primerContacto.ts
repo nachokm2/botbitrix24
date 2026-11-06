@@ -5,6 +5,7 @@ import { estaExcluido } from './exclusion';
 import { enviarPlantillaWhatsApp } from '../whatsapp/template';
 import { once, getRedisClient } from '../store/kv';
 import { config } from '../config';
+import { esAsesorSinBot } from './asesorSinBot';
 import { horarios } from '../core/ajustes';
 import { marca } from '../marca';
 import { audit } from '../obs/audit';
@@ -116,7 +117,7 @@ export async function candidatosPrimerContacto(auth: Auth, dias = 7, limite = 20
 
   // El bot ya conversó con estos: no son "nunca escribieron".
   const conversados = new Set((await dbDialogosConDeal()).map((x) => x.dealId));
-  const pendientes = deals.filter((d) => d.CONTACT_ID && !conversados.has(Number(d.ID)));
+  const pendientes = deals.filter((d) => d.CONTACT_ID && !conversados.has(Number(d.ID)) && !esAsesorSinBot(d.ASSIGNED_BY_ID));
   if (!pendientes.length) return [];
 
   // Los teléfonos viven en el contacto, no en la negociación: se piden de a 50 en vez de uno por uno.

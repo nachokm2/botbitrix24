@@ -133,6 +133,22 @@ test('un número de un país fuera de la lista no se contacta', async () => {
   config.primerContactoPaises = [];
 });
 
+test('las negociaciones de un asesor que atiende sin el bot no reciben primer contacto', async () => {
+  contactos = [
+    { ID: '10', NAME: 'Camila', PHONE: [{ VALUE: '+56912345678' }] },
+    { ID: '20', NAME: 'Pedro', PHONE: [{ VALUE: '+56911111111' }] },
+  ];
+  deals = [
+    { ID: '11', CONTACT_ID: '10', TITLE: 'A', DATE_CREATE: '2026-10-10', ASSIGNED_BY_ID: '777' },
+    { ID: '12', CONTACT_ID: '20', TITLE: 'B', DATE_CREATE: '2026-10-10', ASSIGNED_BY_ID: '1313' },
+  ];
+  conversados = [];
+  config.asesoresSinBot = [777];
+  const c = await candidatosPrimerContacto(auth, 7);
+  config.asesoresSinBot = [];
+  assert.deepEqual(c.map((x) => x.contactId), [20]);
+});
+
 test('sin lista de países configurada no se filtra nada', () => {
   config.primerContactoPaises = [];
   assert.equal(paisPermitido('+948591234'), true);

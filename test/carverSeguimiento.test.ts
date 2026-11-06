@@ -20,6 +20,7 @@ process.env.HORARIO_ASESORES_ACTIVO = 'false';
 
 const enviados: Array<{ method: string; params: any }> = [];
 const consultasCrm: string[] = [];
+let fichaCrm: Record<string, unknown> = {};
 mock.module('../src/bitrix/client.ts', {
   namedExports: {
     callBitrix: async (method: string, params: any) => {
@@ -28,7 +29,7 @@ mock.module('../src/bitrix/client.ts', {
     },
     callCrm: async (method: string) => {
       consultasCrm.push(method);
-      return {};
+      return fichaCrm;
     },
     callBitrixEnvelope: async () => ({ result: {} }),
     callCrmEnvelope: async () => ({ result: {} }),
@@ -172,6 +173,22 @@ test('cinco recordatorios: el primero retoma el hilo, los del medio buscan un s�
   const ultimo = auditorias.filter((a) => a.type === 'seguimiento' && a.dialogId === 'c-cinco').at(-1);
   assert.deepEqual({ ...ultimo.detail, mensaje: undefined }, { mensaje: undefined, etapa: 5, de: 5, conContacto: true });
   assert.ok(sinNadaAgendado('c-cinco'), 'terminada la secuencia no queda nada agendado');
+});
+
+test('si la negociación queda con un asesor que atiende sin el bot, los recordatorios agendados no salen', async () => {
+  await conversacionRespondida('c-sin-bot');
+  config.asesoresSinBot = [777];
+  config.embudosPropios = [];
+  fichaCrm = { ASSIGNED_BY_ID: '777' };
+  try {
+    await correrPaso('c-sin-bot');
+    assert.equal(envios('c-sin-bot').length, 0);
+    assert.equal(omitido('c-sin-bot'), 'asesor_sin_bot');
+    assert.ok(sinNadaAgendado('c-sin-bot'), 'la secuencia termina');
+  } finally {
+    config.asesoresSinBot = [];
+    fichaCrm = {};
+  }
 });
 
 test('nunca dos recordatorios pegados, ni de noche, y el último cabe en la ventana de 24 h de WhatsApp', () => {

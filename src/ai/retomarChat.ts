@@ -9,6 +9,8 @@ import { getSession, saveSession, leerTraspaso, borrarTraspaso, PREFIJO_TRASPASO
 import { setHistory } from './memory';
 import { programarSeguimiento, entidadesDelSeguimiento } from './seguimiento';
 import { derivacionYaGestionada } from '../crm/embudos';
+import { asesorSinBotACargo } from '../crm/asesorSinBot';
+import { resolveAllEntities } from '../crm/chat';
 import { procesarMensajeSintetico } from '../routes/botEvents';
 import { audit } from '../obs/audit';
 import { log } from '../log';
@@ -178,6 +180,12 @@ export async function retomarChat(
   if (config.openlinesLineasPermitidas.length) {
     const linea = await lineaDelChat(chatId, auth);
     if (!linea || !config.openlinesLineasPermitidas.includes(linea)) return { dialogId, retomado: false, motivo: 'linea_no_permitida' };
+  }
+
+  // Negociación de un asesor que atiende sin el bot (crm/asesorSinBot.ts): ni se retoma, ni vuelven los
+  // recordatorios, ni se avisa que el cliente espera. Sin la variable no se consulta nada.
+  if (config.asesoresSinBot.length && (await asesorSinBotACargo(await resolveAllEntities({}, chatId, auth), auth))) {
+    return { dialogId, retomado: false, motivo: 'asesor_sin_bot' };
   }
 
   const traspaso = await leerTraspaso(dialogId);

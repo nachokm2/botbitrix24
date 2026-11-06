@@ -27,6 +27,7 @@ import { anotarEntrante, fueAbsorbido, esperarFinDeRafaga, tomarRafaga } from '.
 import { esEnvioNuestroPorChatApp, esRespuestaAutomaticaDeNegocio, adjuntosSonDeLaPlantilla } from '../core/ecos';
 import { asignarAsesorPorTurno } from '../crm/asignacionAsesores';
 import { entregarSesion } from '../crm/entregaChat';
+import { asesorSinBotACargo } from '../crm/asesorSinBot';
 import { createSemaphore } from '../util/concurrency';
 import { withKeyedLock } from '../util/distlock';
 import { WHATSAPP_PROFILE, type AgentContext } from '../core/channel';
@@ -391,6 +392,31 @@ async function handle(req: Request) {
   const crmEntities = await resolveAllEntities(params, chatId, auth);
   const crmEntity = primaryEntity(crmEntities);
   log.info('CRM entity', { primary: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : 'ninguna', all: crmEntities });
+
+  // El responsable es un asesor que atiende sin el bot (crm/asesorSinBot.ts). Callar no basta: con el
+  // canal en "No transferir", si el bot no hace nada nadie recibe el chat. Se le entrega a ese asesor;
+  // si Bitrix no lo acepta, a la cola. La marca de traspaso va solo si se entregó: si falló, el mensaje
+  // siguiente vuelve a intentarlo.
+  const asesorSinBot = await asesorSinBotACargo(crmEntities, auth);
+  if (asesorSinBot) {
+    let entregada: 'persona' | 'cola' | null = null;
+    try {
+      entregada = await entregarSesion(chatId, asesorSinBot, auth);
+      if (marca.traspasoPorSesion) await marcarTraspaso(dialogId, sesion, 'asesor_sin_bot');
+    } catch (e) {
+      // "Operator is not a bot": la sesión ya la tiene una persona.
+      log.warn('no se pudo entregar el chat al asesor sin bot', { err: String(e), dialogId, chatId, asesorSinBot });
+    }
+    void cancelarSeguimiento(dialogId);
+    inc('bot_en_silencio_asesor');
+    void audit({
+      type: 'bot_en_silencio',
+      dialogId,
+      crmEntity: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : undefined,
+      detail: { motivo: 'asesor_sin_bot', asesor: asesorSinBot, entregada },
+    });
+    return log.info('botMessage: el responsable atiende sin el bot; bot en silencio', { dialogId, asesorSinBot, entregada });
+  }
 
   // Si la conversación es de un programa piloto, el deal queda con SU asesor desde el primer mensaje,
   // sin esperar a que la persona entregue datos. Antes la asignación solo se disparaba al capturar un

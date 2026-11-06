@@ -506,6 +506,12 @@ export const config = {
     .split(',')
     .map((x) => Number(x.trim()))
     .filter((n) => Number.isFinite(n) && n > 0),
+  // Asesores (id de Bitrix) que atienden sus negociaciones sin el bot: si es el responsable, el bot no
+  // le escribe a ese cliente y le entrega el chat (crm/asesorSinBot.ts). Vacío = nadie.
+  asesoresSinBot: (process.env.ASESORES_SIN_BOT ?? '')
+    .split(',')
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isFinite(n) && n > 0),
   // Comprobación horaria de que los DOS caminos hacia Bitrix siguen vivos (webhook y OAuth). El
   // OAuth de Postgrados llevaba días sin poder renovarse y nada lo decía: las conversaciones
   // andaban, pero todo lo proactivo fallaba en silencio.

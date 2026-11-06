@@ -116,6 +116,15 @@ test('una persona con dos conversaciones frías recibe un solo mensaje', async (
   assert.equal(c.length, 1);
 });
 
+test('las negociaciones de un asesor que atiende sin el bot no se reactivan', async () => {
+  escenario();
+  deals[0].ASSIGNED_BY_ID = '777';
+  config.asesoresSinBot = [777];
+  const c = await candidatosReactivacion(auth);
+  config.asesoresSinBot = [];
+  assert.deepEqual(c.map((x: any) => x.dealId), [12]);
+});
+
 test('apagada por defecto: no escribe', async () => {
   escenario();
   assert.deepEqual(await reactivar(unFrio()), { enviado: false, motivo: 'desactivado' });

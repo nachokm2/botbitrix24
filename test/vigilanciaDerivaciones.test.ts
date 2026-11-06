@@ -171,6 +171,18 @@ test('vencido y sin tomar: avisa al responsable de la negociación', async () =>
   assert.equal(a.detail.etapa, 1);
 });
 
+test('una negociación a nombre de un asesor que atiende sin el bot deja de vigilarse, sin avisar a nadie', async () => {
+  reset();
+  config.derivacionSupervisorId = 62741;
+  config.asesoresSinBot = [1313];
+  await vigilarDerivacion(599, 'chat1');
+  vencer(599);
+  await barrerVigilanciaDerivaciones();
+  config.asesoresSinBot = [];
+  assert.equal(avisos().length, 0);
+  assert.ok(!zsets.get(VIGILANCIA_KEY)!.has('599'), 'no vuelve a la cola para el supervisor');
+});
+
 test('si un asesor escribió en el chat, no molesta y deja de vigilar', async () => {
   reset();
   huboOperador = true;

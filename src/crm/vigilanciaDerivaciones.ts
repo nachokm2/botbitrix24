@@ -5,6 +5,7 @@ import { getState, type Auth } from '../store';
 import { dbHuboOperadorDespuesDe } from '../store/db';
 import { audit } from '../obs/audit';
 import { esUrgente } from './urgencia';
+import { esAsesorSinBot } from './asesorSinBot';
 import { log } from '../log';
 
 /**
@@ -130,6 +131,8 @@ export async function barrerVigilanciaDerivaciones(): Promise<void> {
       const horas = Math.round((Date.now() - datos.derivadoEn) / 3600_000);
       const d: any = await callCrm('crm.deal.get', { id: dealId, select: ['ASSIGNED_BY_ID'] }, st.auth);
       const responsable = Number(d?.ASSIGNED_BY_ID ?? 0);
+      // Quedó a nombre de un asesor que atiende sin el bot: deja de vigilarse, sin avisarle a nadie.
+      if (esAsesorSinBot(responsable)) continue;
       const destino = datos.etapa === 1 ? responsable : config.derivacionSupervisorId;
 
       if (destino) {

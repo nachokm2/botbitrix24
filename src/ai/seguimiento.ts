@@ -17,6 +17,7 @@ import { log } from '../log';
 import { asignarAsesorPorTurno, derivarAResponsableFijo } from '../crm/asignacionAsesores';
 import { derivacionYaGestionada } from '../crm/embudos';
 import { estaExcluido } from '../crm/exclusion';
+import { asesorSinBotACargo } from '../crm/asesorSinBot';
 import { listaBlancaActiva, puedeResponder } from '../core/listaBlanca';
 import type { Auth } from '../store';
 import { vigilarDerivacion, barrerVigilanciaDerivaciones } from '../crm/vigilanciaDerivaciones';
@@ -495,6 +496,8 @@ async function motivoParaNoEnviar(dialogId: string, auth?: Auth): Promise<string
   // (La derivación por silencio —barrerTransferenciasVencidas— es otra vía y se trata aparte.)
   const ents = await getJson<CrmEntities>(ENTITIES_KEY(dialogId));
   if (ents?.contact && (await estaExcluido({ contactId: ents.contact }))) return 'excluido';
+  // La negociación pudo quedar con un asesor que atiende sin el bot después de programar este paso.
+  if (auth && (await asesorSinBotACargo(ents, auth))) return 'asesor_sin_bot';
   const snap = await getJson<Snapshot>(SNAPSHOT_KEY(dialogId));
   if (await traspasoVigente(dialogId, snap?.sesion ?? null)) return 'traspaso_a_persona';
   if (snap && Date.now() - snap.clienteAt > VENTANA_WHATSAPP_MS) return 'fuera_ventana_24h';
@@ -716,6 +719,7 @@ export async function barrerTransferenciasVencidas(): Promise<void> {
 
       const entities = await getJson<CrmEntities>(ENTITIES_KEY(dialogId));
       if (!entities || !(entities.deal || entities.lead || entities.contact)) continue;
+      if (await asesorSinBotACargo(entities, auth)) continue;
 
       // El asesor pudo tomar el caso en el CRM mientras esta transferencia esperaba su turno: mueve
       // la etapa, llama, manda un correo. Nada de eso pasa por el chat, así que `humanTookOver`
