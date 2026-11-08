@@ -1,5 +1,6 @@
 import { MANEJO_OBJECIONES } from '../core/promptObjeciones';
 import { marca } from '../marca';
+import { correoInformacionActivo } from '../crm/correoActivo';
 
 // La identidad (nombre, organización, resumen de la oferta) sale de marca.ts: el mismo código atiende
 // a Postgrados o a Carver según MARCA. Con MARCA sin definir el texto queda idéntico al de siempre.
@@ -86,8 +87,11 @@ const OBJ_INICIO = esCarver
   : 'Saluda y entiende qué busca la persona: área de interés, modalidad y su situación.';
 
 // Hallazgo 4: en WhatsApp el teléfono ya se conoce, y lo que el CRM ya sabe se confirma, no se pide.
+// "Para enviarle la información" solo es cierto si el bot puede enviarla (crm/correoInformacion.ts):
+// sin eso, un interesado lo pidió dos veces y no le llegó nada (07-11-2026).
+const correoActivo = esCarver && correoInformacionActivo();
 const OBJ_FLUJO_DATOS = esCarver
-  ? 'FLUJO DE DATOS DE CONTACTO: cuando la persona muestre interés en un programa, pídele de forma natural y UNA cosa a la vez lo que FALTE de: (1) su nombre; (2) su correo electrónico. El teléfono es el WhatsApp desde el que escribe: no lo pidas. Lo que el CRM ya tiene no se pide: a lo sumo se confirma una vez. Explica que es para enviarle la información y darle seguimiento.'
+  ? `FLUJO DE DATOS DE CONTACTO: cuando la persona muestre interés en un programa, pídele de forma natural y UNA cosa a la vez lo que FALTE de: (1) su nombre; (2) su correo electrónico. El teléfono es el WhatsApp desde el que escribe: no lo pidas. Lo que el CRM ya tiene no se pide: a lo sumo se confirma una vez. ${correoActivo ? 'Explica que es para enviarle la información y darle seguimiento.' : 'Explica que es para darle seguimiento.'}`
   : 'FLUJO DE DATOS DE CONTACTO: cuando la persona muestre interés en un programa, pídele los datos de forma natural y en este orden, UNA cosa a la vez: (1) su nombre; (2) su correo electrónico; (3) su teléfono. Explica que es para que un asesor le envíe la información y lo contacte.';
 
 const OBJ_CAPTURA = esCarver
@@ -100,6 +104,14 @@ const OBJ_CAPTURA = esCarver
 const OFERTA_ENLACES = marca.brochureVerificado
   ? 'BROCHURE: apenas la persona muestre interés en un programa CONCRETO (pregunta por él, por su valor, su malla o sus requisitos, o responde "Más información" o "Sí" a la plantilla de ese programa), envíale el brochure con "obtener_brochure" en ese MISMO turno, sin preguntarle si lo quiere. Va una sola vez por programa: si la herramienta dice que ya se lo enviaste, no lo vuelvas a mencionar. Si devuelve un enlace, comparte ÚNICAMENTE ese enlace; si no devuelve nada, no compartas ninguno. NO compartas la URL del programa a menos que la persona la pida, y nunca pegues un enlace que hayas visto en otro lugar de la conversación.'
   : 'NO compartas la URL del programa ni el enlace del brochure a menos que la persona lo pida explícitamente. Úsalos solo como referencia interna; muéstralos únicamente si los solicita.';
+
+// Correo con la información del programa. Solo en Carver: en Postgrados la línea no existe y el
+// prompt queda idéntico.
+const OFERTA_CORREO = !esCarver
+  ? ''
+  : correoActivo
+    ? 'INFORMACIÓN POR CORREO: cuando la persona pida que le envíes la información por correo, o te dé o confirme su correo para recibirla, y ya sepas su programa, envíasela con "enviar_informacion_por_correo" (si el correo es nuevo, regístralo antes con "registrar_interes_crm" y llama a esta cuando responda). Le llega el valor con la beca, las formas de pago, el próximo ingreso y el brochure. Di que se la enviaste SOLO si la herramienta devuelve ok, como indica su nota (sin escribir la dirección completa). Fuera de esa herramienta NO prometas enviar nada por correo: ni "le envío el detalle al correo" ni "se lo hago llegar al correo".'
+    : 'INFORMACIÓN POR CORREO: por ahora no envías correos. Si la persona pide la información por correo, no le digas que no puedes: dile que se la dejas aquí mismo por escrito, para que la tenga a mano, y dásela en mensajes cortos (lo que pidió; si pidió "toda la información", el valor con la beca y las formas de pago), con el brochure por este medio. NUNCA digas "le envío el detalle al correo" ni "se lo hago llegar al correo".';
 
 // Etapa 4: fechas, postulación y proceso de admisión salen de la base verificable, o no salen.
 const OFERTA_FALTANTES = marca.baseConocimiento
@@ -130,7 +142,7 @@ OBJETIVOS (en orden):
 SOBRE LA OFERTA:
 - ${marca.ofertaResumen}
 - ${DETALLE_Y_PRECIO}
-- ${OFERTA_ENLACES}
+- ${OFERTA_ENLACES}${OFERTA_CORREO ? `\n- ${OFERTA_CORREO}` : ''}
 - ${OFERTA_FALTANTES}
 
 REGLAS:

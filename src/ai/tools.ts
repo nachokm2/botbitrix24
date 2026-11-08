@@ -45,6 +45,27 @@ const DESC_PRECIO_CARVER =
 // arman aparte para no alterar en nada el esquema que ve el modelo de Postgrados.
 const TOOLS_CARVER = [
   {
+    name: 'enviar_informacion_por_correo',
+    description:
+      'Envía AHORA al correo de la persona la información de UNA licenciatura o maestría: el valor con la beca, ' +
+      'las tres formas de pago, el próximo ingreso y el brochure en PDF, todo desde las fuentes validadas (tú no ' +
+      'escribes el correo). Úsala cuando pida que le envíes la información por correo, o cuando te dé o confirme ' +
+      'su correo para recibirla y ya sepas su programa. Si en este mismo turno vas a registrar un correo nuevo con ' +
+      'registrar_interes_crm, llama primero a esa y a esta recién cuando responda. Solo di que se la enviaste si ' +
+      'devuelve ok=true; si no, sigue la instrucción que trae.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        programa: { type: 'string', description: 'Nombre exacto del programa (de consultar_programas).' },
+        email: {
+          type: 'string',
+          description: 'El correo que la persona te dio o confirmó en esta conversación, si lo hizo. Sirve para no enviarlo a otro que tenga la ficha.',
+        },
+      },
+      required: ['programa'],
+    },
+  },
+  {
     name: 'obtener_brochure',
     description:
       'Devuelve el enlace VERIFICADO del brochure oficial (PDF) de una licenciatura o maestría: comprueba en el ' +

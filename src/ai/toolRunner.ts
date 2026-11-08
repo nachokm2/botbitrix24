@@ -21,6 +21,7 @@ import { consultarEstadoEstudiante, crearTareaAdvisor } from '../crm/estudiantes
 import { enlaceDePago } from '../core/mediosPago';
 import { registrarDatosMatricula, moverAPendienteDeFirma } from '../crm/matricula';
 import { enviarBrochurePorWhatsApp } from '../core/brochureArchivo';
+import { enviarInformacionPorCorreo, resultadoParaElModelo, requiereAviso } from '../crm/correoInformacion';
 import { registrarDocumentoAcademico, nivelDelPrograma, DOCUMENTO_DE } from '../crm/documentoAcademico';
 import { getDealInfo } from '../crm/directory';
 import { avisarAlResponsable } from '../crm/avisoAsesor';
@@ -299,6 +300,37 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
           }
         }
         return brochureComoEnlace(r);
+      }
+
+      case 'enviar_informacion_por_correo': {
+        const programa = String(input?.programa ?? '');
+        const r = await enviarInformacionPorCorreo(programa, ctx.crmEntities, ctx.auth, {
+          ultimoMensajeCliente: ctx.ultimoMensajeCliente,
+          dialogId: ctx.conversationId,
+          emailDado: typeof input?.email === 'string' ? input.email : undefined,
+        });
+        // Si el envío automático falla, una persona tiene que mandarlo: si no, la promesa vuelve a
+        // quedar sin nadie detrás, que es justo lo que esta herramienta vino a resolver.
+        let avisado = false;
+        if (!r.ok && requiereAviso(r.motivo)) {
+          const aviso = await avisarAlResponsable(
+            {
+              tipo: 'correo',
+              dialogId: ctx.conversationId,
+              dealId: ctx.crmEntities?.deal,
+              chatId: ctx.chatId,
+              titulo: '✉️ Enviar información por correo',
+              detalle:
+                `Un cliente pidió la información de ${('programa' in r && r.programa) || programa || 'su programa'} por correo y el envío automático falló (${r.motivo}).\n` +
+                'Envíele por correo el valor con la beca, las formas de pago, las fechas del próximo ingreso y el brochure.',
+              tarea: true,
+              ttlSeg: 24 * 3600,
+            },
+            ctx.auth,
+          ).catch(() => ({ avisado: false }));
+          avisado = aviso.avisado;
+        }
+        return resultadoParaElModelo(r, avisado);
       }
 
       case 'consultar_estado_estudiante': {

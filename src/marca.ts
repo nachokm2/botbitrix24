@@ -119,6 +119,11 @@ export type Marca = {
    *  detecta por mensaje (ver ai/idioma.ts). Carver lo pidió el 02-11-2026 tras respuestas en
    *  portugués: la regla va fija en su prompt y la detección no se usa. */
   respondeSoloEnEspanol: boolean;
+  /** ¿Puede enviar al correo de la persona la información del programa (valor con beca, formas de
+   *  pago, próximo ingreso y brochure) con enviar_informacion_por_correo? Hace falta además la
+   *  plantilla de Bitrix (ver crm/correoInformacion.ts). En Carver el bot decía "le envío el detalle
+   *  al correo" sin poder hacerlo: un interesado lo pidió dos veces y no le llegó nada (07-11-2026). */
+  correoInformacion: boolean;
 };
 
 /** Valor de una variable de entorno, o el default si no está definida o está vacía. */
@@ -176,6 +181,8 @@ const POSTGRADOS: Marca = {
   avisaPagoAlAsesor: false,
   retieneFueraDeHorario: false,
   respondeSoloEnEspanol: false,
+  // Postgrados ya manda su brochure por correo al registrar el interés (crm/crmWrite.ts).
+  correoInformacion: false,
 };
 
 // Identidad de Carver, UNIFICADA (hallazgo 1 de la auditoría del piloto). Convivían tres:
@@ -235,6 +242,7 @@ const CARVER: Marca = {
   avisaPagoAlAsesor: true,
   retieneFueraDeHorario: true,
   respondeSoloEnEspanol: true,
+  correoInformacion: true,
 };
 
 const MARCAS: Record<MarcaKey, Marca> = { postgrados: POSTGRADOS, carver: CARVER };

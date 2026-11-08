@@ -1,5 +1,6 @@
 import { runConversation, aplicarGuardian, reemplazarUltimaRespuesta } from './agentLoop';
 import { brochureComoEnlace, RESULTADO_ESCALADO_COMO_ASESOR } from './toolRunner';
+import { resultadoParaElModelo } from '../crm/correoInformacion';
 import { detectarIdioma, bloqueIdioma } from './idioma';
 import { WHATSAPP_PROFILE } from '../core/channel';
 import { consultarProgramas, detallePrograma } from '../core/catalogTool';
@@ -88,6 +89,9 @@ async function ejecutar(nombre: string, input: any, mensajeCliente: string, inte
       return enlaceDePago(String(input?.programa ?? ''), String(input?.concepto ?? '') as any);
     case 'registrar_interes_crm':
       return { ok: true, actualizado: Object.keys(input ?? {}).filter((k) => input[k]) };
+    case 'enviar_informacion_por_correo':
+      // En la prueba no sale ningún correo: se responde lo que respondería un envío exitoso.
+      return resultadoParaElModelo({ ok: true, enviadoA: 'correo-de-prueba@ejemplo.com', conBrochure: true });
     case 'escalar_a_humano':
       return marca.sePresentaComoAsesor
         ? { ...RESULTADO_ESCALADO_COMO_ASESOR }
@@ -127,6 +131,8 @@ function describir(nombre: string, input: any, r: any): string {
         .join(', ');
       return `Registraría en el CRM${datos ? ` — ${datos}` : ''}.`;
     }
+    case 'enviar_informacion_por_correo':
+      return `Enviaría al correo de la persona la información de ${input?.programa ?? 'su programa'}: valor con la beca, formas de pago, próximo ingreso y brochure (en la prueba no sale ningún correo).`;
     case 'escalar_a_humano':
       return `Derivaría el caso a una persona${input?.motivo ? ` («${input.motivo}»)` : ''}. Es interno: el cliente no se entera.`;
     case 'consultar_estado_estudiante':

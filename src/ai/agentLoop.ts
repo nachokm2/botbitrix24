@@ -15,7 +15,8 @@ import { guardarRespuesta, urlsEn, detectarTuteo } from '../core/guardRespuesta'
 import { URLS_OFICIALES_CARVER } from '../core/promptObjeciones';
 import { promptVigente } from '../core/ajustes';
 import { bloqueMomento } from '../core/momento';
-import { promesaDeSeguimiento, intencionDePago } from '../core/promesas';
+import { promesaDeSeguimiento, promesaDeCorreo, intencionDePago } from '../core/promesas';
+import { correoEnviadoHace } from '../crm/correoInformacion';
 import { asegurarPresentacion } from '../core/presentacion';
 import { recortar } from '../core/textoSeguro';
 import { avisarAlResponsable } from '../crm/avisoAsesor';
@@ -521,9 +522,31 @@ async function avisosDelTurno(ctx: AgentContext, mensajeCliente: string, enviado
   const base = { dialogId: ctx.conversationId, dealId: ctx.crmEntities?.deal, chatId: ctx.chatId };
   const pregunta = recortar(mensajeCliente.replace(/\s+/g, ' ').trim(), 300);
 
+  // Dijo que envía algo al correo y en este turno no salió ninguno: una persona tiene que mandarlo.
+  // Va aunque haya derivado, porque la derivación no dice que quedó un correo prometido. No cuenta si
+  // el correo ya salió hace poco ("se lo envié hace un rato" es cierto).
+  let fraseCorreo: string | null = null;
+  if (marca.respaldaPromesas && !usadas.has('enviar_informacion_por_correo')) {
+    fraseCorreo = promesaDeCorreo(enviado);
+    if (fraseCorreo && !(await correoEnviadoHace(ctx.crmEntities?.deal, 24 * 3600))) {
+      void audit({ type: 'promesa_de_correo', dialogId: ctx.conversationId, detail: { frase: fraseCorreo } }).catch(() => {});
+      await avisarAlResponsable(
+        {
+          ...base,
+          tipo: 'correo',
+          titulo: '✉️ Quedó prometido un correo a un cliente',
+          detalle: `El asistente le dijo: «${fraseCorreo}»\nLo que había pedido: «${pregunta}»\nEnvíele por correo la información de su programa.`,
+          tarea: true,
+          ttlSeg: 24 * 3600,
+        },
+        ctx.auth,
+      );
+    }
+  }
+
   if (marca.respaldaPromesas && !usadas.has('escalar_a_humano')) {
     const frase = promesaDeSeguimiento(enviado);
-    if (frase) {
+    if (frase && frase !== fraseCorreo) {
       void audit({ type: 'promesa_sin_derivar', dialogId: ctx.conversationId, detail: { frase } }).catch(() => {});
       await avisarAlResponsable(
         {

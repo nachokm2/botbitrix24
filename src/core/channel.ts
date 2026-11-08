@@ -5,6 +5,7 @@ import { MANEJO_OBJECIONES } from './promptObjeciones';
 import type { ConsultarPresentation, DetalleShape } from './catalogTool';
 import type { Auth } from '../store';
 import type { CrmEntity, CrmEntities } from '../crm/entities';
+import { correoInformacionActivo } from '../crm/correoActivo';
 
 // Núcleo omnicanal (M1). Un ÚNICO motor conversacional; cada canal es un adaptador que solo traduce
 // el formato de entrada/salida y aporta su PERFIL (tono, longitud de respuesta, capacidades, tools).
@@ -208,6 +209,7 @@ const TOOLS_WHATSAPP = [
   ...(marca.brochureVerificado ? ['obtener_brochure'] : []),
   ...(marca.soporteEstudiantes ? ['consultar_estado_estudiante'] : []),
   ...(marca.baseConocimiento ? ['consultar_informacion_institucional', 'obtener_enlace_de_pago'] : []),
+  ...(correoInformacionActivo() ? ['enviar_informacion_por_correo'] : []),
   'escalar_a_humano',
 ];
 

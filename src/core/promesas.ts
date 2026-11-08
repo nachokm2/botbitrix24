@@ -52,6 +52,26 @@ export function promesaDeSeguimiento(texto: string): string | null {
   return null;
 }
 
+// Envío por correo: "le envío el detalle al correo que tenemos registrado", "se lo hago llegar a su
+// correo", "le llegará al mail". Así le habló el bot a un interesado de Psicología, dos veces, sin
+// poder enviar nada (chat 1583541, 07-11-2026): el presente "le envío" no lo detecta FUTURO, y sin
+// esto la promesa no le llegaba a nadie. "Le comparto mi correo" o "puede escribirme al correo" no
+// prometen un envío y no cuentan.
+const ENVIO_CORREO =
+  /\b(envio|enviare|enviamos|enviaremos|mando|mandare|mandamos|hago llegar|hare llegar|haremos llegar|acabo de enviar|acabo de mandar|le envie|le mande|le escribo|le escribire|llegara|llegaran)\b/;
+const CORREO = /\b(correo|mail|email|e-mail|bandeja de entrada)\b/;
+
+/** La frase en la que la respuesta dice que envía (o envió) algo al correo, o null. Las preguntas no
+ *  cuentan: "¿Quiere que se lo envíe al correo?" es una oferta. */
+export function promesaDeCorreo(texto: string): string | null {
+  for (const f of frases(texto ?? '')) {
+    if (/\?\s*$/.test(f) || /^¿/.test(f)) continue;
+    const n = norm(f);
+    if (ENVIO_CORREO.test(n) && CORREO.test(n)) return f;
+  }
+  return null;
+}
+
 // "quiero pagar", "cómo pago", "si pago todo de contado", "link de pago". No incluye "cancelar":
 // en varios países es pagar, pero "quiero cancelar mi matrícula" es lo contrario.
 const PAGO =

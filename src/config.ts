@@ -216,6 +216,14 @@ export const config = {
   // El bot la dispara por API (bizproc.workflow.start) apenas adjunta un brochure nuevo — no
   // depende de mover etapas ni de una Automation Rule nativa.
   bizprocTemplateBrochure: process.env.BITRIX_BIZPROC_TEMPLATE_BROCHURE ?? '',
+  // Correo con la información del programa en Carver (crm/correoInformacion.ts): la plantilla de
+  // Proceso de Negocio que lo envía desde el buzón de admisión, el campo de la negociación con el
+  // cuerpo ya armado y el campo de archivo con el brochure. Los campos pueden ser los mismos del
+  // correo de Postgrados: son de la negociación, y cada marca escribe solo en las suyas. Sin la
+  // plantilla y el cuerpo, la herramienta no se ofrece y el bot no promete correos.
+  bizprocTemplateCorreoInfo: (process.env.BITRIX_BIZPROC_TEMPLATE_CORREO_INFO ?? '').trim(),
+  ufCorreoInfoCuerpo: (process.env.BITRIX_UF_CORREO_INFO_CUERPO ?? '').trim(),
+  ufCorreoInfoAdjunto: (process.env.BITRIX_UF_CORREO_INFO_ADJUNTO ?? '').trim(),
   // Contacto de admisión que se muestra en el correo (opcionales): link/número de WhatsApp y teléfono.
   admisionesWhatsapp: process.env.ADMISIONES_WHATSAPP ?? '',
   admisionesTelefono: process.env.ADMISIONES_TELEFONO ?? '',
