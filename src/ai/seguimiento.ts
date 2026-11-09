@@ -16,7 +16,10 @@ import { audit } from '../obs/audit';
 import { log } from '../log';
 import { asignarAsesorPorTurno, derivarAResponsableFijo } from '../crm/asignacionAsesores';
 import { derivacionYaGestionada } from '../crm/embudos';
-import { estaExcluido } from '../crm/exclusion';
+import { estaExcluido, pideNoMolestar } from '../crm/exclusion';
+import { programaFueraDeOferta, esTipoComercializable } from '../core/oferta';
+import { matchProgramaCarver } from '../core/condicionesCarver';
+import { RIESGO_KEY } from '../core/riesgo';
 import { asesorSinBotACargo } from '../crm/asesorSinBot';
 import { listaBlancaActiva, puedeResponder } from '../core/listaBlanca';
 import type { Auth } from '../store';
@@ -129,6 +132,23 @@ export function problemasDelRecordatorio(texto: string): string[] {
   ) {
     p.push('afirma algo que no está en la conversación');
   }
+  // Gestiones que nunca ocurrieron: «Como le prometí, le confirmo que hablé con admisión… no tenemos
+  // casos documentados» (chat 1584077, 08-11-2026). El recordatorio no habla con nadie.
+  if (/\bhabl[eé] con\b|\bme (confirmaron|dijeron|indicaron|informaron)\b|\ble confirmo que\b|\bcomo le promet[ií]\b|\bya (lo )?(confirm[eé]|consult[eé]|averig[uü][eé]|gestion[eé])\b/i.test(t)) {
+    p.push('dice que consultó o confirmó algo con alguien, y eso no pasó');
+  }
+  // "Sin cifras ni costos" ya está en el prompt; igual salieron "18 cuotas de USD 100" y "una beca para
+  // egresados" que no existen en la planilla (chats 1566309 y 1576381).
+  // El 50 % de la beca no cuenta: es real y se nombra igual en el chat.
+  if (/\bUSD\b|US\$|\$\s?\d|\b\d+\s*cuotas\b/i.test(t)) p.push('da cifras o cuotas; el recordatorio no lleva montos');
+  // "El contado tiene un descuento adicional" es cierto (está en la planilla): no se marca.
+  if (/beneficio (adicional|especial|exclusivo)|descuento (especial|exclusivo)|beca (para|de) egresad/i.test(t)) {
+    p.push('ofrece un beneficio o descuento que no está en la conversación');
+  }
+  if (marca.catalogo === 'carver') {
+    const fuera = programaFueraDeOferta(t, (nombre) => matchProgramaCarver(nombre).some((x) => esTipoComercializable(x.tipo)));
+    if (fuera) p.push(`nombra «${fuera}», que no está en la oferta; habla del programa sin nombrarlo`);
+  }
   if (/sin respuesta de su parte|no (me )?ha respondido|varios intentos|no (hemos|he) tenido respuesta/i.test(t)) p.push('le reprocha que no responde');
   if (/\batent[oa]s?\b/i.test(t)) p.push('marca el género ("atento" o "atenta")');
   return p;
@@ -159,8 +179,11 @@ export function esRechazo(texto: string): boolean {
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '');
-  return /\b(ya no me interesa|no me interesa|no estoy interesad|no por ahora|por ahora no|no deseo (continuar|seguir|recibir)|no me (escriban|contacten|molesten|llamen)|dejen de (escribir|enviar)|ya (me matricule|me inscribi|estoy estudiando) en otr)/.test(
-    t,
+  return (
+    /\b(ya no me interesa|no me interesa|no estoy interesad|no por ahora|por ahora no|no deseo (continuar|seguir|recibir)|no me (escriban|contacten|molesten|llamen)|dejen de (escribir|enviar)|ya (me matricule|me inscribi|estoy estudiando) en otr)/.test(t) ||
+    // Una baja explícita también corta: después de «Voy a bloquearlos» salieron cinco recordatorios más
+    // (chat 1577067, 06-11-2026).
+    pideNoMolestar(t)
   );
 }
 
@@ -490,6 +513,8 @@ async function motivoParaNoEnviar(dialogId: string, auth?: Auth): Promise<string
   // Un recordatorio después de un "no me interesa" se lee como que nadie leyó lo que contestó (pasó
   // en 3 chats entre el 25-10 y el 03-11-2026).
   if (marca.guardRespuesta && esRechazo(await ultimoMensajeDelCliente(dialogId))) return 'rechazo';
+  // Tras un mensaje que puede indicar riesgo no se le vende nada (ver core/riesgo.ts y ai/agentLoop.ts).
+  if (await getJson<number>(RIESGO_KEY(dialogId))) return 'riesgo';
   // Respeta la baja ("no me escriban más"): si el contacto de este chat pidió que no le escriban, no
   // se le manda el recordatorio. La baja se registra por contacto (ver crm/exclusion.ts) al detectar
   // la frase en el mensaje; aquí se consulta por el contacto que quedó en las entidades del diálogo.

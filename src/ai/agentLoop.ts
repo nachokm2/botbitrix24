@@ -20,6 +20,10 @@ import { correoEnviadoHace } from '../crm/correoInformacion';
 import { asegurarPresentacion } from '../core/presentacion';
 import { recortar } from '../core/textoSeguro';
 import { avisarAlResponsable } from '../crm/avisoAsesor';
+import { quitarCredenciales } from '../core/credenciales';
+import { conocimientoVigente } from '../core/conocimientoComercial';
+import { mensajeDeRiesgo, BLOQUE_RIESGO, RIESGO_KEY, RIESGO_TTL_SEG } from '../core/riesgo';
+import { setJson } from '../store/kv';
 
 const MAX_STEPS = 5; // guardrail anti-bucle
 
@@ -438,7 +442,9 @@ export async function runAgentTurn(
     // Qué día es y cuándo trabaja el equipo: para que "lo confirmo y le respondo" diga cuándo. No en el
     // modo internacional: ese horario es el de Chile, y ahí no hay asesores que vayan a responder.
     const extraMomento = marca.respaldaPromesas && !ctx.internacional ? bloqueMomento() : '';
-    const sumado = extra + extraIdioma + extraMomento;
+    // Un mensaje que puede indicar riesgo: en este turno no se vende (ver core/riesgo.ts).
+    const riesgo = marca.protocoloRiesgo && !ctx.internacional && mensajeDeRiesgo(textoDelUsuario(userText));
+    const sumado = extra + extraIdioma + extraMomento + (riesgo ? BLOQUE_RIESGO : '');
     const perfilFinal = sumado ? { ...perfilDelTurno, systemPrompt: perfilDelTurno.systemPrompt + sumado } : perfilDelTurno;
     const inicioTurno = messages.length;
     const { text, messages: finalMsgs } = await runConversation(
@@ -464,10 +470,42 @@ export async function runAgentTurn(
     if (marca.sePresentaComoAsesor && ctx.identidadAsesor && history.length === 0) {
       enviado = asegurarPresentacion(enviado, ctx.identidadAsesor.nombre, marca.organizacion, ctx.datosConocidos?.nombre);
     }
+    // Una clave no se escribe por chat, aunque sea de la misma persona y la haya mandado ella en una
+    // captura: el bot copió un usuario y su contraseña en la conversación (ver core/credenciales.ts).
+    // Vale para las dos marcas: solo cambia un texto que traiga una clave.
+    // Lo que viene de las fuentes del bot no se tapa: la base trae una clave pública para verificar la
+    // licencia en el registro de Florida.
+    const sinClaves = quitarCredenciales(enviado, fuentesPublicas(finalMsgs.slice(inicioTurno)));
+    if (sinClaves.cambiado) {
+      enviado = sinClaves.texto;
+      void audit({ type: 'credencial_oculta', dialogId: ctx.conversationId }).catch(() => {});
+    }
     if (enviado !== text) reemplazarUltimaRespuesta(finalMsgs, enviado);
     // No persistimos imágenes (base64) en el historial: se reemplazan por un marcador de texto para
     // no inflar Redis ni re-enviarlas en cada turno (el modelo ya las "vio" en este turno).
     await setHistory(ctx.conversationId, sanitizeHistory(finalMsgs));
+    if (riesgo) {
+      // Sin recordatorios de venta (ai/seguimiento.ts lo mira antes de cada envío) y con una persona
+      // del equipo al tanto.
+      await setJson(RIESGO_KEY(ctx.conversationId), Date.now(), RIESGO_TTL_SEG).catch(() => {});
+      void audit({ type: 'mensaje_riesgo', dialogId: ctx.conversationId }).catch(() => {});
+      void avisarAlResponsable(
+        {
+          tipo: 'riesgo',
+          dialogId: ctx.conversationId,
+          dealId: ctx.crmEntities?.deal,
+          chatId: ctx.chatId,
+          titulo: '⚠️ Un cliente escribió algo que puede indicar riesgo',
+          detalle:
+            `Escribió: «${recortar(textoDelUsuario(userText).replace(/\s+/g, ' ').trim(), 300)}»\n` +
+            'El asistente le respondió con calma, sin hablarle de programas, y dejó de enviarle recordatorios. ' +
+            'Revise la conversación y, si corresponde, escríbale usted.',
+          tarea: true,
+          ttlSeg: 24 * 3600,
+        },
+        ctx.auth,
+      ).catch((e) => log.warn('aviso de riesgo falló', { err: String(e), dialogId: ctx.conversationId }));
+    }
     // En el modo internacional los avisos los da el propio bot con escalar_a_humano: estos leen frases
     // en español y le avisan al responsable de la negociación, que ahí no existe.
     if ((marca.respaldaPromesas || marca.avisaPagoAlAsesor) && !ctx.internacional) {
@@ -591,6 +629,24 @@ function respuestasPreviasDe(history: any[]): string[] {
 }
 
 /** Enlaces que alguna herramienta devolvió en los mensajes dados: los únicos verificados para compartir. */
+/** El texto de las fuentes del bot en este turno: lo que devolvieron las herramientas, más la base de
+ *  conocimiento publicada. Ver quitarCredenciales. */
+function fuentesPublicas(mensajesDelTurno: any[]): string {
+  const partes: string[] = [];
+  for (const m of mensajesDelTurno) {
+    if (m?.role !== 'user' || !Array.isArray(m.content)) continue;
+    for (const b of m.content) if (b?.type === 'tool_result') partes.push(typeof b.content === 'string' ? b.content : JSON.stringify(b.content));
+  }
+  if (marca.baseConocimiento) {
+    try {
+      partes.push(JSON.stringify(conocimientoVigente()));
+    } catch {
+      // sin base cargada, solo cuentan las herramientas
+    }
+  }
+  return partes.join('\n');
+}
+
 function urlsDeHerramientas(mensajesDelTurno: any[]): string[] {
   const out: string[] = [];
   for (const m of mensajesDelTurno) {

@@ -124,6 +124,10 @@ export type Marca = {
    *  plantilla de Bitrix (ver crm/correoInformacion.ts). En Carver el bot decía "le envío el detalle
    *  al correo" sin poder hacerlo: un interesado lo pidió dos veces y no le llegó nada (07-11-2026). */
   correoInformacion: boolean;
+  /** ¿Ante un mensaje que puede indicar riesgo (ver core/riesgo.ts) el bot deja de vender, corta los
+   *  recordatorios y avisa a una persona del equipo? En Carver una persona que mencionó el suicidio
+   *  recibió cuatro recordatorios de la maestría (chat 1572425, 03-11-2026). */
+  protocoloRiesgo: boolean;
 };
 
 /** Valor de una variable de entorno, o el default si no está definida o está vacía. */
@@ -183,6 +187,7 @@ const POSTGRADOS: Marca = {
   respondeSoloEnEspanol: false,
   // Postgrados ya manda su brochure por correo al registrar el interés (crm/crmWrite.ts).
   correoInformacion: false,
+  protocoloRiesgo: false,
 };
 
 // Identidad de Carver, UNIFICADA (hallazgo 1 de la auditoría del piloto). Convivían tres:
@@ -243,6 +248,7 @@ const CARVER: Marca = {
   retieneFueraDeHorario: true,
   respondeSoloEnEspanol: true,
   correoInformacion: true,
+  protocoloRiesgo: true,
 };
 
 const MARCAS: Record<MarcaKey, Marca> = { postgrados: POSTGRADOS, carver: CARVER };

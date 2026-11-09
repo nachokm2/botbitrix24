@@ -22,7 +22,7 @@ import type { Auth } from '../store';
 
 export type Aviso = {
   /** Clase de aviso, para auditar y para el candado. */
-  tipo: 'promesa' | 'pago' | 'correo';
+  tipo: 'promesa' | 'pago' | 'correo' | 'riesgo';
   dialogId: string;
   dealId?: number;
   chatId?: string | number;

@@ -231,6 +231,9 @@ export function buscarCondicionesCarver(programa?: string, opts: { incluirCostos
       pagoSemestral: p.semestral?.monto,
       totalSemestral: p.semestral ? p.semestral.n * p.semestral.monto : undefined,
       totalContado: p.contado?.total,
+      // El contado de una licenciatura se paga por año. Sin el monto anual, el bot convertía el total
+      // y lo presentaba como anual: «$7.574.000 COP al año» eran los cuatro años (chat 1583117).
+      contadoPorAnio: p.contado?.anios && p.contado.anios > 1 ? p.contado.porAnio : undefined,
     }),
     nota: `${avisoCupos ? avisoCupos + ' ' : ''}La ${BECA_CARVER} (${p.becaPct}%) puedes ofrecerla directamente. Cuando pregunten por el valor, parte por las mensualidades y ofrece el semestral y el contado; si piden todas las opciones, o una de esas dos, dalas en ese turno.`,
   };

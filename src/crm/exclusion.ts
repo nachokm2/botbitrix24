@@ -38,6 +38,13 @@ const FRASES_BAJA = [
   /\bunsubscribe\b/,
   /\bno insistan?\b/,
   /\bdejen de (escrib|molest|mandar)/,
+  // «Voy a bloquearlos»: después de eso salieron cinco recordatorios más (chat 1577067, 06-11-2026).
+  /\b(los|las|lo|la|te|les)? ?voy a bloquear/,
+  /\bbloquear(los|las|lo|la|te)\b/,
+  /\b(los|las|lo|la|te) (bloqueo|bloqueare|voy a reportar)\b/,
+  /\b(es|esto es|son) spam\b/,
+  /\breportar(los|lo|las)? (como|por) spam\b/,
+  /\b(eliminen|borren|saquen) mi (numero|contacto|dato)/,
 ];
 
 const norm = (s: string) =>

@@ -1,6 +1,7 @@
 import { runConversation, aplicarGuardian, reemplazarUltimaRespuesta } from './agentLoop';
 import { brochureComoEnlace, RESULTADO_ESCALADO_COMO_ASESOR } from './toolRunner';
 import { resultadoParaElModelo } from '../crm/correoInformacion';
+import { mensajeDeRiesgo, BLOQUE_RIESGO } from '../core/riesgo';
 import { detectarIdioma, bloqueIdioma } from './idioma';
 import { WHATSAPP_PROFILE } from '../core/channel';
 import { consultarProgramas, detallePrograma } from '../core/catalogTool';
@@ -178,7 +179,9 @@ export async function simularTurno(
     systemPrompt:
       base.systemPrompt +
       (marca.respondeSoloEnEspanol && !internacional ? '' : bloqueIdioma(detectarIdioma(mensaje))) +
-      (marca.respaldaPromesas && !internacional ? bloqueMomento() : ''),
+      (marca.respaldaPromesas && !internacional ? bloqueMomento() : '') +
+      // Igual que en la conversación real (ai/agentLoop.ts): un mensaje de riesgo no se responde vendiendo.
+      (marca.protocoloRiesgo && !internacional && mensajeDeRiesgo(mensaje) ? BLOQUE_RIESGO : ''),
   };
   const { text, messages: finales } = await runConversation({ profile: perfil, auditId: 'simulacion', simulacion: true }, messages, exec);
   const texto = marca.guardRespuesta
