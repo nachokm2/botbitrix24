@@ -5,11 +5,13 @@ import type { Auth } from '../store';
 import { correoInformacionActivo } from './correoActivo';
 import type { CrmEntities } from './entities';
 import { getJson, setJson, once, kvDel } from '../store/kv';
-import { buscarCondicionesCarver, matchProgramaCarver, BECA_CARVER, type ProgramaCarver } from '../core/condicionesCarver';
+import { buscarCondicionesCarver, matchProgramaCarver } from '../core/condicionesCarver';
 import { consultarInformacionInstitucional } from '../core/conocimientoComercial';
-import { archivoDelBrochure } from '../core/brochureArchivo';
-import { REABRE_POR_DEFECTO } from '../core/ajustesProgramas';
+import { obtenerBrochure } from '../core/brochures';
+import { getDetalle } from '../ai/detalles';
+import { detalleVigente } from '../core/ajustes';
 import { getIdentidadAsesor } from './directory';
+import { htmlCorreoInformacion, asuntoCorreoInformacion } from './correoInformacionHtml';
 import { audit } from '../obs/audit';
 
 /**
@@ -34,14 +36,6 @@ import { audit } from '../obs/audit';
  * negociación: por eso es ese el que se informa como destinatario.
  */
 
-export type DatosCorreoInformacion = {
-  nombre?: string;
-  programa: ProgramaCarver;
-  ingreso?: { inicio: string; cierre?: string } | null;
-  conBrochure: boolean;
-  asesor?: { nombre?: string; whatsapp?: string; email?: string; formulario?: string } | null;
-};
-
 export type ResultadoCorreo =
   | { ok: true; enviadoA: string; conBrochure: boolean; yaEnviado?: false }
   | { ok: true; yaEnviado: true; enviadoA: string }
@@ -59,7 +53,6 @@ export type MotivoFallo =
   | 'programa_no_disponible'
   | 'en_curso'
   | 'limite_diario'
-  | 'adjunto_no_se_pudo_quitar'
   | 'error_crm'
   | 'fallo_envio';
 
@@ -77,7 +70,6 @@ export async function correoEnviadoHace(dealId: number | undefined, segundos: nu
 }
 /** Correos por negociación y día, reenvíos incluidos: un bucle del modelo no puede llenarle la bandeja. */
 const MAX_POR_DIA = 3;
-const MAX_PDF_BYTES = 12 * 1024 * 1024;
 
 const normalizar = (s: string) =>
   (s ?? '')
@@ -87,23 +79,6 @@ const normalizar = (s: string) =>
     .replace(/[^a-z0-9 ]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-
-/** Sin caracteres fuera del plano básico (emojis): truncan en seco el campo de texto de Bitrix. */
-const sinEmojis = (s: string) => (s ?? '').replace(/[\u{10000}-\u{10FFFF}]/gu, '').replace(/\s+/g, ' ').trim();
-
-const usd = (n?: number) => `USD ${(n ?? 0).toLocaleString('es-CL')}`;
-
-const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-
-/** "2026-11-23" → "lunes 23 de noviembre de 2026". Vacío si la fecha no es válida. */
-export function fechaEnPalabras(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso ?? '').trim());
-  if (!m) return '';
-  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
-  if (Number.isNaN(d.getTime()) || d.getUTCMonth() !== Number(m[2]) - 1) return '';
-  return `${DIAS[d.getUTCDay()]} ${d.getUTCDate()} de ${MESES[d.getUTCMonth()]} de ${d.getUTCFullYear()}`;
-}
 
 /**
  * El próximo ingreso al que la persona todavía puede postular: el de inicio más cercano cuyo cierre de
@@ -129,90 +104,10 @@ export function proximoIngreso(
   return /^\d{4}-\d{2}-\d{2}$/.test(c.cierre) ? { inicio: c.inicio, cierre: c.cierre } : { inicio: c.inicio };
 }
 
-/** +56912345678 → "+56 9 1234 5678"; los demás quedan igual (como en ai/seguimiento.ts). */
-function telefonoLegible(e164: string): string {
-  const m = /^\+569(\d{4})(\d{4})$/.exec(e164);
-  return m ? `+56 9 ${m[1]} ${m[2]}` : e164;
-}
-
-/** El cuerpo del correo, en texto plano. Es PURO: todo lo que dice viene en `d`. */
-export function cuerpoCorreoInformacion(d: DatosCorreoInformacion): string {
-  const p = d.programa;
-  const nombre = sinEmojis(d.nombre ?? '');
-  const sinCupos = !p.cotizable && p.motivoNoCotizable === 'cupos completos';
-  const partes: string[] = [];
-
-  partes.push(nombre ? `Hola, ${nombre}:` : 'Hola:');
-  partes.push(`Tal como conversamos, le envío la información de la ${p.nombre}.`);
-
-  if (sinCupos) {
-    partes.push(
-      `Este programa tiene los cupos completos y la matrícula reabre en ${p.reabre || REABRE_POR_DEFECTO}. Le dejo el valor para que pueda planificarlo con tiempo.`,
-    );
-  }
-
-  const valor: string[] = ['VALOR DEL PROGRAMA'];
-  if (p.arancelLista && p.arancelConBeca && p.becaPct) {
-    valor.push(`Arancel: ${usd(p.arancelLista)}. Con la ${BECA_CARVER} (${p.becaPct} %), queda en ${usd(p.arancelConBeca)}.`);
-  } else if (p.arancelLista) {
-    valor.push(`Arancel: ${usd(p.arancelLista)}.`);
-  }
-  const formas: string[] = [];
-  if (p.mensualidades) {
-    const regular = p.matriculaRegular && p.matricula !== undefined && p.matriculaRegular > p.matricula ? ` (valor regular: ${usd(p.matriculaRegular)})` : '';
-    formas.push(
-      `- Mensualidades: ${p.mensualidades.n} cuotas de ${usd(p.mensualidades.monto)}${p.matricula ? `, más una matrícula de ${usd(p.matricula)}${regular}` : ''}.`,
-    );
-  }
-  if (p.semestral) {
-    formas.push(`- Semestral: ${p.semestral.n} pagos de ${usd(p.semestral.monto)} (${usd(p.semestral.n * p.semestral.monto)} en total), sin matrícula.`);
-  }
-  if (p.contado) {
-    formas.push(
-      p.contado.anios && p.contado.anios > 1 && p.contado.porAnio
-        ? `- Contado: ${usd(p.contado.porAnio)} al año durante ${p.contado.anios} años (${usd(p.contado.total)} en total), sin matrícula.`
-        : `- Contado: un pago de ${usd(p.contado.total)}, sin matrícula.`,
-    );
-  }
-  if (formas.length) {
-    valor.push('', 'Formas de pago:', ...formas);
-    if (p.semestral || p.contado) valor.push('', 'El pago semestral y el contado ya incluyen la beca y un descuento adicional.');
-  }
-  valor.push('Los valores están en dólares estadounidenses (USD).');
-  partes.push(valor.join('\n'));
-
-  if (!sinCupos && d.ingreso?.inicio) {
-    const inicio = fechaEnPalabras(d.ingreso.inicio);
-    const cierre = d.ingreso.cierre ? fechaEnPalabras(d.ingreso.cierre) : '';
-    if (inicio) {
-      partes.push(['PRÓXIMO INGRESO', `Inicio de clases: ${inicio}.`, ...(cierre ? [`Cierre de postulación: ${cierre}.`] : [])].join('\n'));
-    }
-  }
-
-  if (d.conBrochure) partes.push('Le adjunto el brochure del programa.');
-
-  const a = d.asesor ?? null;
-  const contacto: string[] = [];
-  if (a?.whatsapp) contacto.push(`WhatsApp: ${telefonoLegible(a.whatsapp)}`);
-  if (a?.email) contacto.push(`Correo: ${a.email}`);
-  if (a?.formulario) contacto.push(`Formulario de postulación: ${a.formulario}`);
-  partes.push(
-    [
-      a?.nombre
-        ? 'Cualquier duda, puede responder este correo o escribirme por WhatsApp, por el mismo chat en el que conversamos.'
-        : 'Cualquier duda, puede responder este correo o escribirnos por WhatsApp, por el mismo chat en el que conversamos.',
-      ...contacto,
-    ].join('\n'),
-  );
-
-  partes.push(['Saludos cordiales,', ...(a?.nombre ? [sinEmojis(a.nombre)] : []), 'Carver University'].join('\n'));
-  return partes.join('\n\n');
-}
-
 /** Fallos en los que nadie más va a mandar el correo si no se le avisa a una persona del equipo. Los
  *  demás se resuelven en la conversación (pedir el correo, precisar el programa). */
 export function requiereAviso(motivo: MotivoFallo): boolean {
-  return ['sin_negociacion', 'embudo_ajeno', 'varios_correos', 'error_crm', 'fallo_envio', 'adjunto_no_se_pudo_quitar'].includes(motivo);
+  return ['sin_negociacion', 'embudo_ajeno', 'varios_correos', 'error_crm', 'fallo_envio'].includes(motivo);
 }
 
 /** "persona@yahoo.com" → "p***@yahoo.com". Es lo único que ve el modelo y lo que va al registro: si
@@ -240,7 +135,7 @@ export function resultadoParaElModelo(r: ResultadoCorreo, avisado = false): Reco
     return {
       ok: true,
       enviadoA: enmascararCorreo(r.enviadoA),
-      incluye: ['valor con la beca', 'formas de pago', 'próximo ingreso', ...(r.conBrochure ? ['brochure en PDF'] : [])],
+      incluye: ['valor con la beca', 'formas de pago', 'próximo ingreso', ...(r.conBrochure ? ['enlace al brochure'] : [])],
       nota:
         `Listo: el correo salió al que termina en ${dominio(r.enviadoA)}. Díselo en UNA frase («se la acabo de enviar ` +
         `al correo que termina en ${dominio(r.enviadoA)}»), sin escribir la dirección completa, y que si no lo ve revise ` +
@@ -291,28 +186,6 @@ export function pideReenvio(texto: string): boolean {
 
 const correoValido = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
-async function descargarPdf(url: string): Promise<Buffer | null> {
-  try {
-    const r = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(20_000) });
-    if (!r.ok) return null;
-    const largo = Number(r.headers.get('content-length') ?? 0);
-    if (largo > MAX_PDF_BYTES) return null;
-    const buf = Buffer.from(await r.arrayBuffer());
-    if (buf.length > MAX_PDF_BYTES || buf.subarray(0, 5).toString('latin1') !== '%PDF-') return null;
-    return buf;
-  } catch (e) {
-    log.warn('correoInformacion: no se pudo descargar el brochure', { err: String(e) });
-    return null;
-  }
-}
-
-/** Id del archivo que tiene hoy el campo de adjunto (Bitrix lo devuelve como objeto o lista). */
-function archivoDelCampo(valor: unknown): number | null {
-  const v: any = Array.isArray(valor) ? valor[0] : valor;
-  const id = Number(v?.id ?? v?.ID ?? 0);
-  return id > 0 ? id : null;
-}
-
 /**
  * Envía el correo. Nunca lanza. Una vez por programa y negociación, salvo que la persona pida que se
  * lo reenvíen (y como mucho MAX_POR_DIA al día).
@@ -344,10 +217,10 @@ export async function enviarInformacionPorCorreo(
     if (config.embudosPropios.length && !config.embudosPropios.includes(Number(deal?.CATEGORY_ID ?? -1))) {
       return { ok: false, motivo: 'embudo_ajeno' };
     }
-    // La plantilla escribe al contacto DE LA NEGOCIACIÓN: ese es el que manda.
+    // El correo va al contacto DE LA NEGOCIACIÓN.
     const contactId = Number(deal?.CONTACT_ID ?? 0) || entities?.contact;
     if (!contactId) return { ok: false, motivo: 'sin_correo' };
-    contacto = await callCrm<any>('crm.contact.get', { id: contactId }, auth);
+    contacto = { ...(await callCrm<any>('crm.contact.get', { id: contactId }, auth)), ID: contactId };
   } catch (e) {
     log.warn('correoInformacion: no se pudo leer la negociación o el contacto', { err: String(e), dealId });
     return { ok: false, motivo: 'error_crm' };
@@ -359,16 +232,20 @@ export async function enviarInformacionPorCorreo(
         .filter(Boolean),
     ),
   ] as string[];
-  const destinatario = correos[0] ?? '';
-  if (!correoValido(destinatario)) return { ok: false, motivo: 'sin_correo' };
-  // La plantilla escribe al PRIMER correo, y un correo nuevo se agrega al final de la lista: con dos
-  // o más, el envío podría ir a uno viejo, o de otra persona si la ficha es compartida. Que lo mande
-  // una persona, que ve cuál es el vigente.
-  if (correos.length > 1) return { ok: false, motivo: 'varios_correos' };
-  // Si la persona acaba de dar un correo y no es el de la ficha, todavía no se guardó (las herramientas
-  // del turno corren en paralelo) o es otro: enviar ahora lo mandaría al de la ficha.
+  // Si la persona acaba de dar o confirmar un correo, va a ESE. Si todavía no está en la ficha (las
+  // herramientas del turno corren en paralelo), primero se registra.
   const dado = String(opts.emailDado ?? '').trim().toLowerCase();
-  if (dado && correoValido(dado) && dado !== destinatario) return { ok: false, motivo: 'correo_distinto' };
+  let destinatario = '';
+  if (dado && correoValido(dado)) {
+    if (!correos.includes(dado)) return { ok: false, motivo: 'correo_distinto' };
+    destinatario = dado;
+  } else {
+    // Con dos o más correos y sin uno confirmado en la conversación, no se elige al azar: puede ser
+    // uno viejo, o de otra persona si la ficha es compartida. Que lo mande una persona.
+    if (correos.length > 1) return { ok: false, motivo: 'varios_correos' };
+    destinatario = correos[0] ?? '';
+  }
+  if (!correoValido(destinatario)) return { ok: false, motivo: 'sin_correo' };
 
   const clave = ENVIADO_KEY(dealId, programa.nombre);
   const previo = await getJson<{ at: number; a: string }>(clave).catch(() => null);
@@ -383,58 +260,67 @@ export async function enviarInformacionPorCorreo(
   if (!(await once(candado, 120))) return { ok: false, motivo: 'en_curso' };
 
   try {
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = hoyEnChile();
     const cal = consultarInformacionInstitucional('calendario_ingresos');
     const ingreso = cal.ok && cal.disponible ? proximoIngreso(cal.contenido as any[], programa.nombre, hoy) : null;
+    const duracion = detalleVigente(getDetalle({ nombre: programa.nombre }))?.duracion;
 
-    const [asesor, archivo] = await Promise.all([
+    const [asesor, brochure] = await Promise.all([
       getIdentidadAsesor({ deal: dealId }, auth).catch(() => null),
-      config.ufCorreoInfoAdjunto ? archivoDelBrochure(programa.nombre, auth) : Promise.resolve(null),
+      obtenerBrochure({ programa: programa.nombre }).catch(() => null),
     ]);
-    const pdf = archivo && archivo.ok ? await descargarPdf(archivo.url) : null;
+    const brochureUrl = brochure && brochure.ok ? brochure.url : undefined;
 
     // El correo del asesor solo si es del dominio oficial: el Gmail personal de la ficha no se da.
     const dominio = config.dominioCorreoOficial ? `@${config.dominioCorreoOficial}` : '';
     const emailAsesor = asesor?.email && (!dominio || asesor.email.toLowerCase().endsWith(dominio)) ? asesor.email : undefined;
-    const cuerpo = cuerpoCorreoInformacion({
-      nombre: String(contacto?.NAME ?? ''),
+    const nombre = String(contacto?.NAME ?? '');
+    const html = htmlCorreoInformacion({
+      nombre,
       programa,
+      duracion,
       ingreso,
-      conBrochure: !!pdf,
+      brochureUrl,
       asesor: asesor ? { nombre: asesor.nombre, whatsapp: asesor.telefono, email: emailAsesor, formulario: asesor.formulario } : null,
+      hoy,
     });
 
-    const fields: Record<string, unknown> = { [config.ufCorreoInfoCuerpo]: cuerpo };
-    const archivoViejo = config.ufCorreoInfoAdjunto ? archivoDelCampo(deal?.[config.ufCorreoInfoAdjunto]) : null;
-    if (config.ufCorreoInfoAdjunto) {
-      if (pdf && archivo && archivo.ok) fields[config.ufCorreoInfoAdjunto] = { fileData: [archivo.nombre, pdf.toString('base64')] };
-      // Sin brochure nuevo, el campo no puede quedar con el de un envío anterior: la plantilla lo
-      // adjuntaría, y el brochure de otro programa es peor que ninguno.
-      else if (archivoViejo) fields[config.ufCorreoInfoAdjunto] = { id: archivoViejo, del: 'Y' };
-    }
-    await callCrm('crm.deal.update', { id: dealId, fields }, auth);
-
-    if (config.ufCorreoInfoAdjunto && !pdf && archivoViejo) {
-      const despues: any = await callCrm('crm.deal.get', { id: dealId }, auth);
-      if (archivoDelCampo(despues?.[config.ufCorreoInfoAdjunto])) {
-        log.warn('correoInformacion: no se pudo quitar el adjunto anterior; no se envía', { dealId });
-        return { ok: false, motivo: 'adjunto_no_se_pudo_quitar', programa: programa.nombre };
-      }
-    }
-
-    await callCrm(
-      'bizproc.workflow.start',
-      { TEMPLATE_ID: config.bizprocTemplateCorreoInfo, DOCUMENT_ID: ['crm', 'CCrmDocumentDeal', `DEAL_${dealId}`] },
+    const responsable = Number(deal?.ASSIGNED_BY_ID ?? 0);
+    const id = await callCrm<number>(
+      'crm.activity.add',
+      {
+        fields: {
+          OWNER_TYPE_ID: 2,
+          OWNER_ID: dealId,
+          TYPE_ID: 4,
+          DIRECTION: 2,
+          SUBJECT: asuntoCorreoInformacion(nombre, programa.nombre),
+          DESCRIPTION: html,
+          DESCRIPTION_TYPE: 3,
+          COMPLETED: 'Y',
+          ...(responsable > 0 ? { RESPONSIBLE_ID: responsable } : {}),
+          COMMUNICATIONS: [{ VALUE: destinatario, ENTITY_ID: Number(contacto.ID), ENTITY_TYPE_ID: 3, TYPE: 'EMAIL' }],
+          SETTINGS: { MESSAGE_FROM: config.correoInfoRemitente },
+        },
+      },
       auth,
     );
+    // Que Bitrix haya creado la actividad no basta: se confirma que el correo salió.
+    const creada: any = id ? await callCrm('crm.activity.get', { id }, auth).catch(() => null) : null;
+    if (!creada?.SETTINGS?.IS_MESSAGE_SENT) {
+      log.warn('correoInformacion: Bitrix no confirmó el envío', { dealId, actividad: id ?? null });
+      return { ok: false, motivo: 'fallo_envio', programa: programa.nombre };
+    }
+
     await setJson(clave, { at: Date.now(), a: destinatario }, ENVIADO_TTL).catch(() => {});
     await setJson(DIA_KEY(dealId, dia), enviadosHoy + 1, 26 * 3600).catch(() => {});
     await setJson(ULTIMO_KEY(dealId), Date.now(), ENVIADO_TTL).catch(() => {});
     log.info('correo con la información del programa enviado', {
       dealId,
+      actividad: id,
       programa: programa.nombre,
       a: enmascararCorreo(destinatario),
-      brochure: !!pdf,
+      brochure: !!brochureUrl,
       ingreso: ingreso?.inicio ?? null,
       reenvio: !!previo,
     });
@@ -442,13 +328,18 @@ export async function enviarInformacionPorCorreo(
       type: 'correo_informacion',
       dialogId: opts.dialogId,
       crmEntity: `deal#${dealId}`,
-      detail: { programa: programa.nombre, brochure: !!pdf, reenvio: !!previo },
+      detail: { programa: programa.nombre, brochure: !!brochureUrl, reenvio: !!previo, actividad: id },
     }).catch(() => {});
-    return { ok: true, enviadoA: destinatario, conBrochure: !!pdf };
+    return { ok: true, enviadoA: destinatario, conBrochure: !!brochureUrl };
   } catch (e) {
     log.warn('correoInformacion: el envío falló', { err: String(e), dealId });
     return { ok: false, motivo: 'fallo_envio', programa: programa.nombre };
   } finally {
     await kvDel(candado).catch(() => {});
   }
+}
+
+/** Hoy en Chile (YYYY-MM-DD): las fechas de postulación son de allá. */
+function hoyEnChile(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Santiago' }).format(new Date());
 }
