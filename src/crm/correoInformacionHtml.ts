@@ -2,13 +2,17 @@ import { BECA_CARVER, type ProgramaCarver } from '../core/condicionesCarver';
 import { REABRE_POR_DEFECTO } from '../core/ajustesProgramas';
 
 /**
- * El correo con la información del programa, en HTML comercial. Es PURO: todo lo que dice viene en
- * los datos, que salen de la planilla, el calendario del panel y la ficha del programa
- * (crm/correoInformacion.ts). Nada lo escribe el modelo.
+ * El correo con la información del programa, con formato de carta de admisión universitaria. Es PURO:
+ * todo lo que dice viene en los datos, que salen de la planilla, el calendario del panel y la ficha del
+ * programa (crm/correoInformacion.ts). Nada lo escribe el modelo.
+ *
+ * Diseño académico, no de campaña (pedido del usuario, 10-11-2026): tipografía con serifa, una paleta
+ * sobria (el verde de Carver, un dorado tenue y fondo marfil), la información en tablas como un
+ * arancel oficial, y la firma de quien atiende al final, como una carta.
  *
  * Va como el cuerpo de una actividad de correo del CRM, enviada desde el buzón de admisión. Por eso es
- * HTML de correo y no de página: tablas, estilos en línea, una sola columna de 600 px que se lee bien
- * en el teléfono, botones hechos con celdas y sin imágenes salvo la cabecera de Carver. Sin emojis: el
+ * HTML de correo y no de página: tablas, estilos en línea, una sola columna de 600 px que se lee en el
+ * teléfono, el botón hecho con una celda y sin imágenes salvo la cabecera de Carver. Sin emojis: el
  * texto se guarda en Bitrix y los caracteres de 4 bytes se cortan.
  */
 
@@ -18,27 +22,27 @@ export type DatosHtml = {
   /** "4 años", "12 meses de clases (12 módulos)": de la ficha del programa. */
   duracion?: string;
   ingreso?: { inicio: string; cierre?: string } | null;
-  /** Enlace verificado al brochure (core/brochures.ts). Va como botón y no como adjunto: adjuntado por
+  /** Enlace verificado al brochure (core/brochures.ts). Va como enlace y no como adjunto: adjuntado por
    *  esta vía, Bitrix le cambia el nombre al archivo ("….pdf_bxacid….crm"). */
   brochureUrl?: string;
   asesor?: { nombre?: string; whatsapp?: string; email?: string; formulario?: string } | null;
-  /** Fecha de hoy (YYYY-MM-DD, hora de Chile), para contar los días que quedan para postular. */
+  /** Fecha de hoy (YYYY-MM-DD, hora de Chile): la fecha de la carta y los días que quedan para postular. */
   hoy: string;
 };
 
 const C = {
-  fondo: '#EEF4F3',
-  tinta: '#12343B',
-  texto: '#3D4F4D',
-  suave: '#6B7D7A',
+  fondo: '#F4F1EA',
+  papel: '#FFFFFF',
+  marfil: '#FBF9F4',
+  tinta: '#1F2A2E',
+  texto: '#3A4448',
+  suave: '#6E7679',
   marca: '#006166',
-  marcaClara: '#00897B',
-  menta: '#E6F4F1',
-  borde: '#DCE7E5',
-  acento: '#FFB81C',
-  acentoTinta: '#3A2A00',
+  oro: '#A8894A',
+  filete: '#E4DDCF',
 };
-const FUENTE = 'Arial,Helvetica,sans-serif';
+const SERIFA = "Georgia,'Times New Roman',Times,serif";
+const SANS = 'Arial,Helvetica,sans-serif';
 
 const esc = (s: unknown) =>
   String(s ?? '')
@@ -57,13 +61,12 @@ const fechaUtc = (iso: string) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso ?? ''));
   return m ? new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) : null;
 };
-const conDia = (iso: string) => {
+/** "lunes 23 de noviembre de 2026" (con el día de la semana) o "23 de noviembre de 2026". */
+const fechaLarga = (iso: string, conDiaSemana = true) => {
   const d = fechaUtc(iso);
-  return d ? `${DIAS[d.getUTCDay()]} ${d.getUTCDate()} de ${MESES[d.getUTCMonth()]}` : '';
-};
-const conAnio = (iso: string) => {
-  const d = fechaUtc(iso);
-  return d ? `${conDia(iso)} de ${d.getUTCFullYear()}` : '';
+  if (!d) return '';
+  const base = `${d.getUTCDate()} de ${MESES[d.getUTCMonth()]} de ${d.getUTCFullYear()}`;
+  return conDiaSemana ? `${DIAS[d.getUTCDay()]} ${base}` : base;
 };
 
 /** Días enteros de `desde` a `hasta` (fechas YYYY-MM-DD), o null. */
@@ -87,34 +90,20 @@ const telefonoLegible = (e164: string) => {
   return m ? `+56 9 ${m[1]} ${m[2]}` : e164;
 };
 
-/** Un botón que se ve igual en Gmail, Outlook y el teléfono: una celda con fondo y un enlace. */
-function boton(texto: string, url: string, principal: boolean): string {
-  const fondo = principal ? C.marcaClara : '#ffffff';
-  const color = principal ? '#ffffff' : C.marca;
-  const borde = principal ? C.marcaClara : C.marca;
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto 12px;"><tr><td align="center" bgcolor="${fondo}" style="border-radius:8px;border:2px solid ${borde};"><a href="${esc(url)}" target="_blank" style="display:inline-block;padding:14px 34px;font-family:${FUENTE};font-size:16px;font-weight:bold;color:${color};text-decoration:none;border-radius:8px;">${esc(texto)}</a></td></tr></table>`;
-}
+const enlace = (texto: string, url: string) =>
+  `<a href="${esc(url)}" target="_blank" style="color:${C.marca};text-decoration:underline;">${esc(texto)}</a>`;
 
-function filaPago(titulo: string, detalle: string, monto: string, unidad: string, destacado: boolean): string {
-  const borde = destacado ? `2px solid ${C.marcaClara}` : `1px solid ${C.borde}`;
-  const sello = destacado
-    ? `<span style="display:inline-block;margin-left:8px;padding:3px 9px;border-radius:999px;background-color:${C.marcaClara};color:#ffffff;font-size:10px;font-weight:bold;letter-spacing:.08em;vertical-align:middle;">MAYOR AHORRO</span>`
-    : '';
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 10px;border:${borde};border-radius:10px;background-color:#ffffff;"><tr>
-<td style="padding:16px 18px;font-family:${FUENTE};vertical-align:middle;"><p style="margin:0 0 4px;font-size:15px;font-weight:bold;color:${C.tinta};">${esc(titulo)}${sello}</p><p style="margin:0;font-size:13px;line-height:1.5;color:${C.suave};">${esc(detalle)}</p></td>
-<td align="right" style="padding:16px 18px;font-family:${FUENTE};vertical-align:middle;white-space:nowrap;"><p style="margin:0;font-size:22px;font-weight:bold;color:${C.marca};">${esc(monto)}</p><p style="margin:0;font-size:12px;color:${C.suave};">${esc(unidad)}</p></td>
-</tr></table>`;
-}
+/** Encabezado de sección: versalitas en dorado y un filete fino, como en un prospecto. */
+const tituloSeccion = (t: string) =>
+  `<p style="margin:0 0 14px;padding:0 0 8px;border-bottom:1px solid ${C.filete};font-family:${SANS};font-size:11px;font-weight:bold;letter-spacing:.16em;color:${C.oro};">${esc(t.toUpperCase())}</p>`;
 
-function beneficio(titulo: string, texto: string): string {
-  return `<tr><td width="34" style="vertical-align:top;padding:0 0 14px;"><div style="width:24px;height:24px;line-height:24px;border-radius:12px;background-color:${C.menta};color:${C.marcaClara};font-family:${FUENTE};font-size:14px;font-weight:bold;text-align:center;">&#10003;</div></td>
-<td style="vertical-align:top;padding:0 0 14px;font-family:${FUENTE};"><p style="margin:0 0 2px;font-size:15px;font-weight:bold;color:${C.tinta};">${esc(titulo)}</p><p style="margin:0;font-size:14px;line-height:1.5;color:${C.texto};">${esc(texto)}</p></td></tr>`;
-}
+const celda = (contenido: string, estilo = '') =>
+  `<td style="padding:11px 0;border-bottom:1px solid ${C.filete};font-family:${SERIFA};font-size:15px;line-height:1.45;color:${C.texto};vertical-align:top;${estilo}">${contenido}</td>`;
 
-/** El asunto: personal y con el programa, sin mayúsculas ni signos de oferta que lo manden a spam. */
+/** El asunto: formal, con el nombre y el programa, sin signos de oferta que lo manden a spam. */
 export function asuntoCorreoInformacion(nombre: string | undefined, programa: string): string {
   const n = esc(nombre).split(/\s+/)[0];
-  return n ? `${n}, aquí tiene la información de la ${programa}` : `Aquí tiene la información de la ${programa}`;
+  return n ? `${n}: información de la ${programa} | Carver University` : `Información de la ${programa} | Carver University`;
 }
 
 export function htmlCorreoInformacion(d: DatosHtml): string {
@@ -124,137 +113,157 @@ export function htmlCorreoInformacion(d: DatosHtml): string {
   const a = d.asesor ?? null;
   const whatsapp = soloDigitos(a?.whatsapp);
   const formulario = httpsSeguro(a?.formulario);
-  const partes: string[] = [];
+  const brochure = httpsSeguro(d.brochureUrl);
+  const conIngreso = !sinCupos && !!d.ingreso?.inicio && !!fechaLarga(d.ingreso.inicio);
+  const nivel = p.tipo === 'licenciatura' ? 'Licenciatura' : p.tipo === 'maestria' ? 'Maestría' : '';
+  const filas: string[] = [];
 
-  // Texto oculto que muchos lectores de correo muestran junto al asunto.
-  partes.push(
-    `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Su beca del ${p.becaPct ?? 50} %, las formas de pago${!sinCupos && d.ingreso?.inicio ? ' y las fechas del próximo ingreso' : ''}, en un solo lugar.</div>`,
-  );
+  // Cabecera institucional y membrete.
+  filas.push(`<tr><td style="padding:0;"><img src="https://postgrados.uautonoma.cl/content/uploads/2025/01/Header-Mailing-1.png" width="600" alt="Carver University" style="display:block;border:0;width:100%;max-width:600px;height:auto;"></td></tr>
+<tr><td style="padding:0;height:3px;line-height:3px;font-size:0;background-color:${C.oro};">&nbsp;</td></tr>
+<tr><td style="padding:22px 40px 0;font-family:${SANS};font-size:11px;letter-spacing:.14em;color:${C.suave};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td style="font-family:${SANS};font-size:11px;letter-spacing:.14em;color:${C.suave};">OFICINA DE ADMISIÓN</td>
+<td align="right" style="font-family:${SERIFA};font-size:13px;letter-spacing:0;color:${C.suave};font-style:italic;">${esc(fechaLarga(d.hoy, false))}</td>
+</tr></table></td></tr>`);
 
-  // Cabecera de marca y programa.
-  const etiquetas = ['100 % en línea', 'Clases en vivo en español', d.duracion ? esc(d.duracion.replace(/\s*\(.*\)\s*$/, '')) : '']
+  // Título del programa.
+  const ficha = [nivel, d.duracion ? esc(d.duracion.replace(/\s*\(.*\)\s*$/, '')) : '', '100 % en línea, con clases en vivo en español']
     .filter(Boolean)
     .join(' &nbsp;·&nbsp; ');
-  partes.push(`<tr><td style="padding:0;"><img src="https://postgrados.uautonoma.cl/content/uploads/2025/01/Header-Mailing-1.png" width="600" alt="Carver University" style="display:block;border:0;width:100%;max-width:600px;height:auto;"></td></tr>
-<tr><td style="background-color:${C.marca};padding:30px 32px 32px;font-family:${FUENTE};">
-<p style="margin:0 0 8px;font-size:12px;font-weight:bold;letter-spacing:.14em;color:#9FE3D6;">INFORMACIÓN DE SU PROGRAMA</p>
-<p style="margin:0 0 12px;font-size:28px;line-height:1.2;font-weight:bold;color:#ffffff;">${esc(p.nombre)}</p>
-<p style="margin:0;font-size:14px;color:#D7ECEA;">${etiquetas}</p>
+  filas.push(`<tr><td style="padding:26px 40px 6px;">
+<p style="margin:0 0 6px;font-family:${SANS};font-size:11px;font-weight:bold;letter-spacing:.16em;color:${C.oro};">INFORMACIÓN ACADÉMICA Y DE ADMISIÓN</p>
+<p style="margin:0 0 10px;font-family:${SERIFA};font-size:27px;line-height:1.25;font-weight:normal;color:${C.marca};">${esc(p.nombre)}</p>
+<p style="margin:0;font-family:${SERIFA};font-size:14px;font-style:italic;color:${C.suave};">${ficha}</p>
 </td></tr>`);
 
-  // Saludo.
-  partes.push(`<tr><td style="padding:28px 32px 8px;font-family:${FUENTE};">
-<p style="margin:0 0 10px;font-size:18px;font-weight:bold;color:${C.tinta};">${nombre ? `Hola, ${nombre}:` : 'Hola:'}</p>
-<p style="margin:0;font-size:15px;line-height:1.6;color:${C.texto};">Gracias por su interés. Tal como conversamos, aquí tiene en un solo lugar el valor con su beca, las formas de pago y las fechas, para que pueda decidir con calma.</p>
+  // Saludo, como en una carta.
+  filas.push(`<tr><td style="padding:22px 40px 4px;font-family:${SERIFA};font-size:16px;line-height:1.7;color:${C.texto};">
+<p style="margin:0 0 14px;">${nombre ? `${nombre}, reciba un cordial saludo.` : 'Reciba un cordial saludo.'}</p>
+<p style="margin:0;">Gracias por su interés en la ${esc(p.nombre)} de Carver University. Tal como conversamos, le comparto los aranceles vigentes con la beca${conIngreso ? ', las modalidades de pago y el calendario del próximo ingreso' : ' y las modalidades de pago'}, para que pueda revisarlos con tranquilidad.</p>
 </td></tr>`);
 
-  // Cupos completos: va antes del precio, para que nadie crea que puede inscribirse hoy.
+  // Cupos completos: antes de los valores, para que nadie crea que puede inscribirse hoy.
   if (sinCupos) {
-    partes.push(`<tr><td style="padding:16px 32px 0;font-family:${FUENTE};"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#FFF6E0;border:1px solid #F5D38A;border-radius:10px;"><tr><td style="padding:16px 18px;font-size:14px;line-height:1.5;color:${C.acentoTinta};"><strong>Cupos completos.</strong> La matrícula reabre en ${esc(p.reabre || REABRE_POR_DEFECTO)}. Le dejo el valor para que pueda planificarlo con tiempo.</td></tr></table></td></tr>`);
+    filas.push(`<tr><td style="padding:18px 40px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-left:3px solid ${C.oro};background-color:${C.marfil};"><tr><td style="padding:14px 18px;font-family:${SERIFA};font-size:15px;line-height:1.6;color:${C.tinta};"><strong>Cupos completos.</strong> La matrícula de este programa reabre en ${esc(p.reabre || REABRE_POR_DEFECTO)}. Le comparto los valores para que pueda planificarlo con tiempo.</td></tr></table></td></tr>`);
   }
 
-  // El precio, protagonista.
-  if (p.arancelLista && p.arancelConBeca && p.becaPct) {
-    partes.push(`<tr><td style="padding:20px 32px 8px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${C.menta};border:1px solid #BFE3DA;border-radius:12px;"><tr><td align="center" style="padding:26px 20px;font-family:${FUENTE};">
-<span style="display:inline-block;padding:5px 12px;border-radius:999px;background-color:${C.acento};color:${C.acentoTinta};font-size:11px;font-weight:bold;letter-spacing:.06em;">${esc(BECA_CARVER.toUpperCase())} &middot; ${p.becaPct} %</span>
-<p style="margin:16px 0 2px;font-size:14px;color:${C.suave};">Arancel de lista <span style="text-decoration:line-through;">${usd(p.arancelLista)}</span></p>
-<p style="margin:0;font-size:40px;line-height:1.1;font-weight:bold;color:${C.marca};">${usd(p.arancelConBeca)}</p>
-<p style="margin:4px 0 0;font-size:14px;color:${C.texto};">con su beca del ${p.becaPct} %</p>
-</td></tr></table></td></tr>`);
+  // Aranceles, como una tabla oficial.
+  if (p.arancelLista) {
+    const filasArancel = [
+      `<tr>${celda('Arancel de lista')}${celda(usd(p.arancelLista), 'text-align:right;white-space:nowrap;')}</tr>`,
+    ];
+    if (p.arancelConBeca && p.becaPct) {
+      filasArancel.push(
+        `<tr>${celda(`${esc(BECA_CARVER)} (${p.becaPct} %)`)}${celda(`&minus; ${usd(p.arancelLista - p.arancelConBeca)}`, `text-align:right;white-space:nowrap;color:${C.marca};`)}</tr>`,
+        `<tr>${celda('<strong>Arancel con beca</strong>', `color:${C.tinta};border-bottom:2px solid ${C.marca};`)}${celda(`<strong>${usd(p.arancelConBeca)}</strong>`, `text-align:right;white-space:nowrap;font-size:18px;color:${C.marca};border-bottom:2px solid ${C.marca};`)}</tr>`,
+      );
+    }
+    filas.push(`<tr><td style="padding:30px 40px 0;">${tituloSeccion('Aranceles y beca')}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${filasArancel.join('')}</table>
+</td></tr>`);
   }
 
-  // Formas de pago.
-  const filas: string[] = [];
+  // Modalidades de pago.
+  const pagos: string[] = [];
+  const filaPago = (modalidad: string, detalle: string, valor: string, unidad: string) =>
+    `<tr>${celda(`<strong style="color:${C.tinta};">${esc(modalidad)}</strong><br><span style="font-size:13px;color:${C.suave};">${detalle}</span>`)}${celda(`<strong style="color:${C.marca};">${esc(valor)}</strong><br><span style="font-size:13px;color:${C.suave};">${esc(unidad)}</span>`, 'text-align:right;white-space:nowrap;padding-left:16px;')}</tr>`;
   if (p.mensualidades) {
     const regular = p.matriculaRegular && p.matricula !== undefined && p.matriculaRegular > p.matricula ? ` (regular ${usd(p.matriculaRegular)})` : '';
-    filas.push(
-      filaPago(
-        'Mensualidades',
-        `${p.mensualidades.n} cuotas${p.matricula ? ` · matrícula de ${usd(p.matricula)}${regular}` : ''}`,
-        usd(p.mensualidades.monto),
-        'al mes',
-        false,
-      ),
-    );
+    pagos.push(filaPago('Mensual', `${p.mensualidades.n} cuotas${p.matricula ? `, más matrícula de ${usd(p.matricula)}${regular}` : ''}`, usd(p.mensualidades.monto), 'por mes'));
   }
   if (p.semestral) {
-    filas.push(filaPago('Semestral', `${p.semestral.n} pagos · total ${usd(p.semestral.n * p.semestral.monto)} · sin matrícula`, usd(p.semestral.monto), 'por semestre', false));
+    pagos.push(filaPago('Semestral', `${p.semestral.n} pagos, sin matrícula (total ${usd(p.semestral.n * p.semestral.monto)})`, usd(p.semestral.monto), 'por semestre'));
   }
   if (p.contado) {
-    const porAnio = p.contado.anios && p.contado.anios > 1 && p.contado.porAnio;
-    filas.push(
-      porAnio
-        ? filaPago('Contado', `${p.contado.anios} años · total ${usd(p.contado.total)} · sin matrícula`, usd(p.contado.porAnio), 'al año', true)
-        : filaPago('Contado', 'Un solo pago · sin matrícula', usd(p.contado.total), 'pago único', true),
+    const ahorro = `<br><em style="color:${C.oro};">Opción de mayor ahorro</em>`;
+    pagos.push(
+      p.contado.anios && p.contado.anios > 1 && p.contado.porAnio
+        ? filaPago('Anual al contado', `${p.contado.anios} pagos anuales, sin matrícula (total ${usd(p.contado.total)})${ahorro}`, usd(p.contado.porAnio), 'por año')
+        : filaPago('Al contado', `Pago único, sin matrícula${ahorro}`, usd(p.contado.total), 'pago único'),
     );
   }
-  if (filas.length) {
-    partes.push(`<tr><td style="padding:24px 32px 4px;font-family:${FUENTE};">
-<p style="margin:0 0 4px;font-size:19px;font-weight:bold;color:${C.tinta};">Elija cómo pagar</p>
-<p style="margin:0 0 14px;font-size:14px;color:${C.suave};">Tres formas, todas con su beca incluida.</p>
-${filas.join('\n')}
-<p style="margin:6px 0 0;font-size:12px;line-height:1.5;color:${C.suave};">El semestral y el contado ya incluyen la beca y un descuento adicional. Valores en dólares estadounidenses (USD).</p>
+  if (pagos.length) {
+    filas.push(`<tr><td style="padding:30px 40px 0;">${tituloSeccion('Modalidades de pago')}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${pagos.join('')}</table>
+<p style="margin:12px 0 0;font-family:${SERIFA};font-size:13px;line-height:1.55;font-style:italic;color:${C.suave};">Las modalidades semestral y al contado incluyen la beca y un descuento adicional. Valores expresados en dólares estadounidenses (USD).</p>
 </td></tr>`);
   }
 
-  // Próximo ingreso, con los días que quedan.
-  if (!sinCupos && d.ingreso?.inicio && conAnio(d.ingreso.inicio)) {
+  // Calendario del próximo ingreso.
+  if (conIngreso && d.ingreso) {
     const quedan = d.ingreso.cierre ? diasEntre(d.hoy, d.ingreso.cierre) : null;
-    const urgencia =
+    const plazo =
       quedan === null || quedan < 0 || quedan > 45
         ? ''
-        : `<span style="display:inline-block;margin-top:14px;padding:6px 14px;border-radius:999px;background-color:${C.acento};color:${C.acentoTinta};font-size:13px;font-weight:bold;">${quedan === 0 ? 'La postulación cierra hoy' : quedan === 1 ? 'Queda 1 día para postular' : `Quedan ${quedan} días para postular`}</span>`;
-    partes.push(`<tr><td style="padding:24px 32px 4px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${C.tinta};border-radius:12px;"><tr><td style="padding:24px 24px;font-family:${FUENTE};">
-<p style="margin:0 0 10px;font-size:12px;font-weight:bold;letter-spacing:.14em;color:#9FE3D6;">PRÓXIMO INGRESO</p>
-<p style="margin:0 0 4px;font-size:14px;color:#BFD3D0;">Inicio de clases</p>
-<p style="margin:0 0 12px;font-size:22px;font-weight:bold;color:#ffffff;">${esc(conAnio(d.ingreso.inicio))}</p>
-${d.ingreso.cierre ? `<p style="margin:0;font-size:15px;color:#E6F0EE;">Postulación abierta hasta el <strong>${esc(conDia(d.ingreso.cierre))}</strong></p>` : ''}
-${urgencia}
-</td></tr></table></td></tr>`);
+        : `<p style="margin:14px 0 0;font-family:${SERIFA};font-size:14px;font-style:italic;color:${C.marca};">${quedan === 0 ? 'La postulación cierra hoy.' : quedan === 1 ? 'Queda 1 día para completar su postulación.' : `Quedan ${quedan} días para completar su postulación.`}</p>`;
+    const fila = (etiqueta: string, valor: string) =>
+      `<tr><td style="padding:6px 0;font-family:${SANS};font-size:11px;letter-spacing:.12em;color:${C.suave};vertical-align:top;width:46%;">${esc(etiqueta.toUpperCase())}</td><td style="padding:6px 0;font-family:${SERIFA};font-size:16px;color:${C.tinta};vertical-align:top;">${esc(valor)}</td></tr>`;
+    filas.push(`<tr><td style="padding:30px 40px 0;">${tituloSeccion('Calendario del próximo ingreso')}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${C.marfil};border:1px solid ${C.filete};"><tr><td style="padding:16px 20px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+${d.ingreso.cierre ? fila('Cierre de postulación', fechaLarga(d.ingreso.cierre)) : ''}
+${fila('Inicio de clases', fechaLarga(d.ingreso.inicio))}
+</table>${plazo}
+</td></tr></table>
+</td></tr>`);
   }
 
-  // Por qué Carver: solo lo aprobado.
-  partes.push(`<tr><td style="padding:26px 32px 6px;font-family:${FUENTE};">
-<p style="margin:0 0 16px;font-size:19px;font-weight:bold;color:${C.tinta};">Por qué Carver University</p>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-${beneficio('Título oficial de Estados Unidos', 'Licencia N.º 12743 de la Commission for Independent Education del estado de Florida.')}
-${beneficio('100 % en línea y en español', 'Clases en vivo, desde su país, sin interrumpir su trabajo.')}
-${beneficio('Acompañamiento en su admisión', 'Le acompañamos paso a paso, desde la postulación hasta su matrícula.')}
-</table>
+  // Reconocimiento institucional: solo lo aprobado.
+  filas.push(`<tr><td style="padding:30px 40px 0;">${tituloSeccion('Reconocimiento institucional')}
+<p style="margin:0;font-family:${SERIFA};font-size:15px;line-height:1.7;color:${C.texto};">Carver University es una institución estadounidense con sede en Florida que opera bajo la Licencia N.º 12743 de la Commission for Independent Education del Florida Department of Education. Al egresar, recibirá un título oficial de Estados Unidos.</p>
 </td></tr>`);
 
-  // Llamados a la acción.
-  const brochure = httpsSeguro(d.brochureUrl);
-  const botones: string[] = [];
-  if (formulario && !sinCupos) botones.push(boton('Postular ahora', formulario, true));
-  if (whatsapp) botones.push(boton('Escribir por WhatsApp', `https://wa.me/${whatsapp}`, !botones.length));
-  if (brochure) botones.push(boton('Ver el brochure (PDF)', brochure, !botones.length));
-  if (botones.length) partes.push(`<tr><td align="center" style="padding:22px 32px 8px;">${botones.join('')}</td></tr>`);
+  // Próximos pasos.
+  const pasos: string[] = [];
+  if (brochure) pasos.push(`Revise el ${enlace('brochure del programa', brochure)}, con el detalle completo.`);
+  if (!sinCupos) {
+    const cierre = conIngreso && d.ingreso?.cierre ? ` antes del ${esc(fechaLarga(d.ingreso.cierre))}` : '';
+    pasos.push(
+      formulario
+        ? `Complete su ${enlace('postulación en línea', formulario)}${cierre}.`
+        : `Complete su postulación${cierre}; ${a?.nombre ? 'le acompaño' : 'le acompañamos'} en cada paso.`,
+    );
+  }
+  pasos.push(
+    whatsapp
+      ? `Para cualquier consulta, responda este correo o escríbame por ${enlace('WhatsApp', `https://wa.me/${whatsapp}`)}.`
+      : 'Para cualquier consulta, responda este correo y le contestaremos a la brevedad.',
+  );
+  filas.push(`<tr><td style="padding:30px 40px 0;">${tituloSeccion('Próximos pasos')}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+${pasos
+  .map(
+    (t, i) =>
+      `<tr><td width="30" style="padding:0 0 12px;font-family:${SERIFA};font-size:16px;color:${C.oro};vertical-align:top;">${i + 1}.</td><td style="padding:0 0 12px;font-family:${SERIFA};font-size:15px;line-height:1.6;color:${C.texto};vertical-align:top;">${t}</td></tr>`,
+  )
+  .join('')}
+</table>
+${
+  formulario && !sinCupos
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:10px 0 0;"><tr><td bgcolor="${C.marca}" style="border-radius:3px;"><a href="${esc(formulario)}" target="_blank" style="display:inline-block;padding:13px 30px;font-family:${SANS};font-size:13px;font-weight:bold;letter-spacing:.1em;color:#ffffff;text-decoration:none;">INICIAR POSTULACIÓN</a></td></tr></table>`
+    : ''
+}
+</td></tr>`);
 
-  // Quién le acompaña.
-  const contacto = [
-    whatsapp ? `WhatsApp: ${esc(telefonoLegible(`+${whatsapp}`))}` : '',
-    a?.email ? `Correo: ${esc(a.email)}` : '',
-  ].filter(Boolean);
-  partes.push(`<tr><td style="padding:18px 32px 28px;font-family:${FUENTE};">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid ${C.borde};"><tr><td style="padding-top:20px;">
-<p style="margin:0 0 6px;font-size:15px;line-height:1.6;color:${C.texto};">Cualquier duda, responda este correo o escríbanos por WhatsApp. Será un gusto acompañarle.</p>
-<p style="margin:14px 0 0;font-size:15px;color:${C.texto};">Saludos cordiales,</p>
-<p style="margin:2px 0 0;font-size:16px;font-weight:bold;color:${C.tinta};">${a?.nombre ? esc(a.nombre) : 'Equipo de Admisión'}</p>
-<p style="margin:0;font-size:14px;color:${C.marca};">Carver University</p>
-${contacto.length ? `<p style="margin:8px 0 0;font-size:13px;line-height:1.6;color:${C.suave};">${contacto.join('<br>')}</p>` : ''}
-</td></tr></table>
+  // Firma.
+  const contacto = [whatsapp ? `WhatsApp ${esc(telefonoLegible(`+${whatsapp}`))}` : '', a?.email ? esc(a.email) : ''].filter(Boolean).join(' &nbsp;·&nbsp; ');
+  filas.push(`<tr><td style="padding:34px 40px 36px;font-family:${SERIFA};">
+<p style="margin:0 0 18px;font-size:16px;color:${C.texto};">Atentamente,</p>
+<p style="margin:0;font-size:17px;font-weight:bold;color:${C.tinta};">${a?.nombre ? esc(a.nombre) : 'Oficina de Admisión'}</p>
+<p style="margin:2px 0 0;font-family:${SANS};font-size:11px;letter-spacing:.14em;color:${C.oro};">ADMISIÓN &middot; CARVER UNIVERSITY</p>
+${contacto ? `<p style="margin:8px 0 0;font-size:14px;color:${C.suave};">${contacto}</p>` : ''}
 </td></tr>`);
 
   // Pie.
-  partes.push(`<tr><td style="background-color:${C.marca};padding:20px 32px;font-family:${FUENTE};font-size:11px;line-height:1.6;color:#D7ECEA;">
-<strong style="color:#ffffff;">Carver University</strong> &middot; Florida, Estados Unidos &middot; Licencia N.º 12743, Commission for Independent Education<br>
-Recibe este correo porque solicitó información sobre uno de nuestros programas. Valores vigentes a la fecha de envío.
+  filas.push(`<tr><td style="padding:20px 40px;background-color:${C.marfil};border-top:1px solid ${C.filete};font-family:${SERIFA};font-size:12px;line-height:1.6;color:${C.suave};">
+Carver University &middot; Florida, Estados Unidos &middot; Licencia N.º 12743, Commission for Independent Education, Florida Department of Education.<br>
+Recibió este correo porque solicitó información sobre uno de nuestros programas. Los valores son los vigentes a la fecha de envío.
 </td></tr>`);
 
-  const [oculto, ...filasTabla] = partes;
-  return `${oculto}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0;padding:0;background-color:${C.fondo};"><tr><td align="center" style="padding:24px 10px;">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background-color:#ffffff;border-radius:14px;overflow:hidden;border:1px solid ${C.borde};">
-${filasTabla.join('\n')}
+  const vistaPrevia = `Aranceles con la beca del ${p.becaPct ?? 50} %, modalidades de pago${conIngreso ? ' y calendario del próximo ingreso' : ''}.`;
+  return `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${esc(vistaPrevia)}</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0;padding:0;background-color:${C.fondo};"><tr><td align="center" style="padding:28px 10px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background-color:${C.papel};border:1px solid ${C.filete};">
+${filas.join('\n')}
 </table></td></tr></table>`;
 }

@@ -75,35 +75,38 @@ const base = () => ({
   hoy: '2026-11-09',
 });
 
-test('el correo trae las cifras de la planilla, tal como las cotiza el bot', () => {
+test('el correo trae las cifras de la planilla, como un arancel oficial', () => {
   const h = htmlCorreoInformacion(base());
+  assert.match(h, /OFICINA DE ADMISIÓN/);
+  assert.match(h, /9 de noviembre de 2026/); // la fecha de la carta
   assert.match(h, /Licenciatura en Psicología/);
-  assert.match(h, /Hola, Ana:/); // solo el primer nombre
-  assert.match(h, /text-decoration:line-through;">USD 8\.000/);
-  assert.match(h, />USD 4\.000</);
-  assert.match(h, /BECA GEORGE WASHINGTON CARVER GRANT &middot; 50 %/);
-  assert.match(h, /40 cuotas · matrícula de USD 50 \(regular USD 150\)/);
-  assert.match(h, /8 pagos · total USD 3\.280 · sin matrícula/);
+  assert.match(h, /Licenciatura &nbsp;·&nbsp; 4 años/);
+  assert.match(h, /Ana, reciba un cordial saludo\./); // solo el primer nombre
+  assert.match(h, /Arancel de lista<\/td>.*?USD 8\.000/s);
+  assert.match(h, /Beca George Washington Carver Grant \(50 %\)<\/td>.*?&minus; USD 4\.000/s);
+  assert.match(h, /<strong>Arancel con beca<\/strong>.*?<strong>USD 4\.000<\/strong>/s);
+  assert.match(h, /40 cuotas, más matrícula de USD 50 \(regular USD 150\)/);
+  assert.match(h, /8 pagos, sin matrícula \(total USD 3\.280\)/);
   // El contado de una licenciatura es por año, y es la opción de mayor ahorro.
-  assert.match(h, /Contado<span[^>]*>MAYOR AHORRO<\/span>/);
-  assert.match(h, />USD 585<\/p><p[^>]*>al año/);
-  assert.match(h, /4 años · total USD 2\.340 · sin matrícula/);
-  assert.match(h, /lunes 23 de noviembre de 2026/);
-  assert.match(h, /Postulación abierta hasta el <strong>viernes 20 de noviembre<\/strong>/);
-  assert.match(h, /Quedan 11 días para postular/);
-  assert.match(h, /href="https:\/\/carver\.university\/forms\/x"[^>]*>Postular ahora/);
-  assert.match(h, /href="https:\/\/wa\.me\/56912345678"[^>]*>Escribir por WhatsApp/);
-  assert.match(h, /href="https:\/\/portal\.test\/brochure-psicologia\.pdf"[^>]*>Ver el brochure \(PDF\)/);
-  assert.match(h, /Asesora de Prueba/);
-  assert.match(h, /WhatsApp: \+56 9 1234 5678/);
+  assert.match(h, /Anual al contado.*?4 pagos anuales, sin matrícula \(total USD 2\.340\).*?Opción de mayor ahorro.*?USD 585.*?por año/s);
+  assert.match(h, /CIERRE DE POSTULACIÓN<\/td><td[^>]*>viernes 20 de noviembre de 2026/);
+  assert.match(h, /INICIO DE CLASES<\/td><td[^>]*>lunes 23 de noviembre de 2026/);
+  assert.match(h, /Quedan 11 días para completar su postulación\./);
+  assert.match(h, /Licencia N\.º 12743 de la Commission for Independent Education/);
+  assert.match(h, /href="https:\/\/portal\.test\/brochure-psicologia\.pdf"[^>]*>brochure del programa/);
+  assert.match(h, /href="https:\/\/carver\.university\/forms\/x"[^>]*>postulación en línea<\/a> antes del viernes 20 de noviembre de 2026/);
+  assert.match(h, /href="https:\/\/carver\.university\/forms\/x"[^>]*>INICIAR POSTULACIÓN/);
+  assert.match(h, /escríbame por <a href="https:\/\/wa\.me\/56912345678"/);
+  assert.match(h, /Atentamente,.*?Asesora de Prueba.*?WhatsApp \+56 9 1234 5678/s);
   assert.doesNotMatch(h, /[\u{10000}-\u{10FFFF}]/u); // sin emojis: Bitrix los corta
 });
 
 test('sin asesor, sin brochure ni fechas, el correo no inventa nada', () => {
   const h = htmlCorreoInformacion({ ...base(), nombre: '', ingreso: null, brochureUrl: undefined, asesor: null });
-  assert.match(h, /Hola:/);
-  assert.doesNotMatch(h, /PRÓXIMO INGRESO|Postular ahora|WhatsApp:|brochure/i);
-  assert.match(h, /Equipo de Admisión/);
+  assert.match(h, />Reciba un cordial saludo\./);
+  assert.doesNotMatch(h, /CALENDARIO|INICIAR POSTULACIÓN|WhatsApp|brochure/i);
+  assert.match(h, /le acompañamos en cada paso/);
+  assert.match(h, /Atentamente,.*?Oficina de Admisión/s);
 });
 
 test('lo que viene de afuera se escapa', () => {
@@ -114,23 +117,23 @@ test('lo que viene de afuera se escapa', () => {
 test('con cupos completos avisa la reapertura y no invita a postular', () => {
   const p = { ...psicologia(), cotizable: false, motivoNoCotizable: 'cupos completos', reabre: 'marzo de 2027' };
   const h = htmlCorreoInformacion({ ...base(), programa: p });
-  assert.match(h, /Cupos completos\.<\/strong> La matrícula reabre en marzo de 2027/);
-  assert.doesNotMatch(h, /PRÓXIMO INGRESO|Postular ahora/);
+  assert.match(h, /Cupos completos\.<\/strong> La matrícula de este programa reabre en marzo de 2027/);
+  assert.doesNotMatch(h, /CALENDARIO|INICIAR POSTULACIÓN|postulación en línea/);
 });
 
 test('una maestría con contado único lo dice como un pago', () => {
   const p = matchProgramaCarver('Maestría en Psicología').find((x) => x.nombre === 'Maestría en Psicología')!;
-  const h = htmlCorreoInformacion({ ...base(), programa: p });
-  assert.match(h, /Un solo pago · sin matrícula/);
-  assert.match(h, />USD 900<\/p><p[^>]*>pago único/);
+  const h = htmlCorreoInformacion({ ...base(), programa: p, duracion: '12 meses de clases (12 módulos)' });
+  assert.match(h, /Maestría &nbsp;·&nbsp; 12 meses de clases &nbsp;·/);
+  assert.match(h, /Al contado.*?Pago único, sin matrícula.*?USD 900.*?pago único/s);
 });
 
 test('los días para postular y el asunto', () => {
   assert.equal(diasEntre('2026-11-09', '2026-11-20'), 11);
-  assert.match(htmlCorreoInformacion({ ...base(), hoy: '2026-11-20' }), /La postulación cierra hoy/);
-  assert.doesNotMatch(htmlCorreoInformacion({ ...base(), hoy: '2026-09-01' }), /para postular/); // muy lejos: sin cuenta regresiva
-  assert.equal(asuntoCorreoInformacion('Ana María', 'Licenciatura en Psicología'), 'Ana, aquí tiene la información de la Licenciatura en Psicología');
-  assert.equal(asuntoCorreoInformacion('', 'Maestría en Psicología'), 'Aquí tiene la información de la Maestría en Psicología');
+  assert.match(htmlCorreoInformacion({ ...base(), hoy: '2026-11-20' }), /La postulación cierra hoy\./);
+  assert.doesNotMatch(htmlCorreoInformacion({ ...base(), hoy: '2026-09-01' }), /para completar su postulación/); // muy lejos: sin cuenta regresiva
+  assert.equal(asuntoCorreoInformacion('Ana María', 'Licenciatura en Psicología'), 'Ana: información de la Licenciatura en Psicología | Carver University');
+  assert.equal(asuntoCorreoInformacion('', 'Maestría en Psicología'), 'Información de la Maestría en Psicología | Carver University');
 });
 
 test('el próximo ingreso es el más cercano con la postulación abierta', () => {
@@ -176,7 +179,7 @@ test('envía: un correo de la negociación, desde el buzón de admisión', async
   assert.equal(f.RESPONSIBLE_ID, 685355);
   assert.deepEqual(f.SETTINGS, { MESSAGE_FROM: 'Carver University <admissioncarver@carver.university>' });
   assert.deepEqual(f.COMMUNICATIONS, [{ VALUE: 'persona@yahoo.com', ENTITY_ID: 77, ENTITY_TYPE_ID: 3, TYPE: 'EMAIL' }]);
-  assert.equal(f.SUBJECT, 'Ana, aquí tiene la información de la Licenciatura en Psicología');
+  assert.equal(f.SUBJECT, 'Ana: información de la Licenciatura en Psicología | Carver University');
   assert.match(f.DESCRIPTION, /40 cuotas/);
   assert.match(f.DESCRIPTION, /brochure-psicologia\.pdf/);
   assert.equal(f.FILES, undefined); // el brochure va como enlace, no como adjunto
