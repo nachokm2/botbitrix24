@@ -20,6 +20,8 @@ export type Responsable = {
   telefono?: string;
   /** Formulario de postulación del asesor, de la misma lista. */
   formulario?: string;
+  /** Cargo con que se presenta, de la misma lista. */
+  cargo?: string;
   activo?: boolean;
   /** Departamentos de la estructura de Bitrix (UF_DEPARTMENT): define a qué equipo pertenece. */
   departamentos?: number[];
@@ -113,6 +115,7 @@ export async function getUsuarios(ids: number[], auth: Auth): Promise<Responsabl
           // dato, en vez de confiar en que cada consumidor se acuerde de no usarlo.
           telefono: entregado.whatsapp ?? (marca.telefonoAsesorVigente ? u.PERSONAL_MOBILE || undefined : undefined),
           formulario: entregado.formulario,
+          cargo: entregado.cargo,
           activo: u.ACTIVE !== false,
           departamentos: toIdArray(u.UF_DEPARTMENT),
         };
@@ -176,7 +179,7 @@ const identidadCacheK = new Map<string, { at: number; valor: IdentidadAsesor | n
 
 // El telefono llega vacio donde marca.telefonoAsesorVigente es false, salvo que la coordinacion lo
 // haya entregado (ver getUsuarios).
-export type IdentidadAsesor = { nombre: string; email?: string; telefono?: string; formulario?: string };
+export type IdentidadAsesor = { nombre: string; email?: string; telefono?: string; formulario?: string; cargo?: string };
 
 /** Nombre, correo y teléfono del responsable de una NEGOCIACIÓN, un LEAD o un CONTACTO — en ese orden
  *  de preferencia. El lead importa: la mitad de las conversaciones nuevas de WhatsApp entran como
@@ -221,7 +224,7 @@ export async function getIdentidadAsesor(
     // a quien de verdad puede atender: persona activa del equipo de la marca, no un robot ni el
     // responsable por defecto del embudo (ver crm/equipo.ts).
     if (u && !u.nombre.startsWith('Usuario ') && esAsesorValido(u)) {
-      valor = { nombre: u.nombre, email: u.email, telefono: u.telefono, formulario: u.formulario };
+      valor = { nombre: u.nombre, email: u.email, telefono: u.telefono, formulario: u.formulario, cargo: u.cargo };
     }
   } catch (e) {
     log.warn('getIdentidadAsesor falló', { err: String(e), entidad: clave });

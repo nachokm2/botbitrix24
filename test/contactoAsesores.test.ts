@@ -10,9 +10,9 @@ process.env.NODE_ENV = 'test';
 process.env.REDIS_URL = '';
 process.env.BITRIX_EMBUDOS_PROPIOS = '73,135';
 process.env.ASESORES_CONTACTO = JSON.stringify([
-  { id: 685357, whatsapp: '56 9 1111 2222', email: 'Asesora.Uno@Carver.University', formulario: 'https://carver.university/lp/forms/form-carver-uno/' },
-  // Un "número" que no es número y un Gmail: se descartan esos dos, no el formulario.
-  { id: 742023, whatsapp: 'no tiene', email: 'asesora.dos@gmail.com', formulario: 'https://b24-x.bitrix24.site/crm_form_abc/' },
+  { id: 685357, whatsapp: '56 9 1111 2222', email: 'Asesora.Uno@Carver.University', formulario: 'https://carver.university/lp/forms/form-carver-uno/', cargo: ' orientadora  académica ' },
+  // Un "número" que no es número, un Gmail y un cargo con enlace: se descartan esos tres, no el formulario.
+  { id: 742023, whatsapp: 'no tiene', email: 'asesora.dos@gmail.com', formulario: 'https://b24-x.bitrix24.site/crm_form_abc/', cargo: 'https://otro.sitio' },
 ]);
 
 const usuarios: Record<number, any> = {
@@ -50,6 +50,7 @@ test('la lista se lee con el número en formato internacional y el correo en min
     whatsapp: '+56911112222',
     email: 'asesora.uno@carver.university',
     formulario: 'https://carver.university/lp/forms/form-carver-uno/',
+    cargo: 'orientadora académica',
   });
 });
 
@@ -90,6 +91,7 @@ test('la identidad del turno trae el WhatsApp, el correo y el formulario del ase
     email: 'asesora.uno@carver.university',
     telefono: '+56911112222',
     formulario: 'https://carver.university/lp/forms/form-carver-uno/',
+    cargo: 'orientadora académica',
   });
   const sinLista = await getIdentidadAsesor({ deal: 3 }, auth);
   assert.equal(sinLista?.formulario, undefined);
@@ -100,6 +102,16 @@ test('el bloque de identidad ofrece el formulario junto a la ficha en el chat', 
   assert.match(b, /Tu formulario de postulación es https:\/\/carver\.university\/lp\/forms\/form-carver-uno\//);
   assert.match(b, /las dos vías/);
   assert.doesNotMatch(bloqueIdentidad({ nombre: 'Asesora Tres' }, true), /formulario/, 'sin formulario no se menciona');
+});
+
+test('el bloque de identidad se presenta con el cargo de la lista, o con la frase neutra si no está', () => {
+  const con = bloqueIdentidad({ nombre: 'Asesora Uno', cargo: 'orientadora académica' }, true);
+  assert.match(con, /"Hola, soy Asesora Uno, orientadora académica de Carver University"/);
+  assert.doesNotMatch(con, /proceso de admisión/);
+  assert.match(con, /Nunca digas que eres del equipo de admisiones/);
+  assert.match(bloqueIdentidad({ nombre: 'Asesora Tres' }, true), /"Hola, soy Asesora Tres, del área de orientación académica de Carver University"/);
+  // Aunque ya se presentó, si le preguntan por su cargo tiene que saberlo.
+  assert.match(bloqueIdentidad({ nombre: 'Asesora Uno', cargo: 'orientadora académica' }, false), /responde: orientadora académica de Carver University/);
 });
 
 test('el guardián deja pasar el formulario del asesor, y solo ese', async () => {

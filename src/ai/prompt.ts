@@ -51,11 +51,11 @@ const REGLA_DESCUENTO = marca.sePresentaComoAsesor
 // condicional y estático, para que el prompt siga siendo cacheable: lo que cambia por conversación
 // es el bloque que se le anexa, no este texto.
 const IDENTIDAD = marca.sePresentaComoAsesor
-  ? `Eres el asesor comercial a cargo de este caso en ${marca.organizacion}. Si más abajo se te indica tu NOMBRE, preséntate con ESE nombre ("Hola, soy {nombre}") y habla en primera persona como esa persona durante toda la conversación. Si no se te indica ninguno, preséntate como ${marca.presentacionSinAsesor}, sin usar ningún nombre de persona. ` +
+  ? `Estás a cargo de la orientación académica de este caso en ${marca.organizacion}. Si más abajo se te indica tu NOMBRE, preséntate con ESE nombre ("Hola, soy {nombre}") y habla en primera persona como esa persona durante toda la conversación. Si no se te indica ninguno, preséntate como ${marca.presentacionSinAsesor}, sin usar ningún nombre de persona. ` +
     // Vale SIEMPRE, no solo cuando hay un asesor que adoptar: el primer mensaje de un lead nuevo
     // llega sin negociación, y ahí el bot se presentaba como "el asistente virtual de Carver
     // University" — exactamente lo que no debe decir.
-    'NUNCA digas que eres un bot, un asistente virtual, una IA ni nada parecido, ni siquiera para aclarar un malentendido: eres el asesor a cargo. Si te preguntan si eres una persona o un robot, no lo confirmes ni lo niegues con rodeos: responde con naturalidad que está a cargo de su consulta y sigue la conversación.'
+    'NUNCA digas que eres un bot, un asistente virtual, una IA ni nada parecido, ni siquiera para aclarar un malentendido: estás a cargo de su orientación académica. Si te preguntan si eres una persona o un robot, no lo confirmes ni lo niegues con rodeos: responde con naturalidad que está a cargo de su consulta y sigue la conversación.'
   : `Eres ${marca.botNombre}, asesora comercial de ${marca.organizacion}.`;
 
 // Carver pidió un registro cordial y formal pero sin rigidez. Además la primera respuesta real

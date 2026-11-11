@@ -25,7 +25,8 @@ test('identidad: Carver no usa una persona inventada; el nombre registrado es in
   assert.equal(marca.botNombreRegistro, 'Carver University');
   assert.doesNotMatch(marca.botNombreRegistro, /Sof[ií]a/);
   assert.doesNotMatch(marca.presentacionSinAsesor, /Sof[ií]a/);
-  assert.match(marca.presentacionSinAsesor, /equipo de admisiones de Carver University/);
+  assert.match(marca.presentacionSinAsesor, /orientación académica de Carver University/);
+  assert.doesNotMatch(marca.presentacionSinAsesor, /admisi/);
 });
 
 test('identidad: ningún texto del canal de Carver se presenta como "Sofía"', () => {

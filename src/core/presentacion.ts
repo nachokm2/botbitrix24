@@ -5,6 +5,9 @@
  * saltaba justo en el caso más común: la persona responde «Más información» a la plantilla de Bitrix,
  * que cita «soy Valezka Hernández», y el bot daba por hecha la presentación. De 18 primeras respuestas
  * del 03-11, ninguna dijo el nombre. Por eso se asegura en código, sobre el texto final.
+ *
+ * Desde el 06-11-2026 se presenta como orientador académico, a pedido de Ignacio, y ya no como alguien
+ * que «acompaña en el proceso de admisión».
  */
 
 const normalizar = (s: string) =>
@@ -18,6 +21,12 @@ const mayuscula = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s
 /** Un nombre de persona tal como lo escribe el modelo: una o dos palabras con mayúscula. */
 const NOMBRE = '[A-ZÁÉÍÓÚÑ][\\p{L}]+(?:\\s[A-ZÁÉÍÓÚÑ][\\p{L}]+)?';
 
+/** Lo que sigue al nombre: el cargo que entregó la coordinación («orientadora académica») o, si no
+ *  está en la lista, una frase que no le asigna género a nadie. */
+export function cargoParaPresentarse(cargo: string | undefined, organizacion: string): string {
+  return cargo ? `${cargo} de ${organizacion}` : `del área de orientación académica de ${organizacion}`;
+}
+
 /**
  * Antepone «soy <asesor>» al texto si todavía no lo nombra, sin duplicar el saludo:
  *  - «¡Bienvenida, María Augusta! Le envié…» → la presentación va después de ese saludo;
@@ -26,14 +35,14 @@ const NOMBRE = '[A-ZÁÉÍÓÚÑ][\\p{L}]+(?:\\s[A-ZÁÉÍÓÚÑ][\\p{L}]+)?';
  * `cliente` (su nombre en el CRM) solo sirve para reconocer el vocativo: sin él, «Perfecto, le
  * cuento…» se tomaría por un nombre.
  */
-export function asegurarPresentacion(texto: string, asesor: string, organizacion: string, cliente?: string): string {
+export function asegurarPresentacion(texto: string, asesor: string, organizacion: string, cliente?: string, cargo?: string): string {
   const t = (texto ?? '').trim();
   const nombre = (asesor ?? '').trim();
   const primero = normalizar(nombre.split(/\s+/)[0] ?? '');
   if (!t || !primero) return texto;
   if (new RegExp(`(^|[^\\p{L}])${escapar(primero)}([^\\p{L}]|$)`, 'u').test(normalizar(t))) return texto;
 
-  const frase = `soy ${nombre} y le acompaño en su proceso de admisión en ${organizacion}.`;
+  const frase = `soy ${nombre}, ${cargoParaPresentarse(cargo, organizacion)}.`;
 
   // Un saludo que es una frase propia: «¡Bienvenida, María Augusta!», «¡Hola!», «Buenas tardes, Luis.»
   const saludo = new RegExp(

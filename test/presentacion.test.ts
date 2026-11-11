@@ -23,7 +23,14 @@ const { getHistory } = await import('../src/ai/memory');
 const { WHATSAPP_PROFILE } = await import('../src/core/channel');
 
 const ORG = 'Carver University';
-const FRASE = 'y le acompaño en su proceso de admisión en Carver University.';
+// Sin cargo en la lista de la coordinación: una frase que no le asigna género a nadie.
+const FRASE = ', del área de orientación académica de Carver University.';
+
+test('con cargo en la lista de la coordinación, se presenta con ese cargo y sin hablar de admisión', () => {
+  const r = asegurarPresentacion('Le acabo de enviar el brochure.', 'Persona Uno', ORG, undefined, 'orientadora académica');
+  assert.equal(r, 'Hola, soy Persona Uno, orientadora académica de Carver University.\n\nLe acabo de enviar el brochure.');
+  assert.doesNotMatch(asegurarPresentacion('Le acabo de enviar el brochure.', 'Persona Uno', ORG), /admisi/);
+});
 
 test('vocativo con el nombre de la persona: el saludo lo toma y la presentación va enseguida', () => {
   const r = asegurarPresentacion(
@@ -32,7 +39,7 @@ test('vocativo con el nombre de la persona: el saludo lo toma y la presentación
     ORG,
     'Yolanda Vega Aguilera',
   );
-  assert.equal(r, `Hola, Yolanda. Soy Valezka Hernández ${FRASE}\n\nLe acabo de enviar el brochure con toda la información del programa 📄\n\n¿Le cuento el valor con la beca?`);
+  assert.equal(r, `Hola, Yolanda. Soy Valezka Hernández${FRASE}\n\nLe acabo de enviar el brochure con toda la información del programa 📄\n\n¿Le cuento el valor con la beca?`);
 });
 
 test('un saludo que es una frase propia queda primero, sin repetir el «Hola»', () => {
@@ -41,21 +48,21 @@ test('un saludo que es una frase propia queda primero, sin repetir el «Hola»',
     'Basthian Sepúlveda',
     ORG,
   );
-  assert.equal(r, `¡Bienvenida, María Augusta! Soy Basthian Sepúlveda ${FRASE}\n\nLe acabo de enviar el brochure de la Licenciatura en Psicología directo a su WhatsApp 📄`);
+  assert.equal(r, `¡Bienvenida, María Augusta! Soy Basthian Sepúlveda${FRASE}\n\nLe acabo de enviar el brochure de la Licenciatura en Psicología directo a su WhatsApp 📄`);
   assert.equal(
     asegurarPresentacion('Hola Yolanda, le acabo de enviar el brochure.', 'Valezka Hernández', ORG),
-    `Hola, Yolanda. Soy Valezka Hernández ${FRASE}\n\nLe acabo de enviar el brochure.`,
+    `Hola, Yolanda. Soy Valezka Hernández${FRASE}\n\nLe acabo de enviar el brochure.`,
   );
 });
 
 test('sin saludo ni nombre, la presentación va antes de todo', () => {
   const r = asegurarPresentacion('Le acabo de enviar el brochure de la Maestría en Psicología directamente a su WhatsApp 📄', 'Jefferson Dávila', ORG);
-  assert.equal(r, `Hola, soy Jefferson Dávila ${FRASE}\n\nLe acabo de enviar el brochure de la Maestría en Psicología directamente a su WhatsApp 📄`);
+  assert.equal(r, `Hola, soy Jefferson Dávila${FRASE}\n\nLe acabo de enviar el brochure de la Maestría en Psicología directamente a su WhatsApp 📄`);
 });
 
 test('«Perfecto, …» no se toma por un nombre si no es el de la persona', () => {
   const r = asegurarPresentacion('Perfecto, le cuento el valor con la beca.', 'Sigrid Rodriguez', ORG, 'Karolina Vargas');
-  assert.equal(r, `Hola, soy Sigrid Rodriguez ${FRASE}\n\nPerfecto, le cuento el valor con la beca.`);
+  assert.equal(r, `Hola, soy Sigrid Rodriguez${FRASE}\n\nPerfecto, le cuento el valor con la beca.`);
 });
 
 test('si ya dice el nombre del asesor no se toca, con o sin tildes', () => {
@@ -80,7 +87,7 @@ test('en el motor: solo el PRIMER mensaje del bot se presenta, y lo guardado es 
 
   respuesta = 'Makita, la Licenciatura en Psicología dura 4 años. ¿Le cuento el valor con la beca?';
   const primero = await runAgentTurn(ctx, 'Más información', '', sinTools);
-  assert.match(primero, /^Hola, Makita\. Soy Basthian Sepúlveda y le acompaño/);
+  assert.match(primero, /^Hola, Makita\. Soy Basthian Sepúlveda, del área de orientación académica/);
   const guardado = JSON.stringify((await getHistory('chat-presentacion')).at(-1)?.content);
   assert.match(guardado, /Soy Basthian Sepúlveda/, 'el modelo recuerda que ya se presentó');
 

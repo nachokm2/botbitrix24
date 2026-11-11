@@ -111,11 +111,153 @@ const TONO_SEGUIMIENTO_ASESOR =
   'sin negritas, sin enlaces y sin cifras ni costos. Habla directo, como una persona: no empieces con "Veo que", "Noto que" ' +
   'ni "Entiendo que", y nada de fórmulas como "retomando nuestra conversación" o "le escribo para hacer seguimiento". Usa ' +
   'SOLO lo que está en la conversación: no digas que revisaste o consultaste algo, que le enviaste un correo o un ' +
-  'formulario, ni que quedan pocos cupos, y no menciones audios ni archivos que no aparezcan en ella. Nunca le reproches ' +
+  'formulario, ni que quedan pocos cupos, y no menciones audios ni archivos que no aparezcan en ella. No agregues datos del ' +
+  'programa que no estén escritos en la conversación (duración, días u horarios de clase, ritmo de estudio). Nunca le reproches ' +
   'que no ha respondido ni cuentes cuántas veces le escribiste. No marques tu género ("atento", "atenta"). No inventes ' +
   'datos ni programas. Devuelve SOLO el mensaje, sin comillas ni explicación.';
 
 const recordatorios = (n: number) => (n === 1 ? 'UN recordatorio' : `${n} recordatorios`);
+
+// Pedido de Ignacio (11-11-2026): que los seguimientos suenen más humanos. Lo que mostraron los 327
+// recordatorios del 09 al 11-11: casi todos eran una pregunta («¿Hay algo específico del programa que
+// le gustaría aclarar…?» abría 31), en un mismo chat salió tres veces seguidas «¿Cuál de las tres
+// formas de pago…?», y el cierre repetía la frase de ejemplo del prompt («sigo por acá cuando quiera
+// retomarlo», 32 de 42). Ahora cada recordatorio del medio tiene un ENFOQUE distinto dentro de la
+// misma secuencia, el prompt ya no trae frases entre comillas para copiar, y el código revisa que no
+// empiece ni hable igual que los anteriores.
+
+/** Número estable a partir de un texto (FNV-1a): reparte enfoques y variantes sin azar en las pruebas. */
+export function semillaDe(texto: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < texto.length; i++) {
+    h ^= texto.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  // Mezcla final (la de MurmurHash3): sin ella, textos que solo cambian en la última letra daban
+  // números parecidos y casi todos los chats caían en el mismo orden.
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+
+/** Formas que puede tomar un recordatorio del medio. En una misma secuencia no se repite ninguna. */
+const ENFOQUES_MEDIO = [
+  {
+    id: 'pregunta',
+    texto: 'Haz UNA pregunta corta y concreta sobre lo que quedó pendiente en la conversación, que se conteste con sí, no o una palabra.',
+  },
+  {
+    id: 'opciones',
+    texto: 'Ofrécele elegir entre dos cosas concretas que puedes hacer por ella, sacadas de la conversación (por ejemplo, contarle los requisitos o las fechas del próximo ingreso), en una sola pregunta del tipo "¿prefiere… o…?".',
+  },
+  {
+    id: 'dato',
+    // En la simulación del 11-11 el modelo agregó «dura dos años» y «clases dos noches a la semana»,
+    // que nadie había dicho: el dato tiene que salir de lo que el bot ya escribió.
+    texto: 'Retoma con otras palabras UN dato que TÚ YA le diste en la conversación y que le sirva para decidir, como lo comentaría una persona de pasada, y termina con una invitación corta a escribirte. NO agregues datos nuevos: nada de duración, días, horarios, horas de clase ni ritmo de estudio que no estén escritos arriba. Este mensaje NO es una pregunta, o lleva a lo más una muy breve al final.',
+  },
+  {
+    id: 'ofrecer',
+    texto: 'Ofrécele hacer UNA cosa concreta que le ahorre trabajo (explicarle en dos líneas cómo postular, contarle qué documentos necesita o resolverle la duda que quedó), dicho como un ofrecimiento amable, no como una pregunta de encuesta. SOLO lo ofreces: no des la información en este mensaje (no enumeres requisitos, documentos ni fechas).',
+  },
+] as const;
+
+/** Intenciones posibles del último mensaje; se elige una por secuencia. */
+const ENFOQUES_CIERRE = [
+  'reconoce en pocas palabras que puede no ser el momento o que anda con poco tiempo, y deja claro que puede escribirte cuando le acomode',
+  'agradécele el interés en el programa y deja claro que puede escribirte cuando quiera, sin presión',
+  'recuérdale en una frase qué pueden hacer juntos cuando retome (por ejemplo, ver la postulación o resolver la duda que quedó), sin apuro',
+] as const;
+
+/** El enfoque del recordatorio del medio número `etapa` (2, 3, 4…): una permutación por secuencia, así
+ *  que dos recordatorios seguidos nunca tienen la misma forma. */
+export function enfoqueDelMedio(semilla: string, etapa: number): (typeof ENFOQUES_MEDIO)[number] {
+  const orden = ENFOQUES_MEDIO.map((e, i) => ({ e, k: semillaDe(`${semilla}:${i}`) })).sort((a, b) => a.k - b.k);
+  return orden[(etapa - 2 + orden.length) % orden.length].e;
+}
+
+const enfoqueDeCierre = (semilla: string) => ENFOQUES_CIERRE[semillaDe(`${semilla}:cierre`) % ENFOQUES_CIERRE.length];
+
+// Frases que delatan una plantilla: salieron decenas de veces en tres días. «Quería dejarle saber»
+// (calco del inglés) y «apetecer» (de España) salieron en la simulación del 11-11.
+const FRASES_GASTADAS =
+  /hay algo (espec[ií]fico|en particular)|le gustar[ií]a (aclarar|resolver)|se (ajusta|acomoda|adapta) mejor a su situaci[oó]n|cuando (usted )?quiera retomarlo|quer[ií]a dejar(le|lo|la)? saber|\bapetezc\w*|\bapetec\w*/i;
+
+const NUMEROS: Record<string, string> = { un: '1', una: '1', uno: '1', dos: '2', tres: '3', cuatro: '4', cinco: '5', seis: '6', siete: '7', ocho: '8', nueve: '9', diez: '10', doce: '12' };
+const DATO_CON_MEDIDA = /\b(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|doce)\s+(a[nñ]os?|semestres?|meses|mes|semanas?|noches?|d[ií]as?|horas?)\b/gi;
+// También requisitos que nadie mencionó: en la simulación salió «un ensayo corto sobre por qué quiere
+// estudiar la maestría».
+const AFIRMACIONES_DE_RITMO =
+  /a su (propio )?ritmo|sin horarios? fijos?|la mayor[ií]a de (nuestros|los) estudiantes|(noches|d[ií]as) a la semana|carga (de trabajo|horaria|semanal)|horas (a la semana|semanales|de dedicaci[oó]n)|me encargo de|grabad[ao]s?|ensayo|carta de (motivaci[oó]n|recomendaci[oó]n)|entrevista|t[ií]tulo de (grado|bachiller)|c[eé]dula|pasaporte|certificado de notas|curr[ií]culum/i;
+
+/** Datos del programa que el recordatorio agrega y que no están en la conversación: la duración, los
+ *  días u horas de clase, «a su ritmo». El recordatorio no consulta nada, así que solo puede repetir. */
+export function datosQueNoEstan(texto: string, conversacion: string): string[] {
+  const conv = conversacion.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const aNumero = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\b(un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|doce)\b/g, (w) => NUMEROS[w] ?? w);
+  const convNum = aNumero(conv);
+  const p: string[] = [];
+  for (const m of texto.matchAll(DATO_CON_MEDIDA)) {
+    const [cant, unidad] = aNumero(m[0]).split(/\s+/);
+    const raiz = unidad.slice(0, 3);
+    if (!new RegExp(`\\b${cant}\\s+${raiz}`).test(convNum)) p.push(`dice «${m[0]}», que no está en la conversación`);
+  }
+  const ritmo = AFIRMACIONES_DE_RITMO.exec(texto);
+  if (ritmo && !conv.includes(ritmo[0].toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''))) {
+    p.push(`dice «${ritmo[0]}», que no está en la conversación`);
+  }
+  return p.length ? [`${p.join('; ')}: usa solo lo que ya se dijo`] : [];
+}
+
+const normalizarPalabras = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9ñ\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+// El nombre del programa se repite con razón en todos: no cuenta como frase copiada.
+const sinNombresDePrograma = (s: string) =>
+  s.replace(/\b(Maestr[ií]a|Licenciatura|Diplomado|Doctorado|MBA)\b(\s+(en|de|y|del|la|las|los)?\s*[A-ZÁÉÍÓÚÑ][\p{L}]*)*/gu, ' ');
+
+/** Lo que hace que un recordatorio suene igual a los anteriores, explicado para pedirlo de nuevo.
+ *  `anteriores` son los mensajes del bot en la conversación, del más antiguo al más reciente. */
+export function repiteLoAnterior(texto: string, anteriores: string[]): string[] {
+  const p: string[] = [];
+  const inicio = (s: string) => normalizarPalabras(s).slice(0, 3).join(' ');
+  const propio = inicio(texto);
+  const igual = propio.split(' ').length === 3 ? anteriores.find((a) => inicio(a) === propio) : undefined;
+  if (igual) p.push(`empieza igual que un mensaje que ya le enviaste («${igual.slice(0, 60)}»); empieza de otra forma`);
+  const gastada = FRASES_GASTADAS.exec(texto);
+  if (gastada) p.push(`usa la frase gastada «${gastada[0]}»; dilo con otras palabras`);
+  // «¿Sigue interesado…?» salió 12 veces en tres días: no se sabe si la persona es hombre o mujer.
+  const genero = /\b(est[aá]|sigue|siga|queda|qued[oó]|se sienta|est[eé]) (interesad|list|segur|convencid|decidid)[oa]s?\b/i.exec(texto);
+  if (genero) p.push(`dice «${genero[0]}», que le asigna un género a la persona; usa "le interesa", "cuando pueda" o algo neutro`);
+  const grams = (s: string) => {
+    const w = normalizarPalabras(sinNombresDePrograma(s));
+    const g = new Set<string>();
+    for (let i = 0; i + 5 <= w.length; i++) g.add(w.slice(i, i + 5).join(' '));
+    return g;
+  };
+  const propios = grams(texto);
+  for (const a of anteriores) {
+    const copiada = [...grams(a)].find((g) => propios.has(g));
+    if (copiada) {
+      p.push(`repite una frase de un mensaje anterior («${copiada}»)`);
+      break;
+    }
+  }
+  return p;
+}
+
+/** Los recordatorios de esta secuencia que ya salieron: los últimos `etapa - 1` mensajes del bot,
+ *  porque la persona no ha escrito desde entonces. */
+const yaEnviadosEnLaSecuencia = (previas: string[], etapa: number) => (etapa > 1 ? previas.slice(-(etapa - 1)) : []);
 
 /** Lo que un recordatorio no puede decir, explicado para pedírselo al modelo de nuevo. Vacío si está
  *  bien. El prompt ya lo prohíbe; esto lo comprueba, porque en una semana se escapó igual. */
@@ -151,22 +293,37 @@ export function problemasDelRecordatorio(texto: string): string[] {
   }
   if (/sin respuesta de su parte|no (me )?ha respondido|varios intentos|no (hemos|he) tenido respuesta/i.test(t)) p.push('le reprocha que no responde');
   if (/\batent[oa]s?\b/i.test(t)) p.push('marca el género ("atento" o "atenta")');
+  // Salió en un cierre real: el modelo dejó «WhatsApp:» y «Correo:» para rellenar (chat 1219149).
+  if (/^\s*(whatsapp|correo|tel[eé]fono)\s*:/im.test(t)) p.push('deja etiquetas de contacto como "WhatsApp:" o "Correo:"; el contacto se agrega aparte');
   return p;
 }
 
 // Lo que sale si el modelo no logra un recordatorio aceptable en dos intentos: mejor un texto sencillo
 // que uno que tutea o inventa. Varios para el medio, para no repetir el mismo dos veces seguidas.
 const RECORDATORIO_SEGURO: Record<TipoRecordatorio, string[]> = {
-  primero: ['¿Pudo revisar lo que le comenté? Si le quedó alguna duda, se la resuelvo por aquí.'],
+  primero: [
+    '¿Pudo revisar lo que le comenté? Si le quedó alguna duda, se la resuelvo por aquí.',
+    'Le escribo por si le quedó alguna duda de lo que conversamos; se la resuelvo por aquí.',
+  ],
   intermedio: [
     '¿Sigue con interés en el programa? Con un sí o un no me basta para saber cómo ayudarle.',
-    '¿Hay algo puntual que le falte para decidir? Se lo aclaro por aquí.',
     '¿Le sirve que le cuente cuándo cierra la postulación del próximo ciclo?',
+    'Si le acomoda, le explico en dos líneas cómo es la postulación.',
+    'Cuando tenga un momento, me cuenta qué le falta para decidir y lo vemos.',
   ],
-  cierre: ['Quizá no es el momento, y está bien; sigo por acá cuando quiera retomarlo.'],
+  cierre: [
+    'Quizá no es el momento, y está bien; me puede escribir cuando le acomode.',
+    'Gracias por su interés en el programa. Cuando quiera seguir, me escribe por aquí.',
+  ],
 };
-export const recordatorioSeguro = (tipo: TipoRecordatorio, etapa: number): string => {
+/** El texto sencillo para cuando el modelo no logra uno aceptable. `evitar`: los mensajes que ya
+ *  salieron, para no mandar el mismo dos veces. */
+export const recordatorioSeguro = (tipo: TipoRecordatorio, etapa: number, evitar: string[] = []): string => {
   const lista = RECORDATORIO_SEGURO[tipo];
+  for (let i = 0; i < lista.length; i++) {
+    const t = lista[(etapa + i) % lista.length];
+    if (!evitar.includes(t)) return t;
+  }
   return lista[etapa % lista.length];
 };
 
@@ -192,7 +349,7 @@ export function esRechazo(texto: string): boolean {
  *  "¿te quedaron dudas?" se leería como insistencia, que es justo lo que molesta a alguien que ya
  *  decidió no responder. `conContacto`: al cierre se le agregan después el WhatsApp y el correo del
  *  asesor, así que el modelo no debe escribirlos (ni inventarlos). */
-function sistemaSeguimiento(tipo: TipoRecordatorio, etapa: number, conContacto = false): string {
+function sistemaSeguimiento(tipo: TipoRecordatorio, etapa: number, conContacto = false, semilla = ''): string {
   if (marca.sePresentaComoAsesor) {
     // "La persona" y no "el cliente": el modelo copiaba la palabra y salió un recordatorio que decía
     // «Entiendo que el cliente ya recibió información… aquí va el seguimiento:» (chat 1566183).
@@ -200,18 +357,26 @@ function sistemaSeguimiento(tipo: TipoRecordatorio, etapa: number, conContacto =
       `Eres el asesor a cargo de esta conversación en ${marca.organizacion}; ya te presentaste antes. La persona no ha ` +
       'respondido desde tu último mensaje. NO vuelvas a presentarte ni digas tu nombre, y NO nombres a otras personas del ' +
       'equipo: el seguimiento lo haces tú, en primera persona, y le hablas directamente a ella.';
+    // Lo que hace que una secuencia suene a persona y no a plantilla (pedido de Ignacio, 11-11-2026).
+    const natural =
+      'Escribe como lo haría una persona real por WhatsApp: natural, sencillo, sin sonar a plantilla. Si ya le enviaste ' +
+      'recordatorios, el nuevo tiene que sonar DISTINTO a todos: otra forma de empezar, otra forma de frase (si el anterior ' +
+      'fue una pregunta, que este no lo sea, o al revés) y otro tema si ya insististe en uno. Evita frases de manual como ' +
+      '"hay algo específico", "le gustaría aclarar" o "se ajusta mejor a su situación". No le asignes género a la persona ' +
+      '("interesado", "lista", "la frena"): usa formas neutras como "le interesa" o "cuando pueda".';
     if (tipo === 'primero') {
       // El que mejor funcionó ofrecía un paso concreto: «¿Le envío el formulario de inscripción…?» tuvo
       // un "Sí" en 6 minutos (chat 1438855).
-      return `${baseAsesor} Escribe UN mensaje de seguimiento breve (1 a 2 frases), cálido y natural: retoma el hilo (el programa o tema del que hablaban) y ofrece UN paso concreto que se conteste con sí o no, según en qué quedó la conversación (por ejemplo, resolverle la duda que quedó pendiente, enviarle el brochure o contarle cuándo cierra la postulación). No repitas algo que ya dijiste. ${TONO_SEGUIMIENTO_ASESOR}`;
+      return `${baseAsesor} Escribe UN mensaje de seguimiento breve (1 a 2 frases), cálido y natural: retoma el hilo (el programa o tema del que hablaban) y ofrece UN paso concreto que se conteste con sí o no, según en qué quedó la conversación (por ejemplo, resolverle la duda que quedó pendiente, enviarle el brochure o contarle cuándo cierra la postulación). No repitas algo que ya dijiste. ${natural} ${TONO_SEGUIMIENTO_ASESOR}`;
     }
     if (tipo === 'intermedio') {
-      return `${baseAsesor} Ya le escribiste ${recordatorios(etapa - 1)} y sigue sin responder. Escribe UN mensaje muy breve (una frase, máximo dos) que le haga fácil contestar: una pregunta concreta que se responda con sí, no o una palabra, sobre el programa o el siguiente paso. Que no se parezca a tus mensajes anteriores, y NO presiones con urgencia, cupos ni descuentos. ${TONO_SEGUIMIENTO_ASESOR}`;
+      const enfoque = enfoqueDelMedio(semilla, etapa);
+      return `${baseAsesor} Ya le escribiste ${recordatorios(etapa - 1)} y sigue sin responder. Escribe UN mensaje breve (una frase, máximo dos). ENFOQUE de este mensaje: ${enfoque.texto} NO presiones con urgencia, cupos ni descuentos. ${natural} ${TONO_SEGUIMIENTO_ASESOR}`;
     }
     const contacto = conContacto
       ? ' NO escribas teléfonos ni correos: tu WhatsApp y tu correo se agregan al final del mensaje.'
       : '';
-    return `${baseAsesor} Ya le escribiste ${recordatorios(etapa - 1)} y tampoco respondió: este es el ÚLTIMO mensaje. Escribe UNA frase que cierre con elegancia: entiende que puede tener poco tiempo o que no sea el momento, y deja la puerta abierta ("sigo por acá cuando quiera retomarlo").${contacto} NO insistas, NO repitas los recordatorios anteriores y NO presiones con urgencia, cupos ni descuentos. ${TONO_SEGUIMIENTO_ASESOR}`;
+    return `${baseAsesor} Ya le escribiste ${recordatorios(etapa - 1)} y tampoco respondió: este es el ÚLTIMO mensaje. Escribe UNA sola frase corta (no más de 25 palabras) que cierre con elegancia: ${enfoqueDeCierre(semilla)}.${contacto} NO insistas, NO repitas los recordatorios anteriores y NO presiones con urgencia, cupos ni descuentos. ${natural} ${TONO_SEGUIMIENTO_ASESOR}`;
   }
   const base = 'Eres Sofía, asesora comercial de Postgrados de la Universidad Autónoma de Chile. El cliente no ha respondido desde tu último mensaje.';
   if (tipo === 'primero') {
@@ -231,19 +396,49 @@ export function formatearTelefono(e164: string): string {
 
 /** La frase con el WhatsApp y el correo del asesor a cargo, para el último recordatorio. Solo lo que
  *  la coordinación entregó (crm/contactoAsesores.ts) o un correo del dominio oficial: el Gmail
- *  personal de la ficha de Bitrix no se le da a un cliente. Vacía si no hay nada que dar, o si la
- *  marca no habla como el asesor (Postgrados habla como Sofía: "mi WhatsApp" no sería de nadie). */
+ *  personal de la ficha de Bitrix no se le da a un cliente. Sin asesor de la marca a cargo, o sin
+ *  nada que dar de él, va el contacto institucional: del 03 al 06-11-2026, 12 de 61 cierres salieron
+ *  sin ningún contacto. Vacía si la marca no habla como el asesor (Postgrados habla como Sofía: "mi
+ *  WhatsApp" no sería de nadie). */
 export async function contactoParaElCierre(dialogId: string, auth: Auth): Promise<string> {
   if (!marca.sePresentaComoAsesor) return '';
   const ents = await getJson<CrmEntities>(ENTITIES_KEY(dialogId));
-  if (!ents || !(ents.deal || ents.lead || ents.contact)) return '';
-  const a = await getIdentidadAsesor(ents, auth).catch(() => null);
-  if (!a) return '';
+  const a = ents && (ents.deal || ents.lead || ents.contact) ? await getIdentidadAsesor(ents, auth).catch(() => null) : null;
   const dominio = config.dominioCorreoOficial ? `@${config.dominioCorreoOficial}` : '';
-  const email = a.email && (!dominio || a.email.toLowerCase().endsWith(dominio)) ? a.email : '';
-  const whatsapp = a.telefono ? formatearTelefono(a.telefono) : '';
-  const datos = [whatsapp && `mi WhatsApp ${whatsapp}`, email && `mi correo ${email}`].filter(Boolean).join(' y ');
-  return datos ? `Le dejo ${datos}, por si le acomoda más escribirme por ahí.` : '';
+  const email = a?.email && (!dominio || a.email.toLowerCase().endsWith(dominio)) ? a.email : '';
+  const whatsapp = a?.telefono ? formatearTelefono(a.telefono) : '';
+  if (!whatsapp && !email) return marca.contactoCierreSinAsesor;
+  return fraseDeContacto(whatsapp, email, dialogId);
+}
+
+/** La misma frase en 33 de 42 cierres se notaba copiada: se elige una de varias por chat. */
+export function fraseDeContacto(whatsapp: string, email: string, semilla: string): string {
+  const variantes =
+    whatsapp && email
+      ? [
+          `Le dejo mi WhatsApp ${whatsapp} y mi correo ${email}, por si le acomoda más escribirme por ahí.`,
+          `Si le resulta más cómodo, me puede escribir directo a mi WhatsApp ${whatsapp} o a mi correo ${email}.`,
+          `Cualquier cosa, también me encuentra en WhatsApp al ${whatsapp} y en el correo ${email}.`,
+        ]
+      : whatsapp
+        ? [
+            `Le dejo mi WhatsApp ${whatsapp}, por si le acomoda más escribirme por ahí.`,
+            `Si le resulta más cómodo, me puede escribir directo a mi WhatsApp ${whatsapp}.`,
+            `Cualquier cosa, también me encuentra en WhatsApp al ${whatsapp}.`,
+          ]
+        : [
+            `Le dejo mi correo ${email}, por si le acomoda más escribirme por ahí.`,
+            `Si le resulta más cómodo, me puede escribir directo a mi correo ${email}.`,
+            `Cualquier cosa, también me encuentra en el correo ${email}.`,
+          ];
+  return variantes[semillaDe(`${semilla}:contacto`) % variantes.length];
+}
+
+/** Las horas de la secuencia con unos minutos de diferencia por chat (0 a 45), salvo la última, que
+ *  ya va lo más tarde posible dentro de la ventana de WhatsApp. Salían a las 14:24, 16:24 y 18:24 en
+ *  punto: en el teléfono de la persona eso se ve como una máquina. */
+export function horasConHolgura(horas: number[], semilla: string): number[] {
+  return horas.map((h, i) => (i === horas.length - 1 ? h : h + (semillaDe(`${semilla}:${i}`) % 46) / 60));
 }
 
 /** Hora local (0-23) de Chile para un instante dado — usa Intl.DateTimeFormat en vez de aritmética
@@ -355,7 +550,8 @@ export async function programarSeguimiento(
       // envío agenda el siguiente (ver avanzarPlan). Las colas de los dos recordatorios fijos no
       // corren junto a ella: limpiarlas aquí también vacía lo que quedó agendado antes del cambio.
       // Al reactivar, los pasos cuya hora ya pasó se saltan: no salen todos de golpe.
-      const pasos = planDeRecordatorios(desde, config.seguimientoEtapasHoras).filter((p) => desde === ahora || p > ahora);
+      const horas = marca.guardRespuesta ? horasConHolgura(config.seguimientoEtapasHoras, `${dialogId}:${ahora}`) : config.seguimientoEtapasHoras;
+      const pasos = planDeRecordatorios(desde, horas).filter((p) => desde === ahora || p > ahora);
       await r.zrem(DUE_KEY, dialogId).catch(() => {});
       await r.zrem(SEGUNDO_KEY, dialogId).catch(() => {});
       // El último paso lleva el contacto del asesor a cargo: hace falta saber de qué negociación es,
@@ -434,36 +630,58 @@ export async function cancelarSeguimiento(dialogId: string): Promise<void> {
 }
 
 /** `contacto` (solo en el cierre) se pega DESPUÉS del texto del modelo y de las reglas de
- *  respuesta: un número o un correo escrito por el modelo puede salir con un dígito cambiado. */
-async function generarMensajeSeguimiento(
+ *  respuesta: un número o un correo escrito por el modelo puede salir con un dígito cambiado.
+ *  Exportada para simular secuencias con el modelo real antes de desplegar. */
+export async function generarMensajeSeguimiento(
   dialogId: string,
   tipo: TipoRecordatorio,
   etapa: number,
   contacto = '',
+  semilla = dialogId,
 ): Promise<string | null> {
   const t = await conversacionDe(dialogId);
   if (t.length < 5) return null;
-  const sistema = sistemaSeguimiento(tipo, etapa, Boolean(contacto));
-  const pedido = { role: 'user' as const, content: `Conversación:\n${t}\n\nEscribe el mensaje de seguimiento.` };
+  const sistema = sistemaSeguimiento(tipo, etapa, Boolean(contacto), semilla);
   const previas = t.split('\n').filter((l) => l.startsWith('Bot: ')).map((l) => l.slice(5));
+  const yaEnviados = marca.sePresentaComoAsesor ? yaEnviadosEnLaSecuencia(previas, etapa) : [];
+  // Los recordatorios anteriores se le muestran aparte: en la conversación se confunden con las
+  // respuestas, y el modelo volvía a preguntar lo mismo con otras palabras.
+  const anteriores = yaEnviados.length
+    ? `\n\nRecordatorios que ya le enviaste en esta secuencia, sin respuesta (el nuevo NO puede parecerse a ninguno, ni en cómo empieza ni en el tema):\n${yaEnviados.map((m, i) => `${i + 1}. ${m}`).join('\n')}`
+    : '';
+  const pedido = { role: 'user' as const, content: `Conversación:\n${t}${anteriores}\n\nEscribe el mensaje de seguimiento.` };
   let texto = await redactarRecordatorio(sistema, [pedido], previas);
   if (texto && marca.guardRespuesta) {
     // Lo que no puede salir se corrige UNA vez, diciéndole al modelo qué estuvo mal. Si sigue mal, sale
     // un texto sencillo y seguro: un recordatorio que tutea o inventa hace más daño que uno simple.
-    const problemas = problemasDelRecordatorio(texto);
+    const revisar = (x: string) => [
+      ...problemasDelRecordatorio(x),
+      ...(marca.sePresentaComoAsesor ? [...repiteLoAnterior(x, previas), ...datosQueNoEstan(x, t)] : []),
+      // El cierre lleva además la línea de contacto: largo, se lee como un correo.
+      ...(marca.sePresentaComoAsesor && tipo === 'cierre' && x.length > 220 ? ['es muy largo: el cierre es UNA frase corta'] : []),
+    ];
+    const problemas = revisar(texto);
     if (problemas.length) {
-      const otra = await redactarRecordatorio(
-        sistema,
-        [pedido, { role: 'assistant', content: texto }, { role: 'user', content: `Ese mensaje no sirve: ${problemas.join('; ')}. Escríbelo de nuevo sin eso.` }],
-        previas,
-      );
-      const corregido = Boolean(otra) && !problemasDelRecordatorio(otra).length;
+      // Con las revisiones de repetición y de datos nuevos, una sola corrección dejaba el texto seguro
+      // en 4 de 6 primeros recordatorios simulados (11-11-2026): Carver tiene una más.
+      const correcciones = marca.sePresentaComoAsesor ? 2 : 1;
+      let mensajes: Array<{ role: 'user' | 'assistant'; content: string }> = [pedido];
+      let actual = texto;
+      let pendientes = problemas;
+      for (let i = 0; i < correcciones && pendientes.length; i++) {
+        mensajes = [...mensajes, { role: 'assistant', content: actual }, { role: 'user', content: `Ese mensaje no sirve: ${pendientes.join('; ')}. Escríbelo de nuevo sin eso.` }];
+        actual = await redactarRecordatorio(sistema, mensajes, previas);
+        pendientes = actual ? revisar(actual) : ['vacío'];
+      }
+      const corregido = !pendientes.length;
       inc(corregido ? 'seguimiento_corregido' : 'seguimiento_texto_seguro');
       log.info('seguimiento: recordatorio corregido', { dialogId, etapa, problemas, resultado: corregido ? 'reescrito' : 'texto_seguro' });
-      texto = corregido ? otra : recordatorioSeguro(tipo, etapa);
+      texto = corregido ? actual : recordatorioSeguro(tipo, etapa, previas);
     }
   }
   if (!texto) return null;
+  // El modelo escribe «escribame» sin tilde con frecuencia.
+  texto = texto.replace(/\b([Ee])scribame\b/g, '$1scríbame');
   return contacto ? `${texto} ${contacto}` : texto;
 }
 
@@ -654,7 +872,7 @@ async function barrerRecordatorios(key: string, etapaFija?: 1 | 2): Promise<void
 
       inc('seguimiento_ejecutado');
       const contacto = tipo === 'cierre' ? await contactoParaElCierre(dialogId, auth) : '';
-      const mensaje = await generarMensajeSeguimiento(dialogId, tipo, etapa, contacto);
+      const mensaje = await generarMensajeSeguimiento(dialogId, tipo, etapa, contacto, plan ? `${dialogId}:${plan.id}` : dialogId);
       if (!mensaje) {
         inc('seguimiento_omitido:sin_conversacion');
         await audit({ type: 'seguimiento_omitido', dialogId, detail: { ...detalleEtapa, motivo: 'sin_conversacion' } });

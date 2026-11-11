@@ -72,6 +72,9 @@ export type Marca = {
    *  Es institucional a propósito: un nombre de persona inventado ("Sofía") era una tercera identidad
    *  que convivía con la del asesor y con la del nombre registrado del bot. */
   presentacionSinAsesor: string;
+  /** Con sePresentaComoAsesor: lo que entrega el último recordatorio cuando no hay un asesor de la
+   *  marca a cargo o no hay nada que dar de él. Vacío = no entrega nada. */
+  contactoCierreSinAsesor: string;
   /** Tipos de programa que se OFRECEN y cotizan. Vacío = todos los del catálogo. El catálogo puede
    *  tener más (información histórica), pero lo que no esté acá no se vende (ver core/oferta.ts). */
   tiposComercializables: string[];
@@ -171,6 +174,7 @@ const POSTGRADOS: Marca = {
   // Todo lo que sigue deja a Postgrados exactamente como estaba: las reglas nuevas nacieron de la
   // auditoría del piloto de Carver y se activan solo ahí.
   presentacionSinAsesor: 'Sofía',
+  contactoCierreSinAsesor: '',
   tiposComercializables: [],
   guardRespuesta: false,
   maxCaracteresRespuesta: 0,
@@ -230,7 +234,9 @@ const CARVER: Marca = {
   catalogoDescripcion:
     'Consulta el catálogo oficial de programas de Carver University que se ofrecen por este canal: ' +
     'licenciaturas y maestrías, todas 100% en línea con clases en vivo en español.',
-  presentacionSinAsesor: env('CARVER_PRESENTACION_SIN_ASESOR', `el equipo de admisiones de ${CARVER_INSTITUCION}`),
+  presentacionSinAsesor: env('CARVER_PRESENTACION_SIN_ASESOR', `el área de orientación académica de ${CARVER_INSTITUCION}`),
+  // No se llama WhatsApp: ese número figura como teléfono de admisión, y no consta que tenga WhatsApp.
+  contactoCierreSinAsesor: 'Le dejo nuestro correo admission@carver.university y el teléfono +1 (321) 300-1034, por si le acomoda más contactarnos por ahí.',
   tiposComercializables: ['licenciatura', 'maestria'],
   guardRespuesta: true,
   // 500 desde el 03-11-2026: la mediana era 324 caracteres pero el 42% pasaba de 400, y la mitad de

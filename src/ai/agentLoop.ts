@@ -17,7 +17,7 @@ import { promptVigente } from '../core/ajustes';
 import { bloqueMomento } from '../core/momento';
 import { promesaDeSeguimiento, promesaDeCorreo, intencionDePago } from '../core/promesas';
 import { correoEnviadoHace } from '../crm/correoInformacion';
-import { asegurarPresentacion } from '../core/presentacion';
+import { asegurarPresentacion, cargoParaPresentarse } from '../core/presentacion';
 import { recortar } from '../core/textoSeguro';
 import { avisarAlResponsable } from '../crm/avisoAsesor';
 import { quitarCredenciales } from '../core/credenciales';
@@ -148,9 +148,10 @@ DATOS QUE EL CRM YA TIENE de esta persona — ${tiene.join(', ')}. ` +
 }
 
 export function bloqueIdentidad(
-  a: { nombre: string; email?: string; telefono?: string; formulario?: string },
+  a: { nombre: string; email?: string; telefono?: string; formulario?: string; cargo?: string },
   esPrimerTurno: boolean,
 ): string {
+  const cargo = cargoParaPresentarse(a.cargo, marca.organizacion);
   // El nombre se dice UNA sola vez, al presentarse. Después no se repite: así, si reasignan la
   // negociación a otro asesor a mitad de conversación, el cliente no ve que su interlocutor cambia
   // de nombre de un mensaje al otro. Se decide acá y no en el prompt porque el motor sabe de forma
@@ -159,7 +160,7 @@ export function bloqueIdentidad(
     ? [
         `
 
-IDENTIDAD: tu nombre es ${a.nombre}. Preséntate con él en ESTE mensaje, al comienzo ("Hola, soy ${a.nombre} y le acompaño en su proceso de admisión"), aunque la plantilla que la persona recibió antes ya te haya nombrado, y habla en primera persona como esa persona.`,
+IDENTIDAD: tu nombre es ${a.nombre}. Preséntate con él en ESTE mensaje, al comienzo ("Hola, soy ${a.nombre}, ${cargo}"), aunque la plantilla que la persona recibió antes ya te haya nombrado, y habla en primera persona como esa persona.`,
         'NO vuelvas a mencionar tu nombre en los mensajes siguientes: ya te habrás presentado.',
       ]
     : [
@@ -168,6 +169,7 @@ IDENTIDAD: tu nombre es ${a.nombre}. Preséntate con él en ESTE mensaje, al com
 IDENTIDAD: eres ${a.nombre} y ya te presentaste al inicio de esta conversación.`,
         'NO vuelvas a decir tu nombre ni a presentarte: sigue la conversación con naturalidad.',
       ];
+  lineas.push(`Si te preguntan qué cargo tienes o de qué área eres, responde: ${cargo}. Nunca digas que eres del equipo de admisiones.`);
   // Pasó en el piloto: el bot hablaba como "Ignacio" y en el mismo chat decía "confírmelo con
   // Ignacio, quien está a cargo de su caso". El nombre puede aparecer en mensajes anteriores escritos
   // por esa persona: sigue siendo uno mismo.
@@ -468,7 +470,7 @@ export async function runAgentTurn(
     // El primer mensaje del bot dice el nombre del asesor a cargo, aunque el modelo se lo salte
     // (ver core/presentacion.ts).
     if (marca.sePresentaComoAsesor && ctx.identidadAsesor && history.length === 0) {
-      enviado = asegurarPresentacion(enviado, ctx.identidadAsesor.nombre, marca.organizacion, ctx.datosConocidos?.nombre);
+      enviado = asegurarPresentacion(enviado, ctx.identidadAsesor.nombre, marca.organizacion, ctx.datosConocidos?.nombre, ctx.identidadAsesor.cargo);
     }
     // Una clave no se escribe por chat, aunque sea de la misma persona y la haya mandado ella en una
     // captura: el bot copió un usuario y su contraseña en la conversación (ver core/credenciales.ts).

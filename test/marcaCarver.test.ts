@@ -23,7 +23,7 @@ test('marca=carver: identidad y oferta son las de Carver University, no las de P
   assert.equal(marca.key, 'carver');
   // Carver se presenta con el nombre del asesor a cargo, no con el del bot (sePresentaComoAsesor),
   // así que la línea de identidad ya no dice "Eres Sofía" sino que instruye adoptar ese nombre.
-  assert.match(SYSTEM_PROMPT, /asesor comercial a cargo de este caso en Carver University/);
+  assert.match(SYSTEM_PROMPT, /orientación académica de este caso en Carver University/);
   assert.match(SYSTEM_PROMPT, /preséntate con ESE nombre/);
   assert.doesNotMatch(SYSTEM_PROMPT, /Universidad Autónoma de Chile/);
   assert.doesNotMatch(SYSTEM_PROMPT, /magísteres|diplomados/);
@@ -499,7 +499,9 @@ test('el bot ES admisiones: no ofrece "conectar" ni "derivar" a nadie', async ()
   // un movimiento interno; para el cliente la conversacion sigue con la misma persona.
   // Va en el prompt fijo y no en el bloque de identidad: un visitante nuevo del Live Chat no tiene
   // asesor asignado, y ahi el bot le ofrecia "conectarle con un asesor" (prueba del 30 de octubre).
-  assert.match(SYSTEM_PROMPT, /el equipo de admisiones/);
+  // Desde el 06-11-2026 se presenta como orientación académica, no como el equipo de admisiones (Ignacio).
+  assert.match(SYSTEM_PROMPT, /no hay otra persona ni otro equipo al que pasarlo/);
+  assert.match(SYSTEM_PROMPT, /nunca que eres del equipo de admisiones/);
   assert.match(SYSTEM_PROMPT, /nunca preguntes "¿lo conecto\?"/);
   assert.match(SYSTEM_PROMPT, /hazlo en silencio/);
   assert.ok(

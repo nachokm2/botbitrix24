@@ -3,7 +3,9 @@ import { log } from '../log';
 
 /**
  * Datos de contacto de cada asesor que la coordinación entregó para dárselos a los clientes (Carver,
- * 02-11-2026): WhatsApp, correo institucional y formulario de postulación.
+ * 02-11-2026): WhatsApp, correo institucional y formulario de postulación. También el cargo con que
+ * se presenta («orientadora académica»): lo da la coordinación porque Bitrix no sirve para saber la
+ * forma correcta de cada persona (su campo de género marca «M» hasta al bot).
  *
  * La ficha de usuario de Bitrix no sirve para esto en Carver. Los móviles están desactualizados (por
  * eso marca.telefonoAsesorVigente es false) y cinco de los siete asesores tienen su Gmail personal
@@ -14,7 +16,7 @@ import { log } from '../log';
  * validación se descarta solo, sin arrastrar a los demás del mismo asesor: un número a medias es peor
  * que ninguno, porque la persona escribe, no le contesta nadie y concluye que la dejaron botada.
  */
-export type ContactoAsesor = { whatsapp?: string; email?: string; formulario?: string };
+export type ContactoAsesor = { whatsapp?: string; email?: string; formulario?: string; cargo?: string };
 
 /** En formato internacional (+56912345678). Acepta espacios, guiones y paréntesis, y el número sin
  *  el "+" inicial, que es como suele venir copiado de una planilla. */
@@ -39,6 +41,12 @@ function formularioValido(v: unknown): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** Va tal cual en el primer mensaje al cliente: solo letras y espacios, y de largo razonable. */
+function cargoValido(v: unknown): string | undefined {
+  const c = String(v ?? '').trim().replace(/\s+/g, ' ');
+  return /^[\p{L} ]{3,60}$/u.test(c) ? c : undefined;
 }
 
 /** Lee la lista. Nunca lanza: una variable mal escrita deja al bot con la ficha de Bitrix, como antes.
@@ -69,6 +77,7 @@ export function leerContactoAsesores(texto: string): Map<number, ContactoAsesor>
       ['whatsapp', whatsappValido],
       ['email', emailValido],
       ['formulario', formularioValido],
+      ['cargo', cargoValido],
     ] as const) {
       if (x[campo] === undefined || x[campo] === '') continue;
       const v = validar(x[campo]);
