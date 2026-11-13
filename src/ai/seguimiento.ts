@@ -16,7 +16,7 @@ import { audit } from '../obs/audit';
 import { log } from '../log';
 import { asignarAsesorPorTurno, derivarAResponsableFijo } from '../crm/asignacionAsesores';
 import { derivacionYaGestionada } from '../crm/embudos';
-import { estaExcluido, pideNoMolestar } from '../crm/exclusion';
+import { estaExcluido, pideNoMolestar, prometioNoEscribir } from '../crm/exclusion';
 import { programaFueraDeOferta, esTipoComercializable } from '../core/oferta';
 import { matchProgramaCarver } from '../core/condicionesCarver';
 import { RIESGO_KEY } from '../core/riesgo';
@@ -209,6 +209,14 @@ export function datosQueNoEstan(texto: string, conversacion: string): string[] {
   if (ritmo && !conv.includes(ritmo[0].toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''))) {
     p.push(`dice «${ritmo[0]}», que no está en la conversación`);
   }
+  // Un mes que nadie nombró: «cómo podría comenzar en febrero», y no hay inicio en febrero (chat
+  // 1045696, 12-11-2026). Las fechas salen del calendario y el recordatorio no lo consulta.
+  for (const m of texto.matchAll(/\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\b/gi)) {
+    if (!new RegExp(`\\b${m[1].toLowerCase()}\\b`).test(conv)) {
+      p.push(`nombra «${m[1]}», un mes que no está en la conversación`);
+      break;
+    }
+  }
   return p.length ? [`${p.join('; ')}: usa solo lo que ya se dijo`] : [];
 }
 
@@ -270,14 +278,28 @@ export function problemasDelRecordatorio(texto: string): string[] {
     p.push('habla de la persona en tercera persona o deja ver instrucciones internas');
   }
   if (
-    /\b(revis[eé]|consult[eé]|verifiqu[eé]) con\b|tengo la informaci[oó]n lista|le (enviamos|envi[eé]|mandamos|mand[eé])\b[^.?!]{0,40}\b(correo|formulario)|se est[aá]n (completando|agotando)|(pocos|[uú]ltimos) cupos|\baudio\b/i.test(t)
+    /\b(revis[eé]|consult[eé]|verifiqu[eé]) con\b|tengo la informaci[oó]n lista|le (enviamos|envi[eé]|mandamos|mand[eé])\b[^.?!]{0,40}\b(correo|formulario)|se est[aá]n (completando|agotando)|(pocos|[uú]ltimos) cupos|cupos[^.?!]{0,25}\blimitad|\baudio\b/i.test(t)
   ) {
     p.push('afirma algo que no está en la conversación');
   }
   // Gestiones que nunca ocurrieron: «Como le prometí, le confirmo que hablé con admisión… no tenemos
   // casos documentados» (chat 1584077, 08-11-2026). El recordatorio no habla con nadie.
-  if (/\bhabl[eé] con\b|\bme (confirmaron|dijeron|indicaron|informaron)\b|\ble confirmo que\b|\bcomo le promet[ií]\b|\bya (lo )?(confirm[eé]|consult[eé]|averig[uü][eé]|gestion[eé])\b/i.test(t)) {
-    p.push('dice que consultó o confirmó algo con alguien, y eso no pasó');
+  // «Le tengo la respuesta sobre dónde consultar el programa», sin que nadie hubiera respondido
+  // (chat 1587709, 10-11-2026).
+  if (/\bhabl[eé] con\b|\bme (confirmaron|dijeron|indicaron|informaron)\b|\ble confirmo que\b|\bcomo le promet[ií]\b|\bya (lo )?(confirm[eé]|consult[eé]|averig[uü][eé]|gestion[eé])\b|\b(le )?(tengo|traigo) (la|una|su) respuesta\b|\btengo (novedades|noticias)\b/i.test(t)) {
+    p.push('dice que consultó o confirmó algo con alguien, o que ya tiene la respuesta, y eso no pasó');
+  }
+  // La beca y los requisitos no cambian por país: «¿Cuál es su país de residencia para confirmar si
+  // puede acceder a la beca?» salió en tres recordatorios de un mismo chat (1599155, 12-11-2026).
+  // Puede ir en dos frases: «¿Cuál es su país de residencia? Así le confirmo los requisitos» (1593681).
+  if (/\bpa[ií]s\b[\s\S]{0,100}\b(beca|requisitos)\b|\b(beca|requisitos)\b[\s\S]{0,100}\bpa[ií]s\b/i.test(t)) {
+    p.push('hace depender la beca o los requisitos del país, y no dependen del país');
+  }
+  // La única beca es la del 50 %: «su beca del 90%» salió cuatro veces en un mismo chat (1065861,
+  // 10-11-2026). «100% en línea» no es un porcentaje de beca.
+  if (marca.catalogo === 'carver') {
+    const otro = [...t.matchAll(/(\d{1,3}(?:[.,]\d+)?)\s?(%|por ?ciento)/gi)].find((m) => !['50', '100'].includes(m[1]));
+    if (otro) p.push(`dice «${otro[0]}»; el recordatorio no lleva porcentajes (la beca es del 50 %)`);
   }
   // "Sin cifras ni costos" ya está en el prompt; igual salieron "18 cuotas de USD 100" y "una beca para
   // egresados" que no existen en la planilla (chats 1566309 y 1576381).
@@ -333,15 +355,68 @@ export const recordatorioSeguro = (tipo: TipoRecordatorio, etapa: number, evitar
  *  quien elegía «Quiero matricularme ahora» parecía un rechazo. */
 export function esRechazo(texto: string): boolean {
   const t = (respuestaAPlantilla(texto) ?? texto)
+    // Un audio llega con el enlace delante de su transcripción.
+    .replace(/\[url=[^\]]*\][^[]*\[\/url\]/gi, ' ')
+    .trim()
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '');
   return (
     /\b(ya no me interesa|no me interesa|no estoy interesad|no por ahora|por ahora no|no deseo (continuar|seguir|recibir)|no me (escriban|contacten|molesten|llamen)|dejen de (escribir|enviar)|ya (me matricule|me inscribi|estoy estudiando) en otr)/.test(t) ||
+    // «No, no, no, muchas gracias» a secas también es un no (chat 1595887). Con algo más que muestre
+    // interés («no gracias, prefiero la licenciatura») no lo es.
+    (/^(no[\s,.!]+)+(muchas |mil )?gracias\b/.test(t) && !/prefier|me interesa|quiero|cuanto|cuesta|precio|informaci|\?/.test(t)) ||
     // Una baja explícita también corta: después de «Voy a bloquearlos» salieron cinco recordatorios más
     // (chat 1577067, 06-11-2026).
     pideNoMolestar(t)
   );
+}
+
+// Mensajes que solo cierran la conversación: no dicen nada nuevo sobre el interés de la persona.
+const CORTESIA = new Set(
+  'ok okay oki vale listo bueno buena perfecto dale gracias muchas mil igualmente de nada saludos bendiciones chao adios hasta luego pronto buen buenas buenos dia dias tarde tardes noche noches amen igual usted ud a'.split(' '),
+);
+
+/** ¿El mensaje es solo cortesía («gracias», «ok, igualmente») o un audio que no se pudo transcribir? */
+export function esSoloCortesia(mensaje: string): boolean {
+  const t = mensaje
+    .replace(/\[url=[^\]]*\][^[]*\[\/url\]/gi, ' ')
+    .replace(/\(el cliente envi[oó] un audio[^)]*\)/gi, ' ')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zñ\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  return t.every((w) => CORTESIA.has(w));
+}
+
+/** Los mensajes de la persona y del bot en la conversación, en orden. Se corta solo antes de
+ *  "Cliente:" o "Bot:", porque un mensaje puede tener varias líneas (la respuesta a una plantilla). */
+function turnosDe(conversacion: string): Array<{ quien: 'Cliente' | 'Bot'; texto: string }> {
+  return conversacion
+    .split(/\n(?=(?:Cliente|Bot): )/)
+    .filter((x) => /^(Cliente|Bot): /.test(x))
+    .map((x) => (x.startsWith('Cliente: ') ? { quien: 'Cliente' as const, texto: x.slice(9) } : { quien: 'Bot' as const, texto: x.slice(5) }));
+}
+
+/**
+ * Por qué no seguir escribiéndole, mirando lo conversado, o null si no hay motivo.
+ * - 'baja_prometida': uno de los últimos mensajes del bot le promete que no le escribe más.
+ * - 'rechazo' (solo con `conRechazo`): lo último que dijo la persona, sin contar los «gracias» u «ok»
+ *   que vienen después, es un no. Antes se miraba solo el último mensaje: «no estoy interesado» y
+ *   luego «Gracias» dejaba pasar los cinco recordatorios (chat 1595779, 10-11-2026).
+ */
+export function motivoPorLoConversado(conversacion: string, conRechazo: boolean): 'baja_prometida' | 'rechazo' | null {
+  const turnos = turnosDe(conversacion);
+  if (turnos.filter((x) => x.quien === 'Bot').slice(-3).some((x) => prometioNoEscribir(x.texto))) return 'baja_prometida';
+  if (!conRechazo) return null;
+  const delCliente = turnos.filter((x) => x.quien === 'Cliente').map((x) => x.texto);
+  for (const m of delCliente.slice(-4).reverse()) {
+    if (esSoloCortesia(m)) continue;
+    return esRechazo(m) ? 'rechazo' : null;
+  }
+  return null;
 }
 
 /** Prompt del recordatorio según su lugar en la secuencia: el primero retoma el hilo, los del medio
@@ -707,14 +782,6 @@ async function redactarRecordatorio(system: string, messages: Array<{ role: 'use
   }).texto;
 }
 
-/** Lo último que escribió la persona en la conversación, o '' si no hay nada. Se corta solo antes de
- *  "Cliente:" o "Bot:", porque un mensaje puede tener varias líneas (la respuesta a una plantilla). */
-async function ultimoMensajeDelCliente(dialogId: string): Promise<string> {
-  const turnos = (await conversacionDe(dialogId)).split(/\n(?=(?:Cliente|Bot): )/);
-  const ultimo = [...turnos].reverse().find((x) => x.startsWith('Cliente: '));
-  return ultimo ? ultimo.slice('Cliente: '.length) : '';
-}
-
 /** Motivo por el que un recordatorio vencido NO debe enviarse, o null si se puede enviar. Cada uno
  *  queda auditado: antes estos casos se descartaban sin dejar rastro y no había forma de saber si la
  *  secuencia se cumplía. */
@@ -729,8 +796,10 @@ async function motivoParaNoEnviar(dialogId: string, auth?: Auth): Promise<string
   const sess = await getSession(dialogId);
   if (sess.humanTookOver) return 'humano_a_cargo';
   // Un recordatorio después de un "no me interesa" se lee como que nadie leyó lo que contestó (pasó
-  // en 3 chats entre el 25-10 y el 03-11-2026).
-  if (marca.guardRespuesta && esRechazo(await ultimoMensajeDelCliente(dialogId))) return 'rechazo';
+  // en 3 chats entre el 25-10 y el 03-11-2026). Y si el bot ya le prometió no escribirle más, no se
+  // le escribe (ver motivoPorLoConversado).
+  const porLoConversado = motivoPorLoConversado(await conversacionDe(dialogId), Boolean(marca.guardRespuesta));
+  if (porLoConversado) return porLoConversado;
   // Tras un mensaje que puede indicar riesgo no se le vende nada (ver core/riesgo.ts y ai/agentLoop.ts).
   if (await getJson<number>(RIESGO_KEY(dialogId))) return 'riesgo';
   // Respeta la baja ("no me escriban más"): si el contacto de este chat pidió que no le escriban, no

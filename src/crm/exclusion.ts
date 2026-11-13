@@ -37,7 +37,14 @@ const FRASES_BAJA = [
   /\bstop\b/,
   /\bunsubscribe\b/,
   /\bno insistan?\b/,
-  /\bdejen de (escrib|molest|mandar)/,
+  // También en singular: «Amigo porfa deje de molestar» no calzaba y siguieron los recordatorios
+  // (chat 1593997, 09-11-2026).
+  /\bdej(a|e|en) de (escrib|molest|mandar|enviar|insistir)/,
+  // El botón de baja de las plantillas de Meta: después de «Detener promociones» salieron cinco
+  // recordatorios (chat 1596719, 10-11-2026).
+  /\b(detener|parar|cancelar|suspender) (las |los |estas |estos )?(promociones|mensajes|envios|notificaciones)\b/,
+  /\b(los|las|lo|la|te|les)? ?voy a denunciar/,
+  /\bdenunciar(los|las|lo|la|te)\b/,
   // «Voy a bloquearlos»: después de eso salieron cinco recordatorios más (chat 1577067, 06-11-2026).
   /\b(los|las|lo|la|te|les)? ?voy a bloquear/,
   /\bbloquear(los|las|lo|la|te)\b/,
@@ -60,6 +67,23 @@ export function pideNoMolestar(mensaje: string): boolean {
   const t = norm(mensaje);
   if (!t || t.length > 300) return false; // un texto largo rara vez es una baja; evita falsos positivos
   return FRASES_BAJA.some((re) => re.test(t));
+}
+
+/**
+ * ¿La respuesta del bot le promete a la persona que no le va a escribir más? Entonces hay que cumplirlo,
+ * aunque su mensaje no calzara con ninguna frase de baja: en el chat 1593997 (09 al 12-11-2026) el bot
+ * contestó nueve veces «no le escribo más» a insultos y amenazas de denuncia, y los recordatorios
+ * siguieron saliendo. Se exige «más» o «volver a»: «no le escribo por WhatsApp» no es una promesa.
+ */
+const PROMESAS_DE_NO_ESCRIBIR = [
+  /\bno (le |lo |la |te |les |los |las )?(escribo|escribimos|escribire|escribiremos|molesto|molestamos|molestare|contacto|contactamos) mas\b/,
+  /\bno (le |lo |la |te |les |los |las )?(vuelvo|volvemos|volvere|volveremos) a (escribir|contactar|molestar)/,
+  /\bno (le |les |te )?(lleguen|llegaran|llegara|van a llegar) mas (mensajes|promociones|recordatorios)/,
+];
+
+export function prometioNoEscribir(respuesta: string): boolean {
+  const t = norm(respuesta);
+  return Boolean(t) && PROMESAS_DE_NO_ESCRIBIR.some((re) => re.test(t));
 }
 
 /** Registra la baja. Idempotente: repetirla no vuelve a auditar. */

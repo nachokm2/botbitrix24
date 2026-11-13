@@ -45,7 +45,7 @@ mock.module('../src/crm/directory.ts', {
 
 let excluido = false;
 mock.module('../src/crm/exclusion.ts', {
-  namedExports: { estaExcluido: async () => excluido, excluir: async () => {}, pideNoMolestar: () => false },
+  namedExports: { estaExcluido: async () => excluido, excluir: async () => {}, pideNoMolestar: () => false, prometioNoEscribir: () => false },
 });
 
 const envios: any[] = [];

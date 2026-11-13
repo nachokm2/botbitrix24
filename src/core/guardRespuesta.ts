@@ -109,6 +109,20 @@ const AFIRMA_REGISTRO =
   // (Sin \b al final del verbo: en JavaScript \b no trata "é" ni "á" como letras, y "quedé" no calzaba.)
   /\b(qued[eéoó]|quedar[aá]n?|dej[eéo]|he dejado|tengo|ya (est[aá]n?|tengo|qued[oó]))(?![a-záéíóúñ])[^.!?\n]{0,40}\b(registrad|anotad|guardad|derivad)|registr[eé] (sus|tus) datos|lo registro|(lo|la) (he )?derivad[oa]|(lo|la) contactar[aá]n? a la brevedad/i;
 
+// Dice que el título viene con la apostilla. Se mira sobre el texto sin tildes. «Gestiona la apostilla»
+// (la plantilla aprobada) no calza: no dice que venga incluida.
+const TITULO_CON_APOSTILLA =
+  /\b(titulos?|diplomas?|documentos?|transcript)\b[^.!?\n]{0,60}(\bcon (la )?apostilla\b|\bapostillad[oa]s?\b)|\bapostilla (de la haya )?(ya )?(esta |va |viene )?incluida\b|\bincluye (la )?apostilla\b/;
+// Lo dice bien: lo niega, o lo plantea como algo que se pide aparte («si necesita los documentos físicos
+// apostillados, la universidad le apoya», que es el texto del panel).
+const APOSTILLA_BIEN_DICHA =
+  /\bno (vienen?|van|incluye|incluyen|esta|estan|se entregan?|salen?|llevan?)\b|\bsin (la )?apostilla\b|\bno [^.!?\n]{0,25}apostillad|\bsi (lo |la |los |las )?(necesita|requiere|quiere|desea)|\bpuede (pedir|solicitar|gestionar)|\baparte\b/;
+// Dice que el título se entrega en papel, sin decir que es digital y que el físico se pide aparte.
+const TITULO_EN_FISICO = /\b(titulo|diploma)\b[^.!?\n]{0,50}\b(en |formato )fisico\b/;
+const FISICO_BIEN_DICHO = /digital|pedir|solicitar|a pedido|aparte|adicional|\bsi (lo |la )?(necesita|requiere|quiere|desea)/;
+export const CORRECCION_APOSTILLA = 'La apostilla de La Haya no viene incluida: es un trámite aparte, que puede gestionar a través de Carver.';
+export const CORRECCION_FISICO = 'El título y el registro de calificaciones se entregan en formato digital, y se pueden pedir en físico.';
+
 export type ResultadoGuard = { texto: string; cambios: string[]; excedeLargo: boolean };
 
 export function guardarRespuesta(textoOriginal: string, ctx: ContextoGuard): ResultadoGuard {
@@ -175,6 +189,32 @@ export function guardarRespuesta(textoOriginal: string, ctx: ContextoGuard): Res
     if (reemplazada) {
       cambios.push('derivacion_anunciada');
       texto = nuevas.join(' ');
+    }
+  }
+
+  // 2d) El título no viene apostillado ni se entrega en papel. Estaba en el prompt y aun así salió
+  // «Carver entrega el título con apostilla» (chat 1599245) y «El título se obtiene en formato físico»
+  // (chat 1586329), entre el 09 y el 13-11-2026. La frase se cambia por la correcta.
+  {
+    let tocada = false;
+    // Se mira cada parte de la frase por separado: en «El título se obtiene en formato físico; la
+    // apostilla es trámite aparte» el «aparte» es de la segunda parte, no de la primera.
+    const partesDe = (f: string) => norm(f).split(/[;:]/);
+    const nuevas = frases(texto).map((f) => {
+      const partes = partesDe(f);
+      const corregida = partes.some((n) => TITULO_CON_APOSTILLA.test(n) && !APOSTILLA_BIEN_DICHA.test(n))
+        ? CORRECCION_APOSTILLA
+        : partes.some((n) => TITULO_EN_FISICO.test(n) && !FISICO_BIEN_DICHO.test(n))
+          ? CORRECCION_FISICO
+          : null;
+      if (!corregida) return f;
+      tocada = true;
+      return f.startsWith('\n') ? `\n${corregida}` : corregida;
+    });
+    if (tocada) {
+      cambios.push('titulo_apostilla_o_fisico');
+      // Si dos frases quedaron iguales (las dos decían lo mismo), sale una sola.
+      texto = nuevas.filter((f, i) => f.trim() !== nuevas[i - 1]?.trim()).join(' ');
     }
   }
 

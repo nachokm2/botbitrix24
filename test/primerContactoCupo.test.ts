@@ -60,6 +60,7 @@ mock.module('../src/crm/exclusion.ts', {
     estaExcluido: async () => false,
     excluir: async () => {},
     pideNoMolestar: () => false,
+    prometioNoEscribir: () => false,
   },
 });
 

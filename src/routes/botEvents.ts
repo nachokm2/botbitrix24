@@ -13,7 +13,7 @@ import { inc } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { resolveAllEntities, loadPriorContext, logConversationTurn } from '../crm/chat';
 import { leerHistorialPrevio } from '../crm/historialChat';
-import { pideNoMolestar, excluir } from '../crm/exclusion';
+import { pideNoMolestar, prometioNoEscribir, excluir } from '../crm/exclusion';
 import { aplicaCopiloto, entregarBorrador } from '../ai/copiloto';
 import { primaryEntity } from '../crm/entities';
 import { esEmpleadoBitrix, getIdentidadAsesor, getDatosConocidosDeEntidades, getUsuarios } from '../crm/directory';
@@ -553,9 +553,17 @@ async function handle(req: Request) {
       log.warn('no se pudo entregar la sesión al operador', { err: String(e), dialogId, chatId });
     }
   }
-  // Los recordatorios están escritos en español y terminan derivando a un asesor: no en el modo
-  // internacional.
-  if (!internacional) void programarSeguimiento(dialogId, crmEntities, sesion); // si el cliente no vuelve a escribir: recordatorio y, si sigue en silencio, transferencia al asesor (ver ai/seguimiento.ts)
+  // Si el bot le acaba de prometer que no le escribe más, se cumple: queda la baja y no sale ningún
+  // recordatorio. Antes solo contaba lo que escribía la persona, y en el chat 1593997 el bot dijo nueve
+  // veces «no le escribo más» mientras los recordatorios seguían saliendo.
+  if (prometioNoEscribir(reply)) {
+    void excluir({ contactId: crmEntities?.contact, dialogId, motivo: 'el_bot_prometio_no_escribir' });
+    void cancelarSeguimiento(dialogId);
+  } else if (!internacional) {
+    // Los recordatorios están escritos en español y terminan derivando a un asesor: no en el modo
+    // internacional.
+    void programarSeguimiento(dialogId, crmEntities, sesion); // si el cliente no vuelve a escribir: recordatorio y, si sigue en silencio, transferencia al asesor (ver ai/seguimiento.ts)
+  }
 
   // Auditoría del turno (compliance) — independiente del CRM.
   await audit({
