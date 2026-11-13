@@ -510,6 +510,13 @@ export const config = {
     .split(',')
     .map((x) => Number(x.trim()))
     .filter((n) => Number.isFinite(n) && n > 0),
+  // Negociación para quien entra a ese modo sin tener una en el embudo (pedido del usuario, 13-11-2026,
+  // por el anuncio de India en Meta): la etapa donde se crea —"C73:UC_173429" es la etapa «Carver» del
+  // embudo Carver (73)—, el responsable (vacío = el primero de INTERNACIONAL_AVISAR_A) y el nombre del
+  // programa para el título y el campo de programa. Etapa vacía = no se crea nada.
+  internacionalEtapaNegociacion: (process.env.INTERNACIONAL_ETAPA_NEGOCIACION ?? (esCarver ? 'C73:UC_173429' : '')).trim(),
+  internacionalResponsable: Number(process.env.INTERNACIONAL_RESPONSABLE ?? '') || 0,
+  internacionalPrograma: (process.env.INTERNACIONAL_PROGRAMA ?? '').trim(),
   // Asesores (id de Bitrix) que atienden sus negociaciones sin el bot: si es el responsable, el bot no
   // le escribe a ese cliente y le entrega el chat (crm/asesorSinBot.ts). Vacío = nadie.
   asesoresSinBot: (process.env.ASESORES_SIN_BOT ?? '')

@@ -22,6 +22,7 @@ import { asesoresDisponibles, motivoHorario } from '../core/horarioAsesores';
 import { hayOperadorEnElChat } from '../crm/operadorEnChat';
 import { listaBlancaActiva, puedeResponder, lineaDelChat, telefonoDelChat } from '../core/listaBlanca';
 import { fichaSiEsInternacional, perfilInternacional, urlsDeLaFicha } from '../core/internacional';
+import { asegurarNegociacionInternacional } from '../crm/negociacionInternacional';
 import { esperarComoHumano } from '../core/ritmoHumano';
 import { anotarEntrante, fueAbsorbido, esperarFinDeRafaga, tomarRafaga } from '../core/rafaga';
 import { esEnvioNuestroPorChatApp, esRespuestaAutomaticaDeNegocio, adjuntosSonDeLaPlantilla } from '../core/ecos';
@@ -389,7 +390,12 @@ async function handle(req: Request) {
   let logText = turnText || '[imagen]';
 
   // Identifica las entidades CRM vinculadas al chat (del propio evento; sin llamada extra si viene).
-  const crmEntities = await resolveAllEntities(params, chatId, auth);
+  let crmEntities = await resolveAllEntities(params, chatId, auth);
+  // Quien llega al modo internacional (el anuncio de India) sin negociación en el embudo, la recibe
+  // ahora, antes de que el bot responda: así lo que registre queda en ella (crm/negociacionInternacional.ts).
+  if (internacional) {
+    crmEntities = await asegurarNegociacionInternacional({ dialogId, entidades: crmEntities, telefono: () => telefonoDelChat(chatId, auth), auth });
+  }
   const crmEntity = primaryEntity(crmEntities);
   log.info('CRM entity', { primary: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : 'ninguna', all: crmEntities });
 
