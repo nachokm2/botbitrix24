@@ -4,7 +4,7 @@ import { transcript } from './briefing';
 import { getSession, traspasoVigente } from '../session';
 import { asesoresDisponibles, proximoFueraDeHorario } from '../core/horarioAsesores';
 import { marca } from '../marca';
-import { guardarRespuesta, detectarTuteo } from '../core/guardRespuesta';
+import { guardarRespuesta, detectarTuteo, detectarUsted } from '../core/guardRespuesta';
 import { URLS_OFICIALES_CARVER } from '../core/promptObjeciones';
 import { callBitrix } from '../bitrix/client';
 import { getRedisClient, getJson, setJson, kvDel } from '../store/kv';
@@ -106,10 +106,11 @@ const TONO_SEGUIMIENTO = `Escribe en español de Chile, tratando siempre de "ust
 // "Entiendo que" (casi la mitad), afirmaban cosas que no habían pasado ("ya revisé con el área
 // académica", "el formulario que le enviamos al correo", un audio que nunca existió) y reprochaban
 // el silencio ("varios intentos de contacto sin respuesta de su parte").
+// Carver tutea desde el 13-11-2026 (pedido de Ignacio).
 const TONO_SEGUIMIENTO_ASESOR =
-  `Escribe en ${marca.espanol}, tratando siempre de "usted" (nunca tuteas ni voseas). Sin saludo formal tipo "Estimado/a", ` +
+  `Escribe en ${marca.espanol}, TUTEANDO siempre a la persona (tú; nunca usted ni voseo). Sin saludo formal tipo "Estimado/a", ` +
   'sin negritas, sin enlaces y sin cifras ni costos. Habla directo, como una persona: no empieces con "Veo que", "Noto que" ' +
-  'ni "Entiendo que", y nada de fórmulas como "retomando nuestra conversación" o "le escribo para hacer seguimiento". Usa ' +
+  'ni "Entiendo que", y nada de fórmulas como "retomando nuestra conversación" o "te escribo para hacer seguimiento". Usa ' +
   'SOLO lo que está en la conversación: no digas que revisaste o consultaste algo, que le enviaste un correo o un ' +
   'formulario, ni que quedan pocos cupos, y no menciones audios ni archivos que no aparezcan en ella. No agregues datos del ' +
   'programa que no estén escritos en la conversación (duración, días u horarios de clase, ritmo de estudio). Nunca le reproches ' +
@@ -151,7 +152,7 @@ const ENFOQUES_MEDIO = [
   },
   {
     id: 'opciones',
-    texto: 'Ofrécele elegir entre dos cosas concretas que puedes hacer por ella, sacadas de la conversación (por ejemplo, contarle los requisitos o las fechas del próximo ingreso), en una sola pregunta del tipo "¿prefiere… o…?".',
+    texto: 'Ofrécele elegir entre dos cosas concretas que puedes hacer por ella, sacadas de la conversación (por ejemplo, contarle los requisitos o las fechas del próximo ingreso), en una sola pregunta del tipo "¿prefieres… o…?".',
   },
   {
     id: 'dato',
@@ -184,7 +185,7 @@ const enfoqueDeCierre = (semilla: string) => ENFOQUES_CIERRE[semillaDe(`${semill
 // Frases que delatan una plantilla: salieron decenas de veces en tres días. «Quería dejarle saber»
 // (calco del inglés) y «apetecer» (de España) salieron en la simulación del 11-11.
 const FRASES_GASTADAS =
-  /hay algo (espec[ií]fico|en particular)|le gustar[ií]a (aclarar|resolver)|se (ajusta|acomoda|adapta) mejor a su situaci[oó]n|cuando (usted )?quiera retomarlo|quer[ií]a dejar(le|lo|la)? saber|\bapetezc\w*|\bapetec\w*/i;
+  /hay algo (espec[ií]fico|en particular)|(le|te) gustar[ií]a (aclarar|resolver)|se (ajusta|acomoda|adapta) mejor a (su|tu) situaci[oó]n|cuando (usted )?quieras? retomarlo|quer[ií]a dejar(le|lo|la|te)? saber|\bapetezc\w*|\bapetec\w*/i;
 
 const NUMEROS: Record<string, string> = { un: '1', una: '1', uno: '1', dos: '2', tres: '3', cuatro: '4', cinco: '5', seis: '6', siete: '7', ocho: '8', nueve: '9', diez: '10', doce: '12' };
 const DATO_CON_MEDIDA = /\b(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|doce)\s+(a[nñ]os?|semestres?|meses|mes|semanas?|noches?|d[ií]as?|horas?)\b/gi;
@@ -244,8 +245,8 @@ export function repiteLoAnterior(texto: string, anteriores: string[]): string[] 
   const gastada = FRASES_GASTADAS.exec(texto);
   if (gastada) p.push(`usa la frase gastada «${gastada[0]}»; dilo con otras palabras`);
   // «¿Sigue interesado…?» salió 12 veces en tres días: no se sabe si la persona es hombre o mujer.
-  const genero = /\b(est[aá]|sigue|siga|queda|qued[oó]|se sienta|est[eé]) (interesad|list|segur|convencid|decidid)[oa]s?\b/i.exec(texto);
-  if (genero) p.push(`dice «${genero[0]}», que le asigna un género a la persona; usa "le interesa", "cuando pueda" o algo neutro`);
+  const genero = /\b(est[aá]s?|sigues?|sigas?|quedas?|qued[oó]|quedaste|se sienta|te sientas|est[eé]s?) (interesad|list|segur|convencid|decidid)[oa]s?\b/i.exec(texto);
+  if (genero) p.push(`dice «${genero[0]}», que le asigna un género a la persona; usa "te interesa", "cuando puedas" o algo neutro`);
   const grams = (s: string) => {
     const w = normalizarPalabras(sinNombresDePrograma(s));
     const g = new Set<string>();
@@ -272,13 +273,15 @@ const yaEnviadosEnLaSecuencia = (previas: string[], etapa: number) => (etapa > 1
 export function problemasDelRecordatorio(texto: string): string[] {
   const t = texto.trim();
   const p: string[] = [];
-  if (detectarTuteo(t).length) p.push('tutea; hay que tratar de "usted"');
+  if (marca.trato === 'tu' ? detectarUsted(t).length : detectarTuteo(t).length) {
+    p.push(marca.trato === 'tu' ? 'trata de "usted"; hay que tutear' : 'tutea; hay que tratar de "usted"');
+  }
   if (/^\W*(veo|noto|entiendo) que\b/i.test(t)) p.push('empieza con "Veo que", "Noto que" o "Entiendo que"');
   if (/\b(el|la) cliente\b|aqu[ií] (va|est[aá]) (el|un) (mensaje|seguimiento)|mensaje de seguimiento|seguimiento:/i.test(t)) {
     p.push('habla de la persona en tercera persona o deja ver instrucciones internas');
   }
   if (
-    /\b(revis[eé]|consult[eé]|verifiqu[eé]) con\b|tengo la informaci[oó]n lista|le (enviamos|envi[eé]|mandamos|mand[eé])\b[^.?!]{0,40}\b(correo|formulario)|se est[aá]n (completando|agotando)|(pocos|[uú]ltimos) cupos|cupos[^.?!]{0,25}\blimitad|\baudio\b/i.test(t)
+    /\b(revis[eé]|consult[eé]|verifiqu[eé]) con\b|tengo la informaci[oó]n lista|(le|te) (enviamos|envi[eé]|mandamos|mand[eé])\b[^.?!]{0,40}\b(correo|formulario)|se est[aá]n (completando|agotando)|(pocos|[uú]ltimos) cupos|cupos[^.?!]{0,25}\blimitad|\baudio\b/i.test(t)
   ) {
     p.push('afirma algo que no está en la conversación');
   }
@@ -286,7 +289,7 @@ export function problemasDelRecordatorio(texto: string): string[] {
   // casos documentados» (chat 1584077, 08-11-2026). El recordatorio no habla con nadie.
   // «Le tengo la respuesta sobre dónde consultar el programa», sin que nadie hubiera respondido
   // (chat 1587709, 10-11-2026).
-  if (/\bhabl[eé] con\b|\bme (confirmaron|dijeron|indicaron|informaron)\b|\ble confirmo que\b|\bcomo le promet[ií]\b|\bya (lo )?(confirm[eé]|consult[eé]|averig[uü][eé]|gestion[eé])\b|\b(le )?(tengo|traigo) (la|una|su) respuesta\b|\btengo (novedades|noticias)\b/i.test(t)) {
+  if (/\bhabl[eé] con\b|\bme (confirmaron|dijeron|indicaron|informaron)\b|\b(le|te) confirmo que\b|\bcomo (le|te) promet[ií]\b|\bya (lo )?(confirm[eé]|consult[eé]|averig[uü][eé]|gestion[eé])\b|\b((le|te) )?(tengo|traigo) (la|una|su|tu) respuesta\b|\btengo (novedades|noticias)\b/i.test(t)) {
     p.push('dice que consultó o confirmó algo con alguien, o que ya tiene la respuesta, y eso no pasó');
   }
   // La beca y los requisitos no cambian por país: «¿Cuál es su país de residencia para confirmar si
@@ -313,7 +316,7 @@ export function problemasDelRecordatorio(texto: string): string[] {
     const fuera = programaFueraDeOferta(t, (nombre) => matchProgramaCarver(nombre).some((x) => esTipoComercializable(x.tipo)));
     if (fuera) p.push(`nombra «${fuera}», que no está en la oferta; habla del programa sin nombrarlo`);
   }
-  if (/sin respuesta de su parte|no (me )?ha respondido|varios intentos|no (hemos|he) tenido respuesta/i.test(t)) p.push('le reprocha que no responde');
+  if (/sin respuesta de (su|tu) parte|no (me )?has? respondido|varios intentos|no (hemos|he) tenido respuesta/i.test(t)) p.push('le reprocha que no responde');
   if (/\batent[oa]s?\b/i.test(t)) p.push('marca el género ("atento" o "atenta")');
   // Salió en un cierre real: el modelo dejó «WhatsApp:» y «Correo:» para rellenar (chat 1219149).
   if (/^\s*(whatsapp|correo|tel[eé]fono)\s*:/im.test(t)) p.push('deja etiquetas de contacto como "WhatsApp:" o "Correo:"; el contacto se agrega aparte');
@@ -321,21 +324,22 @@ export function problemasDelRecordatorio(texto: string): string[] {
 }
 
 // Lo que sale si el modelo no logra un recordatorio aceptable en dos intentos: mejor un texto sencillo
-// que uno que tutea o inventa. Varios para el medio, para no repetir el mismo dos veces seguidas.
+// que uno que se sale del trato o inventa. Varios para el medio, para no repetir el mismo dos veces
+// seguidas. Solo los usa Carver (con guardRespuesta), que tutea desde el 13-11-2026.
 const RECORDATORIO_SEGURO: Record<TipoRecordatorio, string[]> = {
   primero: [
-    '¿Pudo revisar lo que le comenté? Si le quedó alguna duda, se la resuelvo por aquí.',
-    'Le escribo por si le quedó alguna duda de lo que conversamos; se la resuelvo por aquí.',
+    '¿Pudiste revisar lo que te comenté? Si te quedó alguna duda, te la resuelvo por aquí.',
+    'Te escribo por si te quedó alguna duda de lo que conversamos; te la resuelvo por aquí.',
   ],
   intermedio: [
-    '¿Sigue con interés en el programa? Con un sí o un no me basta para saber cómo ayudarle.',
-    '¿Le sirve que le cuente cuándo cierra la postulación del próximo ciclo?',
-    'Si le acomoda, le explico en dos líneas cómo es la postulación.',
-    'Cuando tenga un momento, me cuenta qué le falta para decidir y lo vemos.',
+    '¿Sigues con interés en el programa? Con un sí o un no me basta para saber cómo ayudarte.',
+    '¿Te sirve que te cuente cuándo cierra la postulación del próximo ciclo?',
+    'Si te acomoda, te explico en dos líneas cómo es la postulación.',
+    'Cuando tengas un momento, me cuentas qué te falta para decidir y lo vemos.',
   ],
   cierre: [
-    'Quizá no es el momento, y está bien; me puede escribir cuando le acomode.',
-    'Gracias por su interés en el programa. Cuando quiera seguir, me escribe por aquí.',
+    'Quizá no es el momento, y está bien; me puedes escribir cuando te acomode.',
+    'Gracias por tu interés en el programa. Cuando quieras seguir, me escribes por aquí.',
   ],
 };
 /** El texto sencillo para cuando el modelo no logra uno aceptable. `evitar`: los mensajes que ya
@@ -437,8 +441,8 @@ function sistemaSeguimiento(tipo: TipoRecordatorio, etapa: number, conContacto =
       'Escribe como lo haría una persona real por WhatsApp: natural, sencillo, sin sonar a plantilla. Si ya le enviaste ' +
       'recordatorios, el nuevo tiene que sonar DISTINTO a todos: otra forma de empezar, otra forma de frase (si el anterior ' +
       'fue una pregunta, que este no lo sea, o al revés) y otro tema si ya insististe en uno. Evita frases de manual como ' +
-      '"hay algo específico", "le gustaría aclarar" o "se ajusta mejor a su situación". No le asignes género a la persona ' +
-      '("interesado", "lista", "la frena"): usa formas neutras como "le interesa" o "cuando pueda".';
+      '"hay algo específico", "te gustaría aclarar" o "se ajusta mejor a tu situación". No le asignes género a la persona ' +
+      '("interesado", "lista", "la frena"): usa formas neutras como "te interesa" o "cuando puedas".';
     if (tipo === 'primero') {
       // El que mejor funcionó ofrecía un paso concreto: «¿Le envío el formulario de inscripción…?» tuvo
       // un "Sí" en 6 minutos (chat 1438855).
@@ -486,25 +490,26 @@ export async function contactoParaElCierre(dialogId: string, auth: Auth): Promis
   return fraseDeContacto(whatsapp, email, dialogId);
 }
 
-/** La misma frase en 33 de 42 cierres se notaba copiada: se elige una de varias por chat. */
+/** La misma frase en 33 de 42 cierres se notaba copiada: se elige una de varias por chat. En tú desde
+ *  el 13-11-2026. */
 export function fraseDeContacto(whatsapp: string, email: string, semilla: string): string {
   const variantes =
     whatsapp && email
       ? [
-          `Le dejo mi WhatsApp ${whatsapp} y mi correo ${email}, por si le acomoda más escribirme por ahí.`,
-          `Si le resulta más cómodo, me puede escribir directo a mi WhatsApp ${whatsapp} o a mi correo ${email}.`,
-          `Cualquier cosa, también me encuentra en WhatsApp al ${whatsapp} y en el correo ${email}.`,
+          `Te dejo mi WhatsApp ${whatsapp} y mi correo ${email}, por si te acomoda más escribirme por ahí.`,
+          `Si te resulta más cómodo, me puedes escribir directo a mi WhatsApp ${whatsapp} o a mi correo ${email}.`,
+          `Cualquier cosa, también me encuentras en WhatsApp al ${whatsapp} y en el correo ${email}.`,
         ]
       : whatsapp
         ? [
-            `Le dejo mi WhatsApp ${whatsapp}, por si le acomoda más escribirme por ahí.`,
-            `Si le resulta más cómodo, me puede escribir directo a mi WhatsApp ${whatsapp}.`,
-            `Cualquier cosa, también me encuentra en WhatsApp al ${whatsapp}.`,
+            `Te dejo mi WhatsApp ${whatsapp}, por si te acomoda más escribirme por ahí.`,
+            `Si te resulta más cómodo, me puedes escribir directo a mi WhatsApp ${whatsapp}.`,
+            `Cualquier cosa, también me encuentras en WhatsApp al ${whatsapp}.`,
           ]
         : [
-            `Le dejo mi correo ${email}, por si le acomoda más escribirme por ahí.`,
-            `Si le resulta más cómodo, me puede escribir directo a mi correo ${email}.`,
-            `Cualquier cosa, también me encuentra en el correo ${email}.`,
+            `Te dejo mi correo ${email}, por si te acomoda más escribirme por ahí.`,
+            `Si te resulta más cómodo, me puedes escribir directo a mi correo ${email}.`,
+            `Cualquier cosa, también me encuentras en el correo ${email}.`,
           ];
   return variantes[semillaDe(`${semilla}:contacto`) % variantes.length];
 }
@@ -755,8 +760,8 @@ export async function generarMensajeSeguimiento(
     }
   }
   if (!texto) return null;
-  // El modelo escribe «escribame» sin tilde con frecuencia.
-  texto = texto.replace(/\b([Ee])scribame\b/g, '$1scríbame');
+  // El modelo escribe «escribame» o «escribeme» sin tilde con frecuencia.
+  texto = texto.replace(/\b([Ee])scribame\b/g, '$1scríbame').replace(/\b([Ee])scribeme\b/g, '$1scríbeme');
   return contacto ? `${texto} ${contacto}` : texto;
 }
 

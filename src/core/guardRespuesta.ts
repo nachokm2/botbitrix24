@@ -49,6 +49,20 @@ export function detectarTuteo(texto: string): string[] {
   return [...vistas];
 }
 
+// Formas de "usted" que no aparecen cuando se tutea, para la marca que tutea (Carver desde el
+// 13-11-2026). Quedan fuera las ambiguas, que también sirven para hablar de un tercero: "su",
+// "tiene", "puede", "le aviso al área", "escribirle a admisión". "Ustedes" tampoco: es el plural de
+// quien tutea.
+const USTED =
+  /\b(usted|ud|cuenteme|digame|escribame|aviseme|permitame|confirmeme|indiqueme|compartame|envieme|dejeme|disculpe|perdone|fijese|no se preocupe|ayudarle|acompanarle|orientarle|confirmarle|recordarle|le (comento|cuento|dejo|confirmo|ayudo|acompano|comparto|recuerdo|explico|detallo|agradezco|felicito|parece|pareceria|interesa|interesaria|gustaria|sirve|serviria|acomoda|acomodaria|queda|quedo|quedaron))\b/g;
+
+/** Las palabras que delatan "usted" en un texto, sin repetir. Vacío si tutea. */
+export function detectarUsted(texto: string): string[] {
+  const vistas = new Set<string>();
+  for (const m of norm(texto).matchAll(USTED)) vistas.add(m[0]);
+  return [...vistas];
+}
+
 // Una frase que menciona el fee de titulación/graduación o el de retiro, con o sin monto. Se detecta
 // por el concepto y no solo por el monto porque el modelo lo parafrasea ("al finalizar se paga el
 // título", "derecho de grado").
@@ -90,24 +104,25 @@ export type ContextoGuard = {
 };
 
 // Anuncia una derivación: "lo he escalado al equipo de soporte", "un asesor lo contactará", "le
-// conecto con un asesor". Se mira sobre el texto sin tildes.
+// conecto con un asesor". Se mira sobre el texto sin tildes. Con "te" también: Carver tutea desde el
+// 13-11-2026.
 const ANUNCIA_DERIVACION = new RegExp(
   [
-    String.raw`\b(lo|la|le|se lo|se la)\s+(he\s+|hemos\s+)?(escalad[oa]|escale|derivad[oa]|derive|transferid[oa]|transferi|pasad[oa] al|pase al)\b`,
+    String.raw`\b(lo|la|le|te|se lo|se la|te lo|te la)\s+(he\s+|hemos\s+)?(escalad[oa]|escale|derivad[oa]|derive|transferid[oa]|transferi|pasad[oa] al|pase al)\b`,
     String.raw`\b(he|hemos|ya)\s+(escalado|derivado|transferido)\b`,
-    String.raw`\b(un|una|otro|otra|el|la|su|nuestro|nuestra)\s+(asesor|asesora|ejecutivo|ejecutiva|colega|especialista|equipo de soporte|equipo de admisiones|equipo de admision|area de admisiones|area de admision)\s+(lo|la|le|se)\s+(va a\s+|podra\s+)?(contact|confirm|escrib|llam|comunic|respond)`,
-    String.raw`\b(conectarl[oea]|le conecto|lo conecto|la conecto|ponerl[oea] en contacto|l[oea] pongo en contacto|comunicarl[oea] con|derivarl[oea]|escalarl[oea])\b`,
+    String.raw`\b(un|una|otro|otra|el|la|su|nuestro|nuestra)\s+(asesor|asesora|ejecutivo|ejecutiva|colega|especialista|equipo de soporte|equipo de admisiones|equipo de admision|area de admisiones|area de admision)\s+(lo|la|le|te|se)\s+(va a\s+|podra\s+)?(contact|confirm|escrib|llam|comunic|respond)`,
+    String.raw`\b(conectarl[oea]|conectarte|le conecto|lo conecto|la conecto|te conecto|ponerl[oea] en contacto|ponerte en contacto|l[oea] pongo en contacto|te pongo en contacto|comunicarl[oea] con|comunicarte con|derivarl[oea]|derivarte|escalarl[oea]|escalarte|te paso con)\b`,
   ].join('|'),
 );
 
-/** Lo que dice el asesor a cargo en vez de anunciar la derivación. */
-export const COMPROMISO_EN_PRIMERA_PERSONA = 'Lo reviso con el área que corresponde y le respondo por este medio.';
+/** Lo que dice el asesor a cargo en vez de anunciar la derivación. Solo lo usa Carver, que tutea. */
+export const COMPROMISO_EN_PRIMERA_PERSONA = 'Lo reviso con el área que corresponde y te respondo por este medio.';
 
 // Afirma que algo quedó registrado o derivado, en pasado o en futuro ("quedará registrado").
 // Admite palabras en medio ("Quedé con sus datos anotados", dicho con el CRM caído en la regresión).
 const AFIRMA_REGISTRO =
   // (Sin \b al final del verbo: en JavaScript \b no trata "é" ni "á" como letras, y "quedé" no calzaba.)
-  /\b(qued[eéoó]|quedar[aá]n?|dej[eéo]|he dejado|tengo|ya (est[aá]n?|tengo|qued[oó]))(?![a-záéíóúñ])[^.!?\n]{0,40}\b(registrad|anotad|guardad|derivad)|registr[eé] (sus|tus) datos|lo registro|(lo|la) (he )?derivad[oa]|(lo|la) contactar[aá]n? a la brevedad/i;
+  /\b(qued[eéoó]|quedar[aá]n?|dej[eéo]|he dejado|tengo|ya (est[aá]n?|tengo|qued[oó]))(?![a-záéíóúñ])[^.!?\n]{0,40}\b(registrad|anotad|guardad|derivad)|registr[eé] (sus|tus) datos|lo registro|(lo|la|te) (he )?derivad[oa]|(lo|la|te) contactar[aá]n? a la brevedad/i;
 
 // Dice que el título viene con la apostilla. Se mira sobre el texto sin tildes. «Gestiona la apostilla»
 // (la plantilla aprobada) no calza: no dice que venga incluida.
@@ -116,11 +131,12 @@ const TITULO_CON_APOSTILLA =
 // Lo dice bien: lo niega, o lo plantea como algo que se pide aparte («si necesita los documentos físicos
 // apostillados, la universidad le apoya», que es el texto del panel).
 const APOSTILLA_BIEN_DICHA =
-  /\bno (vienen?|van|incluye|incluyen|esta|estan|se entregan?|salen?|llevan?)\b|\bsin (la )?apostilla\b|\bno [^.!?\n]{0,25}apostillad|\bsi (lo |la |los |las )?(necesita|requiere|quiere|desea)|\bpuede (pedir|solicitar|gestionar)|\baparte\b/;
+  /\bno (vienen?|van|incluye|incluyen|esta|estan|se entregan?|salen?|llevan?)\b|\bsin (la )?apostilla\b|\bno [^.!?\n]{0,25}apostillad|\bsi (lo |la |los |las )?(necesitas?|requieres?|quieres?|deseas?)\b|\bpuedes? (pedir|solicitar|gestionar)|\baparte\b/;
 // Dice que el título se entrega en papel, sin decir que es digital y que el físico se pide aparte.
 const TITULO_EN_FISICO = /\b(titulo|diploma)\b[^.!?\n]{0,50}\b(en |formato )fisico\b/;
-const FISICO_BIEN_DICHO = /digital|pedir|solicitar|a pedido|aparte|adicional|\bsi (lo |la )?(necesita|requiere|quiere|desea)/;
-export const CORRECCION_APOSTILLA = 'La apostilla de La Haya no viene incluida: es un trámite aparte, que puede gestionar a través de Carver.';
+const FISICO_BIEN_DICHO = /digital|pedir|solicitar|a pedido|aparte|adicional|\bsi (lo |la )?(necesitas?|requieres?|quieres?|deseas?)\b/;
+// Solo las usa Carver, que tutea desde el 13-11-2026.
+export const CORRECCION_APOSTILLA = 'La apostilla de La Haya no viene incluida: es un trámite aparte, que puedes gestionar a través de Carver.';
 export const CORRECCION_FISICO = 'El título y el registro de calificaciones se entregan en formato digital, y se pueden pedir en físico.';
 
 export type ResultadoGuard = { texto: string; cambios: string[]; excedeLargo: boolean };
@@ -226,7 +242,7 @@ export function guardarRespuesta(textoOriginal: string, ctx: ContextoGuard): Res
     let t = texto;
     for (const u of noPermitidas) t = t.split(u).join('');
     // Una frase que solo presentaba el enlace ("Aquí tiene el brochure:") queda sin sentido: se quita.
-    const partes = frases(t).filter((f) => !/^\s*(aqu[ií]|ac[aá]) (tiene|le (dejo|comparto|env[ií]o))[^.!?\n]*:?\s*$/i.test(f));
+    const partes = frases(t).filter((f) => !/^\s*(aqu[ií]|ac[aá]) (tienes?|(le|te) (dejo|comparto|env[ií]o))[^.!?\n]*:?\s*$/i.test(f));
     const candidato = partes.join(' ').replace(/\[URL\]\s*\[\/URL\]/gi, '');
     if (candidato.trim()) {
       cambios.push('url_no_verificada');

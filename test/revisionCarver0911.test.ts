@@ -81,9 +81,11 @@ test('el recordatorio no inventa gestiones, cifras ni beneficios', () => {
   assert.ok(inventado.some((p) => /consultó o confirmó/.test(p)), inventado.join(' | '));
   assert.ok(problemasDelRecordatorio('¿Le acomodan las 18 cuotas de USD 100?').some((p) => /cifras/.test(p)));
   assert.ok(problemasDelRecordatorio('Tengo un beneficio adicional para usted, ¿le cuento?').some((p) => /beneficio/.test(p)));
-  assert.deepEqual(problemasDelRecordatorio('¿Sigue con interés en la Maestría en Psicología? Con un sí me basta.'), []);
+  assert.deepEqual(problemasDelRecordatorio('¿Sigues con interés en la Maestría en Psicología? Con un sí me basta.'), []);
   // Lo cierto no se marca: el contado sí trae un descuento adicional, y la beca es del 50 %.
-  assert.deepEqual(problemasDelRecordatorio('¿Le cuento el valor con la beca del 50%? Al contado tiene un descuento adicional.'), []);
+  assert.deepEqual(problemasDelRecordatorio('¿Te cuento el valor con la beca del 50%? Al contado tiene un descuento adicional.'), []);
+  // Carver tutea desde el 13-11-2026: la gestión inventada se reconoce también dicha de tú.
+  assert.ok(problemasDelRecordatorio('Como te prometí, te confirmo que hablé con admisión.').some((p) => /consultó o confirmó/.test(p)));
 });
 
 test('«la maestría en este momento» no es el nombre de un programa', () => {

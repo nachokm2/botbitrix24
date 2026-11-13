@@ -1,4 +1,5 @@
-import { runConversation, aplicarGuardian, reemplazarUltimaRespuesta } from './agentLoop';
+import { runConversation, aplicarGuardian, reemplazarUltimaRespuesta, bloqueIdentidad } from './agentLoop';
+import { asegurarPresentacion } from '../core/presentacion';
 import { brochureComoEnlace, RESULTADO_ESCALADO_COMO_ASESOR } from './toolRunner';
 import { resultadoParaElModelo } from '../crm/correoInformacion';
 import { mensajeDeRiesgo, BLOQUE_RIESGO } from '../core/riesgo';
@@ -152,11 +153,15 @@ function textosDelCliente(historial: any[]): string[] {
  *  los devolvió esta misma función: así el bot recuerda lo que consultó antes, como en la real.
  *
  *  El modo internacional (core/internacional.ts) entra como en la real: si la conversación menciona una
- *  de sus palabras. `internacional: true` lo fuerza, para probar a quien escribe desde uno de sus países. */
+ *  de sus palabras. `internacional: true` lo fuerza, para probar a quien escribe desde uno de sus países.
+ *  `asesor` simula una negociación con asesor a cargo (su nombre, su cargo y su ficha de postulación),
+ *  como el bloque que la real arma desde el CRM: el bot habla como esa persona y el primer mensaje se
+ *  presenta con su nombre, igual que en la real (core/presentacion.ts). Sin él, la prueba es la de un
+ *  visitante nuevo. */
 export async function simularTurno(
   historial: any[],
   mensaje: string,
-  opts: { internacional?: boolean } = {},
+  opts: { internacional?: boolean; asesor?: { nombre: string; email?: string; telefono?: string; formulario?: string; cargo?: string } } = {},
 ): Promise<{ texto: string; historial: any[]; herramientas: HerramientaUsada[]; internacional: boolean }> {
   const messages = [...historial, { role: 'user', content: mensaje }];
   const inicioTurno = messages.length;
@@ -174,26 +179,31 @@ export async function simularTurno(
     return r;
   };
   const base = ficha && internacional ? perfilInternacional(WHATSAPP_PROFILE, ficha) : WHATSAPP_PROFILE;
+  const conAsesor = marca.sePresentaComoAsesor && !internacional && opts.asesor ? opts.asesor : null;
   const perfil = {
     ...base,
     systemPrompt:
       base.systemPrompt +
+      (conAsesor ? bloqueIdentidad(conAsesor, historial.length === 0) : '') +
       (marca.respondeSoloEnEspanol && !internacional ? '' : bloqueIdioma(detectarIdioma(mensaje))) +
       (marca.respaldaPromesas && !internacional ? bloqueMomento() : '') +
       // Igual que en la conversación real (ai/agentLoop.ts): un mensaje de riesgo no se responde vendiendo.
       (marca.protocoloRiesgo && !internacional && mensajeDeRiesgo(mensaje) ? BLOQUE_RIESGO : ''),
   };
   const { text, messages: finales } = await runConversation({ profile: perfil, auditId: 'simulacion', simulacion: true }, messages, exec);
-  const texto = marca.guardRespuesta
+  let texto = marca.guardRespuesta
     ? await aplicarGuardian(text, {
         mensajeCliente: mensaje,
         history: historial,
         mensajesDelTurno: finales.slice(inicioTurno),
         simulacion: true,
-        urlsDelAsesor: ficha && internacional ? urlsDeLaFicha(ficha) : [],
+        urlsDelAsesor: ficha && internacional ? urlsDeLaFicha(ficha) : conAsesor?.formulario ? [conAsesor.formulario] : [],
         internacional,
       })
     : text;
+  if (conAsesor && historial.length === 0) {
+    texto = asegurarPresentacion(texto, conAsesor.nombre, marca.organizacion, undefined, conAsesor.cargo);
+  }
   if (texto !== text) reemplazarUltimaRespuesta(finales, texto);
   return { texto, historial: finales, herramientas, internacional };
 }

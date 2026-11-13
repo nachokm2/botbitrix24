@@ -52,8 +52,13 @@ export type Marca = {
   /** ¿El bot se presenta con el NOMBRE DEL ASESOR dueño de la negociación en vez del suyo propio?
    *  Carver atiende así: el cliente habla desde el primer mensaje con el nombre de quien después va
    *  a seguir el caso. Si no hay un responsable resoluble (chat sin negociación todavía), cae al
-   *  nombre del bot. Postgrados se presenta siempre como Sofía. */
+   *  nombre del bot. Postgrados se presenta siempre como Sofía. El 13-11-2026 se probó presentarse
+   *  como «el orientador académico» y nombrar al asesor aparte, y el usuario lo descartó: el bot
+   *  SIEMPRE habla como el asesor. */
   sePresentaComoAsesor: boolean;
+  /** Cómo se trata a la persona. Carver tutea desde el 13-11-2026 (pedido de Ignacio); Postgrados
+   *  trata de usted. El guardián corrige las respuestas que se salen del trato (ai/agentLoop.ts). */
+  trato: 'usted' | 'tu';
   /** Cómo se llama el documento de identidad para esta marca. Postgrados atiende Chile y pide RUT;
    *  Carver atiende cinco países, donde ese documento se llama distinto en cada uno. */
   etiquetaDocumento: string;
@@ -103,8 +108,14 @@ export type Marca = {
   /** ¿El bot completa la FICHA DE MATRICULA en el chat —los 14 antecedentes y la foto de la
    *  cedula— y mueve la negociacion a "Pendiente de Firma"? Reemplaza el formulario de
    *  postulacion que cada asesor enviaba por su cuenta: es el mismo formulario, escrito a mano,
-   *  sin el salto a otra pagina donde se cae la mitad de la gente. */
+   *  sin el salto a otra pagina donde se cae la mitad de la gente. Carver lo usó hasta el
+   *  13-11-2026; desde entonces va con matriculaConFormulario. */
   matriculaEnChat: boolean;
+  /** ¿Cuando la persona decide postular, el bot le envía la FICHA DE POSTULACIÓN de su asesor (el
+   *  formulario en línea de ASESORES_CONTACTO) y le pide que avise al completarla? Después van el
+   *  pago, la validación por el asesor y el contrato por correo. Decisión de Carver del 13-11-2026:
+   *  «será siempre el formulario de postulación», nunca la ficha en el chat. */
+  matriculaConFormulario: boolean;
   /** ¿Cada "lo confirmo y le respondo" del bot queda respaldado por una persona? Con esto el bot
    *  sabe la hora y el horario del equipo (para decir CUÁNDO llegará la respuesta) y, si promete
    *  volver con algo sin haber derivado, se le avisa al responsable con una tarea (ver
@@ -154,6 +165,7 @@ const POSTGRADOS: Marca = {
   tieneVoz: true,
   capturaDocumentos: true,
   sePresentaComoAsesor: false,
+  trato: 'usted',
   etiquetaDocumento: 'RUT',
   otrosCanales: true,
   etiquetaPanel: 'Postgrados',
@@ -185,6 +197,7 @@ const POSTGRADOS: Marca = {
   baseConocimiento: false,
   telefonoAsesorVigente: true,
   matriculaEnChat: false,
+  matriculaConFormulario: false,
   respaldaPromesas: false,
   avisaPagoAlAsesor: false,
   retieneFueraDeHorario: false,
@@ -222,8 +235,10 @@ const CARVER: Marca = {
   cotiza: true,
   usaPlanillaComercial: true,
   tieneVoz: false,
-  capturaDocumentos: true,
+  // Desde el 13-11-2026 la postulación va por el formulario del asesor: el bot ya no pide la cédula.
+  capturaDocumentos: false,
   sePresentaComoAsesor: true,
+  trato: 'tu',
   etiquetaDocumento: 'RUT/DNI',
   otrosCanales: false,
   etiquetaPanel: 'Carver',
@@ -236,7 +251,7 @@ const CARVER: Marca = {
     'licenciaturas y maestrías, todas 100% en línea con clases en vivo en español.',
   presentacionSinAsesor: env('CARVER_PRESENTACION_SIN_ASESOR', `el área de orientación académica de ${CARVER_INSTITUCION}`),
   // No se llama WhatsApp: ese número figura como teléfono de admisión, y no consta que tenga WhatsApp.
-  contactoCierreSinAsesor: 'Le dejo nuestro correo admission@carver.university y el teléfono +1 (321) 300-1034, por si le acomoda más contactarnos por ahí.',
+  contactoCierreSinAsesor: 'Te dejo nuestro correo admission@carver.university y el teléfono +1 (321) 300-1034, por si te acomoda más contactarnos por ahí.',
   tiposComercializables: ['licenciatura', 'maestria'],
   guardRespuesta: true,
   // 500 desde el 03-11-2026: la mediana era 324 caracteres pero el 42% pasaba de 400, y la mitad de
@@ -248,7 +263,8 @@ const CARVER: Marca = {
   brochureVerificado: true,
   baseConocimiento: true,
   telefonoAsesorVigente: false,
-  matriculaEnChat: true,
+  matriculaEnChat: false,
+  matriculaConFormulario: true,
   respaldaPromesas: true,
   avisaPagoAlAsesor: true,
   retieneFueraDeHorario: true,

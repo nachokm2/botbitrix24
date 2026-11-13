@@ -22,9 +22,12 @@ const { buscarProgramas } = await import('../src/ai/catalog');
 test('marca=carver: identidad y oferta son las de Carver University, no las de Postgrados', () => {
   assert.equal(marca.key, 'carver');
   // Carver se presenta con el nombre del asesor a cargo, no con el del bot (sePresentaComoAsesor),
-  // así que la línea de identidad ya no dice "Eres Sofía" sino que instruye adoptar ese nombre.
+  // así que la línea de identidad ya no dice "Eres Sofía" sino que instruye adoptar ese nombre. El
+  // 13-11-2026 se probó «el orientador académico» que presenta al asesor aparte, y se descartó.
   assert.match(SYSTEM_PROMPT, /orientación académica de este caso en Carver University/);
   assert.match(SYSTEM_PROMPT, /preséntate con ESE nombre/);
+  assert.match(SYSTEM_PROMPT, /NUNCA digas que eres un bot/);
+  assert.doesNotMatch(SYSTEM_PROMPT, /ASESOR A CARGO|no tienes nombre propio/);
   assert.doesNotMatch(SYSTEM_PROMPT, /Universidad Autónoma de Chile/);
   assert.doesNotMatch(SYSTEM_PROMPT, /magísteres|diplomados/);
 });
@@ -203,19 +206,21 @@ test('marca=carver: sin configuración explícita NO hereda los programas piloto
 });
 
 // El bot de Carver habla con el nombre del asesor dueño de la negociación: el cliente conversa desde
-// el primer mensaje con la persona que después va a seguir su caso.
+// el primer mensaje con la persona que después va a seguir su caso. Siempre (el usuario, 13-11-2026).
 test('marca=carver: el bloque de identidad hace que el bot hable como el asesor, con sus datos', async () => {
   const { bloqueIdentidad } = await import('../src/ai/agentLoop');
-  const b = bloqueIdentidad({ nombre: 'Gabriela García', email: 'gabriela@carver.university' }, true);
+  const b = bloqueIdentidad({ nombre: 'Persona Uno', email: 'persona.uno@carver.university' }, true);
 
-  assert.match(b, /tu nombre es Gabriela García/);
-  assert.match(b, /gabriela@carver\.university/);
+  assert.match(b, /tu nombre es Persona Uno/);
+  assert.match(b, /habla en primera persona como esa persona/);
+  assert.match(b, /persona\.uno@carver\.university/);
   assert.match(b, /solo si el cliente lo pide/, 'los datos de contacto no se ofrecen por iniciativa propia');
   assert.match(b, /NUNCA digas que eres un bot/);
+  assert.doesNotMatch(b, /ASESOR A CARGO|Tú NO eres/, 'el bot no presenta al asesor como otra persona');
 
   // Sin correo ni teléfono, no debe inventarlos ni dejar huecos.
-  const soloNombre = bloqueIdentidad({ nombre: 'Jefferson Dávila' }, true);
-  assert.match(soloNombre, /tu nombre es Jefferson Dávila/);
+  const soloNombre = bloqueIdentidad({ nombre: 'Persona Dos' }, true);
+  assert.match(soloNombre, /tu nombre es Persona Dos/);
   assert.doesNotMatch(soloNombre, /correo es|teléfono es/);
 });
 
@@ -231,7 +236,7 @@ test('el bloque de identidad sigue ofreciendo el teléfono cuando se le entrega 
   // allá getUsuarios entrega el móvil y este bloque lo muestra. El corte es de dónde sale el dato,
   // no de cómo se redacta.
   const { bloqueIdentidad } = await import('../src/ai/agentLoop');
-  const b = bloqueIdentidad({ nombre: 'Gabriela García', telefono: '+56912345678' }, true);
+  const b = bloqueIdentidad({ nombre: 'Persona Uno', telefono: '+56912345678' }, true);
   assert.match(b, /\+56912345678/);
   assert.match(b, /solo si el cliente lo pide/);
 });
@@ -240,7 +245,7 @@ test('el bloque de identidad sigue ofreciendo el teléfono cuando se le entrega 
 // que el cliente viera a su interlocutor cambiar de nombre de un mensaje al otro, sin explicación.
 test('marca=carver: el nombre solo se da al presentarse, no en los turnos siguientes', async () => {
   const { bloqueIdentidad } = await import('../src/ai/agentLoop');
-  const asesor = { nombre: 'Gabriela García' };
+  const asesor = { nombre: 'Persona Uno' };
 
   const primero = bloqueIdentidad(asesor, true);
   assert.match(primero, /Preséntate con él en ESTE mensaje/);
@@ -267,7 +272,7 @@ test('marca=carver: la validez del título se responde con la plantilla de admis
   assert.match(SYSTEM_PROMPT, /gestiona la apostilla, lo que facilita su reconocimiento en \{país\}/);
   assert.match(SYSTEM_PROMPT, /acompaña a la persona durante el proceso y le facilita la documentación necesaria/);
   assert.match(SYSTEM_PROMPT, /depende exclusivamente de la entidad de su país/);
-  assert.match(SYSTEM_PROMPT, /NUNCA digas "no puedo garantizarle el resultado"/);
+  assert.match(SYSTEM_PROMPT, /NUNCA digas "no puedo garantizarte el resultado"/);
   assert.doesNotMatch(SYSTEM_PROMPT, /nunca lo garantices/, 'esa instrucción es la que el modelo convertía en la advertencia');
   // El guardarraíl sigue: positivo no es prometer.
   assert.match(SYSTEM_PROMPT, /nunca digas que el reconocimiento es automático/);
@@ -329,9 +334,13 @@ test('marca=carver: el tono es cordial y sin formato de informe', () => {
   assert.match(SYSTEM_PROMPT, /sin rigidez ni solemnidad/);
   assert.match(SYSTEM_PROMPT, /nada de negritas decorativas, tablas ni títulos/);
   assert.doesNotMatch(SYSTEM_PROMPT, /tono cercano, profesional y resolutivo/, 'el tono de Postgrados no se copia');
-  // Pero el "usted" no es negociable: en una semana salieron 44 recordatorios y varias respuestas
-  // tuteando (25-10 al 03-11-2026), algunas porque la persona o una plantilla venían en tú.
-  assert.match(SYSTEM_PROMPT, /nunca tuteas ni voseas, aunque la persona te tutee/);
+  // Desde el 13-11-2026 Carver tutea (pedido de Ignacio), y el trato es uno solo: la persona o una
+  // plantilla anterior pueden venir de usted, y los textos aprobados también.
+  assert.equal(marca.trato, 'tu');
+  assert.match(SYSTEM_PROMPT, /TUTEANDO siempre a la persona/);
+  assert.match(SYSTEM_PROMPT, /nunca "usted" ni voseo, aunque la persona te trate de usted/);
+  assert.match(SYSTEM_PROMPT, /úsalos SIEMPRE en tú, sin cambiar nada más/);
+  assert.doesNotMatch(SYSTEM_PROMPT, /tratando siempre de "usted"/);
 });
 
 // Carver es SOLO WhatsApp. Los endpoints de webchat, voz y redes no deben estar vivos en su
@@ -348,7 +357,7 @@ test('marca=carver: el prompt no ofrece llamadas ni nombra solicitar_llamada', (
   assert.doesNotMatch(SYSTEM_PROMPT, /solicitar_llamada/, 'esa herramienta no está cargada en Carver');
   assert.doesNotMatch(SYSTEM_PROMPT, /sin ofrecer antes una llamada/);
   assert.doesNotMatch(SYSTEM_PROMPT, /ni ofrezcas la llamada/);
-  assert.match(SYSTEM_PROMPT, /NO ofrezcas llamarlo tú/, 'y sí debe decir explícitamente que no llama');
+  assert.match(SYSTEM_PROMPT, /NO ofrezcas llamarla tú/, 'y sí debe decir explícitamente que no llama');
 });
 
 // El esquema de la herramienta de precios estaba cableado a Postgrados: hablaba de "arancel de lista
@@ -442,12 +451,14 @@ test('el bot no vuelve a pedir los datos que el CRM ya tiene', async () => {
 // La frase de reserva se usaba cuando el modelo no devolvía texto. Estaba cableada a Postgrados y
 // tuteaba: un cliente de Carver escribió "me interesa el MBA" y recibió "¿En qué puedo ayudarte con
 // nuestros postgrados?", perdiendo el hilo.
-test('marca=carver: la frase de reserva nombra a Carver y trata de usted', async () => {
+test('marca=carver: la frase de reserva nombra a Carver y tutea', async () => {
   const { textOf } = await import('../src/ai/agentLoop');
+  const { detectarUsted } = await import('../src/core/guardRespuesta');
   const t = (textOf as any)({ content: [] });
   assert.match(t, /Carver University/);
   assert.doesNotMatch(t, /postgrados/i);
-  assert.doesNotMatch(t, /ayudarte/, 'Carver trata de usted');
+  assert.match(t, /ayudarte/, 'Carver tutea desde el 13-11-2026');
+  assert.deepEqual(detectarUsted(t), []);
 });
 
 // Conversación real: el bot cerró DIEZ mensajes seguidos pidiendo el nombre, incluso después de que
@@ -502,7 +513,7 @@ test('el bot ES admisiones: no ofrece "conectar" ni "derivar" a nadie', async ()
   // Desde el 06-11-2026 se presenta como orientación académica, no como el equipo de admisiones (Ignacio).
   assert.match(SYSTEM_PROMPT, /no hay otra persona ni otro equipo al que pasarlo/);
   assert.match(SYSTEM_PROMPT, /nunca que eres del equipo de admisiones/);
-  assert.match(SYSTEM_PROMPT, /nunca preguntes "¿lo conecto\?"/);
+  assert.match(SYSTEM_PROMPT, /nunca preguntes "¿te conecto\?"/);
   assert.match(SYSTEM_PROMPT, /hazlo en silencio/);
   assert.ok(
     SYSTEM_PROMPT.lastIndexOf('DERIVAR ES INTERNO') > SYSTEM_PROMPT.lastIndexOf('ofrece derivar a un asesor'),
@@ -578,7 +589,7 @@ test('ante "lo pienso": pregunta qué le falta, propone una fecha atada al cierr
 
 test('el botón "Más información" se responde con info del programa, no con una repregunta', async () => {
   assert.match(SYSTEM_PROMPT, /es un botón de la plantilla, no una pregunta nueva/);
-  assert.match(SYSTEM_PROMPT, /NO repreguntes "¿en qué le ayudo\?"/);
+  assert.match(SYSTEM_PROMPT, /NO repreguntes "¿en qué te ayudo\?"/);
 });
 
 test('responde primero lo que preguntaron (malla, certificado) antes de ofrecer el siguiente paso', async () => {
@@ -589,7 +600,7 @@ test('responde primero lo que preguntaron (malla, certificado) antes de ofrecer 
 test('reconocimiento por país: responde directo y cumple el seguimiento que promete', async () => {
   assert.match(SYSTEM_PROMPT, /RECONOCIMIENTO EN UN PAÍS CONCRETO/);
   assert.match(SYSTEM_PROMPT, /NO desvíes la respuesta hablando solo de la validez en EE\.UU\./);
-  assert.match(SYSTEM_PROMPT, /NUNCA prometas "lo averiguo y le aviso" para luego cerrar sin derivar/);
+  assert.match(SYSTEM_PROMPT, /NUNCA prometas "lo averiguo y te aviso" para luego cerrar sin derivar/);
 });
 
 test('la ficha de cada programa dice Carnegie, no solo el prompt', async () => {
@@ -708,14 +719,37 @@ test('Ergonomía declara 10 módulos, no 12: los meses no siempre son módulos',
   assert.equal(cred, 36, 'llega a 36 con un proyecto de 9 créditos');
 });
 
-test('el prompt distingue el documento academico del de identidad', async () => {
-  // Son herramientas distintas y guardar uno en el lugar del otro obliga a pedirlo de nuevo: son
-  // documentos que revisa gente distinta.
-  assert.match(SYSTEM_PROMPT, /registrar_documento_academico/);
-  assert.match(SYSTEM_PROMPT, /registrar_documento_identidad/);
-  assert.match(SYSTEM_PROMPT, /Son herramientas DISTINTAS y no se cruzan/);
-  // El documento depende del nivel, y hay que pedirlo por su nombre.
-  assert.match(SYSTEM_PROMPT, /diploma de enseñanza media/i);
-  assert.match(SYSTEM_PROMPT, /título profesional o grado académico/i);
-  assert.match(SYSTEM_PROMPT, /nunca "un documento académico" a secas/);
+// Decisiones de Carver del 13-11-2026 (Ignacio): la postulación va SIEMPRE por la ficha de
+// postulación del asesor, nunca la ficha en el chat; después el pago, la validación por el asesor en
+// 24 horas hábiles, el contrato por correo y lo que viene tras la firma.
+test('la matrícula va por la ficha de postulación, sin pedir datos ni documentos en el chat', async () => {
+  assert.equal(marca.matriculaEnChat, false);
+  assert.equal(marca.matriculaConFormulario, true);
+  assert.match(SYSTEM_PROMPT, /el primer paso es SIEMPRE la FICHA DE POSTULACIÓN en línea/);
+  assert.match(SYSTEM_PROMPT, /NUNCA le pidas en el chat los datos de la ficha, su cédula, fotos ni documentos/);
+  assert.match(SYSTEM_PROMPT, /«¡Perfecto! Para continuar con tu proceso de admisión y evaluación, completa la ficha de postulación: \{enlace\}\. Cuando la completes, avísame por aquí\.»/);
+  assert.match(SYSTEM_PROMPT, /no inventes un enlace ni uses el de otra persona/);
+  assert.doesNotMatch(SYSTEM_PROMPT, /registrar_datos_matricula|registrar_documento_academico|registrar_documento_identidad/, 'esas herramientas ya no están en Carver');
+  const nombres: string[] = (WHATSAPP_PROFILE as any).toolNames;
+  for (const n of ['registrar_datos_matricula', 'registrar_documento_academico', 'registrar_documento_identidad']) {
+    assert.ok(!nombres.includes(n), `${n} no se carga en Carver`);
+  }
+});
+
+test('el proceso de matrícula: pago, validación del asesor en 24 h hábiles, contrato por correo y bienvenida', () => {
+  assert.match(SYSTEM_PROMPT, /PROCESO DE MATRÍCULA \(regla dura/);
+  assert.match(SYSTEM_PROMPT, /En mensualidades se paga primero la matrícula; el semestral y el contado no tienen matrícula/);
+  assert.match(SYSTEM_PROMPT, /dile en primera persona que revisas el pago y le confirmas en un máximo de 24 horas hábiles/);
+  assert.match(SYSTEM_PROMPT, /NUNCA confirmes ni des por aprobado un pago en ese momento/);
+  assert.match(SYSTEM_PROMPT, /el equipo te enviará el contrato por correo para que puedas firmarlo electrónicamente/);
+  assert.match(SYSTEM_PROMPT, /correo institucional[^\n]*Welcome Program[^\n]*consejero académico, una persona real/);
+  assert.match(SYSTEM_PROMPT, /No prometas fechas ni des por confirmados el correo, la sesión ni el inicio de clases/);
+  assert.match(SYSTEM_PROMPT, /NUNCA confirmes pagos, admisiones ni firmas por tu cuenta/);
+  // El panel trae los pasos empezando por el pago: la ficha va antes.
+  assert.match(SYSTEM_PROMPT, /el primero es completar la ficha de postulación, aunque "proceso_admision" empiece por el pago/);
+});
+
+test('testimonios: si no hay del programa, uno de un programa afín diciendo cuál es, o uno general', () => {
+  assert.match(SYSTEM_PROMPT, /si no hay uno de ese programa, usa el de un programa afín diciendo de qué programa es, o uno general/);
+  assert.match(SYSTEM_PROMPT, /el texto aprobado tal cual y su enlace/);
 });

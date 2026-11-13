@@ -40,7 +40,7 @@ const sinTools = async () => ({ ok: true });
 
 test('lo enviado y lo guardado en el historial es el texto corregido (sin fee, sin markdown, sin enlace suelto)', async () => {
   principal =
-    '**Precio:** contado USD 900. Además, la titulación cuesta USD 125 al finalizar. Brochure: https://uachile.bitrix24.es/doc/xyz ¿Le acomoda?';
+    '**Precio:** contado USD 900. Además, la titulación cuesta USD 125 al finalizar. Brochure: https://uachile.bitrix24.es/doc/xyz ¿Te acomoda?';
   const r = await runAgentTurn(ctx('g-1'), '¿Cuánto cuesta la maestría en IA?', '', sinTools);
   assert.doesNotMatch(r, /\*\*|titulaci|USD 125|bitrix24/);
   assert.match(r, /contado USD 900/);
@@ -50,8 +50,8 @@ test('lo enviado y lo guardado en el historial es el texto corregido (sin fee, s
 });
 
 test('un mensaje largo se condensa si la versión corta conserva montos y enlaces', async () => {
-  principal = `Mensualidades: 12 cuotas de USD 150. Semestral: 2 pagos de USD 630. Contado: USD 900. ${'Detalle accesorio del programa. '.repeat(15)}¿Le acomoda alguna?`;
-  condensado = 'Mensualidades: 12 cuotas de USD 150. Semestral: 2 pagos de USD 630. Contado: USD 900. ¿Le acomoda alguna?';
+  principal = `Mensualidades: 12 cuotas de USD 150. Semestral: 2 pagos de USD 630. Contado: USD 900. ${'Detalle accesorio del programa. '.repeat(15)}¿Te acomoda alguna?`;
+  condensado = 'Mensualidades: 12 cuotas de USD 150. Semestral: 2 pagos de USD 630. Contado: USD 900. ¿Te acomoda alguna?';
   const antes = llamadasCondensar;
   const r = await runAgentTurn(ctx('g-2'), '¿Cuánto cuesta?', '', sinTools);
   assert.equal(llamadasCondensar, antes + 1);
@@ -59,15 +59,15 @@ test('un mensaje largo se condensa si la versión corta conserva montos y enlace
 });
 
 test('si la versión corta pierde un monto, se descarta y se envía la completa', async () => {
-  principal = `Mensualidades: 12 cuotas de USD 150. Contado: USD 900. ${'Detalle accesorio. '.repeat(25)}¿Le acomoda?`;
-  condensado = 'Mensualidades: 12 cuotas. ¿Le acomoda?'; // perdió USD 150 y USD 900
+  principal = `Mensualidades: 12 cuotas de USD 150. Contado: USD 900. ${'Detalle accesorio. '.repeat(25)}¿Te acomoda?`;
+  condensado = 'Mensualidades: 12 cuotas. ¿Te acomoda?'; // perdió USD 150 y USD 900
   const r = await runAgentTurn(ctx('g-3'), '¿Cuánto cuesta?', '', sinTools);
   assert.match(r, /USD 150/);
   assert.match(r, /USD 900/);
 });
 
 test('un enlace devuelto por una herramienta en el turno sí se conserva', async () => {
-  principal = 'Le comparto el brochure:\nhttps://uachile.bitrix24.es/doc/verificado';
+  principal = 'Te comparto el brochure:\nhttps://uachile.bitrix24.es/doc/verificado';
   let paso = 0;
   const mod = await import('../src/ai/client');
   const original = (mod as any).anthropic.messages.create;
@@ -85,7 +85,7 @@ test('un enlace devuelto por una herramienta en el turno sí se conserva', async
 });
 
 test('si el registro en el CRM falló en el turno, la respuesta no dice que quedó registrado', async () => {
-  principal = 'Gracias, Carla. Su correo quedará registrado para darle seguimiento. ¿Le cuento el programa?';
+  principal = 'Gracias, Carla. Tu correo quedará registrado para darte seguimiento. ¿Te cuento el programa?';
   let paso = 0;
   const mod = await import('../src/ai/client');
   const original = (mod as any).anthropic.messages.create;
@@ -97,7 +97,7 @@ test('si el registro en el CRM falló en el turno, la respuesta no dice que qued
   try {
     const r = await runAgentTurn(ctx('g-5'), 'Soy Carla, c@x.com', '', async () => ({ ok: false, error: 'BITRIX_NO_DISPONIBLE' }));
     assert.doesNotMatch(r, /registrad/);
-    assert.match(r, /¿Le cuento el programa\?/);
+    assert.match(r, /¿Te cuento el programa\?/);
   } finally {
     (mod as any).anthropic.messages.create = original;
   }

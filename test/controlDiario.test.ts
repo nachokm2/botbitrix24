@@ -115,7 +115,8 @@ test('el mensaje dice cómo cerró, dónde se perdió gente, qué falló y qué 
   assert.match(t, /Control diario — agente .* · martes, 4 de noviembre/);
   // Cada porcentaje con la semana previa al lado: un día suelto no dice si mejora o empeora.
   assert.match(t, /20 conversaciones\. Datos capturados en 5 \(25%; semana previa 15%\), derivadas a un asesor 3 \(15%; semana previa 10%\)/);
-  assert.match(t, /Matrícula en el chat: 1 con ficha iniciada y 0 con enlace de pago/);
+  // Desde el 13-11-2026 la matrícula de Carver va por la ficha de postulación del asesor, no en el chat.
+  assert.doesNotMatch(t, /Matrícula en el chat/);
   assert.match(t, /9 de 20 revisadas quedaron en un solo intercambio; 2 con interés claro se fueron .* \(semana previa: 2 al día\)/);
   assert.match(t, /Qué falló:\[\/B\] interés perdido 2, dato repetido 1 \(2 graves\)/);
   assert.match(t, /• Interés perdido: Quería Psicología.* — \[URL=https:\/\/carver\.bitrix24\.com\/online\/\?IM_DIALOG=chat1572073\]abrir chat\[\/URL\] · \[URL=https:\/\/carver\.bitrix24\.com\/crm\/deal\/details\/995431\/\]negociación #995431\[\/URL\]/);

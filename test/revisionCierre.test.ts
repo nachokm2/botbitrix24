@@ -58,22 +58,25 @@ test('el contado de la licenciatura se dice por año, no como un único pago de 
 
 const turno = { mensajeCliente: 'quiero saber más', history: [], mensajesDelTurno: [], simulacion: true };
 
-test('una respuesta que tutea se reescribe de usted, con las mismas cifras', async () => {
-  respuestas.push('¿Le cuento cómo son las clases en vivo? Con la beca son USD 150 al mes.');
-  const r = await aplicarGuardian('¿Te cuento cómo son las clases en vivo? Con la beca son USD 150 al mes.', turno);
-  assert.equal(r, '¿Le cuento cómo son las clases en vivo? Con la beca son USD 150 al mes.');
+// Hasta el 13-11-2026 Carver trataba de usted y se corregía el tuteo; desde entonces tutea (pedido de
+// Ignacio) y lo que se corrige es el "usted".
+test('una respuesta de usted se reescribe tuteando, con las mismas cifras', async () => {
+  respuestas.push('¿Te cuento cómo son las clases en vivo? Con la beca son USD 150 al mes.');
+  const r = await aplicarGuardian('¿Le cuento cómo son las clases en vivo? Con la beca son USD 150 al mes.', turno);
+  assert.equal(r, '¿Te cuento cómo son las clases en vivo? Con la beca son USD 150 al mes.');
 });
 
-test('si la versión de usted pierde una cifra o sigue tuteando, queda la original', async () => {
-  respuestas.push('¿Le cuento cómo son las clases en vivo? Tiene beca.');
-  assert.match(await aplicarGuardian('¿Te cuento cómo son las clases? Son USD 150 al mes.', turno), /USD 150/);
-  respuestas.push('¿Quieres que le cuente más? Son USD 150 al mes.');
-  assert.equal(await aplicarGuardian('¿Quieres que te cuente más? Son USD 150 al mes.', turno), '¿Quieres que te cuente más? Son USD 150 al mes.');
+test('si la versión tuteada pierde una cifra o sigue de usted, queda la original', async () => {
+  respuestas.push('¿Te cuento cómo son las clases en vivo? Tienes beca.');
+  assert.match(await aplicarGuardian('¿Le cuento cómo son las clases? Son USD 150 al mes.', turno), /USD 150/);
+  respuestas.push('¿Quiere que le cuente más a usted? Son USD 150 al mes.');
+  assert.equal(await aplicarGuardian('¿Le cuento más? Son USD 150 al mes.', turno), '¿Le cuento más? Son USD 150 al mes.');
 });
 
-test('una respuesta de usted no pasa por el modelo', async () => {
+test('una respuesta que tutea no pasa por el modelo, aunque nombre al asesor en tercera persona', async () => {
   const antes = llamadasModelo;
-  await aplicarGuardian('¿Le cuento cómo son las clases en vivo? El docente imparte cada sesión.', turno);
+  await aplicarGuardian('¿Te cuento cómo son las clases en vivo? El docente imparte cada sesión.', turno);
+  await aplicarGuardian('Persona Uno lo revisa y te escribe por aquí; si prefieres, puedes escribirle a su correo.', turno);
   assert.equal(llamadasModelo, antes);
 });
 

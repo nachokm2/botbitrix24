@@ -97,11 +97,13 @@ test('la identidad del turno trae el WhatsApp, el correo y el formulario del ase
   assert.equal(sinLista?.formulario, undefined);
 });
 
-test('el bloque de identidad ofrece el formulario junto a la ficha en el chat', () => {
+// Desde el 13-11-2026 la postulación va SIEMPRE por la ficha de postulación del asesor, sin la
+// alternativa de la ficha en el chat (decisión de Carver).
+test('el bloque de identidad trae la ficha de postulación del asesor, sin ofrecer la ficha en el chat', () => {
   const b = bloqueIdentidad({ nombre: 'Asesora Uno', formulario: 'https://carver.university/lp/forms/form-carver-uno/' }, true);
-  assert.match(b, /Tu formulario de postulación es https:\/\/carver\.university\/lp\/forms\/form-carver-uno\//);
-  assert.match(b, /las dos vías/);
-  assert.doesNotMatch(bloqueIdentidad({ nombre: 'Asesora Tres' }, true), /formulario/, 'sin formulario no se menciona');
+  assert.match(b, /Tu FICHA DE POSTULACIÓN es https:\/\/carver\.university\/lp\/forms\/form-carver-uno\/\. Es la que envías en el paso de matrícula, tal cual; nunca otra\./);
+  assert.doesNotMatch(b, /las dos vías|aquí mismo en el chat/);
+  assert.doesNotMatch(bloqueIdentidad({ nombre: 'Asesora Tres' }, true), /FICHA|formulario/, 'sin formulario no se menciona');
 });
 
 test('el bloque de identidad se presenta con el cargo de la lista, o con la frase neutra si no está', () => {

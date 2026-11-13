@@ -85,15 +85,16 @@ test('en el motor: solo el PRIMER mensaje del bot se presenta, y lo guardado es 
   } as any;
   const sinTools = async () => ({ ok: true });
 
-  respuesta = 'Makita, la Licenciatura en Psicología dura 4 años. ¿Le cuento el valor con la beca?';
+  // Carver tutea desde el 13-11-2026; la presentación sigue siendo con el nombre del asesor.
+  respuesta = 'Makita, la Licenciatura en Psicología dura 4 años. ¿Te cuento el valor con la beca?';
   const primero = await runAgentTurn(ctx, 'Más información', '', sinTools);
   assert.match(primero, /^Hola, Makita\. Soy Basthian Sepúlveda, del área de orientación académica/);
   const guardado = JSON.stringify((await getHistory('chat-presentacion')).at(-1)?.content);
   assert.match(guardado, /Soy Basthian Sepúlveda/, 'el modelo recuerda que ya se presentó');
 
-  respuesta = 'Con la beca son USD 100 al mes. ¿Le acomoda?';
+  respuesta = 'Con la beca son USD 100 al mes. ¿Te acomoda?';
   const segundo = await runAgentTurn(ctx, 'Sí', '', sinTools);
-  assert.equal(segundo, 'Con la beca son USD 100 al mes. ¿Le acomoda?', 'no se vuelve a presentar');
+  assert.equal(segundo, 'Con la beca son USD 100 al mes. ¿Te acomoda?', 'no se vuelve a presentar');
 
   const sinAsesor = await runAgentTurn({ ...ctx, conversationId: 'chat-sin-asesor', identidadAsesor: null }, 'Hola', '', sinTools);
   assert.doesNotMatch(sinAsesor, /Soy|soy /, 'sin asesor a cargo no inventa un nombre');

@@ -57,12 +57,13 @@ mock.module('../src/crm/directory.ts', {
 });
 
 // Cada recordatorio sale distinto, como saldría del modelo: el guardián descarta lo que repite.
+// Carver tutea desde el 13-11-2026.
 const TEXTOS = [
-  '¿Pudo revisar lo de la maestría? Si le sirve, le cuento cuándo cierra la postulación.',
-  '¿Le acomoda que le cuente cómo son las clases en vivo?',
-  '¿Le sirve más empezar en la próxima cohorte?',
-  '¿Le envío el detalle de la malla por aquí?',
-  'Quizá no es el momento, y está bien; me escribe cuando le acomode.',
+  '¿Pudiste revisar lo de la maestría? Si te sirve, te cuento cuándo cierra la postulación.',
+  '¿Te acomoda que te cuente cómo son las clases en vivo?',
+  '¿Te sirve más empezar en la próxima cohorte?',
+  '¿Te envío el detalle de la malla por aquí?',
+  'Quizá no es el momento, y está bien; me escribes cuando te acomode.',
 ];
 let llamadas = 0;
 let textoModelo: string | null = null;
@@ -138,7 +139,7 @@ config.seguimientoHoraFin = 24;
 const PASOS = 'seguimiento:pasos:due';
 const CONVERSACION = [
   { role: 'user', content: 'Hola, me interesa la Maestría en Inteligencia Artificial' },
-  { role: 'assistant', content: [{ type: 'text', text: 'Con gusto. Es 100% en línea, con clases en vivo. ¿Le cuento el valor con la beca?' }] },
+  { role: 'assistant', content: [{ type: 'text', text: 'Con gusto. Es 100% en línea, con clases en vivo. ¿Te cuento el valor con la beca?' }] },
 ];
 
 async function conversacionRespondida(dialogId: string, deal = 1) {
@@ -175,9 +176,11 @@ test('cinco recordatorios: el primero retoma el hilo, los del medio buscan un s�
   const pedidoCierre = String(pedidos.at(-1)![0].content);
   assert.match(pedidoCierre, /Recordatorios que ya le enviaste en esta secuencia/);
   assert.ok(pedidoCierre.includes(`1. ${msgs[0]}`) && pedidoCierre.includes(`4. ${msgs[3]}`), 'los cuatro anteriores, en orden');
-  // El número va con el formato de un celular chileno y tal como lo entregó la coordinación.
+  // El número va con el formato de un celular chileno y tal como lo entregó la coordinación. El bot
+  // habla como el asesor: es SU WhatsApp y SU correo.
   assert.match(msgs[4], /\+56 9 1111 2222/);
   assert.match(msgs[4], /asesora\.uno@carver\.university/);
+  assert.match(msgs[4], /\bmi (WhatsApp|correo)\b/);
   for (const m of msgs.slice(0, 4)) assert.doesNotMatch(m, /WhatsApp|@/, 'solo el último lleva el contacto');
 
   const ultimo = auditorias.filter((a) => a.type === 'seguimiento' && a.dialogId === 'c-cinco').at(-1);
@@ -250,7 +253,7 @@ test('el cierre no entrega el Gmail de la ficha ni un WhatsApp que la coordinaci
   for (let i = 0; i < 5; i++) await correrPaso('c-gmail');
   const ultimo = envios('c-gmail').at(-1)!.params.MESSAGE as string;
   assert.doesNotMatch(ultimo, /gmail|WhatsApp|mi correo/);
-  assert.match(ultimo, /Le dejo nuestro correo admission@carver\.university y el teléfono \+1 \(321\) 300-1034/);
+  assert.match(ultimo, /Te dejo nuestro correo admission@carver\.university y el teléfono \+1 \(321\) 300-1034/);
   assert.match(sistemas.at(-1)!, /NO escribas teléfonos ni correos/, 'el contacto tampoco lo escribe el modelo');
 });
 
@@ -267,7 +270,7 @@ test('el recordatorio de Carver habla como el asesor a cargo, no como "Sofía de
   assert.match(sistemas[0], /asesor a cargo de esta conversación en Carver University/);
   assert.match(sistemas[0], /NO nombres a otras personas del equipo/);
   assert.match(sistemas[0], /no empieces con "Veo que"/, 'la frase que delata a la IA está vetada');
-  assert.match(sistemas[0], /nunca tuteas ni voseas/);
+  assert.match(sistemas[0], /TUTEANDO siempre a la persona \(tú; nunca usted ni voseo\)/);
   assert.match(sistemas[0], /Usa SOLO lo que está en la conversación/);
   assert.doesNotMatch(sistemas[0], /Sof[ií]a|Universidad Autónoma|español de Chile/);
 });
@@ -381,31 +384,35 @@ test('formatearTelefono: un celular chileno se escribe como se lee; los demás q
 // ── Revisión del 25-10 al 03-11-2026: lo que un recordatorio no puede decir ─────────────────────
 test('problemasDelRecordatorio: lo que salió en una semana de recordatorios reales', () => {
   const p = seg.problemasDelRecordatorio;
-  assert.match(p('¿Sigues interesado en la maestría? Puedes escribirme cuando quieras.').join(), /tutea/);
-  assert.match(p('Veo que hizo clic en "Más información" pero no hemos recibido su respuesta.').join(), /Veo que/);
-  assert.match(p('Entiendo que el cliente ya recibió información; aquí va el seguimiento: ¿le quedó alguna duda?').join(), /tercera persona/);
-  assert.match(p('Ya revisé con el área académica y tengo la información lista para usted.').join(), /no está en la conversación/);
-  assert.match(p('Le escribo porque llevo varios intentos de contacto sin respuesta de su parte.').join(), /reprocha/);
-  assert.match(p('Quizá no es el momento; quedo atenta cuando quiera retomarlo.').join(), /género/);
-  assert.match(p('Estoy por acá si quiere retomar su postulación.\n\nWhatsApp:\nCorreo: alguien@carver.university').join(), /etiquetas de contacto/);
-  assert.deepEqual(p('¿Le cuento cuándo cierra la postulación del próximo ciclo?'), []);
-  assert.deepEqual(p('El docente imparte las clases en vivo; ¿le acomoda el horario de la tarde?'), [], '"imparte" no es tuteo');
+  // Desde el 13-11-2026 Carver tutea: lo que se marca es el "usted".
+  assert.match(p('¿Le cuento cuándo cierra la postulación del próximo ciclo?').join(), /trata de "usted"; hay que tutear/);
+  assert.match(p('Disculpe la demora: ¿le acomoda el horario de la tarde?').join(), /usted/);
+  assert.match(p('Veo que hiciste clic en "Más información" pero no hemos recibido tu respuesta.').join(), /Veo que/);
+  assert.match(p('Entiendo que el cliente ya recibió información; aquí va el seguimiento: ¿te quedó alguna duda?').join(), /tercera persona/);
+  assert.match(p('Ya revisé con el área académica y tengo la información lista para ti.').join(), /no está en la conversación/);
+  assert.match(p('Te escribo porque llevo varios intentos de contacto sin respuesta de tu parte.').join(), /reprocha/);
+  assert.match(p('Quizá no es el momento; quedo atenta cuando quieras retomarlo.').join(), /género/);
+  assert.match(p('Estoy por aquí si quieres retomar tu postulación.\n\nWhatsApp:\nCorreo: alguien@carver.university').join(), /etiquetas de contacto/);
+  assert.deepEqual(p('¿Te cuento cuándo cierra la postulación del próximo ciclo?'), []);
+  assert.deepEqual(p('¿Sigues con interés en la maestría? Puedes escribirme cuando quieras.'), [], 'tutear está bien');
+  // El asesor a cargo se nombra en tercera persona: "su" y "escribirle" no son "usted".
+  assert.deepEqual(p('Si prefieres, puedes escribirle a Persona Uno, que lleva tu proceso.'), []);
 });
 
 test('un recordatorio que sale mal se reescribe una vez, diciéndole al modelo qué corregir', async () => {
-  cola.push('Veo que te interesó la maestría, ¿quieres que te cuente más?', '¿Le cuento cómo son las clases en vivo?');
+  cola.push('Veo que le interesó la maestría, ¿le cuento más?', '¿Te cuento cómo son las clases en vivo?');
   pedidos.length = 0;
   await conversacionRespondida('c-corrige');
   await correrPaso('c-corrige');
-  assert.equal(envios('c-corrige')[0].params.MESSAGE, '¿Le cuento cómo son las clases en vivo?');
+  assert.equal(envios('c-corrige')[0].params.MESSAGE, '¿Te cuento cómo son las clases en vivo?');
   const segundo = pedidos.at(-1)!;
   assert.equal(segundo.length, 3, 'el segundo pedido lleva el intento fallido y la corrección');
-  assert.match(String(segundo[2].content), /Ese mensaje no sirve: .*tutea.*Veo que/);
+  assert.match(String(segundo[2].content), /Ese mensaje no sirve: .*usted.*Veo que/);
 });
 
 test('si las correcciones también salen mal, va un texto sencillo y seguro', async () => {
   // Carver tiene dos correcciones antes del texto seguro.
-  cola.push('¿Tienes dudas del programa?', '¿Sigues con interés? Escríbeme.', '¿Quieres que te cuente más?');
+  cola.push('¿Le quedaron dudas del programa?', 'Disculpe, ¿le cuento más?', '¿Le interesa que le cuente más?');
   await conversacionRespondida('c-seguro');
   await correrPaso('c-seguro');
   assert.equal(envios('c-seguro')[0].params.MESSAGE, seg.recordatorioSeguro('primero', 1));
@@ -457,22 +464,23 @@ test('repiteLoAnterior: no le asigna género a la persona', () => {
 });
 
 test('si el modelo repite el comienzo de un recordatorio anterior, se le pide otro', async () => {
-  cola.push('¿Le acomoda que le cuente cómo son las clases?', '¿Le acomoda que le cuente los requisitos?', 'Si quiere, le explico en dos líneas cómo es la postulación.');
+  cola.push('¿Te acomoda que te cuente cómo son las clases?', '¿Te acomoda que te cuente los requisitos?', 'Si quieres, te explico en dos líneas cómo es la postulación.');
   pedidos.length = 0;
   await conversacionRespondida('c-repite');
   await correrPaso('c-repite');
   await correrPaso('c-repite');
   const msgs = envios('c-repite').map((e) => e.params.MESSAGE);
-  assert.deepEqual(msgs, ['¿Le acomoda que le cuente cómo son las clases?', 'Si quiere, le explico en dos líneas cómo es la postulación.']);
+  assert.deepEqual(msgs, ['¿Te acomoda que te cuente cómo son las clases?', 'Si quieres, te explico en dos líneas cómo es la postulación.']);
   assert.match(String(pedidos.at(-1)![2].content), /empieza igual/);
 });
 
-test('la línea de contacto del cierre varía de un chat a otro y siempre lleva los dos datos', () => {
+test('la línea de contacto del cierre varía de un chat a otro, siempre lleva los dos datos y tutea', () => {
   const frases = new Set<string>();
   for (let i = 0; i < 30; i++) {
     const f = seg.fraseDeContacto('+56 9 1111 2222', 'asesora.uno@carver.university', `chat${i}`);
     assert.match(f, /\+56 9 1111 2222/);
     assert.match(f, /asesora\.uno@carver\.university/);
+    assert.match(f, /\bmi WhatsApp|me encuentras/, 'es el contacto del asesor, que es quien habla');
     assert.deepEqual(seg.problemasDelRecordatorio(f), []);
     frases.add(f);
   }

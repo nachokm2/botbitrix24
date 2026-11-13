@@ -24,14 +24,14 @@ function guion(req: any) {
     const resultados = ultimo.content.map((b: any) => JSON.parse(b.content));
     const precio = resultados.find((r: any) => r.arancelLista);
     if (precio) return texto(`El arancel de lista es USD ${precio.arancelLista} y con la beca queda en USD ${precio.beca.arancel}.`);
-    return texto('Perfecto, quedo atento a su consulta y le hago seguimiento por acá.');
+    return texto('Perfecto, sigo pendiente de tu consulta y te hago seguimiento por aquí.');
   }
   const pregunta = String(ultimo.content);
   if (/cuesta/i.test(pregunta)) return usar(['consultar_condiciones_comerciales', { programa: 'Maestría en Psicología' }]);
   if (/contacten/i.test(pregunta)) {
     return usar(['registrar_interes_crm', { nombre: 'Ana', email: 'ana@ejemplo.com' }], ['escalar_a_humano', { motivo: 'Pidió que la contacten' }]);
   }
-  return texto('Hola, con gusto le ayudo. ¿Qué programa le interesa?');
+  return texto('Hola, con gusto te ayudo. ¿Qué programa te interesa?');
 }
 mock.module('../src/ai/client.ts', {
   namedExports: {
@@ -101,7 +101,7 @@ test('una conversación real que corre al mismo tiempo no ve el borrador', async
 test('registrar y derivar se simulan: no tocan Bitrix y se muestran a quien prueba', async () => {
   const primero = await simularTurno([], 'Hola');
   const r = await simularTurno(primero.historial, 'Quiero que me contacten, soy Ana, ana@ejemplo.com');
-  assert.match(r.texto, /quedo atento/i);
+  assert.match(r.texto, /sigo pendiente/i);
   assert.deepEqual(llamadasBitrix, [], 'ninguna llamada a Bitrix');
   const porNombre = Object.fromEntries(r.herramientas.map((h) => [h.nombre, h]));
   assert.equal(porNombre.registrar_interes_crm.simulada, true);

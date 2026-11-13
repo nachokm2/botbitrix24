@@ -118,14 +118,19 @@ export function brochureComoEnlace(r: Awaited<ReturnType<typeof obtenerBrochure>
   };
 }
 
-/** Lo que recibe el modelo al derivar en una marca donde el bot habla COMO el asesor (Carver). */
+/** Lo que recibe el modelo al derivar en una marca donde el bot habla COMO el asesor (Carver).
+ *  El motor envía solo el texto que el modelo escribe DESPUÉS de la última herramienta: en la prueba
+ *  del 13-11-2026 el modelo dijo antes de derivar que revisaba el pago en 24 horas hábiles y al
+ *  cliente le llegó solo «Sigo pendiente». Por eso se le pide repetirlo. */
 export const RESULTADO_ESCALADO_COMO_ASESOR = {
   ok: true,
   escalado: true,
   asesor: null,
   mensaje:
     'Conversación derivada para seguimiento. Tú eres su asesor: confírmale en primera persona que quedas a cargo ' +
-    '("quedo pendiente", "le hago seguimiento"). No nombres a otra persona ni hables de ti en tercera persona.',
+    '("sigo pendiente", "te hago seguimiento"). No nombres a otra persona ni hables de ti en tercera persona. Lo que escribiste ' +
+    'ANTES de llamar a esta herramienta NO le llegó al cliente: repítelo ahora completo en tu mensaje, porque el cliente recibe ' +
+    'SOLO lo que escribas desde aquí. Si informó un pago, dile que lo revisas y le confirmas en un máximo de 24 horas hábiles.',
 } as const;
 
 export async function executeTool(name: string, input: any, ctx: AgentContext): Promise<any> {
@@ -591,8 +596,9 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
             retenida: true,
             asesor: null,
             mensaje:
-              `El caso quedó con el equipo, que lo retoma ${vuelve}. Mientras tanto TÚ sigues atendiendo esta conversación: ` +
-              `díselo en primera persona y con ese plazo (por ejemplo, "lo reviso con el área y le escribo ${vuelve}"), sin contar ` +
+              `El caso quedó con el equipo, que lo retoma ${vuelve}. Mientras tanto TÚ sigues atendiendo esta conversación. ` +
+              'Lo que escribiste ANTES de llamar a esta herramienta NO le llegó al cliente: repítelo ahora completo en tu mensaje, ' +
+              `y dile en primera persona y con ese plazo (por ejemplo, "lo reviso con el área y te escribo ${vuelve}"), sin contar ` +
               'que derivaste, y sigue ayudándole con todo lo que puedas responder con tus herramientas.',
           };
         }

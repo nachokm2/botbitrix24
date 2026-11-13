@@ -11,7 +11,7 @@ import { inc, recordLlmLatency, recordTokens } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
 import type { CrmEntity } from '../crm/entities';
-import { guardarRespuesta, urlsEn, detectarTuteo } from '../core/guardRespuesta';
+import { guardarRespuesta, urlsEn, detectarTuteo, detectarUsted } from '../core/guardRespuesta';
 import { URLS_OFICIALES_CARVER } from '../core/promptObjeciones';
 import { promptVigente } from '../core/ajustes';
 import { bloqueMomento } from '../core/momento';
@@ -139,7 +139,7 @@ function bloqueDatosConocidosConfirmar(d: { nombre?: string; email?: string; tel
 
 DATOS QUE EL CRM YA TIENE de esta persona — ${tiene.join(', ')}. ` +
     'NO se los vuelvas a pedir: úsalos. Si tienes una razón concreta para dudar de que sigan vigentes, CONFÍRMALO en una sola ' +
-    'pregunta y una sola vez en toda la conversación ("¿Le sigo escribiendo al correo que termina en @gmail.com?"), nunca lo pidas desde cero. ' +
+    'pregunta y una sola vez en toda la conversación ("¿Te sigo escribiendo al correo que termina en @gmail.com?"), nunca lo pidas desde cero. ' +
     'La confirmación NUNCA retrasa una derivación: si pide que la contacten, quiere matricularse o pide hablar con alguien, deriva DE INMEDIATO con lo que ya tienes. ' +
     'El número de WhatsApp desde el que escribe ya es un teléfono de contacto: no se lo pidas. ' +
     'Si la persona entrega un dato DISTINTO al del CRM, el que da ahora es el vigente: regístralo con registrar_interes_crm ' +
@@ -176,21 +176,17 @@ IDENTIDAD: eres ${a.nombre} y ya te presentaste al inicio de esta conversación.
   lineas.push(
     `Si en la conversación aparece ${a.nombre} como si fuera otra persona, eres tú: nunca hables de ${a.nombre} en tercera persona ni le digas al cliente que lo consulte "con ${a.nombre.split(' ')[0]}".`,
   );
-  // Que derivar sea invisible para el cliente ("ese asesor eres TÚ", "nunca preguntes ¿lo conecto?")
+  // Que derivar sea invisible para el cliente ("ese asesor eres TÚ", "nunca preguntes ¿te conecto?")
   // ya no va acá: vale también sin asesor asignado, así que está en el prompt fijo de Carver
   // (DERIVACION_CARVER en core/promptObjeciones.ts).
   if (a.email) lineas.push(`Tu correo es ${a.email}: compártelo solo si el cliente lo pide.`);
   // En Carver llega solo si la coordinacion lo entrego (crm/contactoAsesores.ts): los moviles de
   // Bitrix no estan al dia.
   if (a.telefono) lineas.push(`Tu teléfono es ${a.telefono}: compártelo solo si el cliente lo pide.`);
-  // Carver, 02-11-2026: cuando el lead avanza, la coordinación pide enviarle el formulario de
-  // postulación de SU asesor. Se ofrece junto a la ficha en el chat, que sigue siendo la vía que no
-  // obliga a salir a otra página.
+  // Carver, 13-11-2026: la postulación va SIEMPRE por la ficha de postulación del asesor, nunca la
+  // ficha en el chat (decisión de Carver).
   if (a.formulario) {
-    lineas.push(
-      `Tu formulario de postulación es ${a.formulario}. Cuando la persona decida matricularse, ofrécele en UNA sola pregunta las dos vías: completar ese formulario en línea o darte sus datos aquí mismo en el chat. ` +
-        'Si elige el formulario, envíale ese enlace tal cual y no le pidas la ficha en el chat; cuando te confirme que lo completó, sigue con las instrucciones de pago. Si elige el chat, reúne la ficha como siempre.',
-    );
+    lineas.push(`Tu FICHA DE POSTULACIÓN es ${a.formulario}. Es la que envías en el paso de matrícula, tal cual; nunca otra.`);
   }
   lineas.push('NUNCA digas que eres un bot, un asistente virtual ni una inteligencia artificial llamada de otra forma, y NUNCA inventes datos de contacto distintos de los de arriba.');
   return lineas.join(' ');
@@ -316,7 +312,7 @@ export async function runConversation(
     text: profile.respondeEnIdiomaDelCliente
       ? RESERVA_INTERNACIONAL.tope
       : marca.sePresentaComoAsesor
-        ? 'Para responderle con precisión, ¿me confirma qué es lo que más le interesa saber?'
+        ? 'Para responderte con precisión, ¿me cuentas qué es lo que más te interesa saber?'
         : 'Permíteme derivarte con un asesor para ayudarte mejor 🙌',
     messages,
   };
@@ -523,9 +519,9 @@ export async function runAgentTurn(
     void audit({ type: 'error', dialogId: ctx.conversationId, detail: { etapa: 'motor', err: String(e) } });
     log.error('agentLoop error', { err: String(e) });
     if (ctx.internacional) return RESERVA_INTERNACIONAL.error;
-    // Carver trata de "usted" en todo momento, también al disculparse.
+    // Carver tutea desde el 13-11-2026, también al disculparse.
     return marca.sePresentaComoAsesor
-      ? 'Disculpe, tuve un inconveniente técnico. ¿Podría repetirme su consulta?'
+      ? 'Disculpa, tuve un inconveniente técnico. ¿Me repites tu consulta?'
       : 'Disculpa, tuve un inconveniente técnico. ¿Puedes repetir tu consulta?';
   }
 }
@@ -770,34 +766,41 @@ export async function aplicarGuardian(
     }
   }
 
-  // Se trata de "usted" y el modelo igual tutea a veces, sobre todo si la persona tutea o si una
-  // plantilla vino en tú (chat 1570307, 03-11-2026). Se corrige UNA vez con el modelo rápido y solo
-  // se acepta si ya no tutea y conserva cifras y enlaces. En el modo internacional, solo si la respuesta
-  // está en español: en hinglish "tu" y "te" son otras palabras, y el editor la reescribiría en español.
-  if ((!t.internacional || pareceEspanol(final)) && detectarTuteo(final).length) {
+  // El modelo se sale del trato a veces, sobre todo si la persona usa el otro o si una plantilla vino
+  // en el otro (chat 1570307, 03-11-2026, cuando Carver trataba de "usted"). Se corrige UNA vez con el
+  // modelo rápido y solo se acepta si ya respeta el trato y conserva cifras y enlaces. En el modo
+  // internacional, solo si la respuesta está en español: en hinglish "tu" y "te" son otras palabras, y
+  // el editor la reescribiría en español. Carver tutea desde el 13-11-2026 (pedido de Ignacio).
+  const tutea = marca.trato === 'tu';
+  const fueraDeTrato = tutea ? detectarUsted : detectarTuteo;
+  if ((!t.internacional || pareceEspanol(final)) && fueraDeTrato(final).length) {
     try {
       const resp = await anthropic.messages.create({
         model: CLASSIFIER,
         max_tokens: 600,
         temperature: 0,
-        system:
-          'Eres editor de mensajes de WhatsApp de un asesor de admisión. Reescribe el mensaje tratando a la persona de ' +
-          '"usted" (nunca tú ni vos): cambia solo los verbos, pronombres y posesivos que hagan falta y deja todo lo demás ' +
-          'igual, palabra por palabra, con las mismas cifras, nombres, enlaces y correos. Devuelve SOLO el mensaje.',
+        system: tutea
+          ? 'Eres editor de mensajes de WhatsApp de un asesor de admisión. Reescribe el mensaje TUTEANDO a la persona a ' +
+            'quien le escribes (tú, nunca usted ni vos): cambia solo los verbos, pronombres y posesivos que hagan falta y deja ' +
+            'todo lo demás igual, palabra por palabra, con las mismas cifras, nombres, enlaces y correos. Lo que se dice de otra ' +
+            'persona o de un área queda en tercera persona. Devuelve SOLO el mensaje.'
+          : 'Eres editor de mensajes de WhatsApp de un asesor de admisión. Reescribe el mensaje tratando a la persona de ' +
+            '"usted" (nunca tú ni vos): cambia solo los verbos, pronombres y posesivos que hagan falta y deja todo lo demás ' +
+            'igual, palabra por palabra, con las mismas cifras, nombres, enlaces y correos. Devuelve SOLO el mensaje.',
         messages: [{ role: 'user', content: final }],
       });
       recordTokens((resp as any).usage);
-      const deUsted = soloTexto(resp);
-      const duros = datosDuros(deUsted);
-      if (deUsted && !detectarTuteo(deUsted).length && datosDuros(final).every((d) => duros.includes(d))) {
-        final = guardarRespuesta(deUsted, { ...ctxGuard, maxCaracteres: Number.MAX_SAFE_INTEGER }).texto;
-        cambios.push('tuteo_corregido');
+      const reescrito = soloTexto(resp);
+      const duros = datosDuros(reescrito);
+      if (reescrito && !fueraDeTrato(reescrito).length && datosDuros(final).every((d) => duros.includes(d))) {
+        final = guardarRespuesta(reescrito, { ...ctxGuard, maxCaracteres: Number.MAX_SAFE_INTEGER }).texto;
+        cambios.push(tutea ? 'usted_corregido' : 'tuteo_corregido');
       } else {
-        cambios.push('tuteo_no_corregido');
+        cambios.push(tutea ? 'usted_no_corregido' : 'tuteo_no_corregido');
       }
     } catch (e) {
-      log.warn('guardián: no se pudo corregir el tuteo', { err: String(e) });
-      cambios.push('tuteo_no_corregido');
+      log.warn('guardián: no se pudo corregir el trato', { err: String(e) });
+      cambios.push(tutea ? 'usted_no_corregido' : 'tuteo_no_corregido');
     }
   }
 
@@ -870,7 +873,7 @@ export function textOf(resp: any, auditId?: string | null, enIngles = false): st
   }
   if (enIngles) return RESERVA_INTERNACIONAL.vacio;
   return marca.sePresentaComoAsesor
-    ? `¿En qué puedo ayudarle con los programas de ${marca.organizacion}?`
+    ? `¿En qué puedo ayudarte con los programas de ${marca.organizacion}?`
     : '¿En qué puedo ayudarte con nuestros postgrados?';
 }
 

@@ -26,20 +26,20 @@ function frases(texto: string): string[] {
     .filter(Boolean);
 }
 
-// Futuro explícito: "confirmaré", "le escribiré".
+// Futuro explícito: "confirmaré", "le escribiré". Con "te" también: Carver tutea desde el 13-11-2026.
 const FUTURO =
-  /\b(confirmare|verificare|consultare|averiguare|revisare|gestionare|coordinare|le escribire|le respondere|le avisare|le enviare|le hare llegar|le contare|le informare)\b/;
+  /\b(confirmare|verificare|consultare|averiguare|revisare|gestionare|coordinare|(le|te) (escribire|respondere|avisare|enviare|hare llegar|contare|informare))\b/;
 // "lo confirmo con el área académica", "verifico con admisiones". Sin "que" después del verbo: "le
 // confirmo que el programa dura 12 meses" es una afirmación, no una promesa.
 const CON_AREA =
   /\b(confirmo|verifico|consulto|reviso|averiguo|gestiono|coordino|valido)\b(?!\s+que)[^.!?\n]{0,40}\b(con|en)\s+(el\s+|la\s+|los\s+|las\s+)?(area|areas|equipo|admision|admisiones|finanzas|academica|academico|direccion|departamento|coordinacion|registro|soporte)\b/;
 // "le aviso en cuanto esté listo", "le respondo a la brevedad".
 const CON_PLAZO =
-  /\ble\s+(respondo|escribo|aviso|confirmo|cuento|informo|envio|comparto)\b[^.!?\n]{0,40}\b(a la brevedad|apenas|en cuanto|pronto|hoy mismo|manana|el lunes|el martes|el miercoles|el jueves|el viernes|el sabado|el domingo|el proximo|durante el dia|en el dia|lo antes posible|en breve|mas tarde)\b/;
+  /\b(le|te)\s+(respondo|escribo|aviso|confirmo|cuento|informo|envio|comparto)\b[^.!?\n]{0,40}\b(a la brevedad|apenas|en cuanto|pronto|hoy mismo|manana|el lunes|el martes|el miercoles|el jueves|el viernes|el sabado|el domingo|el proximo|durante el dia|en el dia|lo antes posible|en breve|mas tarde)\b/;
 // "le respondo por acá" (sin "le escribo por acá", que suele ir seguido del dato en el mismo mensaje).
-const POR_ACA = /\ble\s+(respondo|aviso|confirmo)\s+(por aca|por aqui|por este medio|por este chat)\b/;
+const POR_ACA = /\b(le|te)\s+(respondo|aviso|confirmo)\s+(por aca|por aqui|por este medio|por este chat)\b/;
 // "... y le confirmo." al cierre de la frase.
-const Y_LE_AL_FINAL = /\by\s+(se lo|le|lo)\s+(confirmo|aviso|respondo|cuento|informo)\s*[.!]*$/;
+const Y_LE_AL_FINAL = /\by\s+(se lo|te lo|le|te|lo)\s+(confirmo|aviso|respondo|cuento|informo)\s*[.!]*$/;
 
 /** La frase con la que la respuesta promete volver con algo, o null si no promete nada. Las
  *  preguntas no cuentan: "¿Quiere que se lo confirme?" es una oferta, todavía no un compromiso. */
@@ -58,7 +58,7 @@ export function promesaDeSeguimiento(texto: string): string | null {
 // esto la promesa no le llegaba a nadie. "Le comparto mi correo" o "puede escribirme al correo" no
 // prometen un envío y no cuentan.
 const ENVIO_CORREO =
-  /\b(envio|enviare|enviamos|enviaremos|mando|mandare|mandamos|hago llegar|hare llegar|haremos llegar|acabo de enviar|acabo de mandar|le envie|le mande|le escribo|le escribire|llegara|llegaran)\b/;
+  /\b(envio|enviare|enviamos|enviaremos|mando|mandare|mandamos|hago llegar|hare llegar|haremos llegar|acabo de enviar|acabo de mandar|(le|te) (envie|mande|escribo|escribire)|llegara|llegaran)\b/;
 const CORREO = /\b(correo|mail|email|e-mail|bandeja de entrada)\b/;
 
 /** La frase en la que la respuesta dice que envía (o envió) algo al correo, o null. Las preguntas no

@@ -106,13 +106,17 @@ test('los recordatorios inventados de esta semana no pasan', () => {
     '¿Cuál es su país de residencia para confirmar si puede acceder a la beca?', // chat 1599155
     '¿Cuál es su país de residencia? Así le confirmo los requisitos específicos de postulación.',
     'El próximo ciclo inicia pronto y los cupos con beca son limitados.',
+    // Lo mismo dicho de tú: Carver tutea desde el 13-11-2026.
+    'Te tengo la respuesta sobre dónde consultar el programa.',
+    '¿Cuál es tu país de residencia? Así te confirmo los requisitos específicos de postulación.',
+    '¿Ya enviaste la cédula para tu beca del 90%?',
   ]) {
     assert.ok(problemasDelRecordatorio(t).length > 0, t);
   }
   for (const t of [
     'El programa es 100% en línea, con clases en vivo.',
-    'Le recuerdo que la beca es del 50 %.',
-    '¿Le cuento cuándo cierra la postulación?',
+    'Te recuerdo que la beca es del 50 %.',
+    '¿Te cuento cuándo cierra la postulación?',
   ]) {
     assert.deepEqual(problemasDelRecordatorio(t), [], t);
   }
