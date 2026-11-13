@@ -91,6 +91,15 @@ async function ejecutar(nombre: string, input: any, mensajeCliente: string, inte
       return enlaceDePago(String(input?.programa ?? ''), String(input?.concepto ?? '') as any);
     case 'registrar_interes_crm':
       return { ok: true, actualizado: Object.keys(input ?? {}).filter((k) => input[k]) };
+    case 'registrar_ficha_postulacion_completada':
+      // En la prueba no se mueve ninguna negociación: se responde lo que respondería la real.
+      return {
+        ok: true,
+        movidoAPendienteDeFirma: true,
+        mensaje:
+          'Quedó registrado que completó la ficha. Agradécele y sigue con el pago: si todavía no eligió cómo pagar, ' +
+          'pregúntale si prefiere mensualidades, semestral o contado. No le cuentes nada sobre etapas internas.',
+      };
     case 'enviar_informacion_por_correo':
       // En la prueba no sale ningún correo: se responde lo que respondería un envío exitoso.
       return resultadoParaElModelo({ ok: true, enviadoA: 'correo-de-prueba@ejemplo.com', conBrochure: true });
@@ -133,6 +142,8 @@ function describir(nombre: string, input: any, r: any): string {
         .join(', ');
       return `Registraría en el CRM${datos ? ` — ${datos}` : ''}.`;
     }
+    case 'registrar_ficha_postulacion_completada':
+      return 'Movería la negociación a «Pendiente de Firma»: la persona dice que completó la ficha de postulación.';
     case 'enviar_informacion_por_correo':
       return `Enviaría al correo de la persona la información de ${input?.programa ?? 'su programa'}: valor con la beca, formas de pago, próximo ingreso y brochure (en la prueba no sale ningún correo).`;
     case 'escalar_a_humano':

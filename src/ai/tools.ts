@@ -194,6 +194,15 @@ const TOOLS_CARVER = [
       required: [],
     },
   },
+  {
+    name: 'registrar_ficha_postulacion_completada',
+    description:
+      'Úsala UNA sola vez, cuando la persona te diga que YA completó y envió la ficha de postulación que le ' +
+      'mandaste ("listo, ya la llené", "ya envié el formulario"). Deja su negociación en Pendiente de Firma. ' +
+      'NO la uses si solo pregunta por la ficha, si dice que la va a completar después o si tiene un problema ' +
+      'para llenarla. No recibe parámetros. Después sigue con el pago.',
+    input_schema: { type: 'object', properties: {}, required: [] },
+  },
 ] as const;
 
 // escalar_a_humano distingue la derivación de un estudiante (va a su Advisor) solo donde existe ese flujo.

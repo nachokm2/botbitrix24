@@ -36,7 +36,7 @@ const PASO_MATRICULA_FORMULARIO =
   'Si más abajo tienes tu FICHA DE POSTULACIÓN, envíasela en ese mismo mensaje con esta frase: «¡Perfecto! Para continuar con tu proceso de admisión y evaluación, completa la ficha de postulación: {enlace}. Cuando la completes, avísame por aquí.» ' +
   'Si NO tienes ninguna, no inventes un enlace ni uses el de otra persona: dile que te encargas de que le llegue por aquí y deriva en ese mismo turno con "escalar_a_humano" (motivo: "enviar la ficha de postulación"). ' +
   'Desde que le envías la ficha, NO le pidas en el chat su nombre, su correo ni otros datos: la ficha los recoge. ' +
-  'Cuando avise que la completó, sigue con el PROCESO DE MATRÍCULA. NO le pidas datos bancarios, números de tarjeta ni claves, nunca.';
+  'Cuando avise que la completó, usa "registrar_ficha_postulacion_completada" (una sola vez) y sigue con el PROCESO DE MATRÍCULA. NO le pidas datos bancarios, números de tarjeta ni claves, nunca.';
 
 // Paso 7: los antecedentes de matrícula. Carver envía la ficha de postulación de su asesor; Postgrados
 // pide solo profesión, dirección y cédula; una marca sin captura deriva sin pedir documentos.

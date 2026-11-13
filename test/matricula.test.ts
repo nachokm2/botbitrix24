@@ -230,6 +230,37 @@ test('no se mueve una negociación de otro embudo, ni una ya cerrada', async () 
   assert.equal(await moverAPendienteDeFirma(9005, auth), false, 'ya está ahí: no se ensucia el historial');
 });
 
+// Desde el 13-11-2026 la mueve el aviso de la persona («ya completé la ficha»), que puede llegar
+// después de que el asesor avanzó la matrícula: no se devuelve.
+test('una negociación que el asesor ya avanzó en la matrícula no vuelve a Pendiente de Firma', async () => {
+  for (const [cat, etapa] of [['73', 'C73:FINAL_INVOICE'], ['73', 'C73:UC_6VN64I'], ['135', 'C135:3']] as const) {
+    reset();
+    deal = { CATEGORY_ID: cat, STAGE_ID: etapa, CLOSED: 'N' };
+    assert.ok(config.stageProtegidasDerivacion.includes(etapa));
+    assert.equal(await moverAPendienteDeFirma(9006, auth), false, etapa);
+    assert.equal(deal.STAGE_ID, etapa);
+  }
+});
+
+test('«ya completé la ficha de postulación»: la herramienta mueve la negociación a Pendiente de Firma', async () => {
+  const { executeTool } = await import('../src/ai/toolRunner');
+  const { WHATSAPP_PROFILE } = await import('../src/core/channel');
+  const ctx = { profile: WHATSAPP_PROFILE, auth, conversationId: 'chat-ficha', crmEntities: { deal: 9007 }, chatId: '1' } as any;
+
+  reset();
+  deal = { CATEGORY_ID: '73', STAGE_ID: 'C73:UC_KY8NN7', CLOSED: 'N' };
+  const r = await executeTool('registrar_ficha_postulacion_completada', {}, ctx);
+  assert.equal(r.ok, true);
+  assert.equal(r.movidoAPendienteDeFirma, true);
+  assert.equal(deal.STAGE_ID, 'C73:EXECUTING');
+  assert.match(r.mensaje, /sigue con el pago/);
+
+  // Sin negociación no hay nada que mover, pero la conversación sigue con el pago.
+  const sinDeal = await executeTool('registrar_ficha_postulacion_completada', {}, { ...ctx, crmEntities: {} });
+  assert.equal(sinDeal.ok, true);
+  assert.equal(sinDeal.movidoAPendienteDeFirma, false);
+});
+
 // ── Nacionalidad: es un desplegable, no texto libre ──────────────────────────────────────────────
 test('la nacionalidad se traduce al valor del desplegable, aunque la digan como gentilicio', async () => {
   for (const [dicho, id] of [

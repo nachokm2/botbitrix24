@@ -205,6 +205,7 @@ const TOOLS_WHATSAPP = [
   'registrar_interes_crm',
   ...(marca.capturaDocumentos ? ['registrar_documento_identidad'] : []),
   ...(marca.matriculaEnChat ? ['registrar_datos_matricula', 'registrar_documento_academico'] : []),
+  ...(marca.matriculaConFormulario ? ['registrar_ficha_postulacion_completada'] : []),
   ...(marca.tieneVoz ? ['solicitar_llamada'] : []),
   ...(marca.brochureVerificado ? ['obtener_brochure'] : []),
   ...(marca.soporteEstudiantes ? ['consultar_estado_estudiante'] : []),

@@ -288,11 +288,16 @@ async function leerLoQueYaEsta(contactId: number, auth: Auth): Promise<Set<keyof
 }
 
 /**
- * Mueve la negociación a "Pendiente de Firma". Solo con la ficha completa.
+ * Mueve la negociación a "Pendiente de Firma". Solo con la ficha completa: desde el 13-11-2026, cuando
+ * la persona avisa que completó la ficha de postulación de su asesor (registrar_ficha_postulacion_completada).
  *
  * La etapa tiene un identificador distinto en cada embudo —C73:EXECUTING en Carver, C135:1 en
  * Carver CU— y en el 135 ese mismo C135:EXECUTING es "Info Urgente", así que escribir una etapa
  * fija mandaría a media matrícula al embudo equivocado.
+ *
+ * Una negociación que un asesor ya llevó más adelante en la matrícula (Firmó contrato, Pagado,
+ * Flywire, Validación Académica: las etapas protegidas de config) no se devuelve: el aviso de la
+ * persona puede llegar después de que el asesor avanzó.
  */
 export async function moverAPendienteDeFirma(dealId: number, auth: Auth): Promise<boolean> {
   if (!dealId || !Object.keys(config.stagePendienteFirma).length) return false;
@@ -305,6 +310,10 @@ export async function moverAPendienteDeFirma(dealId: number, auth: Auth): Promis
     // Una negociación ya cerrada —matriculada o perdida— no se reabre desde el chat.
     if (d?.CLOSED === 'Y' || /:(WON|LOSE)$/.test(actual)) {
       log.info('no se mueve a Pendiente de Firma: la negociación ya está cerrada', { dealId, actual });
+      return false;
+    }
+    if (config.stageProtegidasDerivacion.includes(actual)) {
+      log.info('no se mueve a Pendiente de Firma: un asesor ya la avanzó en la matrícula', { dealId, actual });
       return false;
     }
     await callCrm('crm.deal.update', { id: dealId, fields: { STAGE_ID: destino } }, auth);

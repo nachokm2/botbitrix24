@@ -475,6 +475,26 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
         return { ...r, movidoAPendienteDeFirma: movido };
       }
 
+      // Carver, 13-11-2026: la persona avisa que completó la ficha de postulación de su asesor y la
+      // negociación pasa a Pendiente de Firma (pedido del usuario). Se confía en su aviso: la ficha es
+      // un formulario externo y el bot no ve si llegó.
+      case 'registrar_ficha_postulacion_completada': {
+        const dealId = ctx.crmEntities?.deal;
+        const movido = dealId ? await moverAPendienteDeFirma(dealId, ctx.auth) : false;
+        await audit({
+          type: 'conocimiento',
+          dialogId: ctx.conversationId,
+          detail: { tema: 'ficha_postulacion_completada', dealId, movido },
+        }).catch(() => {});
+        return {
+          ok: true,
+          movidoAPendienteDeFirma: movido,
+          mensaje:
+            'Quedó registrado que completó la ficha. Agradécele y sigue con el pago: si todavía no eligió cómo pagar, ' +
+            'pregúntale si prefiere mensualidades, semestral o contado. No le cuentes nada sobre etapas internas.',
+        };
+      }
+
       case 'escalar_a_humano': {
         // Modo internacional (core/internacional.ts): no hay asesores a quienes entregar el chat. Se
         // avisa al equipo y el bot sigue atendiendo; no se marca traspaso, no se asigna negociación ni

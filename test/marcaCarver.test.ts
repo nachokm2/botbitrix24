@@ -734,6 +734,11 @@ test('la matrícula va por la ficha de postulación, sin pedir datos ni document
   for (const n of ['registrar_datos_matricula', 'registrar_documento_academico', 'registrar_documento_identidad']) {
     assert.ok(!nombres.includes(n), `${n} no se carga en Carver`);
   }
+  // Cuando avisa que completó la ficha, la negociación pasa a Pendiente de Firma (el usuario, 13-11-2026).
+  assert.ok(nombres.includes('registrar_ficha_postulacion_completada'));
+  assert.match(SYSTEM_PROMPT, /Cuando avise que la completó, usa "registrar_ficha_postulacion_completada" \(una sola vez\)/);
+  const t: any = tools.find((x: any) => x.name === 'registrar_ficha_postulacion_completada');
+  assert.match(t.description, /NO la uses si solo pregunta por la ficha, si dice que la va a completar después/);
 });
 
 test('el proceso de matrícula: pago, validación del asesor en 24 h hábiles, contrato por correo y bienvenida', () => {
