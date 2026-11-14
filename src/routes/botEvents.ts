@@ -355,7 +355,12 @@ async function handle(req: Request) {
       // prompt de ese modo decide con qué letras responder (ver promptInternacional).
       const t = await transcribeAudio(a.base64, a.mediaType, { multilingue: internacional });
       const transcrito = t && internacional ? `[voice message] ${t}` : t;
-      turnText = [turnText, transcrito ?? '(el cliente envió un audio que no se pudo transcribir; pídele amablemente que escriba su consulta)']
+      // La nota va en el idioma del modo: en español, el bot le contestó en español a una persona de India
+      // (14-11-2026).
+      const sinTranscribir = internacional
+        ? '(the person sent a voice message that could not be transcribed; reply in their language and politely ask them to type their question)'
+        : '(el cliente envió un audio que no se pudo transcribir; pídele amablemente que escriba su consulta)';
+      turnText = [turnText, transcrito ?? sinTranscribir]
         .filter(Boolean)
         .join(' ')
         .trim();

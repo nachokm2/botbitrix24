@@ -45,7 +45,8 @@ const iso = (ts: string | Date) => new Date(ts).toISOString();
 
 // Cómo llegan los audios al texto del turno (routes/botEvents.ts), con el enlace de Bitrix delante.
 const AUDIO_TRANSCRITO = /(?:\[adjunto\]\s*)?\[voice message\]\s*/g;
-const AUDIO_SIN_TRANSCRIBIR = /(?:\[adjunto\]\s*)?\(el cliente envió un audio que no se pudo transcribir[^)]*\)/g;
+const AUDIO_SIN_TRANSCRIBIR =
+  /(?:\[adjunto\]\s*)?\((?:el cliente envió un audio que no se pudo transcribir|the person sent a voice message that could not be transcribed)[^)]*\)/g;
 
 /**
  * Un enlace de Bitrix ("[URL=…]Open[/URL]") se muestra como «[adjunto]». Un audio transcrito, como

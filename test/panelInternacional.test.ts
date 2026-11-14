@@ -98,6 +98,11 @@ test('los audios se leen como audios: transcrito, «(audio) …»; sin transcrib
     limpiarTexto('[URL=https://x.y/a.oga]Open[/URL] (el cliente envió un audio que no se pudo transcribir; pídele amablemente que escriba su consulta)'),
     '(audio que no se pudo oír)',
   );
+  assert.equal(
+    limpiarTexto('[URL=https://x.y/a.oga]Open[/URL] (the person sent a voice message that could not be transcribed; reply in their language and politely ask them to type their question)'),
+    '(audio que no se pudo oír)',
+    'la nota del modo India, en inglés',
+  );
 });
 
 test('la lista: 403 para otros editores, y para ellos el resumen sin traducir nada', async () => {
