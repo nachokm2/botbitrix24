@@ -251,6 +251,23 @@ details.programa .cuerpo { padding: 4px 16px 16px; }
 .herramientas li { margin: 2px 0; }
 .herramientas .etiqueta { display: inline-block; margin-left: 6px; font-size: 0.72rem; padding: 0 6px; border-radius: 999px; }
 .con-borradores { margin: 4px 0 0; }
+
+/* Conversaciones India: lista de conversaciones, cada una se abre con la conversación traducida. */
+.int-resumen p { margin: 8px 0 12px; }
+.int-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.int-conv > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.int-conv > summary .etiqueta { display: inline-block; font-size: 0.78rem; padding: 1px 8px; border-radius: 999px; }
+.int-fecha { font-weight: 600; }
+.int-msgs { color: var(--suave); font-size: 0.875rem; }
+.int-primero { flex-basis: 100%; color: var(--suave); font-size: 0.875rem; overflow-wrap: anywhere; }
+.int-mensajes { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.int-mensajes .quien-dijo { margin: 0 0 4px; font-size: 0.75rem; color: var(--suave); }
+.int-mensajes .hora { align-self: center; font-size: 0.75rem; color: var(--suave); margin-top: 6px; }
+.int-mensajes .evento { align-self: center; font-size: 0.82rem; padding: 4px 10px; border-radius: 999px; background: #f3f4f6; color: var(--suave); }
+.int-mensajes .evento.pago, .int-mensajes .evento.ayuda { background: var(--aviso-fondo); color: var(--aviso-texto); }
+.int-mensajes .evento.correo, .int-mensajes .evento.negociacion { background: var(--ok-fondo); color: var(--ok-texto); }
+.burbuja details.original { margin-top: 6px; font-size: 0.85rem; color: var(--suave); }
+.burbuja details.original summary { cursor: pointer; }
 .redactar { display: flex; gap: 10px; align-items: flex-end; }
 .redactar textarea { flex: 1; }
 .enlace-neutro { background: none; color: var(--primario); padding: 6px 0; margin-top: 6px; }

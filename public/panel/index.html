@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="panel-sesion" content="{{SESION}}">
   <meta name="panel-secciones" content="{{SECCIONES}}">
+  <meta name="panel-extras" content="{{EXTRAS}}">
   <title>Configuración del bot {{ORGANIZACION}}</title>
   <link rel="stylesheet" href="/assets/panel/panel.css?v={{V}}">
 </head>
@@ -26,6 +27,7 @@
       <button type="button" class="item" data-seccion="conocimiento" hidden>Conocimiento institucional</button>
       <button type="button" class="item" data-seccion="acciones" hidden>Acciones</button>
       <button type="button" class="item probar" data-seccion="simulador">Probar el bot</button>
+      <button type="button" class="item" data-seccion="internacional" hidden>Conversaciones India</button>
     </nav>
 
     <main>
@@ -207,6 +209,18 @@
           </form>
           <button type="button" class="enlace-neutro" id="sim-reiniciar">Empezar una conversación nueva</button>
         </section>
+      </section>
+
+      <!-- ── Conversaciones India (solo lectura, traducidas) ────────────────────────────────── -->
+      <section id="vista-internacional" hidden>
+        <section class="tarjeta">
+          <h2>Conversaciones India</h2>
+          <p class="ayuda">Las conversaciones del programa internacional de los últimos 30 días. El bot las atiende en inglés o en hindi; acá se leen traducidas al español. En cada mensaje puedes ver el original.</p>
+          <p class="nota">Es solo para leer: no cambia nada del bot ni de Bitrix. Los teléfonos no se muestran.</p>
+          <div id="int-resumen" class="int-resumen"></div>
+          <button type="button" class="secundario" id="int-actualizar">Actualizar</button>
+        </section>
+        <ol id="int-lista" class="int-lista"></ol>
       </section>
 
       <div class="acciones" id="acciones" hidden>

@@ -1459,7 +1459,7 @@ const FUENTE_DE_HERRAMIENTA: Record<string, string> = {
 const FUENTE_INTERNACIONAL =
   'ficha del programa internacional del panel (precios y datos propios, distintos de la planilla de Latinoamérica; sin asesores; responde en el idioma de la persona)';
 
-type FilaAuditoria = { dialog_id: string; ts: string | Date; type: string; crm_entity: string | null; detail: any };
+export type FilaAuditoria = { dialog_id: string; ts: string | Date; type: string; crm_entity: string | null; detail: any };
 
 /** Arma la conversación de cada chat para el auditor: "Cliente:" y "Bot:", y entre ambos, si el bot
  *  consultó algo, una línea "[Fuentes verificadas…]". Las filas vienen ordenadas por chat y hora; los
@@ -1526,6 +1526,42 @@ export async function dbTranscripcionesRecientes(
   } catch (err) {
     log.warn('dbTranscripcionesRecientes falló', { err: String(err) });
     return [];
+  }
+}
+
+/**
+ * Lo que pasó en las conversaciones del modo internacional (core/internacional.ts) de los últimos
+ * `dias`: sus turnos, las herramientas que usó el bot, sus pedidos de ayuda y la negociación que creó.
+ * Para la sección «Conversaciones India» del panel (routes/panelInternacional.ts). Con `dialogId`, solo
+ * esa conversación. null si la base no está disponible.
+ */
+export async function dbFilasInternacionales(
+  opts: { dias?: number; limite?: number; dialogId?: string } = {},
+): Promise<FilaAuditoria[] | null> {
+  if (!pool) return null;
+  const d = Math.max(1, Math.min(90, Math.round(opts.dias ?? 30))); // se interpola en SQL: entero acotado
+  const limite = Math.max(1, Math.min(200, Math.round(opts.limite ?? 60)));
+  try {
+    const r = await pool.query(
+      `WITH chats AS (
+         SELECT dialog_id FROM audit_log
+         WHERE type='turn' AND dialog_id IS NOT NULL AND detail->>'internacional'='true'
+           AND ts >= now() - interval '${d} days' ${opts.dialogId ? 'AND dialog_id = $2' : ''}
+         GROUP BY dialog_id
+         ORDER BY max(ts) DESC
+         LIMIT $1
+       )
+       SELECT a.dialog_id, a.ts, a.type, a.crm_entity, a.detail
+       FROM audit_log a JOIN chats c ON c.dialog_id = a.dialog_id
+       WHERE a.type IN ('turn', 'tool_call', 'derivacion_internacional', 'negociacion_internacional')
+         AND a.ts >= now() - interval '${d} days'
+       ORDER BY a.dialog_id, a.ts`,
+      opts.dialogId ? [limite, opts.dialogId] : [limite],
+    );
+    return r.rows;
+  } catch (err) {
+    log.warn('dbFilasInternacionales falló', { err: String(err) });
+    return null;
   }
 }
 

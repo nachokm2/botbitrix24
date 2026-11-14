@@ -9,6 +9,10 @@
 (() => {
   const SESION = document.querySelector('meta[name="panel-sesion"]')?.content ?? '';
   const DISPONIBLES = (document.querySelector('meta[name="panel-secciones"]')?.content || 'horarios').split(',').filter(Boolean);
+  // Vistas que no son de configuración (sin borrador ni historial). «Conversaciones India» solo llega en
+  // panel-extras para quienes el servidor habilitó; el servidor además rechaza a cualquier otro.
+  const EXTRAS = (document.querySelector('meta[name="panel-extras"]')?.content || '').split(',').filter(Boolean);
+  const VISTAS = ['simulador', ...EXTRAS];
   const TZ = 'America/Santiago';
 
   const $ = (id) => document.getElementById(id);
@@ -1494,6 +1498,120 @@
   }
   let simulador = null;
 
+  // ── Conversaciones India (solo lectura, traducidas al español) ──────────────────────────────
+  // La lista llega sin traducir; cada conversación se traduce al abrirla (el servidor guarda las
+  // traducciones, así que abrirla de nuevo no espera).
+  function crearInternacional() {
+    const lista = $('int-lista');
+    const MOTIVO = { telefono: 'Número de India (+91)', palabra: 'Mencionó el programa' };
+
+    const etiquetas = (c) => [
+      c.motivoEntrada ? el('span', { class: 'etiqueta apagada', text: MOTIVO[c.motivoEntrada] ?? c.motivoEntrada }) : null,
+      c.dejoCorreo ? el('span', { class: 'etiqueta bot', text: 'Dejó su correo' }) : null,
+      c.informoPago ? el('span', { class: 'etiqueta feriado', text: 'Dice que pagó' }) : null,
+      c.pidioAyuda ? el('span', { class: 'etiqueta feriado', text: 'El bot pidió ayuda' }) : null,
+    ];
+
+    function mensaje(clase, quien, m) {
+      const es = m.es ?? null;
+      return el(
+        'li',
+        { class: `burbuja ${clase}` },
+        el('p', { class: 'quien-dijo', text: quien }),
+        el('p', { class: 'texto', text: es ?? m.original }),
+        es === null
+          ? el('p', { class: 'nota', text: 'No se pudo traducir: este es el original.' })
+          : es !== m.original
+            ? el('details', { class: 'original' }, el('summary', { text: 'Ver original' }), el('p', { class: 'texto', text: m.original }))
+            : null,
+      );
+    }
+
+    const evento = (e) => el('li', { class: `evento ${e.tipo}`, text: `${fechaHora(e.ts)} · ${e.texto}` });
+
+    async function abrir(det, c) {
+      if (det.dataset.cargado) return;
+      det.dataset.cargado = '1';
+      const cuerpo = det.querySelector('.int-cuerpo');
+      cuerpo.replaceChildren(el('p', { class: 'nota', text: 'Traduciendo la conversación…' }));
+      try {
+        const r = await pedir('GET', `/panel/api/internacional/conversaciones/${encodeURIComponent(c.dialogId)}`);
+        if (!r.ok) {
+          delete det.dataset.cargado;
+          cuerpo.replaceChildren(el('p', { class: 'error-campo', text: r.error ?? 'No pudimos cargar la conversación.' }));
+          return;
+        }
+        // Los avisos (negociación creada, correo, pedidos de ayuda) van intercalados por hora.
+        const eventos = [...(r.eventos ?? [])];
+        const items = [];
+        for (const t of r.turnos) {
+          while (eventos.length && eventos[0].ts <= t.ts) items.push(evento(eventos.shift()));
+          items.push(el('li', { class: 'hora', text: fechaHora(t.ts) }));
+          items.push(mensaje('cliente', 'La persona', t.cliente));
+          items.push(mensaje('bot', 'El bot', t.bot));
+        }
+        for (const e of eventos) items.push(evento(e));
+        cuerpo.replaceChildren(el('ol', { class: 'mensajes int-mensajes' }, ...items));
+      } catch (e) {
+        delete det.dataset.cargado;
+        if (e?.message !== 'sesion') cuerpo.replaceChildren(el('p', { class: 'error-campo', text: 'No pudimos comunicarnos con el servidor. Intenta de nuevo.' }));
+      }
+    }
+
+    function tarjeta(c) {
+      const det = el(
+        'details',
+        { class: 'tarjeta int-conv' },
+        el(
+          'summary',
+          {},
+          el('span', { class: 'int-fecha', text: fechaHora(c.fin) }),
+          el('span', { class: 'int-msgs', text: `${c.mensajes} mensaje${c.mensajes === 1 ? '' : 's'}` }),
+          ...etiquetas(c),
+          el('span', { class: 'int-primero', text: `Primer mensaje: «${recortar(c.primerMensaje, 90)}»` }),
+        ),
+        c.dealUrl
+          ? el('p', {}, el('a', { href: c.dealUrl, target: '_blank', rel: 'noopener', text: `Abrir la negociación #${c.dealId} en Bitrix` }))
+          : el('p', { class: 'nota', text: 'Sin negociación en Bitrix.' }),
+        el('div', { class: 'int-cuerpo' }),
+      );
+      det.addEventListener('toggle', () => {
+        if (det.open) abrir(det, c);
+      });
+      return el('li', {}, det);
+    }
+
+    async function cargar() {
+      const r = await pedir('GET', '/panel/api/internacional/conversaciones');
+      if (!r.ok) return mostrarError(r.error ?? 'No pudimos cargar las conversaciones.');
+      $('errores').hidden = true;
+      const s = r.resumen;
+      const n = (x, uno, varios) => [el('strong', { text: String(x) }), ` ${x === 1 ? uno : varios}`];
+      $('int-resumen').replaceChildren(
+        el(
+          'p',
+          {},
+          ...n(s.personas, 'persona escribió', 'personas escribieron'),
+          ` en los últimos ${r.dias} días · `,
+          ...n(s.dejaronCorreo, 'dejó su correo', 'dejaron su correo'),
+          ' · ',
+          ...n(s.informaronPago, 'dice que pagó', 'dicen que pagaron'),
+          ' · ',
+          ...n(s.pidieronAyuda, 'vez el bot pidió ayuda', 'veces el bot pidió ayuda'),
+        ),
+      );
+      lista.replaceChildren(
+        ...(r.conversaciones.length
+          ? r.conversaciones.map(tarjeta)
+          : [el('li', { class: 'tarjeta vacio', text: 'Todavía no hay conversaciones del programa internacional.' })]),
+      );
+    }
+
+    $('int-actualizar').addEventListener('click', () => conEspera(cargar));
+    return { mostrar: () => conEspera(cargar) };
+  }
+  let internacional = null;
+
   const FABRICAS = {
     horarios: crearHorarios,
     programas: crearProgramas,
@@ -1702,7 +1820,7 @@
 
   // ── Navegación entre secciones ──────────────────────────────────────────────────────────────
   async function irA(nombre) {
-    if (nombre !== 'simulador' && !DISPONIBLES.includes(nombre)) nombre = 'horarios';
+    if (!VISTAS.includes(nombre) && !DISPONIBLES.includes(nombre)) nombre = 'horarios';
     if (nombre === actual || ocupado) return;
     if (sucio && !confirm('Tienes cambios sin guardar en esta sección. ¿Salir sin guardarlos?')) {
       history.replaceState(null, '', `#${actual}`);
@@ -1711,10 +1829,12 @@
     sucio = false;
     actual = nombre;
     const probando = nombre === 'simulador';
-    modulo = probando ? null : moduloDe(nombre);
+    const leyendo = nombre === 'internacional';
+    modulo = probando || leyendo ? null : moduloDe(nombre);
     clearTimeout(temporizadorVista);
-    for (const f of document.querySelectorAll('form.seccion')) f.hidden = probando || f !== modulo.form;
+    for (const f of document.querySelectorAll('form.seccion')) f.hidden = probando || leyendo || f !== modulo.form;
     $('vista-simulador').hidden = !probando;
+    $('vista-internacional').hidden = !leyendo;
     for (const b of document.querySelectorAll('.menu [data-seccion]')) {
       const activo = b.dataset.seccion === nombre;
       b.classList.toggle('activo', activo);
@@ -1733,13 +1853,20 @@
       simulador.mostrar();
       return;
     }
+    if (leyendo) {
+      $('estado').className = 'estado';
+      $('estado').textContent = '';
+      internacional ??= crearInternacional();
+      await internacional.mostrar();
+      return;
+    }
     renderEstado();
     await conEspera(cargar);
   }
 
   // ── Arranque ────────────────────────────────────────────────────────────────────────────────
   for (const b of document.querySelectorAll('.menu [data-seccion]')) {
-    b.hidden = b.dataset.seccion !== 'simulador' && !DISPONIBLES.includes(b.dataset.seccion);
+    b.hidden = !VISTAS.includes(b.dataset.seccion) && !DISPONIBLES.includes(b.dataset.seccion);
     b.addEventListener('click', () => irA(b.dataset.seccion));
   }
   for (const f of document.querySelectorAll('form.seccion')) {

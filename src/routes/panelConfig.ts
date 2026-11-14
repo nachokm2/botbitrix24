@@ -39,6 +39,7 @@ import {
   type ResultadoConfig,
 } from '../store/db';
 import { editoresPanel, esEditor, firmarSesion, type Editor } from './panelSesion';
+import { seccionInternacionalVisible } from '../core/conversacionesInternacionales';
 import { escaparHtml } from '../util/html';
 
 /**
@@ -119,6 +120,8 @@ export async function panelPagina(req: Request, res: Response) {
     .replaceAll('{{EDITOR}}', escaparHtml(nombre))
     .replaceAll('{{ORGANIZACION}}', escaparHtml(marca.etiquetaPanel))
     .replaceAll('{{SECCIONES}}', escaparHtml(seccionesDisponibles().join(',')))
+    // Secciones que no son de configuración y no ven todos los editores (la de conversaciones de India).
+    .replaceAll('{{EXTRAS}}', seccionInternacionalVisible(id) ? 'internacional' : '')
     .replaceAll('{{V}}', VERSION_ASSETS);
   res.set('Content-Type', 'text/html; charset=utf-8');
   // Que nadie cachee una página que lleva una credencial adentro.

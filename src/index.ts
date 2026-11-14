@@ -35,6 +35,7 @@ import { manejarAsync, manejadorDeErrores } from './routes/errores';
 import { paginaStats } from './routes/stats';
 import { panelPagina, panelLeerSeccion, panelGuardarBorrador, panelDescartarBorrador, panelPublicar, panelRestaurar, panelVistaHorarios, panelVistaPrecios, panelVerificarBrochure, panelVistaConocimiento, panelSimular, panelVistaComportamiento, panelVistaAcciones } from './routes/panelConfig';
 import { requirePanelSesion } from './routes/panelSesion';
+import { panelConversacionesInternacionales, panelConversacionInternacional } from './routes/panelInternacional';
 import { panelSubirArchivo, servirArchivo, MAX_PDF_BYTES, TIPOS_ARCHIVO } from './routes/panelArchivos';
 import { panelImportar, MAX_DOCUMENTO_BYTES, TIPOS_DOCUMENTO } from './routes/panelImportar';
 import { iniciarRefrescoAjustes } from './core/ajustes';
@@ -152,6 +153,9 @@ app.post('/panel/api/seccion/comportamiento/vista', manejarAsync(panelVistaCompo
 app.post('/panel/api/seccion/acciones/vista', manejarAsync(panelVistaAcciones));
 app.post('/panel/api/brochure/verificar', manejarAsync(panelVerificarBrochure));
 app.post('/panel/api/simulador', manejarAsync(panelSimular));
+// Conversaciones del modo India traducidas al español: solo para PANEL_CONVERSACIONES_INTERNACIONALES.
+app.get('/panel/api/internacional/conversaciones', manejarAsync(panelConversacionesInternacionales));
+app.get('/panel/api/internacional/conversaciones/:dialogId', manejarAsync(panelConversacionInternacional));
 // El archivo (PDF o imagen) llega como cuerpo binario: el json() global no lo toca y este parser solo
 // corre en esta ruta.
 app.post('/panel/api/archivos', express.raw({ type: TIPOS_ARCHIVO, limit: MAX_PDF_BYTES + 1024 }), manejarAsync(panelSubirArchivo));

@@ -517,6 +517,13 @@ export const config = {
   internacionalEtapaNegociacion: (process.env.INTERNACIONAL_ETAPA_NEGOCIACION ?? (esCarver ? 'C73:UC_173429' : '')).trim(),
   internacionalResponsable: Number(process.env.INTERNACIONAL_RESPONSABLE ?? '') || 0,
   internacionalPrograma: (process.env.INTERNACIONAL_PROGRAMA ?? '').trim(),
+  // Quiénes ven la sección «Conversaciones India» del panel (routes/panelInternacional.ts), traducidas al
+  // español. Más restringida que PANEL_EDITORES a pedido del usuario (14-11-2026): él (4173) e Ignacio
+  // (1313). Además tienen que ser editores del panel.
+  panelConversacionesInternacionales: (process.env.PANEL_CONVERSACIONES_INTERNACIONALES ?? (esCarver ? '4173,1313' : ''))
+    .split(',')
+    .map((x) => Number(x.trim()))
+    .filter((n) => Number.isInteger(n) && n > 0),
   // Asesores (id de Bitrix) que atienden sus negociaciones sin el bot: si es el responsable, el bot no
   // le escribe a ese cliente y le entrega el chat (crm/asesorSinBot.ts). Vacío = nadie.
   asesoresSinBot: (process.env.ASESORES_SIN_BOT ?? '')

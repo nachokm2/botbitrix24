@@ -137,6 +137,11 @@ export async function fichaSiEsInternacional(a: {
   return ficha;
 }
 
+/** Por qué y cuándo entró una conversación al modo, mientras dura su marca (30 días). */
+export async function entradaInternacional(dialogId: string): Promise<{ motivo: 'palabra' | 'telefono'; at: number } | null> {
+  return getJson<{ motivo: 'palabra' | 'telefono'; at: number }>(MARCA_KEY(dialogId)).catch(() => null);
+}
+
 /** Los enlaces de la ficha: los únicos que el bot puede compartir en este modo (ver aplicarGuardian). */
 export function urlsDeLaFicha(ficha: FilaFicha[]): string[] {
   return ficha.map((f) => f.enlace).filter((u): u is string => Boolean(u));
