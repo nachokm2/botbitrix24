@@ -157,6 +157,14 @@ test('el prompt explica los audios transcritos y no repite saludos religiosos (1
   assert.match(p, /selfies/);
 });
 
+test('emojis solo en el saludo: una persona leyó los 😊 como burla (14-11-2026)', () => {
+  const p = promptInternacional(FILAS);
+  // «¿Por qué te ríes? No hagas eso», en un audio en hindi.
+  assert.match(p, /EMOJIS \(strict\): only in your first greeting/);
+  assert.match(p, /never smileys or laughing faces/);
+  assert.doesNotMatch(p, /at most one emoji/);
+});
+
 test('el perfil no trae catálogo, precios ni conocimiento de Latinoamérica, y derivar se describe distinto', () => {
   const perfil = perfilInternacional(WHATSAPP_PROFILE, FILAS);
   assert.deepEqual(perfil.toolNames, ['registrar_interes_crm', 'escalar_a_humano']);
