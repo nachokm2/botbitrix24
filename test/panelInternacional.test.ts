@@ -88,8 +88,16 @@ test('arma cada conversación con sus turnos del modo India y lo que pasó entre
   assert.equal(c1.informoPago, true);
   assert.equal(c1.pidioAyuda, false);
   assert.deepEqual(c1.eventos.map((e) => e.tipo), ['negociacion', 'correo', 'pago']);
-  assert.match(c1.turnos[1].cliente, /^\[adjunto\] \(el cliente envió un audio/);
+  assert.equal(c1.turnos[1].cliente, '(audio que no se pudo oír)');
   assert.equal(limpiarTexto('[URL=https://x.y/z]Open[/URL]'), '[adjunto]');
+});
+
+test('los audios se leen como audios: transcrito, «(audio) …»; sin transcribir, se dice', () => {
+  assert.equal(limpiarTexto('[URL=https://x.y/a.oga]Open[/URL] [voice message] किसका number है?'), '(audio) किसका number है?');
+  assert.equal(
+    limpiarTexto('[URL=https://x.y/a.oga]Open[/URL] (el cliente envió un audio que no se pudo transcribir; pídele amablemente que escriba su consulta)'),
+    '(audio que no se pudo oír)',
+  );
 });
 
 test('la lista: 403 para otros editores, y para ellos el resumen sin traducir nada', async () => {

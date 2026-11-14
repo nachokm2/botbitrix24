@@ -43,10 +43,20 @@ export type ConversacionInternacional = {
 
 const iso = (ts: string | Date) => new Date(ts).toISOString();
 
-/** Un enlace de Bitrix ("[URL=…]Open[/URL]", como llegan los audios) se muestra como «[adjunto]». */
+// Cómo llegan los audios al texto del turno (routes/botEvents.ts), con el enlace de Bitrix delante.
+const AUDIO_TRANSCRITO = /(?:\[adjunto\]\s*)?\[voice message\]\s*/g;
+const AUDIO_SIN_TRANSCRIBIR = /(?:\[adjunto\]\s*)?\(el cliente envió un audio que no se pudo transcribir[^)]*\)/g;
+
+/**
+ * Un enlace de Bitrix ("[URL=…]Open[/URL]") se muestra como «[adjunto]». Un audio transcrito, como
+ * «(audio) …», y uno que no se pudo transcribir, como «(audio que no se pudo oír)» (con tilde: así no se
+ * manda a traducir).
+ */
 export function limpiarTexto(t: unknown): string {
   return String(t ?? '')
     .replace(/\[URL=[^\]]*\][^[]*\[\/URL\]/gi, '[adjunto]')
+    .replace(AUDIO_TRANSCRITO, '(audio) ')
+    .replace(AUDIO_SIN_TRANSCRIBIR, '(audio que no se pudo oír)')
     .trim();
 }
 

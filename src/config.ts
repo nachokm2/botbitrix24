@@ -145,6 +145,8 @@ export const config = {
   // audios no se transcriben (se responde pidiendo el mensaje por texto). Deepgram nova-2 (español).
   deepgramApiKey: process.env.DEEPGRAM_API_KEY ?? '',
   deepgramModel: process.env.DEEPGRAM_MODEL ?? 'nova-2',
+  // Modo internacional: inglés, hindi y hinglish (los dos mezclados). nova-2 en español no los entiende.
+  deepgramModelMultilingue: process.env.DEEPGRAM_MODEL_MULTILINGUE ?? 'nova-3',
   bitrixWebhookUrl: (process.env.BITRIX_WEBHOOK_URL ?? '').replace(/\/$/, ''),
   botCode: process.env.BOT_CODE ?? 'poc_agente_postgrados',
   // OAuth de la app local (para renovar el access_token cuando expira).

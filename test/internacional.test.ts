@@ -145,6 +145,18 @@ test('el prompt va en inglés, con la ficha y sus enlaces, y pide responder en e
   assert.deepEqual(urlsDeLaFicha(FILAS), ['https://pagos.example.com/demo-contado']);
 });
 
+test('el prompt explica los audios transcritos y no repite saludos religiosos (14-11-2026)', () => {
+  const p = promptInternacional(FILAS);
+  // La transcripción escribe el hindi en devanagari aunque la persona escriba en letras latinas.
+  assert.match(p, /\[voice message\]/);
+  assert.match(p, /choose the script by how they TYPE/);
+  assert.match(p, /reply in Hinglish with Latin letters/);
+  // El bot contestó «Jai Shri Ram! 🙏» a una imagen de saludo, y describió una selfie.
+  assert.match(p, /religious or political greeting/);
+  assert.match(p, /without repeating it/);
+  assert.match(p, /selfies/);
+});
+
 test('el perfil no trae catálogo, precios ni conocimiento de Latinoamérica, y derivar se describe distinto', () => {
   const perfil = perfilInternacional(WHATSAPP_PROFILE, FILAS);
   assert.deepEqual(perfil.toolNames, ['registrar_interes_crm', 'escalar_a_humano']);

@@ -350,8 +350,12 @@ async function handle(req: Request) {
   if (media.length) {
     // Audios → transcripción (se agregan como texto del cliente).
     for (const a of media.filter((m) => m.kind === 'audio')) {
-      const t = await transcribeAudio(a.base64, a.mediaType);
-      turnText = [turnText, t ?? '(el cliente envió un audio que no se pudo transcribir; pídele amablemente que escriba su consulta)']
+      // En el modo internacional el audio viene en inglés, hindi o hinglish, y se marca como audio: la
+      // transcripción escribe el hindi en devanagari aunque la persona escriba con letras latinas, y el
+      // prompt de ese modo decide con qué letras responder (ver promptInternacional).
+      const t = await transcribeAudio(a.base64, a.mediaType, { multilingue: internacional });
+      const transcrito = t && internacional ? `[voice message] ${t}` : t;
+      turnText = [turnText, transcrito ?? '(el cliente envió un audio que no se pudo transcribir; pídele amablemente que escriba su consulta)']
         .filter(Boolean)
         .join(' ')
         .trim();
