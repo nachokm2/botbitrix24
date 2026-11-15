@@ -165,6 +165,18 @@ test('emojis solo en el saludo: una persona leyó los 😊 como burla (14-11-202
   assert.doesNotMatch(p, /at most one emoji/);
 });
 
+test('«lo voy a pensar» y siguiente paso: casos del 15-11-2026', () => {
+  const p = promptInternacional(FILAS);
+  // «Let me think for a while. I will keep you posted» → «Of course, take your time», y nada más.
+  assert.match(p, /IF THEY SAY THEY WILL THINK ABOUT IT/);
+  assert.match(p, /don't just tell them to take their time/);
+  assert.match(p, /ask gently what they would like to think over/);
+  // Tras explicar el programa, el bot volvió a preguntar a qué se dedicaba en vez de ofrecer la inscripción.
+  assert.match(p, /NEXT STEP \(strict\): once you have recommended a track, never ask again about their work, field, industry or coding/);
+  assert.match(p, /your one question moves towards enrolment/);
+  assert.match(p, /Ask about their work at most twice in the whole conversation/);
+});
+
 test('el perfil no trae catálogo, precios ni conocimiento de Latinoamérica, y derivar se describe distinto', () => {
   const perfil = perfilInternacional(WHATSAPP_PROFILE, FILAS);
   assert.deepEqual(perfil.toolNames, ['registrar_interes_crm', 'escalar_a_humano']);
