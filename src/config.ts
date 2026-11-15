@@ -134,6 +134,12 @@ const etapasSeguimiento = [
   ...new Set(listaNumeros(process.env.SEGUIMIENTO_ETAPAS_HORAS, esCarver ? [3, 5, 7, 9, 23] : []).filter((h) => h > 0)),
 ].sort((a, b) => a - b);
 
+// Los mismos cinco recordatorios para el modo internacional (piloto de India), pedido del usuario el
+// 15-11-2026. Van en inglés y en la hora de la persona (ver ai/seguimiento.ts). "0" los apaga.
+const etapasSeguimientoInternacional = [
+  ...new Set(listaNumeros(process.env.SEGUIMIENTO_INTERNACIONAL_HORAS, esCarver ? [3, 5, 7, 9, 23] : []).filter((h) => h > 0)),
+].sort((a, b) => a - b);
+
 export const config = {
   port: Number(process.env.PORT ?? 3000),
   /** URL pública del app (Railway o túnel), sin slash final. */
@@ -253,6 +259,11 @@ export const config = {
   // recordatorio de SEGUIMIENTO_HORAS y al de SEGUIMIENTO_SEGUNDO_HORAS; SEGUIMIENTO_HORAS=0 sigue
   // apagando todo. Ver la constante de arriba.
   seguimientoEtapasHoras: etapasSeguimiento,
+  // Modo internacional: las horas de la secuencia y la franja en que puede salir, en hora de India.
+  // No le aplica el horario de los asesores de Chile: allá no hay asesores.
+  seguimientoInternacionalHoras: etapasSeguimientoInternacional,
+  seguimientoInternacionalHoraInicio: Number(process.env.SEGUIMIENTO_INTERNACIONAL_HORA_INICIO ?? 9),
+  seguimientoInternacionalHoraFin: Number(process.env.SEGUIMIENTO_INTERNACIONAL_HORA_FIN ?? 21),
   // Tope de recordatorios proactivos por conversación en 24 h, sumando todas las etapas. Cada
   // respuesta del bot rearma la secuencia; sin tope, alguien que contesta y se calla varias veces en
   // el día recibe un recordatorio por cada silencio. En Carver alcanza para la secuencia completa.

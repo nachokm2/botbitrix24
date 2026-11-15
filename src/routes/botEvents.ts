@@ -35,7 +35,7 @@ import { WHATSAPP_PROFILE, type AgentContext } from '../core/channel';
 import { marca } from '../marca';
 import { extractIncomingMedia } from '../media/incoming';
 import { transcribeAudio } from '../ai/transcribe';
-import { programarSeguimiento, cancelarSeguimiento, registrarRespuestaASeguimiento } from '../ai/seguimiento';
+import { programarSeguimiento, programarSeguimientoInternacional, cancelarSeguimiento, registrarRespuestaASeguimiento } from '../ai/seguimiento';
 import { getRequestContext, runWithRequestContext } from '../obs/requestContext';
 
 // Backpressure: el semáforo acota los turnos concurrentes POR INSTANCIA (decisión deliberada: la
@@ -574,9 +574,11 @@ async function handle(req: Request) {
   if (prometioNoEscribir(reply)) {
     void excluir({ contactId: crmEntities?.contact, dialogId, motivo: 'el_bot_prometio_no_escribir' });
     void cancelarSeguimiento(dialogId);
-  } else if (!internacional) {
-    // Los recordatorios están escritos en español y terminan derivando a un asesor: no en el modo
-    // internacional.
+  } else if (internacional) {
+    // Los de Latinoamérica están escritos en español y en la hora de Chile: el modo internacional tiene
+    // su propia secuencia, en el idioma de la persona y en la hora de India (pedido del 15-11-2026).
+    void programarSeguimientoInternacional(dialogId, crmEntities, sesion);
+  } else {
     void programarSeguimiento(dialogId, crmEntities, sesion); // si el cliente no vuelve a escribir: recordatorio y, si sigue en silencio, transferencia al asesor (ver ai/seguimiento.ts)
   }
 

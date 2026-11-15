@@ -88,7 +88,10 @@ const SEPARACION_MIN_MS = 2 * 3600_000;
 type Snapshot = { transcript: string; clienteAt: number; sesion: string | null };
 /** `id` es el instante en que se programó: distingue esta secuencia de la que la reemplace si el
  *  cliente responde mientras un paso se está enviando. */
-type Plan = { id: number; pasos: number[]; siguiente: number };
+type Plan = { id: number; pasos: number[]; siguiente: number; intl?: true };
+
+// Modo internacional (piloto de India): la secuencia va en inglés y en la hora de la persona.
+const TIMEZONE_INTERNACIONAL = 'Asia/Kolkata';
 type TipoRecordatorio = 'primero' | 'intermedio' | 'cierre';
 
 function tipoDeEtapa(etapa: number, total: number): TipoRecordatorio {
@@ -238,15 +241,24 @@ const sinNombresDePrograma = (s: string) =>
  *  `anteriores` son los mensajes del bot en la conversación, del más antiguo al más reciente. */
 export function repiteLoAnterior(texto: string, anteriores: string[]): string[] {
   const p: string[] = [];
-  const inicio = (s: string) => normalizarPalabras(s).slice(0, 3).join(' ');
-  const propio = inicio(texto);
-  const igual = propio.split(' ').length === 3 ? anteriores.find((a) => inicio(a) === propio) : undefined;
+  const { igual, copiada } = coincidenciasConAnteriores(texto, anteriores);
   if (igual) p.push(`empieza igual que un mensaje que ya le enviaste («${igual.slice(0, 60)}»); empieza de otra forma`);
   const gastada = FRASES_GASTADAS.exec(texto);
   if (gastada) p.push(`usa la frase gastada «${gastada[0]}»; dilo con otras palabras`);
   // «¿Sigue interesado…?» salió 12 veces en tres días: no se sabe si la persona es hombre o mujer.
   const genero = /\b(est[aá]s?|sigues?|sigas?|quedas?|qued[oó]|quedaste|se sienta|te sientas|est[eé]s?) (interesad|list|segur|convencid|decidid)[oa]s?\b/i.exec(texto);
   if (genero) p.push(`dice «${genero[0]}», que le asigna un género a la persona; usa "te interesa", "cuando puedas" o algo neutro`);
+  if (copiada) p.push(`repite una frase de un mensaje anterior («${copiada}»)`);
+  return p;
+}
+
+/** Si el texto empieza con las mismas tres palabras que un mensaje anterior (`igual`: ese mensaje) o
+ *  copia cinco palabras seguidas de alguno (`copiada`: esas palabras). Sirve en cualquier idioma con
+ *  alfabeto latino. */
+function coincidenciasConAnteriores(texto: string, anteriores: string[]): { igual?: string; copiada?: string } {
+  const inicio = (s: string) => normalizarPalabras(s).slice(0, 3).join(' ');
+  const propio = inicio(texto);
+  const igual = propio.split(' ').length === 3 ? anteriores.find((a) => inicio(a) === propio) : undefined;
   const grams = (s: string) => {
     const w = normalizarPalabras(sinNombresDePrograma(s));
     const g = new Set<string>();
@@ -254,13 +266,20 @@ export function repiteLoAnterior(texto: string, anteriores: string[]): string[] 
     return g;
   };
   const propios = grams(texto);
+  let copiada: string | undefined;
   for (const a of anteriores) {
-    const copiada = [...grams(a)].find((g) => propios.has(g));
-    if (copiada) {
-      p.push(`repite una frase de un mensaje anterior («${copiada}»)`);
-      break;
-    }
+    copiada = [...grams(a)].find((g) => propios.has(g));
+    if (copiada) break;
   }
+  return { igual, copiada };
+}
+
+/** Lo mismo que repiteLoAnterior, explicado en inglés para el modo internacional. */
+export function repiteLoAnteriorInternacional(texto: string, anteriores: string[]): string[] {
+  const { igual, copiada } = coincidenciasConAnteriores(texto, anteriores);
+  const p: string[] = [];
+  if (igual) p.push(`it starts like a message you already sent («${igual.slice(0, 60)}»); start differently`);
+  if (copiada) p.push(`it repeats a phrase from an earlier message («${copiada}»)`);
   return p;
 }
 
@@ -353,6 +372,69 @@ export const recordatorioSeguro = (tipo: TipoRecordatorio, etapa: number, evitar
   return lista[etapa % lista.length];
 };
 
+/** Lo que un recordatorio del modo internacional no puede decir, en inglés para pedírselo de nuevo al
+ *  modelo. Las reglas del modo (core/internacional.ts) más las de cualquier recordatorio: sin montos,
+ *  sin urgencia, sin reproches, sin datos que no estén en la conversación. */
+export function problemasDelRecordatorioInternacional(texto: string): string[] {
+  const t = texto.trim();
+  const p: string[] = [];
+  // Emojis solo en el saludo, y un recordatorio nunca es el saludo (14-11-2026: una persona leyó los
+  // 😊 como burla).
+  if (/\p{Extended_Pictographic}/u.test(t)) p.push('it has an emoji; reminders carry no emojis');
+  // Se escribe en el idioma de la persona, que en este modo nunca es español: el resto del bot es
+  // español y el modelo a veces se va para allá.
+  if (/[¿¡ñ]|\b(hola|gracias|usted|puedes|quieres|programa|curso|escr[ií]beme|cuando|tambi[eé]n)\b/i.test(t)) {
+    p.push('it is in Spanish; write in the language the person used (English by default)');
+  }
+  if (/\bUSD\b|US\$|\$\s?\d|₹|\brs\.?\s?\d|\brupees?\b|\binstal+ments?\b|\bEMI\b/i.test(t)) p.push('it gives amounts or instalments; reminders carry no prices');
+  if (/\b(degree|diploma|UGC|placement|guaranteed|job guarantee|salary|promotion)\b/i.test(t)) {
+    p.push('it mentions a degree, a job, a salary or a guarantee; reminders talk about the programme only');
+  }
+  if (/\b(seats?|spots?) (are )?(left|filling|limited)|\blimited seats\b|\blast chance\b|\bhurry\b|\bdeadline\b|\bonly today\b|\bdiscount\b|\boffer ends\b/i.test(t)) {
+    p.push('it pushes with urgency, seats, deadlines or discounts');
+  }
+  if (/\b(haven'?t|have not|didn'?t|did not) (heard|replied|responded|answered)|\bno (reply|response)\b|\bseveral (times|messages)\b|\bagain and again\b/i.test(t)) {
+    p.push('it reproaches the person for not replying');
+  }
+  if (/\bthe (client|customer|lead|prospect)\b|\bfollow[- ]up message\b|\bhere(?:'s| is) (the|a|your) (message|reminder)\b/i.test(t)) {
+    p.push('it talks about the person in the third person or shows internal instructions');
+  }
+  if (/^\W*(just )?(following up|checking in|i noticed|i see that|i understand that)\b/i.test(t)) {
+    p.push('it opens with a stock phrase like "Just following up" or "I noticed"');
+  }
+  if (/\b(i|we) (checked|confirmed|spoke|talked) with\b|\b(they|the team) (told|confirmed to) me\b|\bi have (the|an) (answer|update)\b/i.test(t)) {
+    p.push('it says you checked or confirmed something with someone, and that did not happen');
+  }
+  if (/\bdear\b|\bsir\b|\bma'?am\b/i.test(t)) p.push('it uses "Dear", "Sir" or "Ma\'am"; keep it warm and simple');
+  return p;
+}
+
+// Lo que sale si el modelo no logra un recordatorio aceptable en el modo internacional.
+const RECORDATORIO_SEGURO_INTERNACIONAL: Record<TipoRecordatorio, string[]> = {
+  primero: [
+    'Did you get a chance to look at what I shared? If any question came up, I can answer it here.',
+    'If anything about the programme is still unclear, just ask me here.',
+  ],
+  intermedio: [
+    'Would it help if I explained in two lines how enrolment works?',
+    'Is the programme still of interest to you? A simple yes or no helps me know how to help.',
+    'Would you like me to tell you which track fits your work best?',
+    'Whenever you have a moment, tell me what you would need to decide and we can look at it.',
+  ],
+  cierre: [
+    'Maybe now is not the right time, and that is fine; you can write to me here whenever it suits you.',
+    'Thanks for your interest in the programme. Whenever you would like to continue, just write here.',
+  ],
+};
+export const recordatorioSeguroInternacional = (tipo: TipoRecordatorio, etapa: number, evitar: string[] = []): string => {
+  const lista = RECORDATORIO_SEGURO_INTERNACIONAL[tipo];
+  for (let i = 0; i < lista.length; i++) {
+    const t = lista[(etapa + i) % lista.length];
+    if (!evitar.includes(t)) return t;
+  }
+  return lista[etapa % lista.length];
+};
+
 /** ¿La persona dijo que no le interesa? Entonces la secuencia se corta. Un "no" suelto no cuenta:
  *  puede ser la respuesta a "¿le quedó alguna duda?". De la respuesta a una plantilla se mira solo
  *  lo que contestó: la plantilla de cierre de admisión trae el botón «Ya no estoy interesado/a» y
@@ -370,6 +452,9 @@ export function esRechazo(texto: string): boolean {
     // «No, no, no, muchas gracias» a secas también es un no (chat 1595887). Con algo más que muestre
     // interés («no gracias, prefiero la licenciatura») no lo es.
     (/^(no[\s,.!]+)+(muchas |mil )?gracias\b/.test(t) && !/prefier|me interesa|quiero|cuanto|cuesta|precio|informaci|\?/.test(t)) ||
+    // En inglés, para el modo internacional (piloto de India, 15-11-2026).
+    /\b(not interested|no longer interested|not for me|don['’]?t want (it|this|the course|the program)|do not want (it|this))\b/.test(t) ||
+    (/^(no[\s,.!]+)+thanks?( you)?\b/.test(t) && !/interest|want|how|price|fee|cost|\?/.test(t)) ||
     // Una baja explícita también corta: después de «Voy a bloquearlos» salieron cinco recordatorios más
     // (chat 1577067, 06-11-2026).
     pideNoMolestar(t)
@@ -378,7 +463,9 @@ export function esRechazo(texto: string): boolean {
 
 // Mensajes que solo cierran la conversación: no dicen nada nuevo sobre el interés de la persona.
 const CORTESIA = new Set(
-  'ok okay oki vale listo bueno buena perfecto dale gracias muchas mil igualmente de nada saludos bendiciones chao adios hasta luego pronto buen buenas buenos dia dias tarde tardes noche noches amen igual usted ud a'.split(' '),
+  ('ok okay oki vale listo bueno buena perfecto dale gracias muchas mil igualmente de nada saludos bendiciones chao adios hasta luego pronto buen buenas buenos dia dias tarde tardes noche noches amen igual usted ud a ' +
+    // En inglés, para el modo internacional.
+    'thanks thank thankyou thx tq ty you welcome bye fine sure noted great nice cool good morning evening night').split(' '),
 );
 
 /** ¿El mensaje es solo cortesía («gracias», «ok, igualmente») o un audio que no se pudo transcribir? */
@@ -467,6 +554,46 @@ function sistemaSeguimiento(tipo: TipoRecordatorio, etapa: number, conContacto =
   return `${base} Ya le escribiste UN recordatorio hace varias horas y tampoco respondió: este es el ÚLTIMO mensaje que le enviarás. Escribe UN mensaje breve (1 a 2 frases) que cierre con elegancia: entiende que puede no ser el momento, deja la puerta abierta para cuando quiera retomar y menciona que un asesor queda disponible. NO insistas, NO vuelvas a preguntar "¿te quedaron dudas?" ni repitas el recordatorio anterior, y NO presiones con urgencia, cupos ni descuentos. ${TONO_SEGUIMIENTO}`;
 }
 
+/** Prompt del recordatorio del modo internacional (piloto de India). Mismo orden que la secuencia de
+ *  Latinoamérica —el primero retoma el hilo, los del medio buscan una respuesta fácil, el último
+ *  cierra—, pero en el idioma de la persona, como el asistente de admisiones (allá no hay asesores) y
+ *  sin contacto al cierre. */
+export function sistemaSeguimientoInternacional(tipo: TipoRecordatorio, etapa: number, semilla = ''): string {
+  const base =
+    "You are Carver University's admissions assistant for the Applied AI & Automation programme, chatting on WhatsApp. " +
+    'The person has not replied since your last message. Do not introduce yourself again and do not name anyone from the team: ' +
+    'you write in the first person, directly to them.';
+  const estilo =
+    'Write in the language the person used in the conversation (English by default; if they wrote in Hindi or Hinglish, use that), never in Spanish. ' +
+    'Sound like a real person on WhatsApp: simple and warm, no "Dear", "Sir" or "Ma\'am", no emojis, no bold, no links, no prices, amounts or instalments. ' +
+    'Do not open with stock phrases like "Just following up", "Checking in" or "I noticed". If you already sent reminders, the new one must sound ' +
+    'DIFFERENT from all of them: another opening, another kind of sentence (if the last one was a question, this one is not, or the other way round) ' +
+    'and another topic if you already pushed one. Use ONLY what is in the conversation: do not add programme facts that are not written there, do not ' +
+    'say you checked or confirmed anything with anyone, and never mention degrees, jobs, salaries or guarantees. No urgency, seats, deadlines or discounts. ' +
+    'Never reproach them for not replying or count how many times you wrote. Return ONLY the message, with no quotes or explanation.';
+  if (tipo === 'primero') {
+    return `${base} Write ONE short follow-up (1 or 2 sentences): pick up the thread (what you were talking about) and offer ONE concrete next step they can answer with yes or no, based on where the conversation stopped (for example, answering the question that was left open, telling them which track fits them, or explaining how enrolment works). ${estilo}`;
+  }
+  if (tipo === 'intermedio') {
+    const enfoque = ENFOQUES_MEDIO_INTERNACIONAL[(semillaDe(`${semilla}:intl`) + etapa) % ENFOQUES_MEDIO_INTERNACIONAL.length];
+    return `${base} You have already sent ${etapa - 1 === 1 ? 'ONE reminder' : `${etapa - 1} reminders`} and they still have not replied. Write ONE short message (one sentence, two at most). FOCUS of this message: ${enfoque} ${estilo}`;
+  }
+  return `${base} You have already sent ${etapa - 1} reminders and they did not reply: this is the LAST message. Write ONE short sentence (no more than 25 words) that closes gracefully: ${ENFOQUES_CIERRE_INTERNACIONAL[semillaDe(`${semilla}:cierre`) % ENFOQUES_CIERRE_INTERNACIONAL.length]}. Do not insist and do not repeat earlier reminders. ${estilo}`;
+}
+
+const ENFOQUES_MEDIO_INTERNACIONAL = [
+  'ask ONE short, concrete question about what was left open in the conversation, answerable with yes, no or one word.',
+  'offer them a choice between two concrete things you can do for them, taken from the conversation, in a single "would you prefer… or…?" question.',
+  'bring back, in other words, ONE fact YOU ALREADY gave them in the conversation that helps them decide, the way a person would mention it in passing, and end with a short invitation to write. Do not add new facts. This message is NOT a question, or has at most a very short one at the end.',
+  'offer to do ONE concrete thing that saves them effort (explaining in two lines how enrolment works, or answering the question that was left open), as a friendly offer. Only offer it: do not give the information in this message.',
+] as const;
+
+const ENFOQUES_CIERRE_INTERNACIONAL = [
+  'acknowledge in a few words that it may not be the right time, and make clear they can write here whenever it suits them',
+  'thank them for their interest in the programme and make clear they can write here whenever they like, with no pressure',
+  'remind them in one sentence what you could do together when they come back (for example, choosing their track or answering their question), with no rush',
+] as const;
+
 /** +56912345678 → "+56 9 1234 5678", como se escribe un celular chileno; los demás quedan igual. */
 export function formatearTelefono(e164: string): string {
   const m = /^\+569(\d{4})(\d{4})$/.exec(e164);
@@ -524,7 +651,27 @@ export function horasConHolgura(horas: number[], semilla: string): number[] {
 /** Hora local (0-23) de Chile para un instante dado — usa Intl.DateTimeFormat en vez de aritmética
  *  manual de offset para que el cambio de horario de verano/invierno quede resuelto solo. */
 export function horaEnChile(fecha: Date): number {
-  return Number(new Intl.DateTimeFormat('en-US', { timeZone: TIMEZONE, hour: 'numeric', hour12: false }).format(fecha));
+  return horaEn(fecha, TIMEZONE);
+}
+
+/** Hora local (0-23) en una zona horaria dada. */
+export function horaEn(fecha: Date, timeZone: string): number {
+  return Number(new Intl.DateTimeFormat('en-US', { timeZone, hour: 'numeric', hour12: false }).format(fecha));
+}
+
+/** Como proximoHorarioPermitido, para el modo internacional: la franja va en hora de India (9:00 a
+ *  21:00 por defecto) y no mira el horario de los asesores de Chile, que allá no existen. Con la franja
+ *  de Chile, el recordatorio de las 9:00 llegaba a las 17:30 de India y el de las 21:00, a las 5:30. */
+export function proximoHorarioInternacional(fecha: Date): Date {
+  const ini = config.seguimientoInternacionalHoraInicio;
+  const fin = config.seguimientoInternacionalHoraFin;
+  let t = fecha;
+  for (let i = 0; i < 24; i++) {
+    const h = horaEn(t, TIMEZONE_INTERNACIONAL);
+    if (h >= ini && h < fin) return t;
+    t = new Date(t.getTime() + 3600_000);
+  }
+  return t;
 }
 
 /** Si `fecha` cae dentro de la franja de mensajes automáticos (ajustes.horarios(), hora Chile), la
@@ -559,9 +706,9 @@ export function proximoHorarioPermitido(fecha: Date): Date {
 
 /** El último instante en que se puede escribir, sin pasar de `hasta` ni llegar a `desde`; null si no
  *  hay ninguno. Es proximoHorarioPermitido al revés, en pasos de 10 minutos. */
-function ultimoHorarioPermitidoHasta(hasta: number, desde: number): number | null {
+function ultimoHorarioPermitidoHasta(hasta: number, desde: number, permitir: (d: Date) => Date = proximoHorarioPermitido): number | null {
   for (let t = hasta; t > desde; t -= 10 * 60_000) {
-    if (proximoHorarioPermitido(new Date(t)).getTime() === t) return t;
+    if (permitir(new Date(t)).getTime() === t) return t;
   }
   return null;
 }
@@ -574,16 +721,17 @@ function ultimoHorarioPermitidoHasta(hasta: number, desde: number): number | nul
  *  - Los anteriores van a su hora o, si cae de noche, a la mañana siguiente, siempre a
  *    SEPARACION_MIN_MS del anterior.
  *  - El que ya no cabe antes del último se omite: mejor cuatro mensajes que dos pegados.
- *  Con una sola etapa es el recordatorio de siempre: a su hora o a la próxima permitida. */
-export function planDeRecordatorios(desde: number, horas: number[]): number[] {
+ *  Con una sola etapa es el recordatorio de siempre: a su hora o a la próxima permitida.
+ *  `permitir`: la franja en que se puede escribir (en el modo internacional, la de India). */
+export function planDeRecordatorios(desde: number, horas: number[], permitir: (d: Date) => Date = proximoHorarioPermitido): number[] {
   if (!horas.length) return [];
   const horaFinal = Math.min(horas[horas.length - 1], VENTANA_WHATSAPP_MS / 3600_000);
-  if (horas.length === 1) return [proximoHorarioPermitido(new Date(desde + horaFinal * 3600_000)).getTime()];
-  const ultimo = ultimoHorarioPermitidoHasta(desde + horaFinal * 3600_000, desde);
+  if (horas.length === 1) return [permitir(new Date(desde + horaFinal * 3600_000)).getTime()];
+  const ultimo = ultimoHorarioPermitidoHasta(desde + horaFinal * 3600_000, desde, permitir);
   const pasos: number[] = [];
   let previo = Number.NEGATIVE_INFINITY;
   for (const h of horas.slice(0, -1)) {
-    const t = proximoHorarioPermitido(new Date(Math.max(desde + h * 3600_000, previo + SEPARACION_MIN_MS))).getTime();
+    const t = permitir(new Date(Math.max(desde + h * 3600_000, previo + SEPARACION_MIN_MS))).getTime();
     if (ultimo === null ? t - desde > VENTANA_WHATSAPP_MS : t > ultimo - SEPARACION_MIN_MS) break;
     pasos.push(t);
     previo = t;
@@ -687,6 +835,44 @@ export async function programarSeguimiento(
   }
 }
 
+/** La secuencia del modo internacional (piloto de India), pedida por el usuario el 15-11-2026: los
+ *  mismos cinco recordatorios que en Latinoamérica, pero en el idioma de la persona, en la franja de
+ *  India, sin derivación por silencio y sin contacto de asesor al cierre (allá no hay asesores).
+ *  Después de 24 h sin respuesta solo se le puede escribir con plantilla: eso no lo hace el bot. */
+export async function programarSeguimientoInternacional(
+  dialogId: string,
+  entities?: CrmEntities,
+  sesionActual?: string | null,
+): Promise<void> {
+  const r = getRedisClient();
+  const horasBase = config.seguimientoInternacionalHoras;
+  if (!r || config.seguimientoHoras <= 0 || !horasBase.length) return;
+  try {
+    const sess = await getSession(dialogId);
+    if (sess.humanTookOver) return;
+    const ahora = Date.now();
+    const t = config.seguimientoInstantanea ? transcript(await getHistory(dialogId)) : '';
+    if (t.length >= 5) {
+      await setJson(SNAPSHOT_KEY(dialogId), { transcript: t, clienteAt: ahora, sesion: sesionActual ?? null } satisfies Snapshot, SNAPSHOT_TTL_SEC);
+    }
+    inc('seguimiento_programado');
+    const pasos = planDeRecordatorios(ahora, horasConHolgura(horasBase, `${dialogId}:${ahora}`), proximoHorarioInternacional);
+    await r.zrem(DUE_KEY, dialogId).catch(() => {});
+    await r.zrem(SEGUNDO_KEY, dialogId).catch(() => {});
+    await r.zrem(TRANSFER_KEY, dialogId).catch(() => {});
+    // Para revisar la baja por contacto antes de cada envío (motivoParaNoEnviar).
+    if (entities && Object.keys(entities).length) await setJson(ENTITIES_KEY(dialogId), entities, ENTITIES_TTL_SEC);
+    if (pasos.length) {
+      await setJson(PLAN_KEY(dialogId), { id: ahora, pasos, siguiente: 0, intl: true } satisfies Plan, PLAN_TTL_SEC);
+      await r.zadd(PASOS_KEY, pasos[0], dialogId);
+    } else {
+      await r.zrem(PASOS_KEY, dialogId).catch(() => {});
+    }
+  } catch (e) {
+    log.warn('programarSeguimientoInternacional falló', { err: String(e), dialogId });
+  }
+}
+
 /** De qué negociación, lead o contacto es este chat, según lo guardado al programar la secuencia. */
 export async function entidadesDelSeguimiento(dialogId: string): Promise<CrmEntities | null> {
   return getJson<CrmEntities>(ENTITIES_KEY(dialogId));
@@ -718,45 +904,65 @@ export async function generarMensajeSeguimiento(
   etapa: number,
   contacto = '',
   semilla = dialogId,
+  /** Modo internacional (piloto de India): prompt, revisión y texto seguro en inglés. */
+  internacional = false,
 ): Promise<string | null> {
   const t = await conversacionDe(dialogId);
   if (t.length < 5) return null;
-  const sistema = sistemaSeguimiento(tipo, etapa, Boolean(contacto), semilla);
+  const sistema = internacional ? sistemaSeguimientoInternacional(tipo, etapa, semilla) : sistemaSeguimiento(tipo, etapa, Boolean(contacto), semilla);
   const previas = t.split('\n').filter((l) => l.startsWith('Bot: ')).map((l) => l.slice(5));
-  const yaEnviados = marca.sePresentaComoAsesor ? yaEnviadosEnLaSecuencia(previas, etapa) : [];
+  const yaEnviados = marca.sePresentaComoAsesor || internacional ? yaEnviadosEnLaSecuencia(previas, etapa) : [];
   // Los recordatorios anteriores se le muestran aparte: en la conversación se confunden con las
   // respuestas, y el modelo volvía a preguntar lo mismo con otras palabras.
-  const anteriores = yaEnviados.length
-    ? `\n\nRecordatorios que ya le enviaste en esta secuencia, sin respuesta (el nuevo NO puede parecerse a ninguno, ni en cómo empieza ni en el tema):\n${yaEnviados.map((m, i) => `${i + 1}. ${m}`).join('\n')}`
-    : '';
-  const pedido = { role: 'user' as const, content: `Conversación:\n${t}${anteriores}\n\nEscribe el mensaje de seguimiento.` };
+  const lista = yaEnviados.map((m, i) => `${i + 1}. ${m}`).join('\n');
+  const anteriores = !yaEnviados.length
+    ? ''
+    : internacional
+      ? `\n\nReminders you already sent in this sequence, with no reply (the new one must not resemble any of them, neither in how it starts nor in its topic):\n${lista}`
+      : `\n\nRecordatorios que ya le enviaste en esta secuencia, sin respuesta (el nuevo NO puede parecerse a ninguno, ni en cómo empieza ni en el tema):\n${lista}`;
+  const pedido = {
+    role: 'user' as const,
+    content: internacional
+      ? `Conversation ("Cliente" is the person, "Bot" is you):\n${t}${anteriores}\n\nWrite the follow-up message.`
+      : `Conversación:\n${t}${anteriores}\n\nEscribe el mensaje de seguimiento.`,
+  };
   let texto = await redactarRecordatorio(sistema, [pedido], previas);
-  if (texto && marca.guardRespuesta) {
+  if (texto && (marca.guardRespuesta || internacional)) {
     // Lo que no puede salir se corrige UNA vez, diciéndole al modelo qué estuvo mal. Si sigue mal, sale
     // un texto sencillo y seguro: un recordatorio que tutea o inventa hace más daño que uno simple.
-    const revisar = (x: string) => [
-      ...problemasDelRecordatorio(x),
-      ...(marca.sePresentaComoAsesor ? [...repiteLoAnterior(x, previas), ...datosQueNoEstan(x, t)] : []),
-      // El cierre lleva además la línea de contacto: largo, se lee como un correo.
-      ...(marca.sePresentaComoAsesor && tipo === 'cierre' && x.length > 220 ? ['es muy largo: el cierre es UNA frase corta'] : []),
-    ];
+    const revisar = (x: string) =>
+      internacional
+        ? [
+            ...problemasDelRecordatorioInternacional(x),
+            ...repiteLoAnteriorInternacional(x, previas),
+            ...(tipo === 'cierre' && x.length > 220 ? ['it is too long: the closing message is ONE short sentence'] : []),
+          ]
+        : [
+            ...problemasDelRecordatorio(x),
+            ...(marca.sePresentaComoAsesor ? [...repiteLoAnterior(x, previas), ...datosQueNoEstan(x, t)] : []),
+            // El cierre lleva además la línea de contacto: largo, se lee como un correo.
+            ...(marca.sePresentaComoAsesor && tipo === 'cierre' && x.length > 220 ? ['es muy largo: el cierre es UNA frase corta'] : []),
+          ];
     const problemas = revisar(texto);
     if (problemas.length) {
       // Con las revisiones de repetición y de datos nuevos, una sola corrección dejaba el texto seguro
       // en 4 de 6 primeros recordatorios simulados (11-11-2026): Carver tiene una más.
-      const correcciones = marca.sePresentaComoAsesor ? 2 : 1;
+      const correcciones = marca.sePresentaComoAsesor || internacional ? 2 : 1;
       let mensajes: Array<{ role: 'user' | 'assistant'; content: string }> = [pedido];
       let actual = texto;
       let pendientes = problemas;
       for (let i = 0; i < correcciones && pendientes.length; i++) {
-        mensajes = [...mensajes, { role: 'assistant', content: actual }, { role: 'user', content: `Ese mensaje no sirve: ${pendientes.join('; ')}. Escríbelo de nuevo sin eso.` }];
+        const correccion = internacional
+          ? `That message does not work: ${pendientes.join('; ')}. Write it again without that.`
+          : `Ese mensaje no sirve: ${pendientes.join('; ')}. Escríbelo de nuevo sin eso.`;
+        mensajes = [...mensajes, { role: 'assistant', content: actual }, { role: 'user', content: correccion }];
         actual = await redactarRecordatorio(sistema, mensajes, previas);
         pendientes = actual ? revisar(actual) : ['vacío'];
       }
       const corregido = !pendientes.length;
       inc(corregido ? 'seguimiento_corregido' : 'seguimiento_texto_seguro');
       log.info('seguimiento: recordatorio corregido', { dialogId, etapa, problemas, resultado: corregido ? 'reescrito' : 'texto_seguro' });
-      texto = corregido ? actual : recordatorioSeguro(tipo, etapa, previas);
+      texto = corregido ? actual : internacional ? recordatorioSeguroInternacional(tipo, etapa, previas) : recordatorioSeguro(tipo, etapa, previas);
     }
   }
   if (!texto) return null;
@@ -917,22 +1123,23 @@ async function barrerRecordatorios(key: string, etapaFija?: 1 | 2): Promise<void
       // que un recordatorio vencido a las 13:00 salía igual, en plena jornada. Este camino NO pasa
       // por el manejador de mensajes, así que la regla de allá no lo cubría: el bot seguía hablando
       // aunque las respuestas estuvieran apagadas. Ahora se consulta la misma función que programa,
-      // que ya contempla las dos ventanas.
+      // que ya contempla las dos ventanas (en el modo internacional, la franja de India).
+      if (!etapaFija) {
+        plan = await getJson<Plan>(PLAN_KEY(dialogId));
+        if (!plan) continue; // la secuencia se canceló mientras este paso esperaba
+      }
+      const internacional = Boolean(plan?.intl);
       const ahora = new Date();
-      const permitido = proximoHorarioPermitido(ahora);
+      const permitido = (internacional ? proximoHorarioInternacional : proximoHorarioPermitido)(ahora);
       if (permitido.getTime() !== ahora.getTime()) {
         await r.zadd(key, permitido.getTime(), dialogId);
         continue;
       }
 
-      if (!etapaFija) {
-        plan = await getJson<Plan>(PLAN_KEY(dialogId));
-        if (!plan) continue; // la secuencia se canceló mientras este paso esperaba
-        etapa = plan.siguiente + 1;
-      }
+      if (plan) etapa = plan.siguiente + 1;
       const total = plan ? plan.pasos.length : etapa;
       const tipo = tipoDeEtapa(etapa, total);
-      const detalleEtapa = plan ? { etapa, de: total } : { etapa };
+      const detalleEtapa = plan ? { etapa, de: total, ...(internacional ? { internacional: true } : {}) } : { etapa };
 
       const motivo = await motivoParaNoEnviar(dialogId, auth);
       if (motivo) {
@@ -945,8 +1152,9 @@ async function barrerRecordatorios(key: string, etapaFija?: 1 | 2): Promise<void
       }
 
       inc('seguimiento_ejecutado');
-      const contacto = tipo === 'cierre' ? await contactoParaElCierre(dialogId, auth) : '';
-      const mensaje = await generarMensajeSeguimiento(dialogId, tipo, etapa, contacto, plan ? `${dialogId}:${plan.id}` : dialogId);
+      // En el modo internacional no hay asesor cuyo contacto dar.
+      const contacto = tipo === 'cierre' && !internacional ? await contactoParaElCierre(dialogId, auth) : '';
+      const mensaje = await generarMensajeSeguimiento(dialogId, tipo, etapa, contacto, plan ? `${dialogId}:${plan.id}` : dialogId, internacional);
       if (!mensaje) {
         inc('seguimiento_omitido:sin_conversacion');
         await audit({ type: 'seguimiento_omitido', dialogId, detail: { ...detalleEtapa, motivo: 'sin_conversacion' } });

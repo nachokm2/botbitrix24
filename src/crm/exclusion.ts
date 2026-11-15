@@ -52,6 +52,16 @@ const FRASES_BAJA = [
   /\b(es|esto es|son) spam\b/,
   /\breportar(los|lo|las)? (como|por) spam\b/,
   /\b(eliminen|borren|saquen) mi (numero|contacto|dato)/,
+  // En inglés, para el modo internacional (piloto de India, 15-11-2026). "stop" y "unsubscribe" ya
+  // estaban arriba.
+  // Sin "call": «don't call me, just text» es una preferencia, no una baja.
+  /\b(don['’]?t|do not|never) (message|msg|text|contact|disturb|write to) (me|us)\b/,
+  /\b(don['’]?t|do not) send (me )?(any )?(more )?(messages|msgs)\b/,
+  /\bstop (messaging|texting|sending|calling|contacting|disturbing)\b/,
+  /\bremove (me|my (number|contact))\b/,
+  /\b(i will|i['’]ll|i am going to|i['’]m going to) (block|report)\b/,
+  /\b(this is|it['’]s) spam\b/,
+  /\bleave me alone\b/,
 ];
 
 const norm = (s: string) =>
@@ -79,6 +89,9 @@ const PROMESAS_DE_NO_ESCRIBIR = [
   /\bno (le |lo |la |te |les |los |las )?(escribo|escribimos|escribire|escribiremos|molesto|molestamos|molestare|contacto|contactamos) mas\b/,
   /\bno (le |lo |la |te |les |los |las )?(vuelvo|volvemos|volvere|volveremos) a (escribir|contactar|molestar)/,
   /\bno (le |les |te )?(lleguen|llegaran|llegara|van a llegar) mas (mensajes|promociones|recordatorios)/,
+  // En inglés, para el modo internacional.
+  /\b(i|we) (won['’]?t|will not|will no longer) (message|text|contact|write to|disturb) you\b/,
+  /\byou (won['’]?t|will not) (receive|get) (any )?more (messages|reminders)\b/,
 ];
 
 export function prometioNoEscribir(respuesta: string): boolean {
