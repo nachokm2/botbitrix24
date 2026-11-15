@@ -14,6 +14,7 @@ import { consultarInformacionInstitucional, INSTRUCCION_SIN_DATO } from '../core
 import { enlaceDePago } from '../core/mediosPago';
 import { bloqueMomento } from '../core/momento';
 import { fichaInternacional, mencionaPalabraInternacional, perfilInternacional, urlsDeLaFicha } from '../core/internacional';
+import { bloqueNoRepetirPreguntaPorTrabajo } from '../core/preguntasRepetidas';
 import { marca } from '../marca';
 
 /**
@@ -199,7 +200,8 @@ export async function simularTurno(
       (marca.respondeSoloEnEspanol && !internacional ? '' : bloqueIdioma(detectarIdioma(mensaje))) +
       (marca.respaldaPromesas && !internacional ? bloqueMomento() : '') +
       // Igual que en la conversación real (ai/agentLoop.ts): un mensaje de riesgo no se responde vendiendo.
-      (marca.protocoloRiesgo && !internacional && mensajeDeRiesgo(mensaje) ? BLOQUE_RIESGO : ''),
+      (marca.protocoloRiesgo && !internacional && mensajeDeRiesgo(mensaje) ? BLOQUE_RIESGO : '') +
+      (internacional ? bloqueNoRepetirPreguntaPorTrabajo(historial) : ''),
   };
   const { text, messages: finales } = await runConversation({ profile: perfil, auditId: 'simulacion', simulacion: true }, messages, exec);
   let texto = marca.guardRespuesta

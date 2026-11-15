@@ -23,6 +23,7 @@ import { avisarAlResponsable } from '../crm/avisoAsesor';
 import { quitarCredenciales } from '../core/credenciales';
 import { conocimientoVigente } from '../core/conocimientoComercial';
 import { mensajeDeRiesgo, BLOQUE_RIESGO, RIESGO_KEY, RIESGO_TTL_SEG } from '../core/riesgo';
+import { bloqueNoRepetirPreguntaPorTrabajo } from '../core/preguntasRepetidas';
 import { setJson } from '../store/kv';
 
 const MAX_STEPS = 5; // guardrail anti-bucle
@@ -442,7 +443,10 @@ export async function runAgentTurn(
     const extraMomento = marca.respaldaPromesas && !ctx.internacional ? bloqueMomento() : '';
     // Un mensaje que puede indicar riesgo: en este turno no se vende (ver core/riesgo.ts).
     const riesgo = marca.protocoloRiesgo && !ctx.internacional && mensajeDeRiesgo(textoDelUsuario(userText));
-    const sumado = extra + extraIdioma + extraMomento + (riesgo ? BLOQUE_RIESGO : '');
+    // Modo internacional: si ya preguntó dos veces a qué se dedica, en este turno no vuelve a hacerlo
+    // (ver core/preguntasRepetidas.ts).
+    const extraRepetida = ctx.internacional ? bloqueNoRepetirPreguntaPorTrabajo(history) : '';
+    const sumado = extra + extraIdioma + extraMomento + extraRepetida + (riesgo ? BLOQUE_RIESGO : '');
     const perfilFinal = sumado ? { ...perfilDelTurno, systemPrompt: perfilDelTurno.systemPrompt + sumado } : perfilDelTurno;
     const inicioTurno = messages.length;
     const { text, messages: finalMsgs } = await runConversation(
