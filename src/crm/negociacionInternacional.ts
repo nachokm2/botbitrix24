@@ -45,6 +45,54 @@ async function contactoPorTelefono(telefono: string, auth: Auth): Promise<number
 
 const nombreDe = (x: any) => [x?.NAME, x?.LAST_NAME].map((s) => String(s ?? '').trim()).filter(Boolean).join(' ');
 
+const pausa = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const DOS_DIAS_MS = 2 * 86400_000;
+const reciente = (fecha: unknown, ms = DOS_DIAS_MS) => {
+  const t = Date.parse(String(fecha ?? ''));
+  return Number.isFinite(t) && Date.now() - t < ms;
+};
+
+/**
+ * La negociación que Bitrix crea sola al convertir el lead de la línea abierta, en el mismo embudo y
+ * repartida entre los asesores. Del 14 al 16-11-2026 cada persona de India quedó con dos: la del bot y
+ * esa (129, casi todas en «Info Urgente» y a nombre de siete asesores). Ahora se toma esa en vez de crear
+ * otra. Bitrix la crea un segundo después del lead: si todavía no está, se espera una vez. Se toma aunque
+ * ya esté cerrada: las que le tocan a una asesora las pasa un robot a «RMKT» (cerrada) en el acto. Para
+ * no tocar nada que haya trabajado una persona, solo una creada hace menos de 30 minutos.
+ */
+async function negociacionDelLead(lead: number, embudo: number, auth: Auth): Promise<any | null> {
+  for (let intento = 0; intento < 2; intento++) {
+    const r: any = await callCrm(
+      'crm.deal.list',
+      { filter: { LEAD_ID: lead, CATEGORY_ID: embudo }, select: ['ID', 'CONTACT_ID', 'DATE_CREATE', 'CLOSED', 'STAGE_ID', 'ASSIGNED_BY_ID'] },
+      auth,
+    ).catch(() => null);
+    const d = Array.isArray(r) ? r.find((x: any) => reciente(x?.DATE_CREATE, 30 * 60_000)) : null;
+    if (d) return d;
+    if (intento === 0) await pausa(process.env.NODE_ENV === 'test' ? 0 : 3000);
+  }
+  return null;
+}
+
+/** Deja a nombre del responsable lo que creó la línea abierta: el lead siempre, el contacto si es nuevo. */
+async function asignarAlResponsable(responsable: number, lead: number | undefined, contactId: number, auth: Auth): Promise<void> {
+  if (!responsable) return;
+  if (lead) {
+    await callCrm('crm.lead.update', { id: lead, fields: { ASSIGNED_BY_ID: responsable }, params: { REGISTER_SONET_EVENT: 'N' } }, auth).catch((e) =>
+      log.warn('negociación internacional: no se pudo asignar el lead', { err: String(e), lead }),
+    );
+  }
+  if (contactId) {
+    // Solo un contacto recién creado: uno antiguo puede ser de alguien que ya atiende otro asesor.
+    const c: any = await callCrm('crm.contact.get', { id: contactId }, auth).catch(() => null);
+    if (c && Number(c.ASSIGNED_BY_ID) !== responsable && reciente(c.DATE_CREATE)) {
+      await callCrm('crm.contact.update', { id: contactId, fields: { ASSIGNED_BY_ID: responsable }, params: { REGISTER_SONET_EVENT: 'N' } }, auth).catch((e) =>
+        log.warn('negociación internacional: no se pudo asignar el contacto', { err: String(e), contactId }),
+      );
+    }
+  }
+}
+
 export async function asegurarNegociacionInternacional(a: {
   dialogId: string;
   entidades: CrmEntities;
@@ -71,6 +119,29 @@ export async function asegurarNegociacionInternacional(a: {
     // Un solo intento por conversación, aunque lleguen dos mensajes casi juntos.
     if (!(await once(`${KEY(a.dialogId)}:creando`, 120))) return a.entidades;
 
+    const responsable = config.internacionalResponsable || config.internacionalAvisarA[0] || 0;
+
+    // La que creó Bitrix al convertir el lead: se toma, se pone a nombre del responsable y se pasa a la
+    // etapa del modo. Salir de «Info Urgente» corta además los robots de esa etapa.
+    const delLead = a.entidades.lead ? await negociacionDelLead(a.entidades.lead, embudo, a.auth) : null;
+    if (delLead) {
+      const dealId = Number(delLead.ID);
+      const contacto = a.entidades.contact || Number(delLead.CONTACT_ID) || 0;
+      const campos: any = { STAGE_ID: etapa };
+      if (responsable) campos.ASSIGNED_BY_ID = responsable;
+      await callCrm('crm.deal.update', { id: dealId, fields: campos, params: { REGISTER_SONET_EVENT: 'N' } }, a.auth);
+      await asignarAlResponsable(responsable, a.entidades.lead, contacto, a.auth);
+      await setJson(KEY(a.dialogId), { deal: dealId, contact: contacto || undefined }, TTL_SEG);
+      void audit({
+        type: 'negociacion_internacional',
+        dialogId: a.dialogId,
+        crmEntity: `deal#${dealId}`,
+        detail: { etapa, contacto: contacto || null, lead: a.entidades.lead ?? null, reutilizada: true, etapaAnterior: delLead.STAGE_ID, responsableAnterior: Number(delLead.ASSIGNED_BY_ID) || null },
+      }).catch(() => {});
+      log.info('negociación internacional: se tomó la que creó Bitrix', { dialogId: a.dialogId, dealId, etapaAnterior: delLead.STAGE_ID });
+      return { ...a.entidades, deal: dealId, ...(contacto ? { contact: contacto } : {}) };
+    }
+
     const telefono = (await a.telefono().catch(() => null)) || '';
     let nombre = '';
     let contactId = a.entidades.contact ?? 0;
@@ -80,7 +151,6 @@ export async function asegurarNegociacionInternacional(a: {
       nombre = nombreDe(l);
     }
     if (!contactId && telefono) contactId = await contactoPorTelefono(telefono, a.auth);
-    const responsable = config.internacionalResponsable || config.internacionalAvisarA[0] || 0;
     if (contactId && !nombre) {
       const c: any = await callCrm('crm.contact.get', { id: contactId }, a.auth).catch(() => null);
       nombre = nombreDe(c);
@@ -107,6 +177,7 @@ export async function asegurarNegociacionInternacional(a: {
     if (config.ufPrograma && config.internacionalPrograma) campos[config.ufPrograma] = config.internacionalPrograma;
     const dealId = Number(await callCrm<string | number>('crm.deal.add', { fields: campos, params: { REGISTER_SONET_EVENT: 'Y' } }, a.auth)) || 0;
     if (!dealId) return a.entidades;
+    await asignarAlResponsable(responsable, a.entidades.lead, contactId, a.auth);
 
     await setJson(KEY(a.dialogId), { deal: dealId, contact: contactId || undefined }, TTL_SEG);
     void audit({

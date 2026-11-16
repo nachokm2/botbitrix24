@@ -79,6 +79,8 @@ test('un número nuevo, sin nada en el CRM: crea el contacto y la negociación e
 test('con solo un lead: usa el contacto que ya tiene ese teléfono y deja el lead enlazado', async () => {
   respuestas['crm.lead.get'] = () => ({ CONTACT_ID: '0', NAME: 'Asha' });
   respuestas['crm.duplicate.findbycomm'] = () => ({ CONTACT: [55] });
+  respuestas['crm.deal.list'] = () => []; // Bitrix no creó negociación al convertir el lead
+  respuestas['crm.lead.update'] = () => true;
   const r = await asegurarNegociacionInternacional({ dialogId: 'chat-lead', entidades: { lead: 77 }, telefono: tel('+919811111111'), auth });
   assert.deepEqual(r, { lead: 77, deal: 9001, contact: 55 });
   assert.equal(metodo('crm.contact.add').length, 0, 'no duplica el contacto');
@@ -86,6 +88,57 @@ test('con solo un lead: usa el contacto que ya tiene ese teléfono y deja el lea
   assert.equal(deal.LEAD_ID, 77);
   assert.equal(deal.CONTACT_ID, 55);
   assert.match(deal.TITLE, /Asha/);
+  // El lead que creó la línea abierta (a nombre de Danna) queda a nombre del responsable.
+  assert.equal(metodo('crm.lead.update')[0].params.fields.ASSIGNED_BY_ID, 4173);
+});
+
+test('16-11: toma la negociación que Bitrix creó al convertir el lead, en vez de crear una segunda', async () => {
+  const ahora = new Date().toISOString();
+  respuestas['crm.deal.list'] = () => [{ ID: '700', CONTACT_ID: '55', DATE_CREATE: ahora, CLOSED: 'N', STAGE_ID: 'C73:PREPARATION', ASSIGNED_BY_ID: '166867' }];
+  respuestas['crm.deal.update'] = () => true;
+  respuestas['crm.lead.update'] = () => true;
+  respuestas['crm.contact.get'] = () => ({ ASSIGNED_BY_ID: '166867', DATE_CREATE: ahora });
+  respuestas['crm.contact.update'] = () => true;
+  const r = await asegurarNegociacionInternacional({ dialogId: 'chat-dup', entidades: { lead: 78 }, telefono: tel('+919855555555'), auth });
+  assert.deepEqual(r, { lead: 78, deal: 700, contact: 55 });
+  assert.equal(metodo('crm.deal.add').length, 0, 'no crea una segunda negociación');
+  const upd = metodo('crm.deal.update')[0].params;
+  assert.equal(upd.id, 700);
+  assert.equal(upd.fields.ASSIGNED_BY_ID, 4173);
+  assert.equal(upd.fields.STAGE_ID, config.internacionalEtapaNegociacion, 'sale de «Info Urgente»');
+  assert.equal(metodo('crm.lead.update')[0].params.fields.ASSIGNED_BY_ID, 4173);
+  assert.equal(metodo('crm.contact.update')[0].params.fields.ASSIGNED_BY_ID, 4173);
+  assert.equal(auditorias[0].detail.reutilizada, true);
+  assert.equal(auditorias[0].detail.responsableAnterior, 166867);
+});
+
+test('16-11: un contacto antiguo no se reasigna (puede ser de alguien que ya atiende otro asesor)', async () => {
+  respuestas['crm.deal.list'] = () => [{ ID: '701', CONTACT_ID: '56', DATE_CREATE: new Date().toISOString(), CLOSED: 'N', STAGE_ID: 'C73:PREPARATION', ASSIGNED_BY_ID: '166867' }];
+  respuestas['crm.deal.update'] = () => true;
+  respuestas['crm.lead.update'] = () => true;
+  respuestas['crm.contact.get'] = () => ({ ASSIGNED_BY_ID: '233459', DATE_CREATE: '2025-03-01T10:00:00+03:00' });
+  await asegurarNegociacionInternacional({ dialogId: 'chat-dup-viejo', entidades: { lead: 79 }, telefono: tel('+919866666666'), auth });
+  assert.equal(metodo('crm.contact.update').length, 0);
+});
+
+test('16-11: la que un robot ya cerró en «RMKT» también se toma, si es de recién', async () => {
+  respuestas['crm.deal.list'] = () => [{ ID: '703', CONTACT_ID: '57', DATE_CREATE: new Date().toISOString(), CLOSED: 'Y', STAGE_ID: 'C73:APOLOGY', ASSIGNED_BY_ID: '233459' }];
+  respuestas['crm.deal.update'] = () => true;
+  respuestas['crm.lead.update'] = () => true;
+  respuestas['crm.contact.get'] = () => ({ ASSIGNED_BY_ID: '233459', DATE_CREATE: new Date().toISOString() });
+  respuestas['crm.contact.update'] = () => true;
+  const r = await asegurarNegociacionInternacional({ dialogId: 'chat-rmkt', entidades: { lead: 81 }, telefono: tel('+919888888888'), auth });
+  assert.equal(r.deal, 703);
+  assert.equal(metodo('crm.deal.add').length, 0);
+});
+
+test('16-11: una negociación antigua del lead no se toma; se crea la del bot', async () => {
+  respuestas['crm.deal.list'] = () => [{ ID: '702', CONTACT_ID: '0', DATE_CREATE: '2025-01-01T00:00:00+03:00', CLOSED: 'N', STAGE_ID: 'C73:PREPARATION' }];
+  respuestas['crm.lead.get'] = () => ({ CONTACT_ID: '0', NAME: 'Ravi' });
+  respuestas['crm.lead.update'] = () => true;
+  const r = await asegurarNegociacionInternacional({ dialogId: 'chat-dup-antiguo', entidades: { lead: 80 }, telefono: tel('+919877777777'), auth });
+  assert.equal(r.deal, 9001);
+  assert.equal(metodo('crm.deal.update').length, 0);
 });
 
 test('si ya tiene negociación en el embudo 73, no crea otra', async () => {
