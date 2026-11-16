@@ -449,6 +449,8 @@ export function problemasDelRecordatorioInternacional(texto: string): string[] {
   if (/\b(send|share|email) (you )?(the |a |our )?(full |detailed |complete )?(syllabus|brochure|course details|curriculum|document|pdf)\b/i.test(t)) {
     p.push('it offers to send a document, syllabus or brochure; you cannot send any');
   }
+  // «How the three tracks work» (chat1604697, 16-11): son dos.
+  if (/\b(three|four|five|3|4|5) (tracks|paths)\b/i.test(t)) p.push('it gives a wrong number of tracks; do not count or describe them');
   // Inventaba tracks: «one focused on AI tools…, the other on automation strategy» (simulación del 16-11).
   if (/\b(strategy|implementation|management|leadership)\b[^.?!]{0,40}\b(track|path)s?\b|\b(track|path)s?\b[^.?!]{0,80}\b(strategy|implementation|leadership)\b/i.test(t)) {
     p.push('it describes the tracks in a way that is not in the conversation; do not describe them');

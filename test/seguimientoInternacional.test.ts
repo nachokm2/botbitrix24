@@ -245,6 +245,7 @@ test('16-11: no corrige el precio dado antes, no cuenta sus instrucciones, no of
   // Tracks, herramientas y documentos que no están en la conversación (simulación del 16-11).
   assert.ok(p('The programme has two tracks – one focused on AI tools, the other on automation strategy – does that sound interesting?').length);
   assert.ok(p('Would you rather I send you the detailed syllabus for one of the tracks?').length);
+  assert.ok(p('Would it help if I explained how the three tracks work?').length);
   const conv = 'Cliente: Hello\nBot: Two tracks: Builder Lite (no code) and Builder Pro (Python). Do you code?';
   assert.ok(seg.herramientasQueNoEstan('The no-code path uses tools like Zapier and Make, while Python goes deeper.', conv).length);
   assert.deepEqual(seg.herramientasQueNoEstan('Python or no code, both build the same projects. Make sure to ask me anything.', conv), []);
