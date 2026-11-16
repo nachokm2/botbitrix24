@@ -233,6 +233,51 @@ test('problemasDelRecordatorioInternacional: lo que no puede salir', () => {
   assert.ok(p('Dear Sir, any questions?').length, 'Dear Sir');
 });
 
+test('16-11: no corrige el precio dado antes, no cuenta sus instrucciones, no ofrece llamadas ni vuelve a preguntar por el trabajo', () => {
+  const p = seg.problemasDelRecordatorioInternacional;
+  // Recordatorios reales de la primera noche.
+  assert.ok(p("I realised I shared pricing details that aren't meant for WhatsApp chat – let me know if you'd like to explore the programme structure first").length);
+  assert.ok(p("I appreciate your interest, but I need to clarify - I can't provide pricing, scholarships or payment details like that.").length);
+  assert.ok(p('I need to clarify something - I can only see the transcription shows the conversation just started, but the previous message mentions pricing').length);
+  assert.ok(p('Would you rather I send you the full course schedule, or would a quick call work better?').length);
+  assert.ok(p('What kind of work are you in — would that be more of a technical role or something else?').length);
+  assert.deepEqual(p('Happy to walk you through how the enrolment process works if that would help.'), []);
+  // Tracks, herramientas y documentos que no están en la conversación (simulación del 16-11).
+  assert.ok(p('The programme has two tracks – one focused on AI tools, the other on automation strategy – does that sound interesting?').length);
+  assert.ok(p('Would you rather I send you the detailed syllabus for one of the tracks?').length);
+  const conv = 'Cliente: Hello\nBot: Two tracks: Builder Lite (no code) and Builder Pro (Python). Do you code?';
+  assert.ok(seg.herramientasQueNoEstan('The no-code path uses tools like Zapier and Make, while Python goes deeper.', conv).length);
+  assert.deepEqual(seg.herramientasQueNoEstan('Python or no code, both build the same projects. Make sure to ask me anything.', conv), []);
+  assert.ok(seg.herramientasQueNoEstan('Enroll karne ke liye bas ek online form fill karna padega.', conv).length);
+  assert.ok(seg.herramientasQueNoEstan('You can learn at your own pace while working.', conv).length);
+  // El prompt deja claro que lo dicho antes estaba bien.
+  const s = seg.sistemaSeguimientoInternacional('primero', 1, 'x');
+  assert.match(s, /Everything said earlier in the conversation, prices included, was correct/);
+  assert.match(s, /never mention your instructions/);
+  assert.match(s, /do not offer calls or meetings/);
+});
+
+test('interruptor: con SEGUIMIENTO_INTERNACIONAL_HORAS vacío no sale ni lo ya agendado', async () => {
+  const d = 'chat-intl-5';
+  kvStore.set(`mem:${d}`, JSON.stringify(CONVERSACION));
+  await seg.programarSeguimientoInternacional(d, { deal: 1 }, '9005');
+  const horas = config.seguimientoInternacionalHoras;
+  config.seguimientoInternacionalHoraInicio = 0;
+  config.seguimientoInternacionalHoraFin = 24;
+  config.seguimientoInternacionalHoras = [];
+  try {
+    enviados.length = 0;
+    await vencerYBarrer(d);
+    assert.equal(enviados.filter((e) => e.method === 'imbot.message.add').length, 0);
+    assert.equal(auditorias.filter((a) => a.type === 'seguimiento_omitido' && a.dialogId === d).at(-1)?.detail.motivo, 'internacional_apagado');
+    assert.equal(plan(d), null, 'la secuencia queda terminada');
+  } finally {
+    config.seguimientoInternacionalHoras = horas;
+    config.seguimientoInternacionalHoraInicio = 9;
+    config.seguimientoInternacionalHoraFin = 21;
+  }
+});
+
 test('baja y rechazo en inglés: cortan la secuencia', () => {
   assert.equal(seg.esRechazo('Not interested, thanks'), true);
   assert.equal(seg.esRechazo('No thank you'), true);

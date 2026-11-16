@@ -8,7 +8,7 @@
  */
 
 // Preguntas por el trabajo, el área o la formación, en inglés, hinglish e hindi.
-const PREGUNTA_POR_TRABAJO =
+export const PREGUNTA_POR_TRABAJO =
   /what (kind of )?(work|job)\b|what do you (do|currently do)\b|what (field|industry|domain|sector)\b|which (field|industry|domain|sector)\b|what('s| is) your (field|role|background|profession|work|job|industry)\b|your (educational )?background\b|recent graduate|work experience|(field|line) of work|aap kya (kaam|karte)|kis (field|kshetra)|क्या काम|किस (field|क्षेत्र)/i;
 
 type Mensaje = { role: string; content: unknown };

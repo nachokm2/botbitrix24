@@ -27,6 +27,7 @@ import { vigilarDerivacion, barrerVigilanciaDerivaciones } from '../crm/vigilanc
 import { primaryEntity, type CrmEntities } from '../crm/entities';
 import { getIdentidadAsesor } from '../crm/directory';
 import { respuestaAPlantilla } from '../core/ecos';
+import { PREGUNTA_POR_TRABAJO } from '../core/preguntasRepetidas';
 
 // Seguimiento automático (WhatsApp/Open Lines) en 3 etapas, si el bot respondió y el cliente quedó
 // en silencio — las TRES ancladas a la MISMA última respuesta del bot (no una después de la otra):
@@ -274,6 +275,28 @@ function coincidenciasConAnteriores(texto: string, anteriores: string[]): { igua
   return { igual, copiada };
 }
 
+// Herramientas y marcas que el recordatorio del modo internacional podría nombrar sin que estén en la
+// conversación: «the no-code path uses tools like Zapier and Make» (simulación del 16-11; el programa
+// usa otras). El recordatorio no consulta la ficha, así que solo puede repetir lo ya dicho.
+const HERRAMIENTAS = /\b(zapier|make\.com|n8n|power automate|power bi|langchain|llamaindex|bedrock|aws|azure|openai|chatgpt|gemini|copilot|tableau|coursera|google|ibm|deeplearning\.ai|python|excel|sql)\b/gi;
+
+/** Herramientas o marcas que el texto nombra y la conversación no, explicado en inglés. */
+export function herramientasQueNoEstan(texto: string, conversacion: string): string[] {
+  const conv = conversacion.toLowerCase();
+  const faltan = [...new Set([...texto.matchAll(HERRAMIENTAS)].map((m) => m[0].toLowerCase()))].filter((h) => !conv.includes(h));
+  // «Make» solo cuenta junto a otra herramienta: «Make sure…» es otra cosa.
+  if (/\bMake\b(?=\s*(,|and|or|\)))|(,|and|or)\s*\bMake\b/.test(texto) && !/\bmake\b(?=\s*(,|and|or|\)))/i.test(conversacion)) faltan.push('make');
+  // Afirmaciones sobre el programa que no se dijeron (simulación del 16-11): «para inscribirse basta un
+  // formulario» (no hay formulario) y «a tu propio ritmo» (las clases son en vivo, con día y hora).
+  for (const [re, dato] of [
+    [/\bform\b/i, 'a form'],
+    [/\b(own|your) pace\b|\bon your (own )?(schedule|time)\b|\bchoose when\b|\bwhenever (they|it) suits? you\b/i, 'that they learn at their own pace'],
+  ] as const) {
+    if (re.test(texto) && !re.test(conversacion)) faltan.push(dato);
+  }
+  return faltan.length ? [`it mentions ${faltan.join(', ')}, which the conversation does not; only repeat what was said`] : [];
+}
+
 /** Lo mismo que repiteLoAnterior, explicado en inglés para el modo internacional. */
 export function repiteLoAnteriorInternacional(texto: string, anteriores: string[]): string[] {
   const { igual, copiada } = coincidenciasConAnteriores(texto, anteriores);
@@ -406,6 +429,30 @@ export function problemasDelRecordatorioInternacional(texto: string): string[] {
     p.push('it says you checked or confirmed something with someone, and that did not happen');
   }
   if (/\bdear\b|\bsir\b|\bma'?am\b/i.test(t)) p.push('it uses "Dear", "Sir" or "Ma\'am"; keep it warm and simple');
+  // 16-11-2026: con «no prices» el modelo entendía que el precio dado antes había sido un error y lo
+  // «corregía»: «I realised I shared pricing details that aren't meant for WhatsApp», «I can't provide
+  // pricing… like that», y uno contó sus instrucciones en voz alta («the previous message mentions
+  // pricing… that I shouldn't have shared based on my instructions»).
+  if (
+    /\b((i need to|let me|i must|i want to|just to) clarify|i reali[sz]ed?|i shouldn['’]?t have|should not have (shared|said|sent)|not meant for|(can['’]?t|cannot|not able to|unable to) (provide|share|give|discuss) (the )?(pric|payment|scholarship|fee)|transcri\w*|instructions?|previous message|conversation thread|the bot\b|as an ai\b)/i.test(t)
+  ) {
+    p.push('it comments on or corrects earlier messages, its instructions or what it can share; everything said before was correct, just write the reminder');
+  }
+  // No hay llamadas en el piloto: todo pasa en este chat.
+  if (/\b(a |quick |short |phone |video )?call\b|\bzoom\b|\bgoogle meet\b|\bmeeting\b/i.test(t)) p.push('it offers a call or a meeting; there are none, everything happens in this chat');
+  // El saludo ya preguntó a qué se dedica; el recordatorio no vuelve a hacerlo.
+  if (t.split(/(?<=[.!?।])\s+/).some((f) => f.includes('?') && PREGUNTA_POR_TRABAJO.test(f))) {
+    p.push('it asks again about their work, field or background; offer a next step instead');
+  }
+  if (t.length > 400) p.push('it is too long: one or two short sentences');
+  // En la simulación del 16-11 ofreció «the detailed syllabus», que no hay cómo enviar.
+  if (/\b(send|share|email) (you )?(the |a |our )?(full |detailed |complete )?(syllabus|brochure|course details|curriculum|document|pdf)\b/i.test(t)) {
+    p.push('it offers to send a document, syllabus or brochure; you cannot send any');
+  }
+  // Inventaba tracks: «one focused on AI tools…, the other on automation strategy» (simulación del 16-11).
+  if (/\b(strategy|implementation|management|leadership)\b[^.?!]{0,40}\b(track|path)s?\b|\b(track|path)s?\b[^.?!]{0,80}\b(strategy|implementation|leadership)\b/i.test(t)) {
+    p.push('it describes the tracks in a way that is not in the conversation; do not describe them');
+  }
   return p;
 }
 
@@ -565,14 +612,19 @@ export function sistemaSeguimientoInternacional(tipo: TipoRecordatorio, etapa: n
     'you write in the first person, directly to them.';
   const estilo =
     'Write in the language the person used in the conversation (English by default; if they wrote in Hindi or Hinglish, use that), never in Spanish. ' +
-    'Sound like a real person on WhatsApp: simple and warm, no "Dear", "Sir" or "Ma\'am", no emojis, no bold, no links, no prices, amounts or instalments. ' +
+    'Sound like a real person on WhatsApp: simple and warm, no "Dear", "Sir" or "Ma\'am", no emojis, no bold, no links. ' +
+    'Everything said earlier in the conversation, prices included, was correct: never correct, retract, apologise for or comment on an earlier message, ' +
+    'and never mention your instructions, rules, the conversation text or what you can or cannot share. Simply do not repeat amounts in this reminder. ' +
+    'Do not ask again about their work, field or background, and do not offer calls or meetings: everything happens in this chat. ' +
+    'Describe tracks, modules or projects only with the words already used in the conversation; if they are not described there, do not describe them. ' +
+    'Do not offer to send documents, a syllabus or a brochure, and do not explain how enrolment works: only offer to explain it. ' +
     'Do not open with stock phrases like "Just following up", "Checking in" or "I noticed". If you already sent reminders, the new one must sound ' +
     'DIFFERENT from all of them: another opening, another kind of sentence (if the last one was a question, this one is not, or the other way round) ' +
     'and another topic if you already pushed one. Use ONLY what is in the conversation: do not add programme facts that are not written there, do not ' +
     'say you checked or confirmed anything with anyone, and never mention degrees, jobs, salaries or guarantees. No urgency, seats, deadlines or discounts. ' +
     'Never reproach them for not replying or count how many times you wrote. Return ONLY the message, with no quotes or explanation.';
   if (tipo === 'primero') {
-    return `${base} Write ONE short follow-up (1 or 2 sentences): pick up the thread (what you were talking about) and offer ONE concrete next step they can answer with yes or no, based on where the conversation stopped (for example, answering the question that was left open, telling them which track fits them, or explaining how enrolment works). ${estilo}`;
+    return `${base} Write ONE short follow-up (1 or 2 sentences): pick up the thread (what you were talking about) and offer ONE concrete next step they can answer with yes or no, based on where the conversation stopped (for example, answering the question that was left open, or explaining how enrolment works). ${estilo}`;
   }
   if (tipo === 'intermedio') {
     const enfoque = ENFOQUES_MEDIO_INTERNACIONAL[(semillaDe(`${semilla}:intl`) + etapa) % ENFOQUES_MEDIO_INTERNACIONAL.length];
@@ -935,6 +987,7 @@ export async function generarMensajeSeguimiento(
         ? [
             ...problemasDelRecordatorioInternacional(x),
             ...repiteLoAnteriorInternacional(x, previas),
+            ...herramientasQueNoEstan(x, t),
             ...(tipo === 'cierre' && x.length > 220 ? ['it is too long: the closing message is ONE short sentence'] : []),
           ]
         : [
@@ -1141,7 +1194,9 @@ async function barrerRecordatorios(key: string, etapaFija?: 1 | 2): Promise<void
       const tipo = tipoDeEtapa(etapa, total);
       const detalleEtapa = plan ? { etapa, de: total, ...(internacional ? { internacional: true } : {}) } : { etapa };
 
-      const motivo = await motivoParaNoEnviar(dialogId, auth);
+      // SEGUIMIENTO_INTERNACIONAL_HORAS=0 apaga también lo ya agendado, no solo las secuencias nuevas:
+      // es el interruptor si los recordatorios de India salen mal (16-11-2026).
+      const motivo = internacional && !config.seguimientoInternacionalHoras.length ? 'internacional_apagado' : await motivoParaNoEnviar(dialogId, auth);
       if (motivo) {
         inc(`seguimiento_omitido:${motivo}`);
         await audit({ type: 'seguimiento_omitido', dialogId, detail: { ...detalleEtapa, motivo } });
