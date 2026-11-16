@@ -27,7 +27,7 @@ import { vigilarDerivacion, barrerVigilanciaDerivaciones } from '../crm/vigilanc
 import { primaryEntity, type CrmEntities } from '../crm/entities';
 import { getIdentidadAsesor } from '../crm/directory';
 import { respuestaAPlantilla } from '../core/ecos';
-import { PREGUNTA_POR_TRABAJO } from '../core/preguntasRepetidas';
+import { preguntaPorTrabajo } from '../core/preguntasRepetidas';
 
 // Seguimiento automático (WhatsApp/Open Lines) en 3 etapas, si el bot respondió y el cliente quedó
 // en silencio — las TRES ancladas a la MISMA última respuesta del bot (no una después de la otra):
@@ -422,6 +422,16 @@ export function problemasDelRecordatorioInternacional(texto: string): string[] {
   if (/\bthe (client|customer|lead|prospect)\b|\bfollow[- ]up message\b|\bhere(?:'s| is) (the|a|your) (message|reminder)\b/i.test(t)) {
     p.push('it talks about the person in the third person or shows internal instructions');
   }
+  // 16-11-2026 (chat1604707): al corregir, el modelo mandó su razonamiento antes del mensaje: «The
+  // conversation ended naturally with closure. A follow-up should simply re-engage on what mattered to
+  // them… without reproach or internal language. Here's the corrected follow-up: …».
+  if (
+    /\bfollow[- ]?ups?\b|\bre-?engag\w*|\breproach\w*|\binternal language\b|\bcorrected\b|\brevised (version|message)\b|\bhere(?:'s| is) (the|a|my|your) (corrected|revised|new|updated|improved|final)\b|\bthe conversation (ended|was|is|has)\b|\bwhat mattered to them\b|\b(they|them) (flagged|mentioned|said|asked|wanted)\b/i.test(
+      t,
+    )
+  ) {
+    p.push('it describes the conversation or how to write the reminder instead of writing to the person; return only the message itself');
+  }
   if (/^\W*(just )?(following up|checking in|i noticed|i see that|i understand that)\b/i.test(t)) {
     p.push('it opens with a stock phrase like "Just following up" or "I noticed"');
   }
@@ -441,7 +451,7 @@ export function problemasDelRecordatorioInternacional(texto: string): string[] {
   // No hay llamadas en el piloto: todo pasa en este chat.
   if (/\b(a |quick |short |phone |video )?call\b|\bzoom\b|\bgoogle meet\b|\bmeeting\b/i.test(t)) p.push('it offers a call or a meeting; there are none, everything happens in this chat');
   // El saludo ya preguntó a qué se dedica; el recordatorio no vuelve a hacerlo.
-  if (t.split(/(?<=[.!?।])\s+/).some((f) => f.includes('?') && PREGUNTA_POR_TRABAJO.test(f))) {
+  if (preguntaPorTrabajo(t)) {
     p.push('it asks again about their work, field or background; offer a next step instead');
   }
   if (t.length > 400) p.push('it is too long: one or two short sentences');

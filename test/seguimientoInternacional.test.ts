@@ -258,6 +258,29 @@ test('16-11: no corrige el precio dado antes, no cuenta sus instrucciones, no of
   assert.match(s, /do not offer calls or meetings/);
 });
 
+test('16-11 tarde: no manda su razonamiento sobre cómo escribir el recordatorio', () => {
+  const p = seg.problemasDelRecordatorioInternacional;
+  // Lo que le llegó a chat1604707.
+  assert.ok(
+    p(
+      'The conversation ended naturally with closure. A follow-up should simply re-engage on what mattered to them—the job ' +
+        "opportunity they flagged—without reproach or internal language. Here's the corrected follow-up: Just in case it " +
+        'helps while you wait to hear back from the team, would you like to know how the programme works?',
+    ).length,
+  );
+  assert.ok(p("Here's the revised message: would you like to know how enrolment works?").length);
+  assert.ok(p('Quick follow-up: are you still interested?').length);
+  // Recordatorios reales de esa tarde que estaban bien siguen pasando.
+  for (const ok of [
+    'Are you still interested in learning more about the programme?',
+    'The 16 weeks are live online, so you can keep working while you do it.',
+    'Kya aap programme ke baare mein aur jaanna chahte hain, ya seedhe enrolment shuru kar dena chahte hain?',
+    "Whenever you're ready, I'm here to help you pick the right track for where you're at.",
+  ]) {
+    assert.deepEqual(p(ok), [], ok);
+  }
+});
+
 test('interruptor: con SEGUIMIENTO_INTERNACIONAL_HORAS vacío no sale ni lo ya agendado', async () => {
   const d = 'chat-intl-5';
   kvStore.set(`mem:${d}`, JSON.stringify(CONVERSACION));

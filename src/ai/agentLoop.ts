@@ -23,7 +23,12 @@ import { avisarAlResponsable } from '../crm/avisoAsesor';
 import { quitarCredenciales } from '../core/credenciales';
 import { conocimientoVigente } from '../core/conocimientoComercial';
 import { mensajeDeRiesgo, BLOQUE_RIESGO, RIESGO_KEY, RIESGO_TTL_SEG } from '../core/riesgo';
-import { bloqueNoRepetirPreguntaPorTrabajo } from '../core/preguntasRepetidas';
+import {
+  bloqueNoRepetirPreguntaPorTrabajo,
+  EDITOR_SIN_PREGUNTA_POR_TRABAJO,
+  preguntaPorTrabajo,
+  vecesQuePreguntoPorTrabajo,
+} from '../core/preguntasRepetidas';
 import { setJson } from '../store/kv';
 
 const MAX_STEPS = 5; // guardrail anti-bucle
@@ -805,6 +810,33 @@ export async function aplicarGuardian(
     } catch (e) {
       log.warn('guardián: no se pudo corregir el trato', { err: String(e) });
       cambios.push(tutea ? 'usted_no_corregido' : 'tuteo_no_corregido');
+    }
+  }
+
+  // Modo internacional: si ya preguntó dos veces a qué se dedica y la respuesta vuelve a hacerlo, se
+  // quita esa pregunta (core/preguntasRepetidas.ts). Solo se acepta si ya no pregunta por el trabajo y
+  // conserva cifras y enlaces; si no, sale como estaba.
+  if (t.internacional && vecesQuePreguntoPorTrabajo(t.history) >= 2 && preguntaPorTrabajo(final)) {
+    try {
+      const resp = await anthropic.messages.create({
+        model: CLASSIFIER,
+        max_tokens: 600,
+        temperature: 0,
+        system: EDITOR_SIN_PREGUNTA_POR_TRABAJO,
+        messages: [{ role: 'user', content: final }],
+      });
+      recordTokens((resp as any).usage);
+      const editado = soloTexto(resp);
+      const duros = datosDuros(editado);
+      if (editado && !preguntaPorTrabajo(editado) && datosDuros(final).every((d) => duros.includes(d))) {
+        final = guardarRespuesta(editado, { ...ctxGuard, maxCaracteres: Number.MAX_SAFE_INTEGER }).texto;
+        cambios.push('pregunta_trabajo_quitada');
+      } else {
+        cambios.push('pregunta_trabajo_no_quitada');
+      }
+    } catch (e) {
+      log.warn('guardián: no se pudo quitar la pregunta por el trabajo', { err: String(e) });
+      cambios.push('pregunta_trabajo_no_quitada');
     }
   }
 

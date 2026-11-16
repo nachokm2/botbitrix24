@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { vecesQuePreguntoPorTrabajo, bloqueNoRepetirPreguntaPorTrabajo } from '../src/core/preguntasRepetidas';
+import { vecesQuePreguntoPorTrabajo, bloqueNoRepetirPreguntaPorTrabajo, preguntaPorTrabajo } from '../src/core/preguntasRepetidas';
 
 // Caso del 15-11-2026 (piloto de India): una persona que buscaba trabajo recibió seis veces seguidas
 // «what field are you from…?», una hora después de publicada la regla de «a lo más dos veces».
@@ -22,6 +22,16 @@ test('cuenta solo las preguntas por el trabajo, en inglés, hinglish e hindi', (
   assert.equal(vecesQuePreguntoPorTrabajo([B("As a data analyst, you'd get a lot out of it. Would you like to know how to enrol?")]), 0);
   assert.equal(vecesQuePreguntoPorTrabajo([B('Aap kya kaam karte hain?'), B('आप क्या काम करते हैं?')]), 2);
   assert.equal(vecesQuePreguntoPorTrabajo([U('What do you do?')]), 0, 'lo que pregunta la persona no cuenta');
+});
+
+test('16-11 (chat1604043): las formas que se escapaban también cuentan', () => {
+  assert.ok(preguntaPorTrabajo('Thanks for sharing that, Dukhan! To make sure I recommend the right track — do you work in a particular field or role?'));
+  assert.ok(preguntaPorTrabajo("What's your current role?"));
+  assert.ok(preguntaPorTrabajo('To point you to the right track, could you tell me a bit about what you do for work?'));
+  assert.ok(preguntaPorTrabajo('Happy to help! Could you share what you do for work?'));
+  assert.ok(preguntaPorTrabajo('Looks like a link came through. What kind of work do you do, Dukhan?'));
+  assert.ok(!preguntaPorTrabajo('In your current role you could automate reports. Would you like to know how to enrol?'));
+  assert.ok(!preguntaPorTrabajo('Would you like to know how to enrol?'));
 });
 
 test('desde la segunda pregunta, aviso estricto en el turno; antes, nada', () => {
