@@ -47,11 +47,19 @@ let llamadas = 0;
 const cola: string[] = [];
 const sistemas: string[] = [];
 const pedidos: any[][] = [];
+// Lo que contesta el clasificador de «¿viene por el programa?» (17-11-2026); va aparte de la cola de
+// recordatorios para no consumirla.
+let clasificacion = 'REMINDERS';
+const clasificados: string[] = [];
 mock.module('../src/ai/client.ts', {
   namedExports: {
     anthropic: {
       messages: {
         create: async (req: any) => {
+          if (String(req.system).includes('keep sending this person reminders')) {
+            clasificados.push(String(req.messages?.[0]?.content ?? ''));
+            return { content: [{ type: 'text', text: clasificacion }], usage: {} };
+          }
           sistemas.push(String(req.system));
           pedidos.push(req.messages ?? []);
           const text = cola.length ? cola.shift()! : TEXTOS[llamadas++ % TEXTOS.length];
@@ -174,6 +182,30 @@ test('barrido: el recordatorio sale con el prompt en inglés y el cierre sin con
     const ultimo = auditorias.filter((a) => a.type === 'seguimiento' && a.dialogId === d).at(-1);
     assert.equal(ultimo.detail.internacional, true);
   } finally {
+    config.seguimientoInternacionalHoraInicio = 9;
+    config.seguimientoInternacionalHoraFin = 21;
+  }
+});
+
+test('17-11: a quien no viene por el programa (pide dinero, busca trabajo, no lee inglés) no se le insiste', async () => {
+  const d = 'chat-intl-noprospecto';
+  kvStore.set(`mem:${d}`, JSON.stringify(CONVERSACION));
+  await seg.programarSeguimientoInternacional(d, { deal: 1 }, '9010');
+  config.seguimientoInternacionalHoraInicio = 0;
+  config.seguimientoInternacionalHoraFin = 24;
+  clasificacion = 'NO_REMINDERS: pide que le transfieran dinero';
+  try {
+    enviados.length = 0;
+    clasificados.length = 0;
+    await vencerYBarrer(d);
+    assert.equal(enviados.filter((e) => e.method === 'imbot.message.add').length, 0);
+    assert.match(clasificados[0], /regional manager/, 'el clasificador lee la conversación');
+    const omitido = auditorias.filter((a) => a.type === 'seguimiento_omitido' && a.dialogId === d).at(-1);
+    assert.equal(omitido.detail.motivo, 'no_es_prospecto');
+    assert.equal(omitido.detail.detalle, 'pide que le transfieran dinero');
+    assert.equal(plan(d), null, 'la secuencia termina');
+  } finally {
+    clasificacion = 'REMINDERS';
     config.seguimientoInternacionalHoraInicio = 9;
     config.seguimientoInternacionalHoraFin = 21;
   }

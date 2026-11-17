@@ -23,6 +23,7 @@ import { avisarAlResponsable } from '../crm/avisoAsesor';
 import { quitarCredenciales } from '../core/credenciales';
 import { conocimientoVigente } from '../core/conocimientoComercial';
 import { mensajeDeRiesgo, BLOQUE_RIESGO, RIESGO_KEY, RIESGO_TTL_SEG } from '../core/riesgo';
+import { bloqueRespuestaPendiente } from '../core/consultasInternacionales';
 import {
   bloqueNoRepetirPreguntaPorTrabajo,
   EDITOR_SIN_PREGUNTA_POR_TRABAJO,
@@ -451,7 +452,10 @@ export async function runAgentTurn(
     // Modo internacional: si ya preguntó dos veces a qué se dedica, en este turno no vuelve a hacerlo
     // (ver core/preguntasRepetidas.ts).
     const extraRepetida = ctx.internacional ? bloqueNoRepetirPreguntaPorTrabajo(history) : '';
-    const sumado = extra + extraIdioma + extraMomento + extraRepetida + (riesgo ? BLOQUE_RIESGO : '');
+    // Una respuesta del equipo que llegó con la persona fuera de las 24 h: se la da ahora que volvió a
+    // escribir (core/consultasInternacionales.ts).
+    const extraPendiente = ctx.internacional ? await bloqueRespuestaPendiente(ctx.conversationId).catch(() => '') : '';
+    const sumado = extra + extraIdioma + extraMomento + extraRepetida + extraPendiente + (riesgo ? BLOQUE_RIESGO : '');
     const perfilFinal = sumado ? { ...perfilDelTurno, systemPrompt: perfilDelTurno.systemPrompt + sumado } : perfilDelTurno;
     const inicioTurno = messages.length;
     const { text, messages: finalMsgs } = await runConversation(

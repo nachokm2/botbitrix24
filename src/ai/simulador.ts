@@ -15,6 +15,7 @@ import { enlaceDePago } from '../core/mediosPago';
 import { bloqueMomento } from '../core/momento';
 import { fichaInternacional, mencionaPalabraInternacional, perfilInternacional, urlsDeLaFicha } from '../core/internacional';
 import { bloqueNoRepetirPreguntaPorTrabajo } from '../core/preguntasRepetidas';
+import { resultadoConsultaParaElModelo } from '../core/consultasInternacionales';
 import { marca } from '../marca';
 
 /**
@@ -67,9 +68,10 @@ const TEMAS: Record<string, string> = {
 
 async function ejecutar(nombre: string, input: any, mensajeCliente: string, internacional: boolean): Promise<any> {
   const catalogo = WHATSAPP_PROFILE.catalog;
-  // Lo que respondería la real en el modo internacional: avisa al equipo y el bot sigue atendiendo.
+  // Lo que respondería la real en el modo internacional: la consulta va a quien la revisa y el bot sigue
+  // atendiendo (core/consultasInternacionales.ts).
   if (internacional && nombre === 'escalar_a_humano') {
-    return { ok: true, avisado: true, mensaje: 'The admissions team was notified. Tell them in their language that the team will review it and reply here or by email, without promising a time.' };
+    return { ok: true, consultado: true, mensaje: resultadoConsultaParaElModelo(/pago informado/i.test(String(input?.motivo ?? ''))) };
   }
   switch (nombre) {
     case 'consultar_programas':
@@ -222,5 +224,5 @@ export async function simularTurno(
 }
 
 function describirAvisoInternacional(input: any): string {
-  return `Avisaría al equipo, sin entregar el chat (modo internacional)${input?.motivo ? `: «${input.motivo}»` : ''}.`;
+  return `Le consultaría a quien revisa el programa internacional por el chat privado del bot, sin entregar el chat${input?.motivo ? `: «${input.motivo}»` : ''}. La respuesta le llegaría a la persona por el bot.`;
 }

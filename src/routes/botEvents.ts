@@ -22,6 +22,8 @@ import { asesoresDisponibles, motivoHorario } from '../core/horarioAsesores';
 import { hayOperadorEnElChat } from '../crm/operadorEnChat';
 import { listaBlancaActiva, puedeResponder, lineaDelChat, telefonoDelChat } from '../core/listaBlanca';
 import { fichaSiEsInternacional, perfilInternacional, urlsDeLaFicha } from '../core/internacional';
+import { esMensajeDelEquipo, procesarMensajeDelEquipo, marcarMensajeDelCliente } from '../core/consultasInternacionales';
+import { esSinContenido, repiteSinContenido, olvidarSinContenido, botonDePlantillaEnEspanol } from '../core/ruidoInternacional';
 import { asegurarNegociacionInternacional } from '../crm/negociacionInternacional';
 import { esperarComoHumano } from '../core/ritmoHumano';
 import { anotarEntrante, fueAbsorbido, esperarFinDeRafaga, tomarRafaga } from '../core/rafaga';
@@ -35,7 +37,13 @@ import { WHATSAPP_PROFILE, type AgentContext } from '../core/channel';
 import { marca } from '../marca';
 import { extractIncomingMedia } from '../media/incoming';
 import { transcribeAudio } from '../ai/transcribe';
-import { programarSeguimiento, programarSeguimientoInternacional, cancelarSeguimiento, registrarRespuestaASeguimiento } from '../ai/seguimiento';
+import {
+  programarSeguimiento,
+  programarSeguimientoInternacional,
+  cancelarSeguimiento,
+  registrarRespuestaASeguimiento,
+  ultimoMensajeDelClienteSegunSeguimiento,
+} from '../ai/seguimiento';
 import { getRequestContext, runWithRequestContext } from '../obs/requestContext';
 
 // Backpressure: el semáforo acota los turnos concurrentes POR INSTANCIA (decisión deliberada: la
@@ -134,6 +142,20 @@ async function handle(req: Request) {
   const msgId = params.MESSAGE_ID;
   if (msgId && !(await once(`evt:msg:${msgId}`, 3600))) {
     return log.info('botMessage: evento duplicado ignorado', { msgId });
+  }
+  // Modo internacional: alguien del equipo le contesta al bot por privado una consulta que el bot no
+  // sabía responder, y el bot se la pasa a la persona en su idioma (core/consultasInternacionales.ts).
+  // Va antes de la compuerta de líneas: un chat privado no es de ninguna línea.
+  if (esMensajeDelEquipo(dialogId, fromUserId)) {
+    const r = await procesarMensajeDelEquipo({
+      fromUserId: String(fromUserId),
+      mensaje: String(message ?? ''),
+      replyId: params?.PARAMS?.REPLY_ID ?? params?.REPLY_ID ?? null,
+      botId,
+      auth,
+      respaldoClienteAt: ultimoMensajeDelClienteSegunSeguimiento,
+    });
+    return log.info('botMessage: mensaje del equipo por privado', { dialogId, resultado: r });
   }
   if (config.rafagaVentanaS > 0 && msgId && fueAbsorbido(String(msgId))) {
     return log.info('botMessage: mensaje ya respondido junto con su ráfaga', { dialogId, msgId });
@@ -297,6 +319,8 @@ async function handle(req: Request) {
     textos: [message ?? ''],
   });
   const internacional = !!fichaInternacional;
+  // Para saber si una respuesta del equipo todavía cabe en la ventana de 24 h de WhatsApp.
+  if (internacional) void marcarMensajeDelCliente(dialogId);
 
   if (asesoresDisponibles() && !internacional) {
     // No basta con callar: el canal está configurado con "No transferir", así que si el bot recibe
@@ -396,6 +420,26 @@ async function handle(req: Request) {
     turnText = '(el cliente envió un archivo que no se pudo procesar por este medio; pídele amablemente que cuente por texto qué necesita)';
   }
   if (!turnText && !turnContent) return log.info('botMessage: evento sin texto ni media procesable (ignorado)', { dialogId });
+
+  if (internacional) {
+    // Solo enlaces o emojis, uno tras otro: se contesta el primero y después se calla. El 16 y 17-11-2026
+    // una persona mandó 42 reels de Instagram seguidos y el bot contestó cada uno.
+    const audioOImagen = media.some((m) => m.kind === 'audio' || m.kind === 'image' || m.kind === 'file');
+    if (!audioOImagen && esSinContenido(message ?? '')) {
+      if (await repiteSinContenido(dialogId)) {
+        inc('bot_en_silencio_sin_contenido');
+        void audit({ type: 'bot_en_silencio', dialogId, detail: { motivo: 'sin_contenido' } });
+        return log.info('botMessage: otro mensaje sin contenido seguido; el bot ya respondió el anterior', { dialogId });
+      }
+    } else {
+      void olvidarSinContenido(dialogId);
+    }
+    // Un botón de una plantilla en español («Ya no estoy interesado/a»): quien no lee español no decidió
+    // nada al apretarlo (Ashraf, 17-11-2026, apretó «no estoy interesado» y «matricularme ahora» en un
+    // minuto). Va como nota para el modelo, que pide disculpas y pregunta (ver promptInternacional).
+    const boton = botonDePlantillaEnEspanol(turnText);
+    if (boton) turnText = boton;
+  }
   let logText = turnText || '[imagen]';
 
   // Identifica las entidades CRM vinculadas al chat (del propio evento; sin llamada extra si viene).

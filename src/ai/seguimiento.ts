@@ -937,6 +937,13 @@ export async function programarSeguimientoInternacional(
   }
 }
 
+/** Cuándo escribió la persona por última vez según la instantánea de la secuencia (la hora en que el bot
+ *  le contestó, que abre la ventana de 24 h); null si no hay. Para las respuestas del equipo en chats
+ *  anteriores al registro propio de core/consultasInternacionales.ts. */
+export async function ultimoMensajeDelClienteSegunSeguimiento(dialogId: string): Promise<number | null> {
+  return (await getJson<Snapshot>(SNAPSHOT_KEY(dialogId)))?.clienteAt ?? null;
+}
+
 /** De qué negociación, lead o contacto es este chat, según lo guardado al programar la secuencia. */
 export async function entidadesDelSeguimiento(dialogId: string): Promise<CrmEntities | null> {
   return getJson<CrmEntities>(ENTITIES_KEY(dialogId));
@@ -1034,6 +1041,44 @@ export async function generarMensajeSeguimiento(
   // El modelo escribe «escribame» o «escribeme» sin tilde con frecuencia.
   texto = texto.replace(/\b([Ee])scribame\b/g, '$1scríbame').replace(/\b([Ee])scribeme\b/g, '$1scríbeme');
   return contacto ? `${texto} ${contacto}` : texto;
+}
+
+/** Instrucciones para decidir si a alguien del modo internacional le sirven los recordatorios. */
+export const CLASIFICADOR_PROSPECTO_INTERNACIONAL =
+  'You read a WhatsApp conversation between the admissions assistant of an online AI course ("Bot") and a person who ' +
+  'came from an ad ("Cliente"). Decide whether it makes sense to keep sending this person reminders about the course. ' +
+  'Answer "NO_REMINDERS: <reason in Spanish, at most 12 words>" if the person is looking for a job or offering work or ' +
+  'services; asks for money, a loan, donations or financial help; says they cannot read or write, do not understand ' +
+  'English, or need the course in another language; only sends links, reels, images or unrelated content without ever ' +
+  'asking about the course; says they are not interested; or is a business, an automatic reply or a bot. Otherwise ' +
+  'answer "REMINDERS". One line only.';
+
+/** Por qué no mandarle recordatorios (en español), o null si sí. Se decide una vez por estado de la
+ *  conversación; si el modelo falla, se manda como siempre. Exportada para simular. */
+export async function noEsProspectoInternacional(dialogId: string, conversacion?: string): Promise<string | null> {
+  const t = conversacion ?? (await conversacionDe(dialogId));
+  if (t.length < 5) return null;
+  const clave = `seguimiento:prospecto:${dialogId}`;
+  const previo = conversacion ? null : await getJson<{ largo: number; motivo: string | null }>(clave);
+  if (previo && previo.largo === t.length) return previo.motivo;
+  try {
+    const resp = await anthropic.messages.create({
+      model: CLASSIFIER,
+      max_tokens: 60,
+      temperature: 0,
+      system: CLASIFICADOR_PROSPECTO_INTERNACIONAL,
+      messages: [{ role: 'user', content: `Conversation:\n${t.slice(-6000)}` }],
+    });
+    recordTokens((resp as any).usage);
+    const linea = (resp.content as any[]).filter((b) => b.type === 'text').map((b) => b.text).join('').trim();
+    const m = /^NO_REMINDERS\s*:?\s*(.*)$/i.exec(linea);
+    const motivo = m ? m[1].trim() || 'no viene por el programa' : null;
+    if (!conversacion) await setJson(clave, { largo: t.length, motivo }, 3 * 86400);
+    return motivo;
+  } catch (e) {
+    log.warn('seguimiento: no se pudo revisar si es prospecto', { dialogId, err: String(e) });
+    return null;
+  }
 }
 
 /** La conversación del chat; si su memoria ya venció, la instantánea guardada al programar. */
@@ -1216,6 +1261,18 @@ async function barrerRecordatorios(key: string, etapaFija?: 1 | 2): Promise<void
         // WhatsApp vencida, el modo prueba) vale igual para los que siguen.
         if (plan) await (motivo === 'tope_diario' ? avanzarPlan(r, dialogId, plan) : terminarPlan(dialogId, plan));
         continue;
+      }
+
+      // A quien no viene por el programa no se le insiste: busca trabajo, pide dinero, no lee inglés o solo
+      // manda enlaces (17-11-2026: recordatorios a quien pedía 20.000 rupias y a quien no sabe leer).
+      if (internacional) {
+        const noProspecto = await noEsProspectoInternacional(dialogId);
+        if (noProspecto) {
+          inc('seguimiento_omitido:no_es_prospecto');
+          await audit({ type: 'seguimiento_omitido', dialogId, detail: { ...detalleEtapa, motivo: 'no_es_prospecto', detalle: noProspecto } });
+          if (plan) await terminarPlan(dialogId, plan);
+          continue;
+        }
       }
 
       inc('seguimiento_ejecutado');
