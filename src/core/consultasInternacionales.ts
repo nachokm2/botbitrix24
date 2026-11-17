@@ -61,6 +61,11 @@ async function abiertas(): Promise<string[]> {
   return (await getJson<string[]>(ABIERTAS_KEY)) ?? [];
 }
 
+/** Cuántas consultas siguen sin respuesta (para el resumen diario). */
+export async function cuantasConsultasAbiertas(): Promise<number> {
+  return (await abiertas()).length;
+}
+
 async function guardarAbiertas(codigos: string[]): Promise<void> {
   await setJson(ABIERTAS_KEY, codigos.slice(-50), TTL_SEG);
 }
@@ -143,6 +148,98 @@ export async function crearConsulta(
     );
   }
   return { codigo, avisados };
+}
+
+/**
+ * Mensaje informativo al equipo por el chat privado del bot (sin respuesta esperada): avisos de
+ * interesados, resumen diario, propuesta semanal para la ficha. Si Bitrix no deja escribir por privado,
+ * va como notificación. Devuelve a cuántas personas les llegó.
+ */
+export async function escribirAlEquipo(texto: string, botId: number | undefined, auth: Auth): Promise<number> {
+  let enviados = 0;
+  for (const userId of destinatariosInternacional()) {
+    try {
+      if (!botId) throw new Error('sin botId');
+      await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: String(userId), MESSAGE: texto }, auth);
+      enviados++;
+    } catch {
+      try {
+        await callBitrix('im.notify.personal.add', { USER_ID: userId, MESSAGE: texto }, auth);
+        enviados++;
+      } catch (e) {
+        log.warn('internacional: no se pudo escribir al equipo', { userId, err: String(e) });
+      }
+    }
+  }
+  return enviados;
+}
+
+export type MotivoInteres = 'correo' | 'enlace_pago';
+
+const MOTIVO_INTERES: Record<MotivoInteres, string> = {
+  correo: 'dejó su correo',
+  enlace_pago: 'el bot le mandó el enlace de pago',
+};
+
+/** Texto del aviso de un interesado. */
+export function textoAvisoInteresado(
+  a: { dialogId: string; motivo: MotivoInteres; nombre?: string; dealId?: number; mensajeCliente?: string },
+  dominio?: string,
+): string {
+  const enlaces = dominio
+    ? [
+        `[URL=https://${dominio}/online/?IM_DIALOG=${a.dialogId}]Abrir el chat[/URL]`,
+        a.dealId ? `[URL=https://${dominio}/crm/deal/details/${a.dealId}/]Negociación[/URL]` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
+  return [
+    `[B]🔥 Interesado · programa internacional: ${MOTIVO_INTERES[a.motivo]}[/B]`,
+    a.nombre ? `Persona: ${a.nombre}` : '',
+    a.mensajeCliente ? `Último mensaje: «${String(a.mensajeCliente).slice(0, 300)}»` : '',
+    'El bot sigue atendiendo. No escriba en el chat de la persona: el bot dejaría de atenderla.',
+    enlaces,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+/**
+ * Avisa al equipo que alguien del modo internacional mostró interés de verdad (dejó su correo o recibió
+ * el enlace de pago). Hasta el 17-11-2026 eso solo se sabía si alguien vigilaba los registros. Una vez
+ * por motivo y conversación cada 3 días.
+ */
+export async function avisarInteresado(
+  a: { dialogId: string; motivo: MotivoInteres; nombre?: string; dealId?: number; mensajeCliente?: string; botId?: number },
+  auth: Auth,
+): Promise<boolean> {
+  if (!(await once(`internacional:interes:${a.dialogId}:${a.motivo}`, 3 * 86400))) return false;
+  const avisados = await escribirAlEquipo(textoAvisoInteresado(a, auth.domain), a.botId, auth);
+  void audit({ type: 'interes_internacional', dialogId: a.dialogId, detail: { motivo: a.motivo, avisados } }).catch(() => {});
+  inc(`interes_internacional:${a.motivo}`);
+  return avisados > 0;
+}
+
+/** ¿La respuesta del bot trae un enlace de pago de la ficha? (Flywire, PayPal o similar). */
+export function traeEnlaceDePago(respuesta: string, urlsFicha: string[]): boolean {
+  return urlsFicha.some((u) => /pay|flywire|paypal|checkout/i.test(u) && String(respuesta ?? '').includes(u));
+}
+
+// Respuestas del equipo de la semana: se proponen para la ficha los lunes (ai/resumenInternacional.ts).
+const RESPUESTAS_SEMANA_KEY = 'internacional:respuestas_semana';
+export type RespuestaEquipo = { codigo: string; pregunta: string; respuesta: string; at: number };
+
+async function guardarRespuestaParaLaFicha(r: RespuestaEquipo): Promise<void> {
+  const lista = (await getJson<RespuestaEquipo[]>(RESPUESTAS_SEMANA_KEY)) ?? [];
+  await setJson(RESPUESTAS_SEMANA_KEY, [...lista.filter((x) => x.codigo !== r.codigo), r].slice(-60), 60 * 86400);
+}
+
+/** Las respuestas acumuladas desde la última propuesta; `vaciar` las saca de la lista. */
+export async function respuestasParaLaFicha(vaciar = false): Promise<RespuestaEquipo[]> {
+  const lista = (await getJson<RespuestaEquipo[]>(RESPUESTAS_SEMANA_KEY)) ?? [];
+  if (vaciar && lista.length) await kvDel(RESPUESTAS_SEMANA_KEY);
+  return lista;
 }
 
 /** Lo que le devuelve la herramienta al modelo tras crear la consulta (también en el simulador). */
@@ -319,6 +416,8 @@ export async function procesarMensajeDelEquipo(a: {
   const cerrar = async (estado: Consulta['estado']) => {
     await setJson(CONSULTA_KEY(c.codigo), { ...c, estado }, TTL_SEG);
     await guardarAbiertas((await abiertas()).filter((x) => x !== c.codigo));
+    // Para proponerla en la ficha el lunes: así el bot la sabe sin volver a preguntar (pedido del 17-11).
+    if (!c.pago) await guardarRespuestaParaLaFicha({ codigo: c.codigo, pregunta: c.motivo, respuesta: eleccion.respuesta, at: ahora });
   };
 
   const clienteAt = await ultimoDelCliente(c.dialogId, a.respaldoClienteAt ? () => a.respaldoClienteAt!(c.dialogId) : undefined);

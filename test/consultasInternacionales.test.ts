@@ -208,3 +208,55 @@ test('un botón de una plantilla en español se describe en inglés; lo demás q
   const EN_INGLES = '------------------------------------------------------\n"Hi Dr Bharathi, do you still have a question about the programme?"\n------------------------------------------------------\nYes, I have a question';
   assert.equal(R.botonDePlantillaEnEspanol(EN_INGLES), null, 'la plantilla en inglés se responde como siempre');
 });
+
+test('17-11: aviso de interesado por el chat privado, una vez por motivo', async () => {
+  llamadas.length = 0;
+  const a = { dialogId: 'chat40', motivo: 'correo' as const, nombre: 'Ana', dealId: 9, mensajeCliente: 'my email is x', botId: BOT };
+  assert.equal(await C.avisarInteresado(a, auth), true);
+  const aviso = privadosA('4173').at(-1)!;
+  assert.match(aviso.params.MESSAGE, /🔥 Interesado · programa internacional: dejó su correo/);
+  assert.match(aviso.params.MESSAGE, /Persona: Ana/);
+  assert.match(aviso.params.MESSAGE, /No escriba en el chat de la persona/);
+  assert.match(aviso.params.MESSAGE, /crm\/deal\/details\/9\//);
+  assert.equal(await C.avisarInteresado(a, auth), false, 'el mismo motivo no se repite');
+  assert.equal(await C.avisarInteresado({ ...a, motivo: 'enlace_pago' }, auth), true, 'otro motivo sí');
+  assert.match(privadosA('4173').at(-1)!.params.MESSAGE, /el bot le mandó el enlace de pago/);
+});
+
+test('reconoce cuándo la respuesta trae un enlace de pago de la ficha', () => {
+  const urls = ['https://payment.flywire.com/pay/payment?recipient=nzc', 'https://example.com/brochure.pdf'];
+  assert.equal(C.traeEnlaceDePago('You can pay here:\nhttps://payment.flywire.com/pay/payment?recipient=nzc', urls), true);
+  assert.equal(C.traeEnlaceDePago('Here is the brochure: https://example.com/brochure.pdf', urls), false);
+  assert.equal(C.traeEnlaceDePago('Would you like to know how to enrol?', urls), false);
+});
+
+test('las respuestas del equipo quedan para proponerlas en la ficha (no las de pagos)', async () => {
+  await C.respuestasParaLaFicha(true);
+  llamadas.length = 0;
+  await C.marcarMensajeDelCliente('chat41');
+  const { codigo } = await C.crearConsulta({ dialogId: 'chat41', motivo: '¿Hay factura GST?', botId: BOT }, auth);
+  respuestaModelo = 'About the GST invoice: yes, an invoice can be issued in the company name.';
+  await C.procesarMensajeDelEquipo({ fromUserId: '4173', mensaje: `#${codigo} Sí, se puede emitir a nombre de la empresa`, botId: BOT, auth });
+  const pago = await C.crearConsulta({ dialogId: 'chat41', motivo: 'Pago informado: USD 400', pago: true, botId: BOT }, auth);
+  await C.procesarMensajeDelEquipo({ fromUserId: '4173', mensaje: `#${pago.codigo} Recibido, gracias`, botId: BOT, auth });
+  const lista = await C.respuestasParaLaFicha();
+  assert.equal(lista.length, 1);
+  assert.equal(lista[0].pregunta, '¿Hay factura GST?');
+  assert.equal(lista[0].respuesta, 'Sí, se puede emitir a nombre de la empresa');
+  await C.respuestasParaLaFicha(true);
+  assert.equal((await C.respuestasParaLaFicha()).length, 0);
+});
+
+test('nombres de usuario y mensajes que son solo el anuncio', () => {
+  assert.equal(R.pareceNombreDeUsuario('machineali807'), true);
+  assert.equal(R.pareceNombreDeUsuario('kumar.muruga'), true);
+  assert.equal(R.pareceNombreDeUsuario('Sumantra'), false);
+  assert.equal(R.pareceNombreDeUsuario('Dr Bharathi'), false);
+  const ANUNCIO = 'Hello! Can I get more info on this?\n\nhttps://fb.me/7u5zqJCwB\n\nPut AI to Work';
+  assert.equal(R.soloMensajeDelAnuncio([ANUNCIO]), true);
+  assert.equal(R.soloMensajeDelAnuncio(['नमस्ते! क्या मुझे इस बारे में और पता चल सकता है? https://fb.me/x Put AI to Work']), true, 'el anuncio traducido');
+  assert.equal(R.soloMensajeDelAnuncio([ANUNCIO, 'https://www.instagram.com/reel/abc', '[imagen]', R.IMAGEN_SIN_TEXTO_INTERNACIONAL]), true);
+  assert.equal(R.soloMensajeDelAnuncio([ANUNCIO, 'No code']), false);
+  assert.equal(R.soloMensajeDelAnuncio(['Hello! Can I get more info on this? https://fb.me/x Put AI to Work Hiiiiiok']), false, 'escribió algo después');
+  assert.equal(R.soloMensajeDelAnuncio(['[URL=https://x]Open[/URL] [voice message] Is it online?']), false, 'un audio es contenido');
+});

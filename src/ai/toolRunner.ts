@@ -26,7 +26,7 @@ import { registrarDocumentoAcademico, nivelDelPrograma, DOCUMENTO_DE } from '../
 import { getDealInfo } from '../crm/directory';
 import { avisarAlResponsable } from '../crm/avisoAsesor';
 import { motivoParaRetener, cuandoVuelveElEquipo } from '../core/retenerChat';
-import { crearConsulta, resultadoConsultaParaElModelo } from '../core/consultasInternacionales';
+import { avisarInteresado, crearConsulta, resultadoConsultaParaElModelo } from '../core/consultasInternacionales';
 import { audit } from '../obs/audit';
 import { config } from '../config';
 import { log } from '../log';
@@ -173,6 +173,20 @@ export async function executeTool(name: string, input: any, ctx: AgentContext): 
             : { ok: false, error: r.error };
         }
         log.info('tool registrar_interes_crm', { actualizado: r.actualizado });
+        // Modo internacional: quien deja su correo es un interesado, y se avisa en el momento (17-11-2026).
+        if (ctx.internacional && input?.email) {
+          void avisarInteresado(
+            {
+              dialogId: ctx.conversationId,
+              motivo: 'correo',
+              nombre: String(input?.nombre ?? '').trim() || ctx.datosConocidos?.nombre,
+              dealId: ctx.crmEntities?.deal,
+              mensajeCliente: ctx.ultimoMensajeCliente,
+              botId: ctx.botId,
+            },
+            ctx.auth,
+          ).catch(() => {});
+        }
         return { ok: true, actualizado: r.actualizado };
       }
 

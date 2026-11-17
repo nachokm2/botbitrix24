@@ -24,6 +24,7 @@ import { quitarCredenciales } from '../core/credenciales';
 import { conocimientoVigente } from '../core/conocimientoComercial';
 import { mensajeDeRiesgo, BLOQUE_RIESGO, RIESGO_KEY, RIESGO_TTL_SEG } from '../core/riesgo';
 import { bloqueRespuestaPendiente } from '../core/consultasInternacionales';
+import { BLOQUE_PRIMER_MENSAJE_B } from '../core/pruebaPrimerMensaje';
 import {
   bloqueNoRepetirPreguntaPorTrabajo,
   EDITOR_SIN_PREGUNTA_POR_TRABAJO,
@@ -481,7 +482,9 @@ export async function runAgentTurn(
     // Una respuesta del equipo que llegó con la persona fuera de las 24 h: se la da ahora que volvió a
     // escribir (core/consultasInternacionales.ts).
     const extraPendiente = ctx.internacional ? await bloqueRespuestaPendiente(ctx.conversationId).catch(() => '') : '';
-    const sumado = extra + extraIdioma + extraMomento + extraRepetida + extraPendiente + (riesgo ? BLOQUE_RIESGO : '');
+    // Prueba A/B del primer mensaje (core/pruebaPrimerMensaje.ts): la variante B es más corta.
+    const extraPrimerMensaje = ctx.internacional && ctx.variantePrimerMensaje === 'B' && history.length === 0 ? BLOQUE_PRIMER_MENSAJE_B : '';
+    const sumado = extra + extraIdioma + extraMomento + extraRepetida + extraPendiente + extraPrimerMensaje + (riesgo ? BLOQUE_RIESGO : '');
     const perfilFinal = sumado ? { ...perfilDelTurno, systemPrompt: perfilDelTurno.systemPrompt + sumado } : perfilDelTurno;
     const inicioTurno = messages.length;
     const { text, messages: finalMsgs } = await runConversation(

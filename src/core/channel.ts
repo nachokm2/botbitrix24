@@ -90,6 +90,9 @@ export type AgentContext = {
   /** Enlaces que el bot puede compartir además de los que devuelvan sus herramientas (los de la ficha
    *  del modo internacional). */
   urlsPermitidas?: string[];
+  /** Modo internacional: variante de la prueba del primer mensaje (core/pruebaPrimerMensaje.ts), solo
+   *  en la primera respuesta del bot en el chat. */
+  variantePrimerMensaje?: 'A' | 'B';
 };
 
 // Prompt de voz (M2, Custom LLM): réplica exacta del prompt "Sofía" que vivía en el dashboard de

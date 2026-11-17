@@ -16,6 +16,7 @@ import { bloqueMomento } from '../core/momento';
 import { fichaInternacional, mencionaPalabraInternacional, perfilInternacional, urlsDeLaFicha } from '../core/internacional';
 import { bloqueNoRepetirPreguntaPorTrabajo } from '../core/preguntasRepetidas';
 import { resultadoConsultaParaElModelo } from '../core/consultasInternacionales';
+import { BLOQUE_PRIMER_MENSAJE_B } from '../core/pruebaPrimerMensaje';
 import { marca } from '../marca';
 
 /**
@@ -175,7 +176,12 @@ function textosDelCliente(historial: any[]): string[] {
 export async function simularTurno(
   historial: any[],
   mensaje: string,
-  opts: { internacional?: boolean; asesor?: { nombre: string; email?: string; telefono?: string; formulario?: string; cargo?: string } } = {},
+  opts: {
+    internacional?: boolean;
+    asesor?: { nombre: string; email?: string; telefono?: string; formulario?: string; cargo?: string };
+    /** Prueba A/B del primer mensaje del modo internacional (core/pruebaPrimerMensaje.ts). */
+    variantePrimerMensaje?: 'A' | 'B';
+  } = {},
 ): Promise<{ texto: string; historial: any[]; herramientas: HerramientaUsada[]; internacional: boolean }> {
   const messages = [...historial, { role: 'user', content: mensaje }];
   const inicioTurno = messages.length;
@@ -203,7 +209,8 @@ export async function simularTurno(
       (marca.respaldaPromesas && !internacional ? bloqueMomento() : '') +
       // Igual que en la conversación real (ai/agentLoop.ts): un mensaje de riesgo no se responde vendiendo.
       (marca.protocoloRiesgo && !internacional && mensajeDeRiesgo(mensaje) ? BLOQUE_RIESGO : '') +
-      (internacional ? bloqueNoRepetirPreguntaPorTrabajo(historial) : ''),
+      (internacional ? bloqueNoRepetirPreguntaPorTrabajo(historial) : '') +
+      (internacional && opts.variantePrimerMensaje === 'B' && historial.length === 0 ? BLOQUE_PRIMER_MENSAJE_B : ''),
   };
   const { text, messages: finales } = await runConversation({ profile: perfil, auditId: 'simulacion', simulacion: true }, messages, exec);
   let texto = marca.guardRespuesta

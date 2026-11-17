@@ -187,6 +187,32 @@ test('barrido: el recordatorio sale con el prompt en inglés y el cierre sin con
   }
 });
 
+test('17-11: a quien solo mandó el mensaje del anuncio, dos recordatorios (el primero y el de cierre)', async () => {
+  config.seguimientoInternacionalHoraInicio = 0;
+  config.seguimientoInternacionalHoraFin = 24;
+  try {
+    const d = 'chat-intl-solo-anuncio';
+    kvStore.set(
+      `mem:${d}`,
+      JSON.stringify([
+        { role: 'user', content: 'Hello! Can I get more info on this?\n\nhttps://fb.me/x\n\nPut AI to Work' },
+        { role: 'assistant', content: [{ type: 'text', text: 'Hi! It is a 16-week live-online course, in English. Do you work with code?' }] },
+        { role: 'user', content: 'https://www.instagram.com/reel/abc' },
+        { role: 'assistant', content: [{ type: 'text', text: 'I cannot open links here. Would you like to know how it works?' }] },
+      ]),
+    );
+    await seg.programarSeguimientoInternacional(d, { deal: 1 }, '9011');
+    assert.equal(plan(d).pasos.length, 2);
+    const d2 = 'chat-intl-conversa';
+    kvStore.set(`mem:${d2}`, JSON.stringify(CONVERSACION));
+    await seg.programarSeguimientoInternacional(d2, { deal: 1 }, '9012');
+    assert.equal(plan(d2).pasos.length, 5, 'quien conversó recibe los cinco');
+  } finally {
+    config.seguimientoInternacionalHoraInicio = 9;
+    config.seguimientoInternacionalHoraFin = 21;
+  }
+});
+
 test('17-11: a quien no viene por el programa (pide dinero, busca trabajo, no lee inglés) no se le insiste', async () => {
   const d = 'chat-intl-noprospecto';
   kvStore.set(`mem:${d}`, JSON.stringify(CONVERSACION));

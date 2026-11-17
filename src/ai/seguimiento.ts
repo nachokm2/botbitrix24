@@ -28,6 +28,7 @@ import { primaryEntity, type CrmEntities } from '../crm/entities';
 import { getIdentidadAsesor } from '../crm/directory';
 import { respuestaAPlantilla } from '../core/ecos';
 import { preguntaPorTrabajo } from '../core/preguntasRepetidas';
+import { soloMensajeDelAnuncio } from '../core/ruidoInternacional';
 
 // Seguimiento automático (WhatsApp/Open Lines) en 3 etapas, si el bot respondió y el cliente quedó
 // en silencio — las TRES ancladas a la MISMA última respuesta del bot (no una después de la otra):
@@ -915,12 +916,17 @@ export async function programarSeguimientoInternacional(
     const sess = await getSession(dialogId);
     if (sess.humanTookOver) return;
     const ahora = Date.now();
-    const t = config.seguimientoInstantanea ? transcript(await getHistory(dialogId)) : '';
+    const historial = await getHistory(dialogId);
+    const t = config.seguimientoInstantanea ? transcript(historial) : '';
     if (t.length >= 5) {
       await setJson(SNAPSHOT_KEY(dialogId), { transcript: t, clienteAt: ahora, sesion: sesionActual ?? null } satisfies Snapshot, SNAPSHOT_TTL_SEC);
     }
     inc('seguimiento_programado');
-    const pasos = planDeRecordatorios(ahora, horasConHolgura(horasBase, `${dialogId}:${ahora}`), proximoHorarioInternacional);
+    // A quien solo mandó el mensaje del anuncio (o enlaces y emojis), dos recordatorios y no cinco: el
+    // primero y el de cierre. Del 13 al 17-11-2026 salieron 369 y ninguna respuesta trajo interés.
+    const delCliente = historial.filter((m: any) => m?.role === 'user').map((m: any) => transcript([m]).replace(/^Cliente: /, ''));
+    const horas = soloMensajeDelAnuncio(delCliente) && horasBase.length > 2 ? [horasBase[0], horasBase.at(-1)!] : horasBase;
+    const pasos = planDeRecordatorios(ahora, horasConHolgura(horas, `${dialogId}:${ahora}`), proximoHorarioInternacional);
     await r.zrem(DUE_KEY, dialogId).catch(() => {});
     await r.zrem(SEGUNDO_KEY, dialogId).catch(() => {});
     await r.zrem(TRANSFER_KEY, dialogId).catch(() => {});

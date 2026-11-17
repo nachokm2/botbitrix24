@@ -38,6 +38,37 @@ export async function olvidarSinContenido(dialogId: string): Promise<void> {
   await kvDel(SIN_CONTENIDO_KEY(dialogId)).catch(() => {});
 }
 
+/**
+ * ¿El nombre parece un nombre de usuario y no el de una persona? Con números, @, punto o guion bajo.
+ * El bot saludó «Hi machineali807» y «Welcome, kumarmuruga082» (16-11-2026): mejor saludar sin nombre.
+ */
+export function pareceNombreDeUsuario(nombre: string | null | undefined): boolean {
+  return /[\d@_.]/.test(String(nombre ?? ''));
+}
+
+/** Texto que acompaña en el turno una imagen sin texto (botEvents), en el modo internacional. */
+export const IMAGEN_SIN_TEXTO_INTERNACIONAL =
+  '(the person sent an image with no text: do not describe what it shows; if it is not about the programme, say kindly that you can help with the programme)';
+
+/** Lo que escribió la persona además del mensaje que deja el anuncio (que termina en «Put AI to Work»). */
+function sinElAnuncio(t: string): string {
+  const i = t.toLowerCase().lastIndexOf('put ai to work');
+  const resto = i >= 0 ? t.slice(i + 'put ai to work'.length) : t;
+  return resto.replace(/hello!?\s*can i get more info on this\??/gi, ' ');
+}
+
+/** ¿Lo único que escribió la persona es el mensaje del anuncio, enlaces, emojis o fotos sin texto? A
+ *  ellos se les mandan menos recordatorios (17-11-2026: 369 recordatorios, ninguna respuesta con interés). */
+export function soloMensajeDelAnuncio(textos: string[]): boolean {
+  return textos
+    .map((t) => String(t ?? '').trim())
+    .filter(Boolean)
+    .every((t) => {
+      const resto = sinElAnuncio(t).replace(/\[(imagen|image)\]/gi, ' ').trim();
+      return !resto || resto === IMAGEN_SIN_TEXTO_INTERNACIONAL || /^El cliente envió una imagen sin texto/.test(resto) || esSinContenido(resto);
+    });
+}
+
 const BOTONES: Array<[RegExp, string]> = [
   [/^ya no estoy interesad[oa](\/[oa])?\.?$/i, "I'm no longer interested"],
   [/^quiero matricularme( ahora)?\.?$/i, 'I want to enrol now'],

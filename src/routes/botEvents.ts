@@ -22,8 +22,22 @@ import { asesoresDisponibles, motivoHorario } from '../core/horarioAsesores';
 import { hayOperadorEnElChat } from '../crm/operadorEnChat';
 import { listaBlancaActiva, puedeResponder, lineaDelChat, telefonoDelChat } from '../core/listaBlanca';
 import { fichaSiEsInternacional, perfilInternacional, urlsDeLaFicha } from '../core/internacional';
-import { esMensajeDelEquipo, procesarMensajeDelEquipo, marcarMensajeDelCliente } from '../core/consultasInternacionales';
-import { esSinContenido, repiteSinContenido, olvidarSinContenido, botonDePlantillaEnEspanol } from '../core/ruidoInternacional';
+import {
+  esMensajeDelEquipo,
+  procesarMensajeDelEquipo,
+  marcarMensajeDelCliente,
+  avisarInteresado,
+  traeEnlaceDePago,
+} from '../core/consultasInternacionales';
+import {
+  esSinContenido,
+  repiteSinContenido,
+  olvidarSinContenido,
+  botonDePlantillaEnEspanol,
+  pareceNombreDeUsuario,
+  IMAGEN_SIN_TEXTO_INTERNACIONAL,
+} from '../core/ruidoInternacional';
+import { varianteDePrimerMensaje } from '../core/pruebaPrimerMensaje';
 import { asegurarNegociacionInternacional } from '../crm/negociacionInternacional';
 import { esperarComoHumano } from '../core/ritmoHumano';
 import { anotarEntrante, fueAbsorbido, esperarFinDeRafaga, tomarRafaga } from '../core/rafaga';
@@ -395,9 +409,13 @@ async function handle(req: Request) {
       const blocks: any[] = [
         {
           type: 'text',
+          // En el modo internacional, en inglés y sin describir la foto: «esto parece una foto de saris»
+          // (17-11-2026). Una foto sin relación no se comenta.
           text:
             turnText ||
-            'El cliente envió una imagen sin texto. Interprétala y responde su consulta (puede ser un carnet, un comprobante de pago, una captura o un documento).',
+            (internacional
+              ? IMAGEN_SIN_TEXTO_INTERNACIONAL
+              : 'El cliente envió una imagen sin texto. Interprétala y responde su consulta (puede ser un carnet, un comprobante de pago, una captura o un documento).'),
         },
       ];
       for (const img of imgs) blocks.push({ type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } });
@@ -541,7 +559,13 @@ async function handle(req: Request) {
 
   // Lo que el CRM ya sabe de la persona: evita pedirle el nombre que ya está en su ficha. Un cliente
   // real lo reclamó ("¿por qué me pides mi nombre si lo debes tener?") y tenía razón.
-  const datosConocidos = crmEntities ? await getDatosConocidosDeEntidades(crmEntities, auth) : null;
+  const datosCrm = crmEntities ? await getDatosConocidosDeEntidades(crmEntities, auth) : null;
+  // Modo internacional: el nombre de WhatsApp a veces es un usuario («machineali807»). Sin él, el bot
+  // saluda sin nombre en vez de «Hi machineali807» (16-11-2026).
+  const datosConocidos =
+    internacional && datosCrm?.nombre && pareceNombreDeUsuario(datosCrm.nombre) ? { ...datosCrm, nombre: undefined } : datosCrm;
+  // Prueba A/B del primer mensaje (core/pruebaPrimerMensaje.ts): solo en la primera respuesta del bot.
+  const variantePrimerMensaje = internacional && esNueva ? varianteDePrimerMensaje(dialogId) : undefined;
 
   const ctxTurno: AgentContext = {
     auth,
@@ -558,6 +582,7 @@ async function handle(req: Request) {
     sesionOpenLines: sesion,
     internacional,
     urlsPermitidas: fichaInternacional ? urlsDeLaFicha(fichaInternacional) : undefined,
+    variantePrimerMensaje,
   };
   const reply = await runAgentTurn(ctxTurno, turnContent ?? turnText, priorContext, undefined, historialPrevio);
 
@@ -622,6 +647,20 @@ async function handle(req: Request) {
     // Los de Latinoamérica están escritos en español y en la hora de Chile: el modo internacional tiene
     // su propia secuencia, en el idioma de la persona y en la hora de India (pedido del 15-11-2026).
     void programarSeguimientoInternacional(dialogId, crmEntities, sesion);
+    // Le mandó el enlace de pago: es un interesado, y se avisa en el momento (17-11-2026).
+    if (fichaInternacional && traeEnlaceDePago(reply, urlsDeLaFicha(fichaInternacional))) {
+      void avisarInteresado(
+        {
+          dialogId,
+          motivo: 'enlace_pago',
+          nombre: datosConocidos?.nombre,
+          dealId: crmEntities?.deal,
+          mensajeCliente: turnText,
+          botId,
+        },
+        auth,
+      ).catch(() => {});
+    }
   } else {
     void programarSeguimiento(dialogId, crmEntities, sesion); // si el cliente no vuelve a escribir: recordatorio y, si sigue en silencio, transferencia al asesor (ver ai/seguimiento.ts)
   }
@@ -631,7 +670,13 @@ async function handle(req: Request) {
     type: 'turn',
     dialogId,
     crmEntity: crmEntity ? `${crmEntity.type}#${crmEntity.id}` : undefined,
-    detail: { message: logText, reply, responseMs: Date.now() - t0, ...(internacional ? { internacional: true } : {}) },
+    detail: {
+      message: logText,
+      reply,
+      responseMs: Date.now() - t0,
+      ...(internacional ? { internacional: true } : {}),
+      ...(variantePrimerMensaje ? { variante: variantePrimerMensaje } : {}),
+    },
   });
 
   // Registra automáticamente la conversación en el timeline del CRM (no bloquea la respuesta).
