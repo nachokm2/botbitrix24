@@ -221,6 +221,11 @@ export async function avisarInteresado(
   return avisados > 0;
 }
 
+/** ¿El bot le mandó el enlace de pago en los últimos 3 días? (la marca del aviso de interesado). */
+export async function yaRecibioEnlaceDePago(dialogId: string): Promise<boolean> {
+  return Boolean(await getJson(`internacional:interes:${dialogId}:enlace_pago`).catch(() => null));
+}
+
 /** ¿La respuesta del bot trae un enlace de pago de la ficha? (Flywire, PayPal o similar). */
 export function traeEnlaceDePago(respuesta: string, urlsFicha: string[]): boolean {
   return urlsFicha.some((u) => /pay|flywire|paypal|checkout/i.test(u) && String(respuesta ?? '').includes(u));

@@ -28,6 +28,7 @@ import {
   marcarMensajeDelCliente,
   avisarInteresado,
   traeEnlaceDePago,
+  yaRecibioEnlaceDePago,
 } from '../core/consultasInternacionales';
 import {
   esSinContenido,
@@ -442,9 +443,12 @@ async function handle(req: Request) {
   if (internacional) {
     // Solo enlaces o emojis, uno tras otro: se contesta el primero y después se calla. El 16 y 17-11-2026
     // una persona mandó 42 reels de Instagram seguidos y el bot contestó cada uno.
-    const audioOImagen = media.some((m) => m.kind === 'audio' || m.kind === 'image' || m.kind === 'file');
-    if (!audioOImagen && esSinContenido(message ?? '')) {
-      if (await repiteSinContenido(dialogId)) {
+    // Las fotos sin texto también: 7 fotos de un código de barras y 13 capturas de pantalla seguidas, cada
+    // una contestada (17-11-2026). Salvo que ya tenga el enlace de pago: la foto puede ser el comprobante.
+    const audioOArchivo = media.some((m) => m.kind === 'audio' || m.kind === 'file');
+    const conFoto = media.some((m) => m.kind === 'image');
+    if (!audioOArchivo && esSinContenido(message ?? '')) {
+      if ((await repiteSinContenido(dialogId)) && !(conFoto && (await yaRecibioEnlaceDePago(dialogId)))) {
         inc('bot_en_silencio_sin_contenido');
         void audit({ type: 'bot_en_silencio', dialogId, detail: { motivo: 'sin_contenido' } });
         return log.info('botMessage: otro mensaje sin contenido seguido; el bot ya respondió el anterior', { dialogId });

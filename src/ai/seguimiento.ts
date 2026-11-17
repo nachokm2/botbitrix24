@@ -1054,10 +1054,13 @@ export const CLASIFICADOR_PROSPECTO_INTERNACIONAL =
   'You read a WhatsApp conversation between the admissions assistant of an online AI course ("Bot") and a person who ' +
   'came from an ad ("Cliente"). Decide whether it makes sense to keep sending this person reminders about the course. ' +
   'Answer "NO_REMINDERS: <reason in Spanish, at most 12 words>" if the person is looking for a job or offering work or ' +
-  'services; asks for money, a loan, donations or financial help; says they cannot read or write, do not understand ' +
-  'English, or need the course in another language; only sends links, reels, images or unrelated content without ever ' +
-  'asking about the course; says they are not interested; or is a business, an automatic reply or a bot. Otherwise ' +
-  'answer "REMINDERS". One line only.';
+  'services; asks for money, a loan, donations or financial help; says they cannot read or write, says they do not ' +
+  'understand English, or asks for the course in another language (writing in Hindi, Bengali or another language is NOT ' +
+  'enough by itself: the message from the ad comes in the language of their phone); only sends links, reels, images or ' +
+  'unrelated content without ever ' +
+  'asking about the course; says they are not interested; or is a business, an automatic reply or a bot. The message ' +
+  'the ad leaves written ("Can I get more info on this?" with a link, in any language, even sent twice) DOES count as ' +
+  'asking about the course. Otherwise answer "REMINDERS". One line only.';
 
 /** Por qué no mandarle recordatorios (en español), o null si sí. Se decide una vez por estado de la
  *  conversación; si el modelo falla, se manda como siempre. Exportada para simular. */

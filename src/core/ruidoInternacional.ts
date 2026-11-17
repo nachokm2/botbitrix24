@@ -43,7 +43,9 @@ export async function olvidarSinContenido(dialogId: string): Promise<void> {
  * El bot saludó «Hi machineali807» y «Welcome, kumarmuruga082» (16-11-2026): mejor saludar sin nombre.
  */
 export function pareceNombreDeUsuario(nombre: string | null | undefined): boolean {
-  return /[\d@_.]/.test(String(nombre ?? ''));
+  const n = String(nombre ?? '').trim();
+  // También una sola palabra larga en minúsculas: «Hello ckjharesearcher!» (17-11-2026).
+  return /[\d@_.]/.test(n) || /^[a-z]{8,}$/.test(n);
 }
 
 /** Texto que acompaña en el turno una imagen sin texto (botEvents), en el modo internacional. */

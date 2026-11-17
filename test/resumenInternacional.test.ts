@@ -80,6 +80,16 @@ test('el prompt pide decir que es en inglés, no describir fotos y no saludar co
   const p = promptInternacional([{ apartado: 'Programme', contenido: 'Demo course, 12 weeks, in English.' }]);
   assert.match(p, /Say so in your first reply/);
   assert.match(p, /Never describe or comment on what a photo or image shows/);
-  assert.match(p, /If it has digits, dots or underscores \(a username\), greet them without a name/);
+  assert.match(p, /If it has digits, dots or underscores, or is one long word all in lowercase \(a username\), greet them without a name/);
   assert.match(p, /ask them kindly not to share personal documents here/);
+});
+
+test('17-11 tarde: principiantes, ofertas de trabajo y el idioma del anuncio en el clasificador', async () => {
+  const p = promptInternacional([{ apartado: 'Programme', contenido: 'Demo course, 12 weeks, in English.' }]);
+  assert.match(p, /Never say it is not for beginners/);
+  assert.match(p, /this chat is only for admissions to the programme/);
+  assert.match(p, /don't call escalar_a_humano for it/);
+  assert.match(p, /one long word all in lowercase/);
+  const { CLASIFICADOR_PROSPECTO_INTERNACIONAL } = await import('../src/ai/seguimiento');
+  assert.match(CLASIFICADOR_PROSPECTO_INTERNACIONAL, /writing in Hindi, Bengali or another language is NOT enough by itself/);
 });

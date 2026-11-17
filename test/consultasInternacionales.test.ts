@@ -260,3 +260,13 @@ test('nombres de usuario y mensajes que son solo el anuncio', () => {
   assert.equal(R.soloMensajeDelAnuncio(['Hello! Can I get more info on this? https://fb.me/x Put AI to Work Hiiiiiok']), false, 'escribió algo después');
   assert.equal(R.soloMensajeDelAnuncio(['[URL=https://x]Open[/URL] [voice message] Is it online?']), false, 'un audio es contenido');
 });
+
+test('17-11 tarde: más nombres de usuario, fotos seguidas y el enlace de pago ya enviado', async () => {
+  assert.equal(R.pareceNombreDeUsuario('ckjharesearcher'), true, 'una palabra larga en minúsculas');
+  assert.equal(R.pareceNombreDeUsuario('Shivaramakrishnan'), false, 'un nombre real con mayúscula');
+  assert.equal(R.pareceNombreDeUsuario('rahul'), false, 'un nombre corto en minúsculas');
+  assert.equal(R.esSinContenido(''), true, 'una foto sin texto cuenta como sin contenido');
+  assert.equal(await C.yaRecibioEnlaceDePago('chat50'), false);
+  await C.avisarInteresado({ dialogId: 'chat50', motivo: 'enlace_pago', botId: BOT }, auth);
+  assert.equal(await C.yaRecibioEnlaceDePago('chat50'), true, 'después del enlace, una foto puede ser el comprobante');
+});
