@@ -108,6 +108,27 @@ export function detectarIdioma(texto: string): Idioma {
   return mejor.idioma;
 }
 
+/**
+ * Palabras de español que no se usan en inglés ni en hinglish («de» y «la» no: en hinglish «de» es dar).
+ * Para el modo internacional: decir si una RESPUESTA del bot salió en español (17-11-2026, a una persona
+ * que escribió en hindi le contestó «Hola Ashu, bienvenido/a…»).
+ */
+const ESPANOL_EN_RESPUESTA: RegExp[] = [
+  /\b(el|los|las|del)\b/,
+  /\b(y|pero|muy|tambien)\b/,
+  /\b(hola|gracias|bienvenid[oa]s?)\b/,
+  /\b(usted|ustedes|tu|tus|te)\b/,
+  /\b(que|cuando|donde|como)\b/,
+  /\b(para|con|sin|desde)\b/,
+  /\b(semanas|cuotas|pago|clases|curso|trabajas|trabaja|programacion|precio)\b/,
+];
+
+/** ¿El texto parece español? Al menos tres marcas distintas de ESPANOL_EN_RESPUESTA. */
+export function escritoEnEspanol(texto: string): boolean {
+  const t = norm(texto);
+  return ESPANOL_EN_RESPUESTA.filter((re) => re.test(t)).length >= 3;
+}
+
 const NOMBRE: Record<Idioma, string> = { es: 'español', pt: 'portugués', en: 'inglés', hi: 'hindi' };
 
 /**

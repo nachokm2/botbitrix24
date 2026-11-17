@@ -4,7 +4,7 @@ import { tools } from './tools';
 import { marca } from '../marca';
 import { dbAcumularTokens } from '../store/db';
 import { executeTool } from './toolRunner';
-import { detectarIdioma, bloqueIdioma } from './idioma';
+import { detectarIdioma, bloqueIdioma, escritoEnEspanol } from './idioma';
 import { getHistory, setHistory } from './memory';
 import type { AgentContext, ChannelProfile } from '../core/channel';
 import { inc, recordLlmLatency, recordTokens } from '../obs/metrics';
@@ -77,6 +77,21 @@ export function priorContextMessage(priorContext: string) {
 /** Lo que ya se habló en el chat antes de que el bot entrara (ver crm/historialChat.ts).
  *  La instrucción va FUERA del marcador de contenido no confiable: la escribimos nosotros, y dentro
  *  del marcador se le dice al modelo que no obedezca nada de lo que ahí aparece. */
+/** Cómo se presenta el historial previo del chat en el modo internacional (ver runAgentTurn). */
+export const INSTRUCCION_HISTORIAL_INTERNACIONAL =
+  'This chat already had messages before you joined. Lines marked "Equipo" were sent by colleagues or by automated ' +
+  'systems, often in Spanish by mistake: never reply in Spanish because of them; reply in the language the person ' +
+  'writes in. Do not repeat questions they already answered and do not contradict what they were told; if something ' +
+  'there is not in PROGRAMME FACTS, do not confirm it.';
+
+/** Instrucciones para pasar al idioma de la persona una respuesta del modo internacional que salió en español. */
+export const EDITOR_IDIOMA_INTERNACIONAL =
+  'You fix WhatsApp messages from a university admissions assistant that were written in Spanish by mistake. Rewrite ' +
+  'the message in the language and script of the person, shown below (English by default; Hindi in Devanagari if they ' +
+  'type in Devanagari; Hinglish with Latin letters if they type Hindi with Latin letters), with the respectful form ' +
+  '("aap" in Hindi and Hinglish). Keep EXACTLY every figure, amount, programme name, link and email, and add nothing. ' +
+  'Return ONLY the message.';
+
 export function historialPrevioMessage(h: { instruccion: string; transcripcion: string }) {
   return {
     role: 'user',
@@ -429,7 +444,12 @@ export async function runAgentTurn(
       messages.push(priorContextMessage(priorContext));
     }
     if (historialPrevio && history.length === 0) {
-      messages.push(historialPrevioMessage(historialPrevio));
+      // En el modo internacional, con instrucciones en inglés: lo anterior suele ser la bienvenida y las
+      // plantillas en español de Bitrix, y con «Retómala donde quedó» en español el bot le contestó en
+      // español a una persona que escribió en hindi (chat1608903, 17-11-2026).
+      messages.push(
+        historialPrevioMessage(ctx.internacional ? { ...historialPrevio, instruccion: INSTRUCCION_HISTORIAL_INTERNACIONAL } : historialPrevio),
+      );
     }
     messages.push(...history, { role: 'user', content: userText });
 
@@ -441,8 +461,14 @@ export async function runAgentTurn(
     // Idioma del turno: se mira SOLO el mensaje actual, y la instrucción va al system del turno. Si
     // la persona vuelve al español en el siguiente mensaje, desaparece sola. Donde se responde siempre
     // en español, la regla está fija en el prompt y no se detecta nada (salvo en el modo internacional).
+    // En el modo internacional también cuando el mensaje trae una imagen (la del anuncio): sin esto, el
+    // texto en hindi que la acompañaba quedó sin nota de idioma (chat1608903, 17-11-2026).
     const idioma =
-      typeof userText === 'string' && (profile.respondeEnIdiomaDelCliente || !marca.respondeSoloEnEspanol) ? detectarIdioma(userText) : 'es';
+      typeof userText === 'string' && (profile.respondeEnIdiomaDelCliente || !marca.respondeSoloEnEspanol)
+        ? detectarIdioma(userText)
+        : ctx.internacional
+          ? detectarIdioma(textoDelUsuario(userText))
+          : 'es';
     const extraIdioma = bloqueIdioma(idioma);
     // Qué día es y cuándo trabaja el equipo: para que "lo confirmo y le respondo" diga cuándo. No en el
     // modo internacional: ese horario es el de Chile, y ahí no hay asesores que vayan a responder.
@@ -776,6 +802,38 @@ export async function aplicarGuardian(
     } catch (e) {
       log.warn('guardián: no se pudo condensar la respuesta', { err: String(e) });
       cambios.push('condensado_fallido');
+    }
+  }
+
+  // Modo internacional: una respuesta en español a quien no escribe en español se pasa a su idioma antes
+  // de enviarla (chat1608903, 17-11-2026: «Hola Ashu, bienvenido/a…» a quien escribió en hindi). Se mira el
+  // mensaje actual y, si no tiene texto (una foto), los anteriores de la persona.
+  if (t.internacional && escritoEnEspanol(final)) {
+    const suyos = [t.mensajeCliente, ...t.history.filter((m: any) => m?.role === 'user').map((m: any) => textoDelUsuario(m.content)).reverse()]
+      .map((x) => String(x ?? '').replace(/https?:\/\/\S+/g, '').trim())
+      .filter((x) => /\p{L}{2}/u.test(x));
+    if (suyos.length && !suyos.slice(0, 3).some((x) => escritoEnEspanol(x))) {
+      try {
+        const resp = await anthropic.messages.create({
+          model: CLASSIFIER,
+          max_tokens: 700,
+          temperature: 0,
+          system: EDITOR_IDIOMA_INTERNACIONAL,
+          messages: [{ role: 'user', content: `What the person wrote:\n${suyos.slice(0, 3).reverse().join('\n')}\n\nMessage to rewrite:\n${final}` }],
+        });
+        recordTokens((resp as any).usage);
+        const traducido = soloTexto(resp);
+        const duros = datosDuros(traducido);
+        if (traducido && !escritoEnEspanol(traducido) && datosDuros(final).every((d) => duros.includes(d))) {
+          final = guardarRespuesta(traducido, { ...ctxGuard, maxCaracteres: Number.MAX_SAFE_INTEGER }).texto;
+          cambios.push('idioma_corregido');
+        } else {
+          cambios.push('idioma_no_corregido');
+        }
+      } catch (e) {
+        log.warn('guardián: no se pudo pasar la respuesta al idioma de la persona', { err: String(e) });
+        cambios.push('idioma_no_corregido');
+      }
     }
   }
 
