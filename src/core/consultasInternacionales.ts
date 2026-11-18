@@ -276,18 +276,21 @@ export function separarCita(texto: string): { citado: string; propio: string } {
   };
 }
 
-/** De qué consulta habla la respuesta: el código citado o escrito, la respuesta de Bitrix, o la única abierta. */
+/**
+ * De qué consulta habla la respuesta: el código citado o escrito al inicio, o el aviso respondido con
+ * «Responder». Sin nada de eso NO es una respuesta: es una pregunta para el bot (ai/asistenteEquipo.ts).
+ * Antes, con una sola consulta abierta, cualquier mensaje se tomaba como su respuesta, y un «¿alguien
+ * pagó?» habría terminado enviado a una persona de India (18-11-2026).
+ */
 export function elegirConsulta(
   a: { citado: string; propio: string; replyCodigo?: string | null },
   abiertasAhora: string[],
-): { codigo: string | null; respuesta: string; motivo?: 'varias' | 'ninguna' } {
+): { codigo: string | null; respuesta: string } {
   const enCita = /#([A-Z0-9]{4})\b/.exec(a.citado)?.[1];
   const alInicio = /^\s*#?([A-Z0-9]{4})\b[\s:.\-–]*/i.exec(a.propio);
   const escrito = alInicio && abiertasAhora.includes(alInicio[1].toUpperCase()) ? alInicio[1].toUpperCase() : null;
   const respuesta = escrito && alInicio ? a.propio.slice(alInicio[0].length).trim() : a.propio.trim();
-  const codigo = enCita ?? a.replyCodigo ?? escrito ?? (abiertasAhora.length === 1 ? abiertasAhora[0] : null);
-  if (codigo) return { codigo, respuesta };
-  return { codigo: null, respuesta, motivo: abiertasAhora.length ? 'varias' : 'ninguna' };
+  return { codigo: enCita ?? a.replyCodigo ?? escrito ?? null, respuesta };
 }
 
 /** Instrucciones para pasar la respuesta del equipo al idioma de la persona. */
@@ -349,7 +352,7 @@ export async function redactarRespuesta(c: Consulta, respuesta: string, historia
   return montosYEnlaces(respuesta).every((d) => duros.includes(d)) ? texto : null;
 }
 
-async function responderAlEquipo(userId: string, texto: string, botId: number, auth: Auth): Promise<void> {
+export async function responderAlEquipo(userId: string, texto: string, botId: number, auth: Auth): Promise<void> {
   try {
     await callBitrix('imbot.message.add', { BOT_ID: botId, DIALOG_ID: userId, MESSAGE: texto }, auth);
   } catch (e) {
@@ -375,12 +378,12 @@ export async function procesarMensajeDelEquipo(a: {
   auth: Auth;
   respaldoClienteAt?: (dialogId: string) => Promise<number | null>;
   ahora?: number;
-}): Promise<'enviada' | 'guardada' | 'lista' | 'sin_consulta' | 'sin_texto' | 'error'> {
+}): Promise<'enviada' | 'guardada' | 'lista' | 'sin_consulta' | 'sin_texto' | 'error' | 'no_es_respuesta'> {
   const ahora = a.ahora ?? Date.now();
   const lista = await abiertas();
   const { citado, propio } = separarCita(a.mensaje);
 
-  if (/^(pendientes|consultas|ayuda)\??$/i.test(propio)) {
+  if (/^(pendientes|consultas)\??$/i.test(propio)) {
     const filas = (await Promise.all(lista.map((k) => getJson<Consulta>(CONSULTA_KEY(k))))).filter(
       (c): c is Consulta => !!c && c.estado === 'abierta',
     );
@@ -397,17 +400,8 @@ export async function procesarMensajeDelEquipo(a: {
 
   const replyCodigo = a.replyId ? await getJson<string>(MENSAJE_KEY(a.replyId)) : null;
   const eleccion = elegirConsulta({ citado, propio, replyCodigo }, lista);
-  if (!eleccion.codigo) {
-    await responderAlEquipo(
-      a.fromUserId,
-      eleccion.motivo === 'varias'
-        ? `Hay ${lista.length} consultas sin responder y no sé a cuál corresponde. Responda el aviso de la consulta, o empiece con su código, por ejemplo «#${lista[lista.length - 1]} …». Escriba «pendientes» para verlas.`
-        : 'No hay consultas sin responder. Cuando el bot no sepa algo, le llegará un aviso con un código.',
-      a.botId,
-      a.auth,
-    );
-    return 'sin_consulta';
-  }
+  // Sin código ni aviso respondido no es una respuesta: la contesta el asistente (ai/asistenteEquipo.ts).
+  if (!eleccion.codigo) return 'no_es_respuesta';
   const c = await getJson<Consulta>(CONSULTA_KEY(eleccion.codigo));
   if (!c) {
     await responderAlEquipo(a.fromUserId, `No encuentro la consulta #${eleccion.codigo}: puede haber vencido (duran 14 días).`, a.botId, a.auth);

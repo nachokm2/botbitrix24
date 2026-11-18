@@ -22,9 +22,9 @@ import { asesoresDisponibles, motivoHorario } from '../core/horarioAsesores';
 import { hayOperadorEnElChat } from '../crm/operadorEnChat';
 import { listaBlancaActiva, puedeResponder, lineaDelChat, telefonoDelChat } from '../core/listaBlanca';
 import { fichaSiEsInternacional, perfilInternacional, urlsDeLaFicha } from '../core/internacional';
+import { atenderMensajeDelEquipo } from '../ai/asistenteEquipo';
 import {
   esMensajeDelEquipo,
-  procesarMensajeDelEquipo,
   marcarMensajeDelCliente,
   avisarInteresado,
   traeEnlaceDePago,
@@ -162,7 +162,7 @@ async function handle(req: Request) {
   // sabía responder, y el bot se la pasa a la persona en su idioma (core/consultasInternacionales.ts).
   // Va antes de la compuerta de líneas: un chat privado no es de ninguna línea.
   if (esMensajeDelEquipo(dialogId, fromUserId)) {
-    const r = await procesarMensajeDelEquipo({
+    const r = await atenderMensajeDelEquipo({
       fromUserId: String(fromUserId),
       mensaje: String(message ?? ''),
       replyId: params?.PARAMS?.REPLY_ID ?? params?.REPLY_ID ?? null,

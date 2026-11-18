@@ -46,13 +46,14 @@ export function armarInforme(filas: FilaInforme[], ahora = Date.now(), consultas
     deal: number | null;
     mensajes: string[];
     turnos: Array<{ ts: number; cliente: string; bot: string }>;
+    todos: Array<{ ts: number; cliente: string; bot: string }>;
     senales: Set<string>;
   };
   const chats = new Map<string, Chat>();
   const chat = (f: FilaInforme) => {
     let c = chats.get(f.dialog_id);
     if (!c) {
-      c = { primero: ms(f.primero), deal: null, mensajes: [], turnos: [], senales: new Set() };
+      c = { primero: ms(f.primero), deal: null, mensajes: [], turnos: [], todos: [], senales: new Set() };
       chats.set(f.dialog_id, c);
     }
     const deal = /deal#(\d+)/.exec(String(f.crm_entity ?? ''))?.[1];
@@ -68,7 +69,9 @@ export function armarInforme(filas: FilaInforme[], ahora = Date.now(), consultas
       const msg = String(d.message ?? '');
       c.mensajes.push(msg);
       if (/\[voice message\]|could not be transcribed/i.test(msg)) tot.audios++;
-      if (ts >= desde24) c.turnos.push({ ts, cliente: ocultarDatos(msg).slice(0, 400), bot: ocultarDatos(String(d.reply ?? '')).slice(0, 400) });
+      const t = { ts, cliente: ocultarDatos(msg).slice(0, 400), bot: ocultarDatos(String(d.reply ?? '')).slice(0, 400) };
+      if (ts >= desde24) c.turnos.push(t);
+      c.todos.push(t);
       if (d.variante) c.senales.add(`variante_${d.variante}`);
     } else if (chats.has(f.dialog_id) || f.type !== 'turn') {
       const c = chat(f);
@@ -110,7 +113,13 @@ export function armarInforme(filas: FilaInforme[], ahora = Date.now(), consultas
     // Quienes dejaron alguna señal de interés en todo el período, con su negociación.
     conSenales: lista
       .filter(([, c]) => ['correo', 'enlace_pago', 'pago_informado', 'consulta'].some((s) => c.senales.has(s)))
-      .map(([id, c]) => ({ chat: id, negociacion: c.deal, senales: [...c.senales].filter((s) => !s.startsWith('variante')) })),
+      .map(([id, c]) => ({
+        chat: id,
+        negociacion: c.deal,
+        senales: [...c.senales].filter((s) => !s.startsWith('variante')),
+        ultimoMensaje: c.todos.length ? new Date(c.todos[c.todos.length - 1].ts).toISOString() : null,
+        ultimos: c.todos.slice(-6).map((t) => ({ hora: new Date(t.ts).toISOString().slice(0, 16), cliente: t.cliente, bot: t.bot })),
+      })),
     // Conversaciones con actividad en las últimas 24 h, para leer quién mostró interés.
     conversaciones24h: lista
       .filter(([, c]) => c.turnos.length)

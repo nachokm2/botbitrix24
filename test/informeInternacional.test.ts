@@ -53,7 +53,12 @@ test('cuenta chats, contenido, señales y conversaciones de las últimas 24 h', 
   assert.equal(r.totales.recordatoriosOmitidosNoProspecto, 1);
   assert.equal(r.totales.silenciosSinContenido, 1);
   assert.equal(r.totales.audios, 1);
-  assert.deepEqual(r.conSenales, [{ chat: 'chat2', negociacion: 22, senales: ['correo', 'enlace_pago'] }]);
+  assert.equal(r.conSenales.length, 1);
+  assert.equal(r.conSenales[0].negociacion, 22);
+  assert.deepEqual(r.conSenales[0].senales, ['correo', 'enlace_pago']);
+  assert.equal(r.conSenales[0].ultimoMensaje, hace(27).toISOString(), 'la hora de su último mensaje');
+  assert.equal(r.conSenales[0].ultimos.length, 4, 'sus últimos mensajes, aunque tengan más de 24 h');
+  assert.doesNotMatch(JSON.stringify(r.conSenales), /ana@x\.com/);
   assert.equal(r.conversaciones24h.length, 1, 'solo chat3 tuvo actividad en las últimas 24 h');
   assert.equal(r.conversaciones24h[0].negociacion, 33);
   assert.equal(r.conversaciones24h[0].nuevo, true);

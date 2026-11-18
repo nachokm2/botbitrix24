@@ -64,14 +64,14 @@ test('la cita de Bitrix se separa de lo que escribió la persona', () => {
   assert.deepEqual(C.separarCita('Sin cita'), { citado: '', propio: 'Sin cita' });
 });
 
-test('a qué consulta responde: la citada, la del código escrito, o la única abierta', () => {
+test('a qué consulta responde: la citada, la del código escrito o el aviso respondido; si no, a ninguna', () => {
   assert.deepEqual(C.elegirConsulta({ citado: '❓ Consulta #K7Q2', propio: 'Sí' }, ['AAAA', 'K7Q2']), { codigo: 'K7Q2', respuesta: 'Sí' });
   assert.deepEqual(C.elegirConsulta({ citado: '', propio: '#k7q2 Sí, es digital' }, ['AAAA', 'K7Q2']), { codigo: 'K7Q2', respuesta: 'Sí, es digital' });
   assert.deepEqual(C.elegirConsulta({ citado: '', propio: 'Sí', replyCodigo: 'AAAA' }, ['AAAA', 'K7Q2']), { codigo: 'AAAA', respuesta: 'Sí' });
-  assert.deepEqual(C.elegirConsulta({ citado: '', propio: 'Sí' }, ['K7Q2']), { codigo: 'K7Q2', respuesta: 'Sí' });
-  assert.equal(C.elegirConsulta({ citado: '', propio: 'Sí' }, ['AAAA', 'K7Q2']).motivo, 'varias');
+  // 18-11: con una sola abierta, un mensaje sin código ya NO es su respuesta (puede ser una pregunta al bot).
+  assert.deepEqual(C.elegirConsulta({ citado: '', propio: '¿Alguien pagó?' }, ['K7Q2']), { codigo: null, respuesta: '¿Alguien pagó?' });
   // Una palabra de cuatro letras al inicio no es un código si no hay una consulta con ese código.
-  assert.deepEqual(C.elegirConsulta({ citado: '', propio: 'Hola, sí' }, ['K7Q2']), { codigo: 'K7Q2', respuesta: 'Hola, sí' });
+  assert.deepEqual(C.elegirConsulta({ citado: '', propio: 'Hola, sí' }, ['K7Q2']), { codigo: null, respuesta: 'Hola, sí' });
 });
 
 test('solo el equipo configurado, por privado, cuenta como respuesta', () => {
@@ -166,13 +166,46 @@ test('fuera de las 24 h la respuesta se guarda y se da cuando la persona vuelve 
   assert.equal(await C.bloqueRespuestaPendiente('chat12'), '', 'se usa una sola vez');
 });
 
-test('sin cita ni código y con varias abiertas, pide indicar cuál', async () => {
+test('sin cita ni código no es una respuesta: nada sale a la persona de India', async () => {
   llamadas.length = 0;
   await C.crearConsulta({ dialogId: 'chat20', motivo: 'Uno', botId: BOT }, auth);
-  await C.crearConsulta({ dialogId: 'chat21', motivo: 'Dos', botId: BOT }, auth);
-  const r = await C.procesarMensajeDelEquipo({ fromUserId: '4173', mensaje: 'Sí', botId: BOT, auth });
-  assert.equal(r, 'sin_consulta');
-  assert.match(privadosA('4173').at(-1)!.params.MESSAGE, /no sé a cuál corresponde/);
+  const r = await C.procesarMensajeDelEquipo({ fromUserId: '4173', mensaje: '¿Alguien pagó?', botId: BOT, auth });
+  assert.equal(r, 'no_es_respuesta');
+  assert.equal(alChat('chat20').length, 0, 'la pregunta no se le manda a la persona');
+});
+
+test('asistente del equipo: ayuda, y una pregunta con una consulta abierta no llega al cliente', async () => {
+  const A = await import('../src/ai/asistenteEquipo');
+  llamadas.length = 0;
+  assert.equal(await A.atenderMensajeDelEquipo({ fromUserId: '4173', mensaje: 'ayuda', botId: BOT, auth }), 'ayuda');
+  assert.match(privadosA('4173').at(-1)!.params.MESSAGE, /«interesados»/);
+  await C.crearConsulta({ dialogId: 'chat60', motivo: '¿GST?', botId: BOT }, auth);
+  llamadas.length = 0;
+  // Sin base de datos en la prueba: contesta que no pudo leer los datos, y a la persona no le llega nada.
+  const r = await A.atenderMensajeDelEquipo({ fromUserId: '4173', mensaje: '¿Alguien pagó?', botId: BOT, auth });
+  assert.equal(r, 'sin_datos');
+  assert.equal(alChat('chat60').length, 0);
+  assert.match(privadosA('4173').at(-1)!.params.MESSAGE, /No pude leer los datos del piloto/);
+});
+
+test('asistente del equipo: la lista de interesados dice hasta cuándo se les puede escribir', async () => {
+  const A = await import('../src/ai/asistenteEquipo');
+  const ahora = Date.parse('2026-11-18T16:40:00Z');
+  const t = A.textoInteresados(
+    [
+      { chat: 'c1', negociacion: 3770947, senales: ['correo', 'enlace_pago'], ultimoMensaje: '2026-11-17T17:39:00Z', ultimos: [{ hora: '2026-11-17T17:39', cliente: 'Okay' }] },
+      { chat: 'c2', negociacion: 3768645, senales: ['correo', 'enlace_pago'], ultimoMensaje: '2026-11-18T08:22:00Z', ultimos: [{ hora: '2026-11-18T08:22', cliente: 'Where is your university?' }] },
+      { chat: 'c3', negociacion: 1, senales: ['consulta'], ultimoMensaje: '2026-11-18T08:00:00Z', ultimos: [] },
+    ],
+    ahora,
+    { 3770947: 'Saleem' },
+  );
+  assert.match(t, /Interesados \(2\)/, 'una consulta sola no es un interesado');
+  assert.match(t, /Saleem\[\/B\] · negociación 3770947: dejó su correo, recibió el enlace de pago/);
+  assert.match(t, /Se le puede escribir hasta el 19-11/);
+  assert.match(t, /Sin nombre\[\/B\] · negociación 3768645/);
+  const viejo = A.textoInteresados([{ chat: 'c1', negociacion: 9, senales: ['correo'], ultimoMensaje: '2026-11-16T10:00:00Z', ultimos: [] }], ahora);
+  assert.match(viejo, /Pasaron 24 h: solo con plantilla/);
 });
 
 test('el pedido al modelo no menciona al equipo ni a una persona', () => {
