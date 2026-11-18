@@ -19,6 +19,7 @@ import { initDb, dbRecentAudit, dbEnabled, dbHealth, startRetentionSweep, dbConf
 import { iniciarRevisionDiaria } from './ai/revisionDiaria';
 import { iniciarResumenSemanal } from './ai/resumenSemanal';
 import { iniciarResumenInternacional } from './ai/resumenInternacional';
+import { informeInternacional } from './routes/informeInternacional';
 import { iniciarVigilanciaCanal } from './ai/vigilanciaCanal';
 import { iniciarVigilanciaSalud } from './bitrix/salud';
 import { iniciarPrimerContacto } from './crm/primerContacto';
@@ -161,6 +162,9 @@ app.get('/panel/api/internacional/conversaciones/:dialogId', manejarAsync(panelC
 // corre en esta ruta.
 app.post('/panel/api/archivos', express.raw({ type: TIPOS_ARCHIVO, limit: MAX_PDF_BYTES + 1024 }), manejarAsync(panelSubirArchivo));
 app.get('/archivos/:token/:nombre', manejarAsync(servirArchivo)); // público: el enlace que entrega el bot
+// Datos del piloto internacional para el informe diario que actualiza un agente en la nube; con
+// INFORME_INTERNACIONAL_TOKEN (sin la variable responde 404). Ver routes/informeInternacional.ts.
+app.get('/internacional/informe', manejarAsync(informeInternacional));
 app.post('/panel/api/importar', express.raw({ type: TIPOS_DOCUMENTO, limit: MAX_DOCUMENTO_BYTES + 1024 }), manejarAsync(panelImportar));
 
 // Panel de métricas embebible en Bitrix24 (placement) + su API de datos.

@@ -69,9 +69,12 @@ test('la propuesta para la ficha lista pregunta y respuesta y dice dónde agrega
   assert.match(t, /Conocimiento → Programa internacional/);
 });
 
-test('la prueba del primer mensaje alterna por número de chat', () => {
-  assert.equal(varianteDePrimerMensaje('chat1608902'), 'A');
-  assert.equal(varianteDePrimerMensaje('chat1608903'), 'B');
+test('la prueba del primer mensaje reparte mitad y mitad, aunque los chats sean todos impares', () => {
+  // Bitrix numera impares casi todos los chats de las líneas abiertas: con la paridad, todos caían en B.
+  const impares = Array.from({ length: 200 }, (_, i) => `chat${1609173 + 2 * i}`);
+  const a = impares.filter((c) => varianteDePrimerMensaje(c) === 'A').length;
+  assert.ok(a > 70 && a < 130, `reparto parejo (A=${a} de 200)`);
+  assert.equal(varianteDePrimerMensaje('chat1609173'), varianteDePrimerMensaje('chat1609173'), 'el mismo chat, la misma variante');
   assert.match(BLOQUE_PRIMER_MENSAJE_B, /at most 280 characters/);
   assert.match(BLOQUE_PRIMER_MENSAJE_B, /in English/);
 });

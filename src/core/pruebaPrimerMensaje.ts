@@ -8,12 +8,14 @@
  * queda en la auditoría del turno; el resumen diario compara qué parte de cada grupo volvió a escribir.
  */
 
+import { createHash } from 'node:crypto';
+
 export type Variante = 'A' | 'B';
 
-/** Variante de un chat: alterna con el número del chat, así que las dos crecen parejo. */
+/** Variante de un chat, por un hash de su id. Con la paridad del número, los 24 primeros chats cayeron
+ *  todos en B: Bitrix numera impares casi todos los chats de las líneas abiertas (17 y 18-11-2026). */
 export function varianteDePrimerMensaje(dialogId: string): Variante {
-  const n = Number(String(dialogId ?? '').replace(/\D/g, '').slice(-6) || 0);
-  return n % 2 === 0 ? 'A' : 'B';
+  return createHash('sha1').update(String(dialogId ?? '')).digest()[0] % 2 === 0 ? 'A' : 'B';
 }
 
 /** Nota del turno para la variante B, solo en la primera respuesta. */

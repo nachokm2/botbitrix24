@@ -1537,7 +1537,7 @@ export async function dbTranscripcionesRecientes(
  */
 export async function dbEventosInternacionales(
   dias = 7,
-): Promise<Array<{ dialog_id: string; ts: Date; type: string; detail: any; primero: Date }> | null> {
+): Promise<Array<{ dialog_id: string; ts: Date; type: string; detail: any; primero: Date; crm_entity: string | null }> | null> {
   if (!pool) return null;
   const d = Math.max(1, Math.min(30, Math.round(dias))); // se interpola en SQL: entero acotado
   try {
@@ -1548,10 +1548,11 @@ export async function dbEventosInternacionales(
          GROUP BY dialog_id
          HAVING max(ts) >= now() - interval '${d} days'
        )
-       SELECT a.dialog_id, a.ts, a.type, a.detail, c.primero
+       SELECT a.dialog_id, a.ts, a.type, a.detail, a.crm_entity, c.primero
        FROM audit_log a JOIN chats c ON c.dialog_id = a.dialog_id
        WHERE a.ts >= now() - interval '${d} days'
-         AND a.type IN ('turn', 'tool_call', 'derivacion_internacional', 'interes_internacional', 'seguimiento', 'seguimiento_respondido', 'respuesta_equipo')
+         AND a.type IN ('turn', 'tool_call', 'derivacion_internacional', 'interes_internacional', 'seguimiento',
+                        'seguimiento_respondido', 'respuesta_equipo', 'seguimiento_omitido', 'bot_en_silencio')
        ORDER BY a.ts`,
     );
     return r.rows;
