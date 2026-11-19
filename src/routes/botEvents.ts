@@ -39,6 +39,7 @@ import {
   IMAGEN_SIN_TEXTO_INTERNACIONAL,
 } from '../core/ruidoInternacional';
 import { varianteDePrimerMensaje } from '../core/pruebaPrimerMensaje';
+import { registrarSolicitudInternacional } from '../core/conversionesMeta';
 import { asegurarNegociacionInternacional } from '../crm/negociacionInternacional';
 import { esperarComoHumano } from '../core/ritmoHumano';
 import { anotarEntrante, fueAbsorbido, esperarFinDeRafaga, tomarRafaga } from '../core/rafaga';
@@ -664,6 +665,8 @@ async function handle(req: Request) {
         },
         auth,
       ).catch(() => {});
+      // Si lo había pedido, Meta se entera de que esta persona del anuncio quiere matricularse (19-11-2026).
+      void registrarSolicitudInternacional({ dialogId, dealId: crmEntities?.deal, mensajeCliente: turnText, auth }).catch(() => {});
     }
   } else {
     void programarSeguimiento(dialogId, crmEntities, sesion); // si el cliente no vuelve a escribir: recordatorio y, si sigue en silencio, transferencia al asesor (ver ai/seguimiento.ts)

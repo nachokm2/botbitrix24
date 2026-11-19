@@ -1552,7 +1552,8 @@ export async function dbEventosInternacionales(
        FROM audit_log a JOIN chats c ON c.dialog_id = a.dialog_id
        WHERE a.ts >= now() - interval '${d} days'
          AND a.type IN ('turn', 'tool_call', 'derivacion_internacional', 'interes_internacional', 'seguimiento',
-                        'seguimiento_respondido', 'respuesta_equipo', 'seguimiento_omitido', 'bot_en_silencio')
+                        'seguimiento_respondido', 'respuesta_equipo', 'seguimiento_omitido', 'bot_en_silencio',
+                        'pago_confirmado', 'capi_evento')
        ORDER BY a.ts`,
     );
     return r.rows;

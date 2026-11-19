@@ -78,6 +78,7 @@ export function armarInforme(filas: FilaInforme[], ahora = Date.now(), consultas
       if (f.type === 'tool_call' && d.name === 'registrar_interes_crm' && d.input?.email) c.senales.add('correo');
       if (f.type === 'interes_internacional' && d.motivo === 'enlace_pago') c.senales.add('enlace_pago');
       if (f.type === 'derivacion_internacional') c.senales.add(d.pago ? 'pago_informado' : 'consulta');
+      if (f.type === 'pago_confirmado') c.senales.add('pago_confirmado');
       if (f.type === 'seguimiento' && d.internacional) tot.recordatoriosEnviados++;
       if (f.type === 'seguimiento_respondido') tot.recordatoriosRespondidos++;
       if (f.type === 'seguimiento_omitido' && d.motivo === 'no_es_prospecto') tot.recordatoriosOmitidosNoProspecto++;
@@ -101,6 +102,8 @@ export function armarInforme(filas: FilaInforme[], ahora = Date.now(), consultas
       correos: conSenal('correo'),
       enlacesDePago: conSenal('enlace_pago'),
       pagosInformados: conSenal('pago_informado'),
+      // Los que alguien del equipo confirmó en Flywire («pagó 3770947» en el chat privado del bot).
+      pagosConfirmados: conSenal('pago_confirmado'),
       consultas: conSenal('consulta'),
       consultasAbiertas,
       ...tot,
@@ -112,7 +115,7 @@ export function armarInforme(filas: FilaInforme[], ahora = Date.now(), consultas
     pruebaPrimerMensaje: resumen.variantes,
     // Quienes dejaron alguna señal de interés en todo el período, con su negociación.
     conSenales: lista
-      .filter(([, c]) => ['correo', 'enlace_pago', 'pago_informado', 'consulta'].some((s) => c.senales.has(s)))
+      .filter(([, c]) => ['correo', 'enlace_pago', 'pago_informado', 'pago_confirmado', 'consulta'].some((s) => c.senales.has(s)))
       .map(([id, c]) => ({
         chat: id,
         negociacion: c.deal,

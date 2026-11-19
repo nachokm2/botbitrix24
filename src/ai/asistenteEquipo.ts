@@ -8,6 +8,7 @@ import { dbEventosInternacionales } from '../store/db';
 import { armarInforme } from '../routes/informeInternacional';
 import { calcularResumen, textoResumen } from './resumenInternacional';
 import { procesarMensajeDelEquipo, responderAlEquipo, separarCita, cuantasConsultasAbiertas } from '../core/consultasInternacionales';
+import { enviarEventoMeta, valorDelCurso } from '../core/conversionesMeta';
 
 /**
  * Lo que escribe el equipo por el chat privado del bot, en el modo internacional (pedido del 18-11-2026:
@@ -22,6 +23,7 @@ export const AYUDA_EQUIPO = [
   '• «interesados»: quienes dejaron su correo, recibieron el enlace de pago o dijeron que pagaron.',
   '• «pendientes»: las consultas que el bot no supo responder.',
   '• Cualquier pregunta, por ejemplo «¿alguien pagó?» o «¿qué pasó con la negociación 3770947?».',
+  '• «pagó 3770947»: cuando vea en Flywire que alguien pagó (si fue otro monto: «pagó 3770947 200»). Queda en el informe y se le avisa a Meta.',
   'Para contestar una consulta, responda su aviso (Responder) o empiece con su código, por ejemplo «#K7Q2 Sí, …».',
   'No veo los pagos hechos en Flywire si la persona no avisa en el chat.',
 ].join('\n');
@@ -30,8 +32,37 @@ const SENAL: Record<string, string> = {
   correo: 'dejó su correo',
   enlace_pago: 'recibió el enlace de pago',
   pago_informado: 'dijo que pagó',
+  pago_confirmado: 'pago confirmado',
   consulta: 'consulta al equipo',
 };
+
+// «pagó 3770947» o «pagó 3770947 200» (el comando llega en minúsculas y sin puntos).
+const PAGO = /^pag(?:o|ó|ado|ada):?\s+(?:la\s+)?(?:negociaci[oó]n\s+)?#?(\d{4,9})(?:\s+(?:usd\s*)?(\d{1,6})(?:\s*usd)?)?$/;
+
+/**
+ * Alguien del equipo confirma un pago (lo vio en Flywire): queda en el informe y Meta recibe la compra.
+ * Solo para negociaciones del programa internacional de los últimos 30 días, para que un número mal
+ * escrito no le marque una compra a otra persona.
+ */
+async function confirmarPago(dealId: number, valorDado: number | undefined, a: { fromUserId: string; auth: Auth }): Promise<string> {
+  const filas = await dbEventosInternacionales(30);
+  if (!filas) return 'No pude revisar los datos del piloto en este momento. Pruebe de nuevo en unos minutos.';
+  const dialogId = filas.find((f) => f.crm_entity === `deal#${dealId}`)?.dialog_id;
+  if (!dialogId) {
+    return `La negociación ${dealId} no aparece entre los chats del programa internacional de los últimos 30 días. Revise el número (es el de la negociación en Bitrix).`;
+  }
+  const valor = valorDado ?? valorDelCurso();
+  const nombre = (await nombresDeNegociaciones([dealId], a.auth))[dealId];
+  const quien = `la negociación ${dealId}${nombre ? ` (${nombre})` : ''}`;
+  await audit({ type: 'pago_confirmado', dialogId, crmEntity: `deal#${dealId}`, detail: { valor, por: a.fromUserId } }).catch(() => {});
+  inc('pago_confirmado');
+  const r = await enviarEventoMeta({ evento: 'Purchase', dealId, dialogId, valor, auth: a.auth });
+  if (r.ok) return `Listo: anoté el pago de ${quien} por USD ${valor} y se lo avisé a Meta. Queda en el informe como pago confirmado.`;
+  if (r.motivo === 'ya_enviado') return `El pago de ${quien} ya estaba anotado y avisado a Meta.`;
+  if (r.motivo === 'sin_configurar') return `Anoté el pago de ${quien} por USD ${valor}; queda en el informe. A Meta todavía no se le avisa: falta conectar la API de conversiones.`;
+  if (r.motivo === 'sin_telefono') return `Anoté el pago de ${quien} por USD ${valor}, pero no se lo pude avisar a Meta: su contacto en Bitrix no tiene teléfono ni correo.`;
+  return `Anoté el pago de ${quien} por USD ${valor}, pero Meta no lo recibió (${r.motivo}). Avíseme para revisarlo.`;
+}
 
 /** «19-11 a las 05:22», en hora de Chile y con reloj de 24 horas. */
 const horaChile = (ms: number) => {
@@ -110,6 +141,11 @@ export async function atenderMensajeDelEquipo(a: {
   const comando = propio.trim().toLowerCase().replace(/[¿?¡!.«»"]/g, '').trim();
   const responder = (texto: string) => responderAlEquipo(a.fromUserId, texto, a.botId, a.auth);
 
+  const pago = PAGO.exec(comando);
+  if (pago) {
+    await responder(await confirmarPago(Number(pago[1]), pago[2] ? Number(pago[2]) : undefined, a));
+    return 'pago_confirmado';
+  }
   if (/^(ayuda|help|comandos|hola)$/.test(comando)) {
     await responder(AYUDA_EQUIPO);
     return 'ayuda';
