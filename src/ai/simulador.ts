@@ -18,6 +18,7 @@ import { bloqueNoRepetirPreguntaPorTrabajo } from '../core/preguntasRepetidas';
 import { resultadoConsultaParaElModelo } from '../core/consultasInternacionales';
 import { BLOQUE_PRIMER_MENSAJE_B } from '../core/pruebaPrimerMensaje';
 import { marca } from '../marca';
+import { separarFueraDeTema } from '../core/fueraDeTema';
 
 /**
  * Chat simulado del panel de configuración: conversar con el bot antes de publicar un cambio.
@@ -182,7 +183,7 @@ export async function simularTurno(
     /** Prueba A/B del primer mensaje del modo internacional (core/pruebaPrimerMensaje.ts). */
     variantePrimerMensaje?: 'A' | 'B';
   } = {},
-): Promise<{ texto: string; historial: any[]; herramientas: HerramientaUsada[]; internacional: boolean }> {
+): Promise<{ texto: string; historial: any[]; herramientas: HerramientaUsada[]; internacional: boolean; fueraDeTema?: boolean }> {
   const messages = [...historial, { role: 'user', content: mensaje }];
   const inicioTurno = messages.length;
   const ficha = fichaInternacional();
@@ -212,7 +213,10 @@ export async function simularTurno(
       (internacional ? bloqueNoRepetirPreguntaPorTrabajo(historial) : '') +
       (internacional && opts.variantePrimerMensaje === 'B' && historial.length === 0 ? BLOQUE_PRIMER_MENSAJE_B : ''),
   };
-  const { text, messages: finales } = await runConversation({ profile: perfil, auditId: 'simulacion', simulacion: true }, messages, exec);
+  const { text: textoModelo, messages: finales } = await runConversation({ profile: perfil, auditId: 'simulacion', simulacion: true }, messages, exec);
+  // Igual que en la real (ai/agentLoop.ts): la marca de «fuera de tema» no la lee nadie.
+  const marcado = internacional ? separarFueraDeTema(textoModelo) : { texto: textoModelo, fuera: false };
+  const text = marcado.texto;
   let texto = marca.guardRespuesta
     ? await aplicarGuardian(text, {
         mensajeCliente: mensaje,
@@ -226,8 +230,8 @@ export async function simularTurno(
   if (conAsesor && historial.length === 0) {
     texto = asegurarPresentacion(texto, conAsesor.nombre, marca.organizacion, undefined, conAsesor.cargo);
   }
-  if (texto !== text) reemplazarUltimaRespuesta(finales, texto);
-  return { texto, historial: finales, herramientas, internacional };
+  if (texto !== textoModelo && !(marcado.fuera && !texto.trim())) reemplazarUltimaRespuesta(finales, texto);
+  return { texto, historial: finales, herramientas, internacional, fueraDeTema: marcado.fuera };
 }
 
 function describirAvisoInternacional(input: any): string {

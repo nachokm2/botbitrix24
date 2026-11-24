@@ -32,6 +32,7 @@ import {
   vecesQuePreguntoPorTrabajo,
 } from '../core/preguntasRepetidas';
 import { setJson } from '../store/kv';
+import { separarFueraDeTema } from '../core/fueraDeTema';
 
 const MAX_STEPS = 5; // guardrail anti-bucle
 
@@ -487,11 +488,17 @@ export async function runAgentTurn(
     const sumado = extra + extraIdioma + extraMomento + extraRepetida + extraPendiente + extraPrimerMensaje + (riesgo ? BLOQUE_RIESGO : '');
     const perfilFinal = sumado ? { ...perfilDelTurno, systemPrompt: perfilDelTurno.systemPrompt + sumado } : perfilDelTurno;
     const inicioTurno = messages.length;
-    const { text, messages: finalMsgs } = await runConversation(
+    const { text: textoModelo, messages: finalMsgs } = await runConversation(
       { profile: perfilFinal, auditId: ctx.conversationId, crmEntity: ctx.crmEntity ?? null },
       messages,
       exec,
     );
+    // Modo internacional: si el modelo marcó el mensaje como ajeno a la admisión, la marca se quita
+    // antes de cualquier regla y de guardar el historial; quien decide si se envía es botEvents.ts
+    // (ver core/fueraDeTema.ts).
+    const marcado = ctx.internacional ? separarFueraDeTema(textoModelo) : { texto: textoModelo, fuera: false };
+    if (marcado.fuera) ctx.fueraDeTema = true;
+    const text = marcado.texto;
     // Reglas comerciales impuestas en código sobre el texto final (ver core/guardRespuesta.ts). Lo
     // que se guarda en el historial es lo que de verdad se envía: si no, el modelo "recordaría" haber
     // dicho algo que el cliente nunca leyó.
@@ -520,7 +527,9 @@ export async function runAgentTurn(
       enviado = sinClaves.texto;
       void audit({ type: 'credencial_oculta', dialogId: ctx.conversationId }).catch(() => {});
     }
-    if (enviado !== text) reemplazarUltimaRespuesta(finalMsgs, enviado);
+    // (Si el modelo escribió solo la marca, no queda nada que guardar: un mensaje vacío en el historial
+    // lo rechaza la API en el turno siguiente.)
+    if (enviado !== textoModelo && !(marcado.fuera && !enviado.trim())) reemplazarUltimaRespuesta(finalMsgs, enviado);
     // No persistimos imágenes (base64) en el historial: se reemplazan por un marcador de texto para
     // no inflar Redis ni re-enviarlas en cada turno (el modelo ya las "vio" en este turno).
     await setHistory(ctx.conversationId, sanitizeHistory(finalMsgs));

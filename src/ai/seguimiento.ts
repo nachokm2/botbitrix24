@@ -515,6 +515,12 @@ export function esRechazo(texto: string): boolean {
     // En inglés, para el modo internacional (piloto de India, 15-11-2026).
     /\b(not interested|no longer interested|not for me|don['’]?t want (it|this|the course|the program)|do not want (it|this))\b/.test(t) ||
     (/^(no[\s,.!]+)+thanks?( you)?\b/.test(t) && !/interest|want|how|price|fee|cost|\?/.test(t)) ||
+    // «Not now» es el botón de la plantilla que se manda a India («Yes, I have a question» / «Not now»):
+    // el 24-11-2026 cuatro personas lo apretaron y recibieron cuatro recordatorios y un cierre cada una.
+    // Solo en mensajes cortos y sin una pregunta o un interés detrás («Not now, how much is it?»).
+    (/\b(not (right )?now|not at the moment|abhi nahi|nahi chahiye|interested nahi)\b/.test(t) &&
+      t.split(/\s+/).length <= 8 &&
+      !/\?|how|price|fee|cost|but|interested in|tell me|detail/.test(t)) ||
     // Una baja explícita también corta: después de «Voy a bloquearlos» salieron cinco recordatorios más
     // (chat 1577067, 06-11-2026).
     pideNoMolestar(t)

@@ -364,6 +364,24 @@ test('baja y rechazo en inglés: cortan la secuencia', () => {
   assert.equal(seg.esRechazo('Not interested, thanks'), true);
   assert.equal(seg.esRechazo('No thank you'), true);
   assert.equal(seg.esRechazo('No thanks, how much is it?'), false);
+  // «Not now» es el botón de la plantilla de India: el 24-11-2026 cuatro personas lo apretaron y siguieron
+  // los recordatorios. Un «not now» con una pregunta o un interés detrás no corta.
+  assert.equal(seg.esRechazo('Not now'), true);
+  assert.equal(seg.esRechazo('Not right now, thanks'), true);
+  assert.equal(seg.esRechazo('abhi nahi'), true);
+  assert.equal(seg.esRechazo('Not now, how much is it?'), false);
+  assert.equal(seg.esRechazo('Not now but I am interested in the Pro track, can you tell me the dates'), false);
+  assert.equal(seg.esRechazo('I know it is not now but when does the next batch start?'), false);
+  const SEP = '------------------------------------------------------';
+  const plantillaIndia =
+    'Hi Asha, we received your request about the Applied AI & Automation application at Carver University.\n\n' +
+    'Reply here if you have any questions about your application.\nCarver University | [Yes, I have a question] | [Not now]';
+  assert.equal(seg.esRechazo(`${SEP}\n${plantillaIndia}\n${SEP}\nNot now`), true, 'el botón «Not now» corta la secuencia');
+  assert.equal(seg.esRechazo(`${SEP}\n${plantillaIndia}\n${SEP}\nYes, I have a question`), false, 'el otro botón no');
+  assert.equal(
+    seg.motivoPorLoConversado(`Cliente: ${SEP}\n${plantillaIndia}\n${SEP}\nNot now\nBot: No problem, write here anytime.`, true),
+    'rechazo',
+  );
   assert.equal(seg.esSoloCortesia('Thank you'), true);
   assert.equal(seg.esSoloCortesia('Thanks, what is the fee?'), false);
   assert.equal(

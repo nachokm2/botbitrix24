@@ -38,6 +38,7 @@ import {
   pareceNombreDeUsuario,
   IMAGEN_SIN_TEXTO_INTERNACIONAL,
 } from '../core/ruidoInternacional';
+import { contarFueraDeTema, debeCallar } from '../core/fueraDeTema';
 import { varianteDePrimerMensaje } from '../core/pruebaPrimerMensaje';
 import { registrarSolicitudInternacional } from '../core/conversionesMeta';
 import { asegurarNegociacionInternacional } from '../crm/negociacionInternacional';
@@ -591,6 +592,20 @@ async function handle(req: Request) {
   };
   const reply = await runAgentTurn(ctxTurno, turnContent ?? turnText, priorContext, undefined, historialPrevio);
 
+  // Modo internacional: un mensaje que no tiene nada que ver con la admisión (una oferta de trabajo, de
+  // tutoría, un pedido de dinero) se contesta dos veces; desde la tercera seguida el bot calla hasta que
+  // la persona vuelva a hablar del programa (core/fueraDeTema.ts). Sin recordatorios: no es un prospecto.
+  if (internacional) {
+    const fuera = Boolean(ctxTurno.fueraDeTema);
+    const seguidos = await contarFueraDeTema(dialogId, fuera);
+    if (debeCallar(fuera, seguidos) || (fuera && !reply.trim())) {
+      inc('bot_en_silencio_fuera_de_tema');
+      void audit({ type: 'bot_en_silencio', dialogId, detail: { motivo: 'fuera_de_tema', seguidos } });
+      void cancelarSeguimiento(dialogId);
+      return log.info('botMessage: mensaje fuera de tema, ya contestado; el bot calla', { dialogId, seguidos });
+    }
+  }
+
   // Si el envío falla, el cliente se queda SIN respuesta: hay que dejar rastro accionable, no solo
   // un log. Antes esto no quedaba registrado en ninguna parte y 3 clientes reales quedaron sin
   // contestación sin que nadie se enterara (ver fix 748885f).
@@ -647,6 +662,9 @@ async function handle(req: Request) {
   // veces «no le escribo más» mientras los recordatorios seguían saliendo.
   if (prometioNoEscribir(reply)) {
     void excluir({ contactId: crmEntities?.contact, dialogId, motivo: 'el_bot_prometio_no_escribir' });
+    void cancelarSeguimiento(dialogId);
+  } else if (internacional && ctxTurno.fueraDeTema) {
+    // Quien escribió algo ajeno a la admisión no es un prospecto: no se le programan recordatorios.
     void cancelarSeguimiento(dialogId);
   } else if (internacional) {
     // Los de Latinoamérica están escritos en español y en la hora de Chile: el modo internacional tiene

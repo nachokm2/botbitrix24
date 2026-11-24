@@ -87,6 +87,9 @@ export type AgentContext = {
   /** Conversación del modo internacional (ver core/internacional.ts): sin asesores, así que derivar
    *  avisa al equipo y el bot sigue atendiendo. */
   internacional?: boolean;
+  /** Lo marca el motor: el modelo dijo que el mensaje no tiene nada que ver con la admisión (ver
+   *  core/fueraDeTema.ts). Solo en el modo internacional. */
+  fueraDeTema?: boolean;
   /** Enlaces que el bot puede compartir además de los que devuelvan sus herramientas (los de la ficha
    *  del modo internacional). */
   urlsPermitidas?: string[];
