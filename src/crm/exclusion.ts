@@ -39,7 +39,10 @@ const FRASES_BAJA = [
   /\bno insistan?\b/,
   // También en singular: «Amigo porfa deje de molestar» no calzaba y siguieron los recordatorios
   // (chat 1593997, 09-11-2026).
-  /\bdej(a|e|en) de (escrib|molest|mandar|enviar|insistir)/,
+  /\bdej(a|e|en|ar|an) de (escrib|molest|mandar|enviar|insistir)/,
+  // «No me mande más mensaje» (chat 1542531), «mejor que no me manden nada» (1622403), «para que nome
+  // manden maa mensaje» (1612515): el verbo es mandar o enviar y lo que no quieren es más o nada.
+  /\bno ?me (mand|envi)(e|es|en|ien|ies)\b[^.?!]{0,25}\b(mas|nada|mensaje|informacion|publicidad)/,
   // El botón de baja de las plantillas de Meta: después de «Detener promociones» salieron cinco
   // recordatorios (chat 1596719, 10-11-2026).
   /\b(detener|parar|cancelar|suspender) (las |los |estas |estos )?(promociones|mensajes|envios|notificaciones)\b/,

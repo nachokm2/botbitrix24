@@ -1,5 +1,6 @@
 import { runConversation, aplicarGuardian, reemplazarUltimaRespuesta, bloqueIdentidad } from './agentLoop';
 import { asegurarPresentacion } from '../core/presentacion';
+import { fichaParaElTurno, bloqueFichaDelEquipo } from '../core/fichaPostulacion';
 import { brochureComoEnlace, RESULTADO_ESCALADO_COMO_ASESOR } from './toolRunner';
 import { resultadoParaElModelo } from '../crm/correoInformacion';
 import { mensajeDeRiesgo, BLOQUE_RIESGO } from '../core/riesgo';
@@ -201,11 +202,14 @@ export async function simularTurno(
   };
   const base = ficha && internacional ? perfilInternacional(WHATSAPP_PROFILE, ficha) : WHATSAPP_PROFILE;
   const conAsesor = marca.sePresentaComoAsesor && !internacional && opts.asesor ? opts.asesor : null;
+  // Igual que en la conversación real (ai/agentLoop.ts): sin ficha propia, la del equipo.
+  const fichaDelEquipo = !internacional && !conAsesor?.formulario ? fichaParaElTurno(conAsesor) : undefined;
   const perfil = {
     ...base,
     systemPrompt:
       base.systemPrompt +
       (conAsesor ? bloqueIdentidad(conAsesor, historial.length === 0) : '') +
+      (fichaDelEquipo ? bloqueFichaDelEquipo(fichaDelEquipo) : '') +
       (marca.respondeSoloEnEspanol && !internacional ? '' : bloqueIdioma(detectarIdioma(mensaje))) +
       (marca.respaldaPromesas && !internacional ? bloqueMomento() : '') +
       // Igual que en la conversación real (ai/agentLoop.ts): un mensaje de riesgo no se responde vendiendo.
@@ -223,7 +227,10 @@ export async function simularTurno(
         history: historial,
         mensajesDelTurno: finales.slice(inicioTurno),
         simulacion: true,
-        urlsDelAsesor: ficha && internacional ? urlsDeLaFicha(ficha) : conAsesor?.formulario ? [conAsesor.formulario] : [],
+        urlsDelAsesor:
+          ficha && internacional
+            ? urlsDeLaFicha(ficha)
+            : [...(conAsesor?.formulario ? [conAsesor.formulario] : []), ...(fichaDelEquipo ? [fichaDelEquipo] : [])],
         internacional,
       })
     : text;

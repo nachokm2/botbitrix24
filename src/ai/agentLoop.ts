@@ -11,7 +11,9 @@ import { inc, recordLlmLatency, recordTokens } from '../obs/metrics';
 import { audit } from '../obs/audit';
 import { log } from '../log';
 import type { CrmEntity } from '../crm/entities';
-import { guardarRespuesta, urlsEn, detectarTuteo, detectarUsted } from '../core/guardRespuesta';
+import { guardarRespuesta, urlsEn, detectarTuteo, detectarUsted, detectarVoseo } from '../core/guardRespuesta';
+import { fichaParaElTurno, bloqueFichaDelEquipo } from '../core/fichaPostulacion';
+import { respuestaAPlantilla } from '../core/ecos';
 import { URLS_OFICIALES_CARVER } from '../core/promptObjeciones';
 import { promptVigente } from '../core/ajustes';
 import { bloqueMomento } from '../core/momento';
@@ -455,10 +457,22 @@ export async function runAgentTurn(
     }
     messages.push(...history, { role: 'user', content: userText });
 
+    // Si la negociación no tiene ficha de postulación propia (el responsable no está en la lista de
+    // contactos o está desactivado), se usa la del equipo: sin ella el bot prometía «te la envío mañana a
+    // las 9:00» y nadie lo hacía (241 de 502 chats entre el 17 y el 24-11-2026). Ver core/fichaPostulacion.ts.
+    const fichaDelEquipo =
+      !ctx.internacional && !ctx.identidadAsesor?.formulario ? fichaParaElTurno(ctx.identidadAsesor) : undefined;
     // Con identidad de asesor, el perfil se usa con el system extendido (ver bloqueIdentidad).
-    const perfilDelTurno = ctx.identidadAsesor
-      ? { ...profile, systemPrompt: profile.systemPrompt + bloqueIdentidad(ctx.identidadAsesor, history.length === 0) }
-      : profile;
+    const perfilDelTurno =
+      ctx.identidadAsesor || fichaDelEquipo
+        ? {
+            ...profile,
+            systemPrompt:
+              profile.systemPrompt +
+              (ctx.identidadAsesor ? bloqueIdentidad(ctx.identidadAsesor, history.length === 0) : '') +
+              (fichaDelEquipo ? bloqueFichaDelEquipo(fichaDelEquipo) : ''),
+          }
+        : profile;
     const extra = ctx.datosConocidos ? bloqueDatosConocidos(ctx.datosConocidos) : '';
     // Idioma del turno: se mira SOLO el mensaje actual, y la instrucción va al system del turno. Si
     // la persona vuelve al español en el siguiente mensaje, desaparece sola. Donde se responde siempre
@@ -508,7 +522,11 @@ export async function runAgentTurn(
           mensajeCliente: textoDelUsuario(userText),
           history,
           mensajesDelTurno: finalMsgs.slice(inicioTurno),
-          urlsDelAsesor: [...(ctx.identidadAsesor?.formulario ? [ctx.identidadAsesor.formulario] : []), ...(ctx.urlsPermitidas ?? [])],
+          urlsDelAsesor: [
+            ...(ctx.identidadAsesor?.formulario ? [ctx.identidadAsesor.formulario] : []),
+            ...(fichaDelEquipo ? [fichaDelEquipo] : []),
+            ...(ctx.urlsPermitidas ?? []),
+          ],
           internacional: ctx.internacional,
         })
       : text;
@@ -649,7 +667,10 @@ async function avisosDelTurno(ctx: AgentContext, mensajeCliente: string, enviado
     }
   }
 
-  if (marca.avisaPagoAlAsesor && intencionDePago(mensajeCliente) && !usadas.has('obtener_enlace_de_pago')) {
+  // Se mira solo lo que escribió la persona: al tocar «Ya no estoy interesado» en una plantilla, el mensaje
+  // trae la plantilla citada, con «proceder con el pago», y salía el aviso «Un cliente quiere pagar»
+  // (1607947, 1612515, 1612719, 1612847, 1613315, 1613503, 1614455; 17–24-11-2026).
+  if (marca.avisaPagoAlAsesor && intencionDePago(respuestaAPlantilla(mensajeCliente) ?? mensajeCliente) && !usadas.has('obtener_enlace_de_pago')) {
     await avisarAlResponsable(
       {
         ...base,
@@ -855,7 +876,8 @@ export async function aplicarGuardian(
   // internacional, solo si la respuesta está en español: en hinglish "tu" y "te" son otras palabras, y
   // el editor la reescribiría en español. Carver tutea desde el 13-11-2026 (pedido de Ignacio).
   const tutea = marca.trato === 'tu';
-  const fueraDeTrato = tutea ? detectarUsted : detectarTuteo;
+  // Quien tutea tampoco usa voseo («podés», «querés»): en Carver escribe a Chile, Perú, Colombia y Ecuador.
+  const fueraDeTrato = tutea ? (x: string) => [...detectarUsted(x), ...detectarVoseo(x)] : detectarTuteo;
   if ((!t.internacional || pareceEspanol(final)) && fueraDeTrato(final).length) {
     try {
       const resp = await anthropic.messages.create({

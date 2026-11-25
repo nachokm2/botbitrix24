@@ -421,6 +421,10 @@ export const config = {
   // Ej.: ASESORES_CONTACTO=[{"id":123,"whatsapp":"+56912345678","email":"x@carver.university","formulario":"https://…"}]
   // Vacío = el bot usa solo lo que trae la ficha de Bitrix, como antes.
   asesoresContacto: process.env.ASESORES_CONTACTO ?? '',
+  // Ficha de postulación para las negociaciones cuyo responsable no tiene una propia en la lista de
+  // arriba (core/fichaPostulacion.ts). Antes se usa la del punto de entrada (BITRIX_DERIVAR_A) si está
+  // en ASESORES_CONTACTO. Vacío y sin esa ficha = el bot deriva sin enlace, como hasta ahora.
+  fichaPostulacionDefecto: process.env.FICHA_POSTULACION_DEFECTO ?? '',
   // Leer nombre/correo/teléfono ya registrados en un LEAD (no solo en el contacto) para no volver a
   // pedirlos (hallazgo 4). Activo en Carver; Postgrados queda como estaba salvo que se active.
   datosConocidosDesdeLead: (process.env.DATOS_CONOCIDOS_DESDE_LEAD ?? (esCarver ? 'true' : 'false')).toLowerCase() === 'true',

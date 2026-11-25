@@ -63,6 +63,27 @@ export function detectarUsted(texto: string): string[] {
   return [...vistas];
 }
 
+// Voseo («podés», «querés», «escribime»), para la marca que tutea. Carver trata de «tú» a gente de
+// Chile, Perú, Colombia o Ecuador, y entre el 17 y el 24-11-2026 el 18 % de los recordatorios salió
+// en voseo (306 de 1.665, en la mitad de los chats con recordatorios), a veces mezclado con tuteo en
+// la misma frase. Se mira el texto CON tildes: sin ellas «podes» o «escribeme» también son de tú.
+// Verbos acotados a los que de verdad salieron, para no marcar nombres ni sustantivos: «Tomás»,
+// «interés», «además», «inglés» y «después» no entran.
+const VERBOS_VOS =
+  'pod|quer|ten|sab|ven|hac|dec|necesit|prefer|seg[uü]|eleg|decid|escrib|entend|busc|lleg|dej|compart|avis|cont|pens|cre|ocup|anim|sum|qued|interes|encontr|mand|envi|pas|dese|termin|complet|llam|ayud|mir|pon|sal|pid|record|import|fij|acord|prob|cuid|disfrut|aprovech|invert|estudi|trabaj|viv|conoc|junt|arm|cambi|sent|ofrec|cumpl|ejerc|elig|pag|firm|ped';
+const IMPERATIVO_VOS = 'escrib|cont|dec|avis|mand|dej|llam|pas|compart|mir|fij|acord|anim|sum|qued|prob|cuid|pon|sent';
+const VOSEO = new RegExp(
+  String.raw`(?<![\p{L}])(?:vos|sos|(?:${VERBOS_VOS})(?:ás|és|ís)(?:selo|telo|te)?|(?:${IMPERATIVO_VOS})(?:ime|ame|ate|ete|ile|ale)|vení|andá|escribí|avisá|contá|decí|fijá|mirá|tomá|probá)(?![\p{L}])`,
+  'giu',
+);
+
+/** Las formas de voseo de un texto, sin repetir. Vacío si no hay. */
+export function detectarVoseo(texto: string): string[] {
+  const vistas = new Set<string>();
+  for (const m of String(texto ?? '').matchAll(VOSEO)) vistas.add(m[0].toLowerCase());
+  return [...vistas];
+}
+
 // Una frase que menciona el fee de titulación/graduación o el de retiro, con o sin monto. Se detecta
 // por el concepto y no solo por el monto porque el modelo lo parafrasea ("al finalizar se paga el
 // título", "derecho de grado").

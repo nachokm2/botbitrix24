@@ -4,7 +4,7 @@ import { transcript } from './briefing';
 import { getSession, traspasoVigente } from '../session';
 import { asesoresDisponibles, proximoFueraDeHorario } from '../core/horarioAsesores';
 import { marca } from '../marca';
-import { guardarRespuesta, detectarTuteo, detectarUsted } from '../core/guardRespuesta';
+import { guardarRespuesta, detectarTuteo, detectarUsted, detectarVoseo } from '../core/guardRespuesta';
 import { URLS_OFICIALES_CARVER } from '../core/promptObjeciones';
 import { callBitrix } from '../bitrix/client';
 import { getRedisClient, getJson, setJson, kvDel } from '../store/kv';
@@ -319,10 +319,42 @@ export function problemasDelRecordatorio(texto: string): string[] {
   if (marca.trato === 'tu' ? detectarUsted(t).length : detectarTuteo(t).length) {
     p.push(marca.trato === 'tu' ? 'trata de "usted"; hay que tutear' : 'tutea; hay que tratar de "usted"');
   }
+  // Voseo: 306 de 1.665 recordatorios entre el 17 y el 24-11-2026 («podés», «querés», «escribime»).
+  if (marca.trato === 'tu' && detectarVoseo(t).length) {
+    p.push('usa voseo («podés», «querés», «escribime»); tutea con tú: «puedes», «quieres», «escríbeme»');
+  }
   if (/^\W*(veo|noto|entiendo) que\b/i.test(t)) p.push('empieza con "Veo que", "Noto que" o "Entiendo que"');
   if (/\b(el|la) cliente\b|aqu[ií] (va|est[aá]) (el|un) (mensaje|seguimiento)|mensaje de seguimiento|seguimiento:/i.test(t)) {
     p.push('habla de la persona en tercera persona o deja ver instrucciones internas');
   }
+  // Razonamiento interno que llegó al cliente: «No hay mensaje que escribir. Francisca pidió no ser
+  // contactada…» (chat 1612515) y «Ahí va el mensaje:» (chat 1319127). 17–24-11-2026.
+  if (/\bno hay (ning[uú]n )?(mensaje|recordatorio)\b|\bpidi[oó] no ser contactad|\bno (corresponde|debo|voy a) (enviar|escribir|mandar)\b|\b(ah[ií]|ac[aá]|aqu[ií]) va (el|un|tu|otro) (mensaje|recordatorio)\b/i.test(t)) {
+    p.push('deja ver razonamiento o instrucciones internas');
+  }
+  // Un recordatorio no responde a nadie: «Tienes razón, disculpa. Aquí va de nuevo:», «Perfecto, revisé y
+  // tienes razón» salieron sin que la persona hubiera reclamado nada (chats 1620727, 1617181, 1623211).
+  if (
+    /^\W*(tienes raz[oó]n|disc[uú]lpame|disculpa|perd[oó]n|lamento)\b/i.test(t) ||
+    /\baqu[ií] va de nuevo\b|\bde nuevo:\s*$|\brevis[eé] la conversaci[oó]n\b|\b(perfecto|claro),? (revis[eé]|tienes raz[oó]n)\b|\bsi,? tienes raz[oó]n\b/i.test(t)
+  ) {
+    p.push('suena a respuesta a algo que la persona no dijo; es un recordatorio: no pidas disculpas ni confirmes nada');
+  }
+  // Un texto que termina en «:» anuncia algo que no trae («Aquí va:», «Te dejo el detalle:»).
+  if (/:\s*$/.test(t)) p.push('termina en dos puntos: anuncia algo que no trae');
+  // Prometen contenido que un recordatorio no puede adjuntar: «te dejo el detalle», «aquí está el
+  // desglose», «te paso el paso a paso» (más de 30 chats del 17 al 24-11-2026; chat 1613101: «No me
+  // llegó ningún link»). Ofrecerlo con una pregunta o con un «si quieres» sí vale.
+  const promesaVacia = t
+    .split(/(?<=[.!?])\s+|\n+/)
+    .find(
+      (f) =>
+        !/\?/.test(f) &&
+        !/^\W*si\b|\b(si|cuando) (quieres|prefieres|te sirve|te interesa|gustas|necesitas|puedas|tengas)\b/i.test(f) &&
+        // El correo y el teléfono sí se pueden dejar escritos: es la línea de contacto del cierre.
+        /\b(te|le) (dejo|paso|comparto|adjunto|mando|env[ií]o) (?!(?:mi|nuestro|nuestra|el) (?:correo|whatsapp|tel[eé]fono|contacto|n[uú]mero|mail))(el|la|los|las|un|una|unos|unas|este|esta|mi|nuestro|nuestra|tu|su)\b|\b(aqu[ií]|ac[aá]|ah[ií]) (est[aá]|tienes|va|te dejo)(?![a-záéíóúñ])/i.test(f),
+    );
+  if (promesaVacia) p.push('promete algo que no incluye («te dejo…», «aquí está…»): un recordatorio no adjunta nada; haz una pregunta u ofrécelo con «si quieres»');
   if (
     /\b(revis[eé]|consult[eé]|verifiqu[eé]) con\b|tengo la informaci[oó]n lista|(le|te) (enviamos|envi[eé]|mandamos|mand[eé])\b[^.?!]{0,40}\b(correo|formulario)|se est[aá]n (completando|agotando)|(pocos|[uú]ltimos) cupos|cupos[^.?!]{0,25}\blimitad|\baudio\b/i.test(t)
   ) {
@@ -334,6 +366,26 @@ export function problemasDelRecordatorio(texto: string): string[] {
   // (chat 1587709, 10-11-2026).
   if (/\bhabl[eé] con\b|\bme (confirmaron|dijeron|indicaron|informaron)\b|\b(le|te) confirmo que\b|\bcomo (le|te) promet[ií]\b|\bya (lo )?(confirm[eé]|consult[eé]|averig[uü][eé]|gestion[eé])\b|\b((le|te) )?(tengo|traigo) (la|una|su|tu) respuesta\b|\btengo (novedades|noticias)\b/i.test(t)) {
     p.push('dice que consultó o confirmó algo con alguien, o que ya tiene la respuesta, y eso no pasó');
+  }
+  // Más gestiones que nadie hizo (17–24-11-2026): «ya procesé tu solicitud de eliminación» (1621051), «ya
+  // confirmamos tu matrícula» (1611639), «revisé tu perfil» (1621759), «vi que descargaste el brochure»
+  // (1615255), «el equipo me confirmó que…» (1614275), «ya debería estar visible» (698117). Y llamadas
+  // que el bot no puede hacer (1622425, 1621459): «¿te llamo el lunes?».
+  if (
+    /\bya (te |lo |la )?(proces[eé]|registr[eé]|actualic[eé]|agend[eé]|coordin[eé])(?![a-záéíóúñ])|\bya (confirmamos|procesamos|registramos|recibimos|revisamos|gestionamos|validamos)\b|\bacabo de (revisar|hablar|confirmar|verificar|consultar)\b|\bvi que (descargaste|escribiste|abriste|revisaste|completaste|respondiste)\b|\brevis[eé] (tu|su) (perfil|solicitud|caso|ficha)\b|\bya (debe|deber[ií]a|deber[ií]as) (estar|haber|ver)\b|\bel equipo (me )?(confirm[oó]|indic[oó]|dijo|avis[oó]|respondi[oó])(?![a-záéíóúñ])|\bvoy a (contactar|llamar|hablar con|consultar|escalar)\b|\b(te|le) (llamo|llamar[eé]|voy a llamar)(?![a-záéíóúñ])|\bllamarte\b|\b(agendar|coordinar)(te)? (una )?(llamada|cita)\b|\bagendamos (una )?(llamada|cita)\b|\bya (est[aá]|qued[oó]) (confirmad|registrad|aprobad|validad)/i.test(
+      t,
+    )
+  ) {
+    p.push('dice que hizo una gestión, una llamada o una confirmación que no ocurrió, o promete llamar; el recordatorio no gestiona nada ni llama');
+  }
+  // Dice tener algo a mano que no entrega, o promete hacerlo «ahora»: «Ya tengo el enlace de tu ficha»
+  // (chat 1112243, que nunca la recibió), «Te preparo el enlace de pago ahora mismo» (1561653), «Te
+  // confirmo en un momento si el correo llegó» (1611639). El recordatorio es un solo mensaje: no hay
+  // un «ahora» ni un «en un momento» detrás.
+  if (
+    /\b(ya )?(te )?(tengo|tenemos) (el|la|los|las|un|una|tu|tus) (enlace|link|ficha|formulario|brochure|detalle|plan|desglose|informaci[oó]n|documento|respuesta|datos)\b|\b(te|le) (preparo|armo|consigo|busco|gestiono|averiguo|verifico|reviso|confirmo|aviso|respondo|paso|mando|env[ií]o)\b[^.?!¿]{0,30}\b(ahora mismo|ahorita|enseguida|en un momento|en unos minutos|en breve|en un rato)\b/i.test(t)
+  ) {
+    p.push('dice tener algo a mano que no entrega, o promete hacerlo «ahora» o «en un momento»; un recordatorio es un solo mensaje: pregunta o invita, no prometas');
   }
   // La beca y los requisitos no cambian por país: «¿Cuál es su país de residencia para confirmar si
   // puede acceder a la beca?» salió en tres recordatorios de un mismo chat (1599155, 12-11-2026).
@@ -521,11 +573,41 @@ export function esRechazo(texto: string): boolean {
     (/\b(not (right )?now|not at the moment|abhi nahi|nahi chahiye|interested nahi)\b/.test(t) &&
       t.split(/\s+/).length <= 8 &&
       !/\?|how|price|fee|cost|but|interested in|tell me|detail/.test(t)) ||
+    // Bajas escritas que se escapaban entre el 17 y el 24-11-2026, con erratas y a la chilena: «Ya no
+    // gracias» (1621633), «Pero no gracias» , «No gracia Ya dije q no» (1613315), «No me entresa
+    // gracias» (1621871), «No me mande más mensaje» (1542531), «mejor que no me manden nada»
+    // (1622403), «Pueden dejar de mandar tantos mensajes» (1603735), «para que nome manden maa
+    // mensaje» (1612515), «X ahora no amiga» (1622425), «hasta aquí quedamos» (1621051), «Esta
+    // equivocada» (1623211), «Disculpa me equivoqué de datos» (1616145).
+    (REGEX_NO_GRACIAS.test(t) && !CON_INTERES.test(t)) ||
+    (REGEX_YA_NO_GRACIAS.test(t) && !CON_INTERES.test(t)) ||
+    /\bya (le |les |te )?(dije|dijo|comente|aclare|mencione)\b[^.?!]{0,25}\b(que|q) no\b/.test(t) ||
+    /\bno me (entresa|ineresa|intereza)\b|\bninguna? me (interesa|interesan|entresa|ineresa|intereza)\b/.test(t) ||
+    /\bme (siguen?|sigue) (enviando|mandando|escribiendo|insistiendo)\b|\bno me (siga|sigan) (insistiendo|escribiendo|enviando|mandando)\b|\bno insist(an|as|a)\b/.test(t) ||
+    /\bno ?me (manden|mande|mandes|envien|envie|envies|escriba|escribas|escriban|llame|llames|molestes|contacte|contactes)\b/.test(t) ||
+    /\bno me (este|esten|estes) (mandando|enviando|escribiendo|molestando|insistiendo)\b/.test(t) ||
+    /\bno (escribir|enviar|mandar|molestar|llamar|contactar)(me|nos)? (mas|nada|mensajes)\b/.test(t) ||
+    /\b(x|por|pr) ahora no\b/.test(t) ||
+    /\bhasta aqui quedamos\b/.test(t) ||
+    (t.split(/\s+/).length <= 8 &&
+      /\b(esta|estan) equivocad[oa]s?\b|\bnumero equivocado\b|\bme equivoque\b|\bno soy (esa|la) persona\b|\bpersona equivocada\b|\bwrong (number|person)\b/.test(t)) ||
+    // Corto: «No quiero estudiar mucho tiempo, ya tengo 55 años» es una condición, no una baja (1626191).
+    (t.split(/\s+/).length <= 8 && /\bno (quiero|queria) (estudiar|nada|continuar|seguir|recibir|mas|informacion|ningun)/.test(t)) ||
     // Una baja explícita también corta: después de «Voy a bloquearlos» salieron cinco recordatorios más
     // (chat 1577067, 06-11-2026).
     pideNoMolestar(t)
   );
 }
+
+const GRACIAS = '(?:muchas |mil )?(?:gracias?|garcias?|grasias|grcias|gracais)';
+// «No gracias», «Pero no gracias», «Ya no, gracias», con algún «sí», «bueno» o «ok» delante.
+const REGEX_NO_GRACIAS = new RegExp(String.raw`^(?:(?:si|bueno|ok|pero|ah|a bueno|hola)[\s,.!]+)*(?:ya[\s,.!]+)?no[\s,.!]+(?:ya[\s,.!]+)?${GRACIAS}\b`);
+// «Sí, gracias, pero ya no, ya gracias»: la baja viene después.
+const REGEX_YA_NO_GRACIAS = new RegExp(String.raw`\bya no[\s,.!]+(?:ya[\s,.!]+)?${GRACIAS}\b`);
+// Con algo que muestre interés detrás, el «no gracias» no es una baja: «no gracias, prefiero la licenciatura».
+const CON_INTERES = /prefier|me interesa|quiero|cuanto|cuesta|precio|informaci|\?/;
+// Lo que muestra que la persona volvió a hablar del programa después de un no.
+const MUESTRA_INTERES = /\?|me interesa|\bquiero\b|cuanto|cuesta|precio|valor|informacion|requisitos|matricul|ficha|beca|cuando|como (funciona|es|puedo|se)|\bprograma\b|maestria|licenciatura|diplomado|brochure/;
 
 // Mensajes que solo cierran la conversación: no dicen nada nuevo sobre el interés de la persona.
 const CORTESIA = new Set(
@@ -571,7 +653,16 @@ export function motivoPorLoConversado(conversacion: string, conRechazo: boolean)
   const delCliente = turnos.filter((x) => x.quien === 'Cliente').map((x) => x.texto);
   for (const m of delCliente.slice(-4).reverse()) {
     if (esSoloCortesia(m)) continue;
-    return esRechazo(m) ? 'rechazo' : null;
+    if (esRechazo(m)) return 'rechazo';
+    // Un mensaje que vuelve a hablar del programa, o largo, reabre la conversación: manda lo último.
+    // Uno corto y neutro («Thanks for the information, bye», un enlace suelto) no borra el no que lo
+    // precede: «No Gracias» y después «Thanks You for information… Bye» recibió cinco recordatorios
+    // (chat 1621221, 17–24-11-2026).
+    const propio = (respuestaAPlantilla(m) ?? m)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '');
+    if (MUESTRA_INTERES.test(propio) || propio.split(/\s+/).filter(Boolean).length > 12) return null;
   }
   return null;
 }
