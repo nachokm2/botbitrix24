@@ -148,6 +148,35 @@ export function urlsDeLaFicha(ficha: FilaFicha[]): string[] {
   return ficha.map((f) => f.enlace).filter((u): u is string => Boolean(u));
 }
 
+/**
+ * El registro público donde se comprueba la licencia de la institución (Commission for Independent
+ * Education, Florida). Es un dato público y el mismo que usa el bot de Latinoamérica; sin él acá, quien
+ * duda de una universidad que no conoce no tiene cómo verificarla (caso 18-11-2026: preguntó «Where is your
+ * university», recibió la licencia sin enlace y no volvió).
+ */
+export const REGISTRO_LICENCIA_URL = 'https://web02.fldoe.org/CIE/SearchSchools/SchoolSearchDetail.aspx?schoolID=12743';
+
+const FILA_LICENCIA: FilaFicha = {
+  apartado: 'Licence (official registry)',
+  contenido:
+    'Carver University (Orlando, Florida, USA) is licensed by the Florida Commission for Independent Education (License No. 12743). ' +
+    'Anyone can check the licence in the official public registry, with the link below. It is a licence of the institution: ' +
+    'never say that the programme, the certificate or the university is accredited or recognised by any authority.',
+  enlace: REGISTRO_LICENCIA_URL,
+};
+
+/** La ficha con el registro de la licencia, si ella no trae ya un enlace al registro. */
+export function conRegistroDeLicencia(ficha: FilaFicha[]): FilaFicha[] {
+  return ficha.some((f) => f.enlace === REGISTRO_LICENCIA_URL || /fldoe\.org/i.test(`${f.enlace ?? ''} ${f.contenido}`))
+    ? ficha
+    : [...ficha, FILA_LICENCIA];
+}
+
+/** Los enlaces que el bot puede escribir en este modo: los de la ficha y el registro de la licencia. */
+export function urlsPermitidasInternacional(ficha: FilaFicha[]): string[] {
+  return [...new Set(urlsDeLaFicha(conRegistroDeLicencia(ficha)))];
+}
+
 function textoFicha(ficha: FilaFicha[]): string {
   return ficha.map((f) => `- ${f.apartado}: ${f.contenido}${f.enlace ? `\n  Link: ${f.enlace}` : ''}`).join('\n');
 }
@@ -192,6 +221,7 @@ HOW TO HELP THEM ENROL:
 1. Answer what they asked in a few short sentences, then ask ONE question that moves things forward.
 2. Learn what they do and whether they code, so you can recommend the right track if the programme has tracks. Ask about their work at most twice in the whole conversation (your greeting counts); if they still haven't said, recommend from what you know and move on.
 3. Once the ELIGIBILITY check is passed, ask for their name and then their email, one at a time, only when they want to enrol or ask you to send or save something, and never in two messages in a row: until then, keep answering and ask about their work or goals instead. Save each one with registrar_interes_crm as soon as they give it, always with programa_interes set to the programme name. You already have their phone number: don't ask for it.
+TRUST (strict): people are wary of a university they have never heard of, and several stopped answering right after being asked for their email. Don't wait for the question: the first time in the conversation that you ask for their name or email, or share payment details, put ONE short sentence before your question (Carver University is in Orlando, Florida, USA and is licensed by the Florida Commission for Independent Education, License No. 12743) and, if it fits in the message, the official registry link from PROGRAMME FACTS on its own line, so they can check it themselves. Say it once, not in every message, unless they ask again. If they ask where the university is, whether it is real, licensed or recognised, answer with those same facts and the link. Never say the programme, the certificate or the university is accredited or recognised, and never say that it is not, unless PROGRAMME FACTS say so word for word: if they ask about accreditation or recognition (for example in India), give the licence facts and call escalar_a_humano with their exact question.
 4. When they want to enrol or pay, share the payment option they choose with its link from PROGRAMME FACTS, exactly as written, on its own line, together with the price and the taxes note. Ask them to write here once they have paid. If PROGRAMME FACTS has no link for the option they chose, call escalar_a_humano with motivo "Enviar enlace de pago" plus the option, their name and email, and tell them you will send the payment link here: without that call nobody sends it.
 5. When they say they have paid, thank them, call escalar_a_humano with motivo "Pago informado" and the details they gave, and tell them their payment will be confirmed and their access sent by email.
 6. NEXT STEP (strict): once you have recommended a track, never ask again about their work, field, industry or coding. From then on, and also right after giving the programme details they asked for, your one question moves towards enrolment: for example, whether they would like you to explain how to enrol, or which payment option suits them better.
@@ -206,7 +236,7 @@ STYLE: WhatsApp messages: short (under 500 characters), warm and professional, n
 EMOJIS (strict): only in your first greeting of the conversation, one at most (👋 or 🙏). After that, no emojis at all, and never smileys or laughing faces such as 😊 or 😄, even if earlier messages in this chat had them: people here have read them as the assistant laughing at them.
 
 PROGRAMME FACTS:
-${textoFicha(ficha)}`;
+${textoFicha(conRegistroDeLicencia(ficha))}`;
 }
 
 /** El perfil del turno en modo internacional: mismo canal y modelo, otras instrucciones y otras herramientas. */

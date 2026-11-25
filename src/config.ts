@@ -153,6 +153,8 @@ export const config = {
   deepgramModel: process.env.DEEPGRAM_MODEL ?? 'nova-2',
   // Modo internacional: inglés, hindi y hinglish (los dos mezclados). nova-2 en español no los entiende.
   deepgramModelMultilingue: process.env.DEEPGRAM_MODEL_MULTILINGUE ?? 'nova-3',
+  // Idiomas que se prueban uno por uno cuando el multilingüe no saca nada de un audio que sí dura (ver ai/transcribe.ts). Vacío lo apaga.
+  deepgramIdiomasRespaldo: (process.env.DEEPGRAM_IDIOMAS_RESPALDO ?? 'hi,te,ta,bn,mr').split(',').map((x) => x.trim()).filter(Boolean),
   bitrixWebhookUrl: (process.env.BITRIX_WEBHOOK_URL ?? '').replace(/\/$/, ''),
   botCode: process.env.BOT_CODE ?? 'poc_agente_postgrados',
   // OAuth de la app local (para renovar el access_token cuando expira).

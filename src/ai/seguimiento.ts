@@ -29,6 +29,7 @@ import { getIdentidadAsesor } from '../crm/directory';
 import { respuestaAPlantilla } from '../core/ecos';
 import { preguntaPorTrabajo } from '../core/preguntasRepetidas';
 import { soloMensajeDelAnuncio } from '../core/ruidoInternacional';
+import { avisarInteresadoParado } from '../core/consultasInternacionales';
 
 // Seguimiento automático (WhatsApp/Open Lines) en 3 etapas, si el bot respondió y el cliente quedó
 // en silencio — las TRES ancladas a la MISMA última respuesta del bot (no una después de la otra):
@@ -1379,6 +1380,13 @@ async function barrerRecordatorios(key: string, etapaFija?: 1 | 2): Promise<void
           if (plan) await terminarPlan(dialogId, plan);
           continue;
         }
+      }
+
+      // Quien dejó su correo o recibió el enlace de pago y no contestó al primer recordatorio es de los pocos que
+      // llegan al final del embudo: se le avisa al equipo para que le escriba a mano (25-11-2026).
+      if (internacional && etapa === 1) {
+        const ents = await entidadesDelSeguimiento(dialogId).catch(() => null);
+        void avisarInteresadoParado({ dialogId, dealId: ents?.deal, botId }, auth).catch(() => {});
       }
 
       inc('seguimiento_ejecutado');

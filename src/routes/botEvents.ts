@@ -21,7 +21,7 @@ import { esAsesorValido } from '../crm/equipo';
 import { asesoresDisponibles, motivoHorario } from '../core/horarioAsesores';
 import { hayOperadorEnElChat } from '../crm/operadorEnChat';
 import { listaBlancaActiva, puedeResponder, lineaDelChat, telefonoDelChat } from '../core/listaBlanca';
-import { fichaSiEsInternacional, perfilInternacional, urlsDeLaFicha } from '../core/internacional';
+import { fichaSiEsInternacional, perfilInternacional, urlsDeLaFicha, urlsPermitidasInternacional } from '../core/internacional';
 import { atenderMensajeDelEquipo } from '../ai/asistenteEquipo';
 import {
   esMensajeDelEquipo,
@@ -587,7 +587,7 @@ async function handle(req: Request) {
     ultimoMensajeCliente: turnText,
     sesionOpenLines: sesion,
     internacional,
-    urlsPermitidas: fichaInternacional ? urlsDeLaFicha(fichaInternacional) : undefined,
+    urlsPermitidas: fichaInternacional ? urlsPermitidasInternacional(fichaInternacional) : undefined,
     variantePrimerMensaje,
   };
   const reply = await runAgentTurn(ctxTurno, turnContent ?? turnText, priorContext, undefined, historialPrevio);

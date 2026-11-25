@@ -221,6 +221,75 @@ export async function avisarInteresado(
   return avisados > 0;
 }
 
+const MOTIVO_PARADO: Record<MotivoInteres, string> = {
+  correo: 'dejó su correo y no volvió a escribir',
+  enlace_pago: 'recibió el enlace de pago y no volvió a escribir',
+};
+
+/** Texto del aviso de un interesado que se quedó quieto. `horas`: desde su último mensaje, si se sabe. */
+export function textoAvisoParado(
+  a: { dialogId: string; motivo: MotivoInteres; horas?: number | null; dealId?: number; ultimoMensaje?: string },
+  dominio?: string,
+): string {
+  const enlaces = dominio
+    ? [
+        `[URL=https://${dominio}/online/?IM_DIALOG=${a.dialogId}]Abrir el chat[/URL]`,
+        a.dealId ? `[URL=https://${dominio}/crm/deal/details/${a.dealId}/]Negociación[/URL]` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
+  const horas = typeof a.horas === 'number' && a.horas >= 0 ? Math.round(a.horas) : null;
+  const quedan = horas !== null ? Math.max(0, Math.round(23.5 - horas)) : null;
+  return [
+    `[B]⏳ Interesado parado · programa internacional: ${MOTIVO_PARADO[a.motivo]}[/B]`,
+    horas !== null ? `Lleva ${horas} h sin responder${quedan ? `; WhatsApp deja escribirle con texto libre unas ${quedan} h más` : '; ya pasó la ventana de WhatsApp: solo se le puede escribir con plantilla'}.` : '',
+    a.ultimoMensaje ? `Su último mensaje: «${String(a.ultimoMensaje).slice(0, 300)}»` : '',
+    'Es de los pocos que avanzaron hasta ese paso: un mensaje suyo vale más que un recordatorio automático. Si le escribe directo en el chat, el bot deja de atenderla y la conversación queda con usted.',
+    enlaces,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+/** El último mensaje de la persona en la memoria del chat, para mostrarlo en el aviso. */
+function ultimoTextoDelCliente(historial: any[]): string {
+  const m = [...historial].reverse().find((x) => x?.role === 'user' && textoPlano(x).trim() && !textoPlano(x).trim().startsWith('['));
+  return m ? textoPlano(m).trim() : '';
+}
+
+/**
+ * Avisa al equipo que alguien que había dejado su correo o recibido el enlace de pago no contestó al primer
+ * recordatorio: son los pocos que llegan al final del embudo y los que más vale la pena escribir a mano.
+ * Una vez por conversación cada 3 días; solo con motivo de interés vigente. No cambia lo que hace el bot.
+ */
+export async function avisarInteresadoParado(
+  a: { dialogId: string; dealId?: number; botId?: number },
+  auth: Auth,
+  ahora = Date.now(),
+): Promise<boolean> {
+  const motivo = await motivoDeInteresVigente(a.dialogId);
+  if (!motivo) return false;
+  if (!(await once(`internacional:parado:${a.dialogId}`, 3 * 86400))) return false;
+  const clienteAt = await getJson<number>(CLIENTE_AT_KEY(a.dialogId)).catch(() => null);
+  const historial = await getHistory(a.dialogId).catch(() => [] as any[]);
+  const texto = textoAvisoParado(
+    { dialogId: a.dialogId, motivo, horas: clienteAt ? (ahora - clienteAt) / 3600_000 : null, dealId: a.dealId, ultimoMensaje: ultimoTextoDelCliente(historial) },
+    auth.domain,
+  );
+  const avisados = await escribirAlEquipo(texto, a.botId, auth);
+  void audit({ type: 'interes_internacional_parado', dialogId: a.dialogId, detail: { motivo, avisados } }).catch(() => {});
+  inc(`interes_internacional_parado:${motivo}`);
+  return avisados > 0;
+}
+
+/** Por qué es un interesado de verdad: dejó su correo o recibió el enlace de pago en los últimos 3 días. */
+export async function motivoDeInteresVigente(dialogId: string): Promise<MotivoInteres | null> {
+  if (await getJson(`internacional:interes:${dialogId}:enlace_pago`).catch(() => null)) return 'enlace_pago';
+  if (await getJson(`internacional:interes:${dialogId}:correo`).catch(() => null)) return 'correo';
+  return null;
+}
+
 /** ¿El bot le mandó el enlace de pago en los últimos 3 días? (la marca del aviso de interesado). */
 export async function yaRecibioEnlaceDePago(dialogId: string): Promise<boolean> {
   return Boolean(await getJson(`internacional:interes:${dialogId}:enlace_pago`).catch(() => null));

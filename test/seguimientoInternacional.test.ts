@@ -400,3 +400,38 @@ test('repiteLoAnteriorInternacional: mismo comienzo o frase copiada', () => {
   assert.ok(seg.repiteLoAnteriorInternacional('Happy to help: did you get a chance to look at the tracks?', anteriores).length);
   assert.deepEqual(seg.repiteLoAnteriorInternacional('Would a short summary of the projects help?', anteriores), []);
 });
+
+test('25-11: quien dejó el correo o recibió el enlace y no contestó al primer recordatorio, aviso al equipo (una vez)', async () => {
+  config.seguimientoInternacionalHoraInicio = 0;
+  config.seguimientoInternacionalHoraFin = 24;
+  const avisarA = config.internacionalAvisarA;
+  config.internacionalAvisarA = [4173];
+  try {
+    const d = 'chat-intl-parado';
+    kvStore.set(`mem:${d}`, JSON.stringify(CONVERSACION));
+    kvStore.set(`internacional:interes:${d}:enlace_pago`, '1');
+    await seg.programarSeguimientoInternacional(d, { deal: 3770947 }, '9020');
+    enviados.length = 0;
+    await vencerYBarrer(d);
+    const aviso = enviados.find((e) => e.method === 'imbot.message.add' && String(e.params.DIALOG_ID) === '4173');
+    assert.ok(aviso, 'el equipo recibe el aviso en el primer recordatorio');
+    assert.match(String(aviso!.params.MESSAGE), /Interesado parado/);
+    assert.match(String(aviso!.params.MESSAGE), /crm\/deal\/details\/3770947\//);
+    // En los recordatorios siguientes no se repite.
+    enviados.length = 0;
+    await vencerYBarrer(d);
+    assert.ok(!enviados.some((e) => String(e.params.DIALOG_ID) === '4173'));
+
+    // Quien no dejó correo ni recibió el enlace no genera aviso.
+    const d2 = 'chat-intl-no-parado';
+    kvStore.set(`mem:${d2}`, JSON.stringify(CONVERSACION));
+    await seg.programarSeguimientoInternacional(d2, { deal: 1 }, '9021');
+    enviados.length = 0;
+    await vencerYBarrer(d2);
+    assert.ok(!enviados.some((e) => String(e.params.DIALOG_ID) === '4173'));
+  } finally {
+    config.internacionalAvisarA = avisarA;
+    config.seguimientoInternacionalHoraInicio = 9;
+    config.seguimientoInternacionalHoraFin = 21;
+  }
+});

@@ -14,7 +14,7 @@ import { obtenerBrochure } from '../core/brochures';
 import { consultarInformacionInstitucional, INSTRUCCION_SIN_DATO } from '../core/conocimientoComercial';
 import { enlaceDePago } from '../core/mediosPago';
 import { bloqueMomento } from '../core/momento';
-import { fichaInternacional, mencionaPalabraInternacional, perfilInternacional, urlsDeLaFicha } from '../core/internacional';
+import { fichaInternacional, mencionaPalabraInternacional, perfilInternacional, urlsPermitidasInternacional } from '../core/internacional';
 import { bloqueNoRepetirPreguntaPorTrabajo } from '../core/preguntasRepetidas';
 import { resultadoConsultaParaElModelo } from '../core/consultasInternacionales';
 import { BLOQUE_PRIMER_MENSAJE_B } from '../core/pruebaPrimerMensaje';
@@ -229,7 +229,7 @@ export async function simularTurno(
         simulacion: true,
         urlsDelAsesor:
           ficha && internacional
-            ? urlsDeLaFicha(ficha)
+            ? urlsPermitidasInternacional(ficha)
             : [...(conAsesor?.formulario ? [conAsesor.formulario] : []), ...(fichaDelEquipo ? [fichaDelEquipo] : [])],
         internacional,
       })
