@@ -21,9 +21,18 @@ const SEPARADOR = /^-{20,}\s*$/gm;
 // Un archivo que de verdad mandó la persona llega como enlace al CDN de ChatApp en su parte del texto.
 const ARCHIVO_DEL_CLIENTE = /\[URL=https?:\/\/[^\]]*chatapp\.online/i;
 
-/** ¿Es un envío nuestro por ChatApp que volvió al chat? No hay que responderlo. */
+/**
+ * ¿Es un envío nuestro por ChatApp que volvió al chat? No hay que responderlo.
+ *
+ * Bitrix a veces parte con un espacio las palabras que parecen SQL del texto que entrega en el evento
+ * («Sent fr om external application», «you asked wh ere…»): el 26-11-2026 le pasó a la plantilla de la
+ * licencia (lleva un enlace con «?schoolID=») y el bot la tomó por un mensaje de la persona, le
+ * contestó con texto libre fuera de la ventana de 24 h y avisó al equipo de un interesado que no había
+ * escrito. Por eso el encabezado se compara sin espacios ni saltos de línea.
+ */
 export function esEnvioNuestroPorChatApp(texto: string | undefined): boolean {
-  return /^\s*\[B\]\s*Sent from external application\s*\[\/B\]/i.test(String(texto ?? ''));
+  const inicio = String(texto ?? '').slice(0, 160).replace(/\s+/g, '');
+  return /^\[B\]sentfromexternalapplication\[\/B\]/i.test(inicio);
 }
 
 /**

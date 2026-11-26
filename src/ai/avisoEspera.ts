@@ -4,6 +4,7 @@ import { once } from '../store/kv';
 import type { Auth } from '../store';
 import type { Traspaso } from '../session';
 import { conectorDelChat } from '../core/listaBlanca';
+import { esEnvioNuestroPorChatApp } from '../core/ecos';
 import { derivacionYaGestionada } from '../crm/embudos';
 import { entidadesDelSeguimiento } from './seguimiento';
 import { audit } from '../obs/audit';
@@ -43,7 +44,7 @@ export function textoDelCliente(texto: string): string {
 
 /** El conector devuelve al chat, a nombre del cliente, el archivo que le mandó el bot: «[B]Sent from
  *  external application[/B] … Brochure — Licenciatura en Psicología». No lo escribió el cliente. */
-export const esEcoDeEnvio = (texto: string) => /^\s*\[B\]Sent from external application\[\/B\]/i.test(String(texto ?? ''));
+export const esEcoDeEnvio = (texto: string) => esEnvioNuestroPorChatApp(texto);
 
 const normalizar = (s: string) =>
   s

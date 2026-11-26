@@ -44,6 +44,17 @@ test('el brochure que mandó el bot por ChatApp no es un mensaje del cliente', (
   assert.equal(esEnvioNuestroPorChatApp(undefined), false);
 });
 
+test('el eco de una plantilla con palabras partidas por Bitrix también se ignora (caso del 26-11)', () => {
+  // Bitrix entregó «Sent fr om external application» y «wh ere» (el texto lleva un enlace con «?schoolID=»).
+  const partido =
+    '[B]Sent fr om external application[/B]\nHi shahi, you asked wh ere Carver University is located.\nCarver University is in Orlando, Florida, USA. | [Verify licence,https://web02.fldoe.org/CIE/SearchSchools/SchoolSearchDetail.aspx?schoolID=12743] | [I have a question]';
+  assert.equal(esEnvioNuestroPorChatApp(partido), true);
+  assert.equal(esEnvioNuestroPorChatApp('[B]Sent from\nexternal application[/B]\nHola'), true);
+  assert.equal(esEnvioNuestroPorChatApp('[B] Sent from external application [/B] Hi'), true);
+  assert.equal(esEnvioNuestroPorChatApp('Hi, [B]Sent from external application[/B] is what I see'), false, 'solo cuenta si abre el mensaje');
+  assert.equal(esEnvioNuestroPorChatApp('[B]Sent from my phone[/B]'), false);
+});
+
 // Bienvenidas automáticas de WhatsApp Business que llegaron como si fueran del cliente (25-10 al
 // 03-11-2026); los nombres de los negocios están cambiados.
 test('reconoce la respuesta automática de un WhatsApp Business', () => {
